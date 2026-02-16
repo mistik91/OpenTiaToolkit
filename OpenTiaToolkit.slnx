@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OpenTiaToolkit.CLI/OpenTiaToolkit.CLI.csproj" />
+    <Project Path="src/OpenTiaToolkit.Core/OpenTiaToolkit.Core.csproj" />
+    <Project Path="src/OpenTiaToolkit.MCP/OpenTiaToolkit.MCP.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>OpenTiaToolkit.Core</AssemblyName>
+    <RootNamespace>OpenTiaToolkit.Core</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- TIA Openness API references - V19 installation (primary) -->
+    <!-- In V19, the API is a monolithic assembly -->
+    <Reference Include="Siemens.Engineering">
+      <HintPath>C:\Program Files\Siemens\Automation\Portal V19\PublicAPI\V19\Siemens.Engineering.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Delete Siemens Engineering DLLs from output directory after build to comply with Openness API requirements -->
+  <Target Name="RemoveSiemensDllsFromOutput" AfterTargets="CopyFilesToOutputDirectory">
+    <Delete Files="$(OutputPath)Siemens.Engineering.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.dll')" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Siemens.Collaboration.Net.OperatingSystem.Windows" Version="3.0.1725521661">
+      <Private>False</Private>
+    </PackageReference>
+    <!-- Note: Using custom TiaPortalAssemblyResolver instead of official resolver package -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+</Project>
