@@ -1440,134 +1440,57 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    // Find PlcBlockType enum
-                    Type? plcBlockTypeEnum = null;
-                    object? blockTypeEnumValue = null;
+                    // Normalize block type to uppercase for comparison
+                    string blockTypeUpper = blockType.ToUpperInvariant();
 
-                    foreach (var assembly in assemblies)
+                    // Get ProgrammingLanguage enum value if needed
+                    object? programmingLanguageValue = null;
+                    if (!string.IsNullOrEmpty(programmingLanguage))
                     {
-                        try
+                        programmingLanguageValue = GetProgrammingLanguageEnum(programmingLanguage);
+                        if (programmingLanguageValue == null)
                         {
-                            if (assembly.FullName != null && assembly.FullName.StartsWith("Siemens.Engineering"))
-                            {
-                                var types = assembly.GetTypes();
-                                var foundType = types.FirstOrDefault(t => t.Name == "BlockType");
-                                if (foundType != null && foundType.IsEnum)
-                                {
-                                    plcBlockTypeEnum = foundType;
-
-                                    // Map common block type abbreviations - identity mapping since BlockType uses abbreviations directly
-                                    // TIA Portal BlockType enum uses abbreviations: FB, FC, DB, OB, SFB, SFC, UDT
-                                    var blockTypeMapping = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                                    {
-                                        { "FB", "FB" },
-                                        { "FC", "FC" },
-                                        { "DB", "DB" },
-                                        { "OB", "OB" },
-                                        { "SFB", "SFB" },
-                                        { "SFC", "SFC" },
-                                        { "UDT", "UDT" }
-                                    };
-
-                                    string targetName = blockTypeMapping.TryGetValue(blockType, out var fullName) ? fullName : blockType;
-
-                                    // Log all available enum values for debugging
-                                    var enumValues = Enum.GetValues(foundType);
-                                    _logger?.LogError("DEBUG: Available PlcBlockType enum values:");
-                                    foreach (var val in enumValues)
-                                    {
-                                        _logger?.LogError("DEBUG:   - {EnumValue}", val.ToString());
-                                    }
-
-                                    // Try to find enum value by full name
-                                    foreach (var val in enumValues)
-                                    {
-                                        if (val.ToString().Equals(targetName, StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            blockTypeEnumValue = val;
-                                            _logger?.LogError("DEBUG: Found enum value by full name: {EnumValue}", val.ToString());
-                                            break;
-                                        }
-                                    }
-
-                                    // If still not found, try partial matching
-                                    if (blockTypeEnumValue == null)
-                                    {
-                                        foreach (var val in enumValues)
-                                        {
-                                            var enumName = val.ToString();
-                                            if (enumName.IndexOf(blockType, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                                blockType.IndexOf(enumName, StringComparison.OrdinalIgnoreCase) >= 0)
-                                            {
-                                                blockTypeEnumValue = val;
-                                                _logger?.LogError("DEBUG: Found enum value by partial match: {EnumName} -> {BlockType}", enumName, blockType);
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if (blockTypeEnumValue != null)
-                                    {
-                                        _logger?.LogError("DEBUG: blockTypeEnumValue found: {EnumValue}", blockTypeEnumValue.ToString());
-                                    }
-                                    else
-                                    {
-                                        _logger?.LogError("DEBUG: blockTypeEnumValue is NULL! targetName={TargetName}, blockType={BlockType}", targetName, blockType);
-                                    }
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // Skip assemblies that can't be loaded
-                        }
-                    }
-
-                    if (plcBlockTypeEnum == null || blockTypeEnumValue == null)
-                    {
-                        _logger?.LogError("Could not find BlockType enum or invalid block type: {BlockType}", blockType);
-                        return false;
-                    }
-
-                    var blocksCollectionType = blocksCollection.GetType();
-                    _logger?.LogInformation("Blocks collection type: {BlocksCollectionType}", blocksCollectionType.FullName);
-
-                    // TIA Portal V21+ API: Generic Create method
-                    _logger?.LogInformation("Using TIA Portal V21+ API: Generic Create method");
-                    var createMethod = blocksCollectionType.GetMethod("Create",
-                        new[] { typeof(string), plcBlockTypeEnum });
-
-                    if (createMethod == null && !string.IsNullOrEmpty(programmingLanguage))
-                    {
-                        // Try the overload with programming language
-                        createMethod = blocksCollection.GetType().GetMethod("Create",
-                            new[] { typeof(string), plcBlockTypeEnum, typeof(string) });
-                    }
-
-                    if (createMethod == null)
-                    {
-                        _logger?.LogError("Create method not found on blocks collection. TIA Portal V21+ is required.");
-                        return false;
-                    }
-
-                    // Invoke Create method
-                    object? createdBlock = null;
-                    if (createMethod.GetParameters().Length == 2)
-                    {
-                        createdBlock = createMethod.Invoke(blocksCollection, new[] { blockName, blockTypeEnumValue });
-                    }
-                    else if (createMethod.GetParameters().Length == 3)
-                    {
-                        if (string.IsNullOrEmpty(programmingLanguage))
-                        {
-                            _logger?.LogError("Programming language is required for block creation");
+                            _logger?.LogError("Invalid programming language: {Language}", programmingLanguage);
                             return false;
                         }
-                        createdBlock = createMethod.Invoke(blocksCollection, new[] { blockName, blockTypeEnumValue, programmingLanguage });
+                    }
+
+                    object? createdBlock = null;
+
+                    // V21 API uses specific methods for each block type
+                    if (blockTypeUpper == "FB")
+                    {
+                        createdBlock = CreateBlockV21(blocksCollection, "CreateFB", blockName, programmingLanguageValue, requireLanguage: true);
+                    }
+                    else if (blockTypeUpper == "SFB")
+                    {
+                        createdBlock = CreateBlockV21(blocksCollection, "CreateFB", blockName, programmingLanguageValue, requireLanguage: true);
+                    }
+                    else if (blockTypeUpper == "FC")
+                    {
+                        createdBlock = CreateBlockV21(blocksCollection, "CreateFC", blockName, programmingLanguageValue, requireLanguage: true);
+                    }
+                    else if (blockTypeUpper == "SFC")
+                    {
+                        createdBlock = CreateBlockV21(blocksCollection, "CreateFC", blockName, programmingLanguageValue, requireLanguage: true);
+                    }
+                    else if (blockTypeUpper == "DB")
+                    {
+                        createdBlock = CreateBlockV21(blocksCollection, "CreateGlobalDB", blockName, programmingLanguageValue, requireLanguage: false);
+                    }
+                    else if (blockTypeUpper == "OB")
+                    {
+                        // OB creation requires a number parameter
+                        createdBlock = CreateOBV21(blocksCollection, blockName);
+                    }
+                    else if (blockTypeUpper == "UDT")
+                    {
+                        // UDT uses the generic Create method with BlockType.UDT
+                        createdBlock = CreateUDTV21(blocksCollection, blockName);
                     }
                     else
                     {
-                        _logger?.LogError("Unexpected Create method signature");
+                        _logger?.LogError("Unsupported block type: {BlockType}. Supported types: FB, SFB, FC, SFC, DB, OB, UDT", blockType);
                         return false;
                     }
 
@@ -1588,6 +1511,182 @@ namespace OpenTiaToolkit.Core.Services
                     return false;
                 }
             });
+        }
+
+        /// <summary>
+        /// Creates a block in TIA Portal V21 using specific creation methods (CreateFB, CreateFC, CreateGlobalDB)
+        /// </summary>
+        private object? CreateBlockV21(object blocksCollection, string methodName, string blockName, object? programmingLanguageValue, bool requireLanguage)
+        {
+            try
+            {
+                _logger?.LogInformation("Creating block using V21 API: {MethodName}", methodName);
+
+                // Validate programming language if required
+                if (requireLanguage && programmingLanguageValue == null)
+                {
+                    _logger?.LogError("Programming language is required for {MethodName}", methodName);
+                    return null;
+                }
+
+                // Get the creation method with signature: (string name, bool autoNumbered, int number, [ProgrammingLanguage language])
+                var blocksCollectionType = blocksCollection.GetType();
+
+                // Try with programming language parameter
+                if (programmingLanguageValue != null)
+                {
+                    var createMethod = blocksCollectionType.GetMethod(methodName,
+                        new[] { typeof(string), typeof(bool), typeof(int), programmingLanguageValue.GetType() });
+
+                    if (createMethod != null)
+                    {
+                        var createdBlock = createMethod.Invoke(blocksCollection, new object[] { blockName, true, 0, programmingLanguageValue });
+                        _logger?.LogInformation("Block created successfully using {MethodName} with language", methodName);
+                        return createdBlock;
+                    }
+                }
+
+                // Try without programming language parameter
+                var createMethodSimple = blocksCollectionType.GetMethod(methodName,
+                    new[] { typeof(string), typeof(bool), typeof(int) });
+
+                if (createMethodSimple != null)
+                {
+                    var createdBlock = createMethodSimple.Invoke(blocksCollection, new object[] { blockName, true, 0 });
+                    _logger?.LogInformation("Block created successfully using {MethodName} without language", methodName);
+                    return createdBlock;
+                }
+
+                _logger?.LogError("{MethodName} method not found on blocks collection", methodName);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to create block using {MethodName}", methodName);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Creates an Organization Block (OB) in TIA Portal V21
+        /// </summary>
+        private object? CreateOBV21(object blocksCollection, string blockName)
+        {
+            try
+            {
+                _logger?.LogInformation("Creating OB using V21 API: CreateOB");
+
+                // Try to extract OB number from block name (e.g., "OB1" -> 1, "Main" -> 1)
+                int obNumber = 1; // Default to OB1 (Main)
+
+                // Try to parse number from name
+                var match = System.Text.RegularExpressions.Regex.Match(blockName, @"(\d+)");
+                if (match.Success)
+                {
+                    int.TryParse(match.Groups[1].Value, out obNumber);
+                }
+
+                var blocksCollectionType = blocksCollection.GetType();
+                var createMethod = blocksCollectionType.GetMethod("CreateOB",
+                    new[] { typeof(int), typeof(string) });
+
+                if (createMethod != null)
+                {
+                    var createdBlock = createMethod.Invoke(blocksCollection, new object[] { obNumber, blockName });
+                    _logger?.LogInformation("OB created successfully: {BlockName} (number: {OBNumber})", blockName, obNumber);
+                    return createdBlock;
+                }
+
+                // Try alternative signature: (string name, int number)
+                var createMethodAlt = blocksCollectionType.GetMethod("CreateOB",
+                    new[] { typeof(string), typeof(int) });
+
+                if (createMethodAlt != null)
+                {
+                    var createdBlock = createMethodAlt.Invoke(blocksCollection, new object[] { blockName, obNumber });
+                    _logger?.LogInformation("OB created successfully: {BlockName} (number: {OBNumber})", blockName, obNumber);
+                    return createdBlock;
+                }
+
+                _logger?.LogError("CreateOB method not found on blocks collection");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to create OB block");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Creates a User Defined Type (UDT) in TIA Portal V21
+        /// </summary>
+        private object? CreateUDTV21(object blocksCollection, string blockName)
+        {
+            try
+            {
+                _logger?.LogInformation("Creating UDT using V21 API");
+
+                // Get BlockType.UDT enum value
+                var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                Type? blockTypeEnum = null;
+                object? udtEnumValue = null;
+
+                foreach (var assembly in assemblies)
+                {
+                    try
+                    {
+                        if (assembly.FullName != null && assembly.FullName.StartsWith("Siemens.Engineering"))
+                        {
+                            var types = assembly.GetTypes();
+                            var foundType = types.FirstOrDefault(t => t.Name == "BlockType");
+                            if (foundType != null && foundType.IsEnum)
+                            {
+                                blockTypeEnum = foundType;
+                                foreach (var val in Enum.GetValues(foundType))
+                                {
+                                    if (val.ToString() == "UDT")
+                                    {
+                                        udtEnumValue = val;
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Skip assemblies that can't be loaded
+                    }
+                }
+
+                if (blockTypeEnum == null || udtEnumValue == null)
+                {
+                    _logger?.LogError("Could not find BlockType.UDT enum value");
+                    return null;
+                }
+
+                // Try the generic Create method: Create(string name, BlockType type)
+                var blocksCollectionType = blocksCollection.GetType();
+                var createMethod = blocksCollectionType.GetMethod("Create",
+                    new[] { typeof(string), blockTypeEnum });
+
+                if (createMethod != null)
+                {
+                    var createdBlock = createMethod.Invoke(blocksCollection, new object[] { blockName, udtEnumValue });
+                    _logger?.LogInformation("UDT created successfully: {BlockName}", blockName);
+                    return createdBlock;
+                }
+
+                _logger?.LogError("Create method not found for UDT");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to create UDT block");
+                return null;
+            }
         }
 
         /// <summary>

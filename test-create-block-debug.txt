@@ -1,0 +1,3 @@
+connect-portal
+open-project --project-path "D:\Siemens\V21\MCP_TEST_V21\MCP_TEST_V21.ap21"
+exit
