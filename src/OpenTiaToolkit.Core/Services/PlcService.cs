@@ -23,6 +23,7 @@ namespace OpenTiaToolkit.Core.Services
         private readonly ILogger<PlcService>? _logger;
         private object? _plcSoftware;  // Will hold PlcSoftware object
         private Device? _currentDevice;
+        private bool _diagnosticsRun = false;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PlcService"/> class.
@@ -1531,6 +1532,13 @@ namespace OpenTiaToolkit.Core.Services
 
                 // Get the creation method with signature: (string name, bool autoNumbered, int number, [ProgrammingLanguage language])
                 var blocksCollectionType = blocksCollection.GetType();
+
+                // List available methods for diagnostics (only on first call)
+                if (!_diagnosticsRun)
+                {
+                    PlcServiceDiagnostics.ListBlocksCollectionMethods(blocksCollection, _logger);
+                    _diagnosticsRun = true;
+                }
 
                 // Try with programming language parameter
                 if (programmingLanguageValue != null)

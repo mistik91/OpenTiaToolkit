@@ -1,0 +1,6 @@
+connect-portal
+open-project --project-path "D:\Siemens\V21\MCP_TEST_V21\MCP_TEST_V21.ap21"
+create-block --plc-name="PLC_1" --block-name="Test_FB" --block-type="FB" --language="SCL"
+create-block --plc-name="PLC_1" --block-name="Test_FC" --block-type="FC" --language="SCL"
+create-block --plc-name="PLC_1" --block-name="Test_DB" --block-type="DB"
+exit
