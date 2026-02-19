@@ -28,8 +28,8 @@ namespace OpenTiaToolkit.Tests.Integration
                     var tiaPath = System.Environment.GetEnvironmentVariable("TiaPortalLocation");
                     if (string.IsNullOrEmpty(tiaPath))
                     {
-                        // Try to detect TIA V19 installation (primary target)
-                        tiaPath = @"C:\Program Files\Siemens\Automation\Portal V19";
+                        // Try to detect TIA V21 installation (primary target)
+                        tiaPath = @"C:\Program Files\Siemens\Automation\Portal V21";
                         if (System.IO.Directory.Exists(tiaPath))
                         {
                             System.Environment.SetEnvironmentVariable("TiaPortalLocation", tiaPath);
@@ -43,7 +43,7 @@ namespace OpenTiaToolkit.Tests.Integration
                 catch (Exception ex)
                 {
                     throw new InvalidOperationException(
-                        "Failed to initialize TIA Openness API. Ensure TIA Portal V19+ is installed.",
+                        "Failed to initialize TIA Openness API. Ensure TIA Portal V21+ is installed.",
                         ex);
                 }
             }

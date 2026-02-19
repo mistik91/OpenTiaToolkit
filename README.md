@@ -12,7 +12,7 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 - **Interactive REPL Mode**: Persistent connections across commands with shell-like interface
 - **Clean Architecture**: Shared commands and services between CLI and MCP
 - **27 Commands**: Complete coverage of portal, project, device, HMI, and PLC operations (including advanced block operations)
-- **Multi-Version Support**: Compatible with TIA Portal V19 and later (V21+ recommended for full block creation)
+- **Multi-Version Support**: Compatible with TIA Portal V21 and later
 - **Graceful Degradation**: Automatically adapts to TIA Portal version capabilities
 - **100% Test Coverage**: 45 integration tests, all passing
 - **Open Source**: Ready for community collaboration
@@ -38,9 +38,8 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 
 - Windows OS
 - .NET Framework 4.8 or later
-- TIA Portal V19 or later (for runtime)
-  - **Note**: TIA Portal V21+ recommended for full block creation support (FC, DB, OB)
-  - V19 has limited block creation support (FB, SFB only)
+- TIA Portal V21 or later (for runtime)
+  - **Note**: Full block creation support (FB, FC, DB, OB, SFB, SFC, UDT)
   - See [TIA Portal Version Support](docs/TIA_PORTAL_VERSION_SUPPORT.md) for details
 - Visual Studio 2019 or later (for development)
 
@@ -81,7 +80,7 @@ OpenTiaToolkit.CLI.exe --interactive
 OpenTiaToolkit.CLI.exe connect-portal
 
 # Open a project
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap21"
 
 # List devices
 OpenTiaToolkit.CLI.exe list-devices
@@ -101,7 +100,7 @@ OpenTiaToolkit.CLI.exe help open-project
     "open-tia-toolkit": {
       "command": "C:\\Path\\To\\OpenTiaToolkit.MCP.exe",
       "env": {
-        "PATH": "C:\\Program Files\\Siemens\\Automation\\Portal V19\\PublicAPI\\V19"
+        "PATH": "C:\\Program Files\\Siemens\\Automation\\Portal V21\\PublicAPI\\V21\\net48"
       }
     }
   }
@@ -111,7 +110,7 @@ OpenTiaToolkit.CLI.exe help open-project
 2. **Restart Claude Desktop**
 
 3. **Use in conversation**:
-   > "Open the project at C:\Projects\MyProject.ap19"
+   > "Open the project at C:\Projects\MyProject.ap21"
    > "List all devices in the project"
    > "Get project information"
 
@@ -196,9 +195,9 @@ Connected TIA Portal instances will persist across commands.
 Type 'help' for available commands or 'exit' to quit.
 
 tia> connect-portal
-✓ Connected to TIA Portal V19
+✓ Connected to TIA Portal V21
 
-tia> open-project --project-path="D:\Projects\MCP_TEST.ap19"
+tia> open-project --project-path="D:\Projects\MCP_TEST_V21.ap21"
 ✓ Project opened successfully
 
 tia> list-devices
@@ -206,8 +205,8 @@ Found 2 device(s):
 [Devices listed...]
 
 tia> portal-status
-Connected to TIA Portal V19
-Project: D:\Projects\MCP_TEST.ap19
+Connected to TIA Portal V21
+Project: D:\Projects\MCP_TEST_V21.ap21
 
 tia> exit
 Goodbye!
@@ -216,8 +215,8 @@ Goodbye!
 **Argument Parsing**: The REPL mode supports the same argument formats as single-shot mode:
 
 ```bash
-tia> open-project --project-path="C:\Project.ap19"
-tia> open-project --project-path "C:\Project.ap19"
+tia> open-project --project-path="C:\Project.ap21"
+tia> open-project --project-path "C:\Project.ap21"
 tia> close-project --save=true
 ```
 
@@ -227,7 +226,7 @@ tia> close-project --save=true
 tia> invalid-command
 Error: Unknown command: invalid-command
 
-tia> open-project --project-path="nonexistent.ap19"
+tia> open-project --project-path="nonexistent.ap21"
 Error: Project file not found
 
 tia> _
@@ -295,7 +294,7 @@ All 27 CLI commands are automatically exposed as MCP tools with the same names:
   "params": {
     "name": "open-project",
     "arguments": {
-      "project-path": "C:\\Projects\\MyProject.ap19"
+      "project-path": "C:\\Projects\\MyProject.ap21"
     }
   }
 }
@@ -358,10 +357,10 @@ OpenTiaToolkit.CLI.exe portal-status
 ### Project Operations
 
 #### `open-project`
-Opens a TIA Portal project file (.ap19 or .als19).
+Opens a TIA Portal project file (.ap21, .ap19, .als21, or .als19).
 
 ```bash
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\My.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\My.ap21"
 ```
 
 #### `close-project`
@@ -577,11 +576,10 @@ OpenTiaToolkit.CLI.exe search-blocks --plc-name="PLC_1" --pattern="FB" --filter-
 - `search-in` (optional): Where to search - "name" or "comment" (default: "name")
 - `filter-type` (optional): Block type filter (FB, FC, DB, OB)
 
-**V19 API Limitations:**
-- Manual filtering required (no advanced search APIs in V19)
-- Bulk/batch operations not supported (must iterate blocks one-by-one)
-- No direct source code access (must export to XML first)
-- Template-based block creation not available (V20+ feature)
+**V21 API Features:**
+- Full block creation support (FB, FC, DB, OB, SFB, SFC, UDT)
+- Generic Create method with BlockType enum
+- Advanced block operations and search
 
 ## Architecture
 
@@ -649,7 +647,7 @@ OpenTiaToolkit.slnx
 │         TIA Openness API Wrapper      │
 │  - IPortalService (Portal & Project) │
 │  - IPlcService (PLC operations)     │
-│  - Version compatibility (V19+)      │
+│  - Version compatibility (V21+)      │
 │  - Connection state management      │
 └─────────────────────────────────────┘
                     ↓
@@ -679,7 +677,7 @@ dotnet test
 # Run unit tests only (fast, no TIA required)
 dotnet test --filter "Category=Unit"
 
-# Run integration tests (requires TIA V19)
+# Run integration tests (requires TIA V21)
 dotnet test --filter "Category=Integration"
 ```
 
@@ -761,7 +759,7 @@ dotnet test --filter "TestClass=Test1Portal"
 
 - **[DoNotParallelize]** attribute ensures tests don't interfere with TIA Portal
 - Each test file focuses on a specific command category
-- Tests use a dedicated test project: `D:\Siemens\V19\MCP_TEST\MCP_TEST.ap19`
+- Tests use a dedicated test project: `D:\Siemens\V21\MCP_TEST_V21\MCP_TEST_V21.ap21`
 - Proper cleanup ensures no state leakage between tests
 
 ## Project Status
@@ -836,8 +834,8 @@ We welcome contributions! Please:
 **Problem**: The TIA Openness assemblies aren't found.
 
 **Solution**:
-- Ensure TIA Portal V19+ is installed at `C:\Program Files\Siemens\Automation\Portal V19\`
-- The Siemens resolver package will handle assembly loading at runtime
+- Ensure TIA Portal V21+ is installed at `C:\Program Files\Siemens\Automation\Portal V21\`
+- The custom TiaPortalAssemblyResolver will handle assembly loading at runtime
 - For development, set environment variable `TiaPortalLocation` to your TIA installation path
 
 ### MCP server not responding

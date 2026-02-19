@@ -62,12 +62,12 @@ namespace OpenTiaToolkit.Core
                 // Try multiple locations where assemblies might be
                 string[] searchPaths = new string[]
                 {
-                    // PublicAPI assemblies (main Openness API) - V19 first (primary)
+                    // PublicAPI assemblies (main Openness API) - V21 first (primary)
                     // Note: V19 doesn't have a net48 subfolder, V21+ does
-                    Path.Combine(_opennessFolder, "PublicAPI", "V19"),
-                    // Fallback to V21+ for forward compatibility (with net48 subfolder)
                     Path.Combine(_opennessFolder, "PublicAPI", "V21", "net48"),
                     Path.Combine(_opennessFolder, "PublicAPI", "V20", "net48"),
+                    // Fallback to V19 for backward compatibility
+                    Path.Combine(_opennessFolder, "PublicAPI", "V19"),
                     // Infrastructure assemblies in Bin\PublicAPI
                     Path.Combine(_opennessFolder, "Bin", "PublicAPI"),
                     Path.Combine(_opennessFolder, "Bin", "PublicAPI", "Client"),
@@ -115,30 +115,30 @@ namespace OpenTiaToolkit.Core
 
         /// <summary>
         /// Gets the TIA Portal root directory from multiple sources.
-        /// Returns the path to the TIA Portal installation (e.g., "C:\Program Files\Siemens\Automation\Portal V19")
-        /// V19 is tried first as the primary target version.
+        /// Returns the path to the TIA Portal installation (e.g., "C:\Program Files\Siemens\Automation\Portal V21")
+        /// V21 is tried first as the primary target version.
         /// </summary>
         private static string? GetTiaPortalRoot()
         {
-            // DIRECT PATH TO V19 (primary target)
+            // DIRECT PATH TO V21 (primary target)
             // This ensures the resolver always works even if registry keys are missing
-            string v19Direct = @"C:\Program Files\Siemens\Automation\Portal V19";
-            if (Directory.Exists(v19Direct))
+            string v21Direct = @"C:\Program Files\Siemens\Automation\Portal V21";
+            if (Directory.Exists(v21Direct))
             {
-                System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Found V19 at: {v19Direct}");
-                return v19Direct;
+                System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Found V21 at: {v21Direct}");
+                return v21Direct;
             }
 
-            // Try V19 via registry first (primary target version)
-            string? path = TryGetTiaPortalRoot("V19");
+            // Try V21 via registry first (primary target version)
+            string? path = TryGetTiaPortalRoot("V21");
             if (path != null)
             {
-                System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Found V19 in registry: {path}");
+                System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Found V21 in registry: {path}");
                 return path;
             }
 
-            // Try V20-V21 for forward compatibility (ascending order)
-            for (int v = 20; v <= 21; v++)
+            // Try V20-V19 for backward compatibility (descending order)
+            for (int v = 20; v >= 19; v--)
             {
                 path = TryGetTiaPortalRoot($"V{v}");
                 if (path != null)
@@ -148,13 +148,13 @@ namespace OpenTiaToolkit.Core
                 }
             }
 
-            // Fallback: Try common installation paths for V19 (primary)
+            // Fallback: Try common installation paths for V21 (primary)
             string[] commonPaths = new[]
             {
-                @"C:\Program Files\Siemens\Automation\Portal V19",
-                @"C:\Program Files (x86)\Siemens\Automation\Portal V19",
                 @"C:\Program Files\Siemens\Automation\Portal V21",
                 @"C:\Program Files (x86)\Siemens\Automation\Portal V21",
+                @"C:\Program Files\Siemens\Automation\Portal V19",
+                @"C:\Program Files (x86)\Siemens\Automation\Portal V19",
             };
 
             foreach (string testPath in commonPaths)

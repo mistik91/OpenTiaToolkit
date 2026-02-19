@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-02-18 - V21 Migration (Primary Target) ✅
+
+#### Changed
+- **TIA Portal V21 is now the primary development target** (migrated from V19)
+- ✅ All project files now reference V21 modular assemblies (Base.dll, Step7.dll)
+- ✅ Updated TiaPortalAssemblyResolver to prefer V21 first, then V20-V19 for backward compatibility
+- ✅ Updated test project paths to V21 location (D:\Siemens\V21\MCP_TEST_V21\)
+- ✅ Updated PlcService to use V21+ generic Create method (removed V19 fallback)
+- ✅ Updated test initialization to use V21 (tiaMajorVersion: 21)
+
+#### Removed
+- **~50 lines of V19 fallback code removed from PlcService**
+  - Removed `CreateFBV19()` method (no longer needed)
+  - Removed `CreateGlobalDBV19()` method (no longer needed)
+  - Removed V19 fallback logic in `CreateBlockAsync()`
+  - Simplified to single code path using V21's generic `Create()` method
+
+#### Added
+- ✅ Documentation updated to reflect V21 as primary development target
+- ✅ Full block creation support: All types (FB, FC, DB, OB, SFB, SFC, UDT)
+- ✅ Assembly resolution order: V21 (primary) → V20 → V19
+
+#### Technical Details
+- **V21 Assembly Structure**: 2+ modular DLLs (Base.dll, Step7.dll, WinCC.dll, WinCC.Extension.dll)
+- **V19 Assembly Structure**: 1 monolithic DLL (Siemens.Engineering.dll) - backward compatibility only
+- **Custom TiaPortalAssemblyResolver retained** - Simpler than official resolver, supports both V19 and V21+
+- **Single code path** - Uses V21's generic `Create()` method for all block types
+- **Full API capabilities** - V21+ supports complete block creation (previously limited in V19)
+
+#### Migration Notes
+- All projects migrated from V19 assembly (1 DLL) to V21 assemblies (2+ DLLs)
+- Build targets updated to delete Siemens.Engineering.Base.dll and Siemens.Engineering.Step7.dll from output
+- Test infrastructure updated for V21 test project
+- Documentation (TIA_PORTAL_VERSION_SUPPORT.md, README.md) updated
+- V19 backward compatibility maintained (resolver falls back to V20-V19 if V21 not found)
+
 ### 2026-02-16 - V19 Migration (Primary Target) ✅
 
 #### Changed

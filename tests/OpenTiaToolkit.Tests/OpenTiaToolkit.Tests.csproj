@@ -17,10 +17,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- TIA Openness API references for integration tests - V19 installation (primary) -->
-    <!-- In V19, the API is a monolithic assembly -->
-    <Reference Include="Siemens.Engineering">
-      <HintPath>C:\Program Files\Siemens\Automation\Portal V19\PublicAPI\V19\Siemens.Engineering.dll</HintPath>
+    <!-- TIA Openness API references for integration tests - V21 installation (primary) -->
+    <!-- In V21+, the API is modular: Base.dll, Step7.dll, WinCC.dll, WinCC.Extension.dll -->
+    <Reference Include="Siemens.Engineering.Base">
+      <HintPath>C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48\Siemens.Engineering.Base.dll</HintPath>
+      <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
+    <Reference Include="Siemens.Engineering.Step7">
+      <HintPath>C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48\Siemens.Engineering.Step7.dll</HintPath>
       <Private>False</Private>
       <CopyLocal>false</CopyLocal>
     </Reference>
@@ -41,7 +46,8 @@
 
   <!-- Delete Siemens Engineering DLLs from output directory after build to comply with Openness API requirements -->
   <Target Name="RemoveSiemensDllsFromOutput" AfterTargets="CopyFilesToOutputDirectory">
-    <Delete Files="$(OutputPath)Siemens.Engineering.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.dll')" />
+    <Delete Files="$(OutputPath)Siemens.Engineering.Base.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Base.dll')" />
+    <Delete Files="$(OutputPath)Siemens.Engineering.Step7.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Step7.dll')" />
   </Target>
 
 </Project>

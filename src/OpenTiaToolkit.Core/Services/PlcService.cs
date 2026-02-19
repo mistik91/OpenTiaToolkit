@@ -1532,8 +1532,8 @@ namespace OpenTiaToolkit.Core.Services
                     var blocksCollectionType = blocksCollection.GetType();
                     _logger?.LogInformation("Blocks collection type: {BlocksCollectionType}", blocksCollectionType.FullName);
 
-                    // Try TIA Portal V21+ approach: Generic Create method (for forward compatibility)
-                    _logger?.LogInformation("Attempting TIA Portal V21+ API (for forward compatibility): Generic Create method");
+                    // TIA Portal V21+ API: Generic Create method
+                    _logger?.LogInformation("Using TIA Portal V21+ API: Generic Create method");
                     var createMethod = blocksCollectionType.GetMethod("Create",
                         new[] { typeof(string), plcBlockTypeEnum });
 
@@ -1544,49 +1544,31 @@ namespace OpenTiaToolkit.Core.Services
                             new[] { typeof(string), plcBlockTypeEnum, typeof(string) });
                     }
 
-                    object? createdBlock = null;
-
-                    // If V21+ generic Create method exists, use it (forward compatibility)
-                    if (createMethod != null)
+                    if (createMethod == null)
                     {
-                        _logger?.LogInformation("Using TIA Portal V21+ API (forward compatibility): Create method found");
+                        _logger?.LogError("Create method not found on blocks collection. TIA Portal V21+ is required.");
+                        return false;
+                    }
 
-                        // Invoke Create method
-                        if (createMethod.GetParameters().Length == 2)
+                    // Invoke Create method
+                    object? createdBlock = null;
+                    if (createMethod.GetParameters().Length == 2)
+                    {
+                        createdBlock = createMethod.Invoke(blocksCollection, new[] { blockName, blockTypeEnumValue });
+                    }
+                    else if (createMethod.GetParameters().Length == 3)
+                    {
+                        if (string.IsNullOrEmpty(programmingLanguage))
                         {
-                            createdBlock = createMethod.Invoke(blocksCollection, new[] { blockName, blockTypeEnumValue });
+                            _logger?.LogError("Programming language is required for block creation");
+                            return false;
                         }
-                        else if (createMethod.GetParameters().Length == 3)
-                        {
-                            if (string.IsNullOrEmpty(programmingLanguage))
-                            {
-                                _logger?.LogError("Programming language is required for block creation");
-                                return false;
-                            }
-                            createdBlock = createMethod.Invoke(blocksCollection, new[] { blockName, blockTypeEnumValue, programmingLanguage });
-                        }
+                        createdBlock = createMethod.Invoke(blocksCollection, new[] { blockName, blockTypeEnumValue, programmingLanguage });
                     }
                     else
                     {
-                        // Fall back to TIA Portal V19 approach: Type-specific Create methods (primary target)
-                        _logger?.LogInformation("Using TIA Portal V19 API (primary): Type-specific Create methods");
-
-                        var blockTypeUpper = blockType.ToUpperInvariant();
-                        if (blockTypeUpper == "FB" || blockTypeUpper == "SFB")
-                        {
-                            createdBlock = CreateFBV19(blocksCollection, blockName, programmingLanguage);
-                        }
-                        else if (blockTypeUpper == "DB")
-                        {
-                            createdBlock = CreateGlobalDBV19(blocksCollection, blockName, programmingLanguage);
-                        }
-                        else
-                        {
-                            _logger?.LogError("Block type '{BlockType}' is not supported in TIA Portal V19. " +
-                                "Supported types in V19: FB, SFB, InstanceDB. " +
-                                "For FC, DB (global), OB support, upgrade to TIA Portal V21 or later.", blockType);
-                            createdBlock = null;
-                        }
+                        _logger?.LogError("Unexpected Create method signature");
+                        return false;
                     }
 
                     if (createdBlock != null)
@@ -1606,58 +1588,6 @@ namespace OpenTiaToolkit.Core.Services
                     return false;
                 }
             });
-        }
-
-        /// <summary>
-        /// Creates a Function Block (FB) in TIA Portal V19 using the CreateFB method
-        /// </summary>
-        private object? CreateFBV19(object blocksCollection, string blockName, string? programmingLanguage)
-        {
-            try
-            {
-                _logger?.LogInformation("Creating FB using V19 API: CreateFB");
-
-                // Get ProgrammingLanguage enum value
-                var programmingLanguageValue = GetProgrammingLanguageEnum(programmingLanguage ?? "SCL");
-                if (programmingLanguageValue == null)
-                {
-                    _logger?.LogError("Invalid programming language: {Language}", programmingLanguage);
-                    return null;
-                }
-
-                // Get CreateFB method: CreateFB(string name, bool isAutoNumbered, int number, ProgrammingLanguage language)
-                var createFBMethod = blocksCollection.GetType().GetMethod("CreateFB",
-                    new[] { typeof(string), typeof(bool), typeof(int), programmingLanguageValue.GetType() });
-
-                if (createFBMethod == null)
-                {
-                    _logger?.LogError("CreateFB method not found on blocks collection");
-                    return null;
-                }
-
-                // Invoke CreateFB with default values: autoNumbered=true, number=0
-                var createdBlock = createFBMethod.Invoke(blocksCollection, new[] { blockName, true, 0, programmingLanguageValue });
-                _logger?.LogInformation("FB created successfully using V19 API");
-                return createdBlock;
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to create FB using V19 API");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Creates a Global Data Block (DB) in TIA Portal V19 (primary target)
-        /// Note: In V19, only InstanceDBs can be created programmatically. Global DBs require V21+.
-        /// </summary>
-        private object? CreateGlobalDBV19(object blocksCollection, string blockName, string? programmingLanguage)
-        {
-            _logger?.LogWarning("Global DB creation is not supported in TIA Portal V19 API.");
-            _logger?.LogWarning("Only Instance DBs (attached to FBs) can be created in V19.");
-            _logger?.LogWarning("For global DB creation, upgrade to TIA Portal V21 or later.");
-            _logger?.LogInformation("To create an Instance DB in V19, specify the FB name it should be attached to.");
-            return null;
         }
 
         /// <summary>
