@@ -97,5 +97,7 @@ public enum CommandParameterType
     /// <summary>Array of strings</summary>
     StringArray,
     /// <summary>Path to a file or directory</summary>
-    Path
+    Path,
+    /// <summary>Object value (JSON object or Dictionary)</summary>
+    Object
 }

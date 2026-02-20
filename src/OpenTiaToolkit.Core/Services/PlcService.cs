@@ -1753,5 +1753,1160 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
         }
+
+        /// <inheritdoc/>
+        public async Task<FindReplaceResult> FindAndReplaceTagsAsync(
+            Dictionary<string, string> renameMap,
+            bool caseInsensitive = false,
+            bool dryRun = true,
+            bool substringMatch = false)
+        {
+            var result = new FindReplaceResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    result.Summary.Errors = 1;
+                    result.Errors.Add(new ErrorEntry
+                    {
+                        ItemType = "System",
+                        Error = "No PLC software is currently open"
+                    });
+                    return result;
+                }
+
+                _logger?.LogInformation("FindAndReplaceTagsAsync called with {Count} mappings, caseInsensitive={CaseInsensitive}, dryRun={DryRun}, substringMatch={SubstringMatch}",
+                    renameMap.Count, caseInsensitive, dryRun, substringMatch);
+
+                try
+                {
+                    // Get TagTableGroup using reflection helper
+                    var tagTableGroup = TiaReflectionHelper.GetTagTableGroup(_plcSoftware);
+                    if (tagTableGroup == null)
+                    {
+                        result.Summary.Errors = 1;
+                        result.Errors.Add(new ErrorEntry
+                        {
+                            ItemType = "System",
+                            Error = "PLC software does not support tag tables (TagTableGroup property not found)"
+                        });
+                        return result;
+                    }
+
+                    // Get TagTables collection
+                    var tagTables = TiaReflectionHelper.GetTagTables(tagTableGroup);
+                    if (tagTables == null)
+                    {
+                        result.Summary.Errors = 1;
+                        result.Errors.Add(new ErrorEntry
+                        {
+                            ItemType = "System",
+                            Error = "TagTables collection is null or not enumerable"
+                        });
+                        return result;
+                    }
+
+                    // Collect existing tag names for collision detection
+                    var existingTagNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    // Process each tag table
+                    foreach (var tagTable in tagTables)
+                    {
+                        var tagTableName = TiaReflectionHelper.GetName(tagTable) ?? "Unknown";
+                        _logger?.LogDebug("Processing tag table: {TagTableName}", tagTableName);
+
+                        // Get tags collection
+                        var tags = TiaReflectionHelper.GetTags(tagTable);
+                        if (tags == null) continue;
+
+                        foreach (var tag in tags)
+                        {
+                            result.Summary.TotalProcessed++;
+
+                            // Get name using reflection helper for consistency
+                            var oldName = TiaReflectionHelper.GetName(tag) ?? "Unknown";
+                            var tagPath = BuildPath(tagTableName, oldName);
+                            existingTagNames.Add(oldName);
+
+                            try
+                            {
+                                // Look for matching rename entry
+                                string? newName = null;
+
+                                if (substringMatch)
+                                {
+                                    // Substring matching: find if any key in renameMap is a substring of oldName
+                                    foreach (var kvp in renameMap)
+                                    {
+                                        bool matchFound;
+                                        if (caseInsensitive)
+                                        {
+                                            matchFound = oldName.IndexOf(kvp.Key, StringComparison.OrdinalIgnoreCase) >= 0;
+                                        }
+                                        else
+                                        {
+                                            matchFound = oldName.Contains(kvp.Key);
+                                        }
+
+                                        if (matchFound)
+                                        {
+                                            // Replace the substring with the new value
+                                            if (caseInsensitive)
+                                            {
+                                                // Case-insensitive replacement
+                                                var comparison = StringComparison.OrdinalIgnoreCase;
+                                                var index = oldName.IndexOf(kvp.Key, comparison);
+                                                newName = oldName.Substring(0, index) + kvp.Value + oldName.Substring(index + kvp.Key.Length);
+                                            }
+                                            else
+                                            {
+                                                // Case-sensitive replacement
+                                                newName = oldName.Replace(kvp.Key, kvp.Value);
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (caseInsensitive)
+                                {
+                                    // Exact matching with case-insensitivity
+                                    foreach (var kvp in renameMap)
+                                    {
+                                        if (string.Equals(oldName, kvp.Key, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            newName = kvp.Value;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // Exact matching (default)
+                                    if (renameMap.ContainsKey(oldName))
+                                    {
+                                        newName = renameMap[oldName];
+                                    }
+                                }
+
+                                if (newName == null)
+                                {
+                                    result.Skipped.Add(new SkippedEntry
+                                    {
+                                        ItemType = "Tag",
+                                        Path = tagPath,
+                                        Name = oldName,
+                                        Reason = substringMatch ? "No substring match in renameMap" : "No match in renameMap"
+                                    });
+                                    result.Summary.Skipped++;
+                                    continue;
+                                }
+
+                                // Ensure the new name is actually different
+                                if (string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    result.Skipped.Add(new SkippedEntry
+                                    {
+                                        ItemType = "Tag",
+                                        Path = tagPath,
+                                        Name = oldName,
+                                        Reason = "New name is identical to old name"
+                                    });
+                                    result.Summary.Skipped++;
+                                    continue;
+                                }
+
+                                // Record the change
+                                result.Summary.MatchesFound++;
+
+                                if (!dryRun)
+                                {
+                                    // Check for collision before renaming
+                                    if (existingTagNames.Contains(newName))
+                                    {
+                                        result.Warnings.Add(new WarningEntry
+                                        {
+                                            Code = "COLLISION",
+                                            Message = $"Name '{newName}' already exists in tag tables",
+                                            Path = tagPath
+                                        });
+                                        result.Summary.Warnings++;
+                                        continue;
+                                    }
+
+                                    try
+                                    {
+                                        // Use reflection helper to set name property
+                                        TiaReflectionHelper.SetProperty(tag, "Name", newName);
+                                        existingTagNames.Add(newName);
+                                        result.Summary.ChangesApplied++;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        result.Errors.Add(new ErrorEntry
+                                        {
+                                            ItemType = "Tag",
+                                            Path = tagPath,
+                                            Name = oldName,
+                                            Error = "Failed to rename tag",
+                                            Details = ex.Message
+                                        });
+                                        result.Summary.Errors++;
+                                        continue;
+                                    }
+                                }
+
+                                result.Changes.Add(new ChangeEntry
+                                {
+                                    ItemType = "Tag",
+                                    Path = tagPath,
+                                    Before = oldName,
+                                    After = newName
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                result.Errors.Add(new ErrorEntry
+                                {
+                                    ItemType = "Tag",
+                                    Path = tagPath,
+                                    Name = oldName,
+                                    Error = "Failed to rename tag",
+                                    Details = ex.Message
+                                });
+                                result.Summary.Errors++;
+                            }
+                        }
+                    }
+
+                    // Detect collisions in dry-run mode
+                    if (dryRun)
+                    {
+                        var collisionWarnings = DetectCollisions(result.Changes, existingTagNames);
+                        result.Warnings.AddRange(collisionWarnings);
+                        result.Summary.Warnings += collisionWarnings.Count;
+                    }
+
+                    _logger?.LogInformation("FindAndReplaceTagsAsync completed: {TotalProcessed} processed, {MatchesFound} matches, {ChangesApplied} changes, {Skipped} skipped, {Warnings} warnings, {Errors} errors",
+                        result.Summary.TotalProcessed, result.Summary.MatchesFound, result.Summary.ChangesApplied, result.Summary.Skipped, result.Summary.Warnings, result.Summary.Errors);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error during FindAndReplaceTagsAsync operation");
+                    result.Summary.Errors = 1;
+                    result.Errors.Add(new ErrorEntry
+                    {
+                        ItemType = "System",
+                        Error = "Error during FindAndReplaceTagsAsync operation",
+                        Details = ex.Message
+                    });
+                    return result;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<FindReplaceResult> FindAndReplaceDbMembersAsync(
+            Dictionary<string, string> renameMap,
+            bool caseInsensitive = false,
+            bool dryRun = true,
+            string[]? targetBlocks = null)
+        {
+            var result = new FindReplaceResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    result.Summary.Errors = 1;
+                    result.Errors.Add(new ErrorEntry
+                    {
+                        ItemType = "System",
+                        Error = "No PLC software is currently open"
+                    });
+                    return result;
+                }
+
+                _logger?.LogInformation("FindAndReplaceDbMembersAsync called with {Count} mappings, caseInsensitive={CaseInsensitive}, dryRun={DryRun}, targetBlocks={TargetBlocks}",
+                    renameMap.Count, caseInsensitive, dryRun, targetBlocks?.Length ?? 0);
+
+                try
+                {
+                    // Get BlockGroup
+                    var blockGroup = TiaReflectionHelper.GetBlockGroup(_plcSoftware);
+                    if (blockGroup == null)
+                    {
+                        result.Summary.Errors = 1;
+                        result.Errors.Add(new ErrorEntry
+                        {
+                            ItemType = "System",
+                            Error = "BlockGroup property not found on PlcSoftware"
+                        });
+                        return result;
+                    }
+
+                    // Get target GlobalDBs
+                    var targetBlockList = new List<object>();
+
+                    if (targetBlocks == null || targetBlocks.Length == 0)
+                    {
+                        // Process all Global DBs
+                        var blocks = TiaReflectionHelper.GetBlocks(blockGroup);
+                        if (blocks != null)
+                        {
+                            foreach (var block in blocks)
+                            {
+                                var typeName = TiaReflectionHelper.GetTypeName(block);
+                                if (typeName == "GlobalDB")
+                                {
+                                    targetBlockList.Add(block);
+                                }
+                            }
+                        }
+
+                        // Also search recursively in groups
+                        var groups = TiaReflectionHelper.GetGroups(blockGroup);
+                        if (groups != null)
+                        {
+                            FindGlobalDBsRecursive(groups, targetBlockList);
+                        }
+                    }
+                    else
+                    {
+                        // Find specific blocks
+                        var blocks = TiaReflectionHelper.GetBlocks(blockGroup);
+                        if (blocks != null)
+                        {
+                            foreach (var block in blocks)
+                            {
+                                var blockName = TiaReflectionHelper.GetName(block);
+                                if (targetBlocks.Contains(blockName, StringComparer.OrdinalIgnoreCase))
+                                {
+                                    targetBlockList.Add(block);
+                                }
+                            }
+                        }
+
+                        var groups = TiaReflectionHelper.GetGroups(blockGroup);
+                        if (groups != null)
+                        {
+                            FindGlobalDBsInGroupsRecursive(groups, targetBlocks, targetBlockList);
+                        }
+                    }
+
+                    // Process each GlobalDB
+                    foreach (var block in targetBlockList)
+                    {
+                        var blockName = TiaReflectionHelper.GetName(block) ?? "Unknown";
+                        _logger?.LogInformation("Processing GlobalDB: {BlockName}", blockName);
+
+                        try
+                        {
+                            // Get Structure property
+                            var structure = TiaReflectionHelper.GetBlockStructure(block);
+                            if (structure == null) continue;
+
+                            // Get Composition from Structure
+                            var composition = TiaReflectionHelper.GetStructureComposition(structure);
+                            if (composition == null) continue;
+
+                            // Process members recursively
+                            ProcessDbMembers(
+                                composition,
+                                renameMap,
+                                caseInsensitive,
+                                dryRun,
+                                blockName,
+                                result
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Errors.Add(new ErrorEntry
+                            {
+                                ItemType = "GlobalDB",
+                                Path = blockName,
+                                Name = blockName,
+                                Error = "Failed to process block",
+                                Details = ex.Message
+                            });
+                            result.Summary.Errors++;
+                        }
+                    }
+
+                    _logger?.LogInformation("FindAndReplaceDbMembersAsync completed: {TotalProcessed} processed, {MatchesFound} matches, {ChangesApplied} changes, {Skipped} skipped, {Warnings} warnings, {Errors} errors",
+                        result.Summary.TotalProcessed, result.Summary.MatchesFound, result.Summary.ChangesApplied, result.Summary.Skipped, result.Summary.Warnings, result.Summary.Errors);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error during FindAndReplaceDbMembersAsync operation");
+                    result.Summary.Errors = 1;
+                    result.Errors.Add(new ErrorEntry
+                    {
+                        ItemType = "System",
+                        Error = "Error during FindAndReplaceDbMembersAsync operation",
+                        Details = ex.Message
+                    });
+                    return result;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<FindReplaceResult> FindAndReplaceUdtMembersAsync(
+            Dictionary<string, string> renameMap,
+            bool caseInsensitive = false,
+            bool dryRun = true,
+            string[]? targetTypes = null)
+        {
+            var result = new FindReplaceResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    result.Summary.Errors = 1;
+                    result.Errors.Add(new ErrorEntry
+                    {
+                        ItemType = "System",
+                        Error = "No PLC software is currently open"
+                    });
+                    return result;
+                }
+
+                _logger?.LogInformation("FindAndReplaceUdtMembersAsync called with {Count} mappings, caseInsensitive={CaseInsensitive}, dryRun={DryRun}, targetTypes={TargetTypes}",
+                    renameMap.Count, caseInsensitive, dryRun, targetTypes?.Length ?? 0);
+
+                try
+                {
+                    // Get TypeGroup
+                    var typeGroup = TiaReflectionHelper.GetTypeGroup(_plcSoftware);
+                    if (typeGroup == null)
+                    {
+                        result.Summary.Errors = 1;
+                        result.Errors.Add(new ErrorEntry
+                        {
+                            ItemType = "System",
+                            Error = "TypeGroup property not found on PlcSoftware"
+                        });
+                        return result;
+                    }
+
+                    // Get target UDTs
+                    var targetTypeList = new List<object>();
+
+                    if (targetTypes == null || targetTypes.Length == 0)
+                    {
+                        // Process all UDTs
+                        var types = TiaReflectionHelper.GetTypes(typeGroup);
+                        if (types != null)
+                        {
+                            foreach (var type in types)
+                            {
+                                var typeName = TiaReflectionHelper.GetTypeName(type);
+                                if (typeName == "PlcStruct")
+                                {
+                                    targetTypeList.Add(type);
+                                }
+                            }
+                        }
+
+                        // Also search recursively in groups
+                        var groups = TiaReflectionHelper.GetGroups(typeGroup);
+                        if (groups != null)
+                        {
+                            FindUdtsRecursive(groups, targetTypeList);
+                        }
+                    }
+                    else
+                    {
+                        // Find specific types
+                        var types = TiaReflectionHelper.GetTypes(typeGroup);
+                        if (types != null)
+                        {
+                            foreach (var type in types)
+                            {
+                                var typeName = TiaReflectionHelper.GetName(type);
+                                if (targetTypes.Contains(typeName, StringComparer.OrdinalIgnoreCase))
+                                {
+                                    targetTypeList.Add(type);
+                                }
+                            }
+                        }
+
+                        var groups = TiaReflectionHelper.GetGroups(typeGroup);
+                        if (groups != null)
+                        {
+                            FindUdtsInGroupsRecursive(groups, targetTypes, targetTypeList);
+                        }
+                    }
+
+                    // Process each UDT
+                    foreach (var type in targetTypeList)
+                    {
+                        var typeName = TiaReflectionHelper.GetName(type) ?? "Unknown";
+                        _logger?.LogInformation("Processing UDT: {TypeName}", typeName);
+
+                        try
+                        {
+                            // Get Structure property
+                            var structure = TiaReflectionHelper.GetBlockStructure(type);
+                            if (structure == null) continue;
+
+                            // Get Members from Structure
+                            var members = TiaReflectionHelper.GetStructureMembers(structure);
+                            if (members == null) continue;
+
+                            // Process members recursively
+                            ProcessUdtMembers(
+                                members,
+                                renameMap,
+                                caseInsensitive,
+                                dryRun,
+                                typeName,
+                                result
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Errors.Add(new ErrorEntry
+                            {
+                                ItemType = "UDT",
+                                Path = typeName,
+                                Name = typeName,
+                                Error = "Failed to process type",
+                                Details = ex.Message
+                            });
+                            result.Summary.Errors++;
+                        }
+                    }
+
+                    _logger?.LogInformation("FindAndReplaceUdtMembersAsync completed: {TotalProcessed} processed, {MatchesFound} matches, {ChangesApplied} changes, {Skipped} skipped, {Warnings} warnings, {Errors} errors",
+                        result.Summary.TotalProcessed, result.Summary.MatchesFound, result.Summary.ChangesApplied, result.Summary.Skipped, result.Summary.Warnings, result.Summary.Errors);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error during FindAndReplaceUdtMembersAsync operation");
+                    result.Summary.Errors = 1;
+                    result.Errors.Add(new ErrorEntry
+                    {
+                        ItemType = "System",
+                        Error = "Error during FindAndReplaceUdtMembersAsync operation",
+                        Details = ex.Message
+                    });
+                    return result;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<CreateTagResult> CreateTagAsync(
+            string tagName,
+            string dataType,
+            string? logicalAddress = null,
+            string? tagTableName = null)
+        {
+            var result = new CreateTagResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    result.Error = new ErrorEntry
+                    {
+                        ItemType = "System",
+                        Error = "No PLC software is currently open"
+                    };
+                    return result;
+                }
+
+                _logger?.LogInformation("CreateTagAsync called: Tag={TagName}, Type={DataType}, Address={LogicalAddress}, Table={TableName}",
+                    tagName, dataType, logicalAddress, tagTableName ?? "(default)");
+
+                try
+                {
+                    // Get TagTableGroup using reflection helper
+                    var tagTableGroup = TiaReflectionHelper.GetTagTableGroup(_plcSoftware);
+                    if (tagTableGroup == null)
+                    {
+                        result.Error = new ErrorEntry
+                        {
+                            ItemType = "System",
+                            Error = "PLC software does not support tag tables"
+                        };
+                        return result;
+                    }
+
+                    // Get TagTables collection
+                    var tagTables = TiaReflectionHelper.GetTagTables(tagTableGroup);
+                    if (tagTables == null)
+                    {
+                        result.Error = new ErrorEntry
+                        {
+                            ItemType = "System",
+                            Error = "TagTables collection is null or not enumerable"
+                        };
+                        return result;
+                    }
+
+                    // Find the target tag table
+                    object? targetTagTable = null;
+                    string? actualTableName = null;
+
+                    if (!string.IsNullOrEmpty(tagTableName))
+                    {
+                        // Find specific tag table by name
+                        foreach (var table in tagTables)
+                        {
+                            var name = TiaReflectionHelper.GetName(table);
+                            if (string.Equals(name, tagTableName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                targetTagTable = table;
+                                actualTableName = name;
+                                break;
+                            }
+                        }
+
+                        if (targetTagTable == null)
+                        {
+                            result.Error = new ErrorEntry
+                            {
+                                ItemType = "TagTable",
+                                Error = $"Tag table '{tagTableName}' not found"
+                            };
+                            return result;
+                        }
+                    }
+                    else
+                    {
+                        // Use the first/default tag table
+                        targetTagTable = tagTables.FirstOrDefault();
+                        actualTableName = TiaReflectionHelper.GetName(targetTagTable) ?? "Default";
+                    }
+
+                    if (targetTagTable == null)
+                    {
+                        result.Error = new ErrorEntry
+                        {
+                            ItemType = "System",
+                            Error = "No tag table found in PLC software"
+                        };
+                        return result;
+                    }
+
+                    // Get tags collection
+                    var tags = TiaReflectionHelper.GetTags(targetTagTable);
+                    if (tags == null)
+                    {
+                        result.Error = new ErrorEntry
+                        {
+                            ItemType = "TagTable",
+                            Error = "Tags collection is null or not accessible"
+                        };
+                        return result;
+                    }
+
+                    // Check if tag already exists
+                    foreach (var tag in tags)
+                    {
+                        var name = TiaReflectionHelper.GetName(tag);
+                        if (string.Equals(name, tagName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            result.Error = new ErrorEntry
+                            {
+                                ItemType = "Tag",
+                                Name = tagName,
+                                Path = BuildPath(actualTableName, tagName),
+                                Error = "Tag already exists",
+                                Details = $"A tag with the name '{tagName}' already exists in tag table '{actualTableName}'"
+                            };
+                            return result;
+                        }
+                    }
+
+                    // Create the tag using reflection to invoke Tags.Create() method
+                    // Pattern from Create_Modify_Tag.md: defaultTagTable.Tags.Create(newTagName, dataType, logicalAddress)
+                    try
+                    {
+                        // Get the Create method from the Tags collection
+                        var tagsCollectionType = tags.GetType();
+                        var createMethod = tagsCollectionType.GetMethod("Create", new[] { typeof(string), typeof(string), typeof(string) });
+
+                        if (createMethod == null)
+                        {
+                            result.Error = new ErrorEntry
+                            {
+                                ItemType = "System",
+                                Error = "Tags.Create() method not found",
+                                Details = "The TIA Portal API version may not support direct tag creation"
+                            };
+                            return result;
+                        }
+
+                        // Invoke the Create method
+                        var address = string.IsNullOrEmpty(logicalAddress) ? string.Empty : logicalAddress;
+                        var createdTag = createMethod.Invoke(tags, new object[] { tagName, dataType, address });
+
+                        if (createdTag == null)
+                        {
+                            result.Error = new ErrorEntry
+                            {
+                                ItemType = "Tag",
+                                Name = tagName,
+                                Error = "Tag creation failed",
+                                Details = "The Tags.Create() method returned null"
+                            };
+                            return result;
+                        }
+
+                        // Verify the tag was created
+                        var createdName = TiaReflectionHelper.GetName(createdTag);
+                        var createdAddress = TiaReflectionHelper.GetProperty(createdTag, "LogicalAddress")?.ToString();
+                        var createdType = TiaReflectionHelper.GetProperty(createdTag, "DataType")?.ToString();
+
+                        result.Success = true;
+                        result.TagName = createdName;
+                        result.TagTableName = actualTableName;
+                        result.DataType = createdType;
+                        result.LogicalAddress = createdAddress;
+
+                        _logger?.LogInformation("CreateTagAsync succeeded: {TagName} created in {TableName}", tagName, actualTableName);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Error = new ErrorEntry
+                        {
+                            ItemType = "Tag",
+                            Name = tagName,
+                            Error = "Exception during tag creation",
+                            Details = $"{ex.GetType().Name}: {ex.Message}"
+                        };
+                        _logger?.LogError(ex, "CreateTagAsync failed for tag {TagName}", tagName);
+                    }
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error during CreateTagAsync operation");
+                    result.Error = new ErrorEntry
+                    {
+                        ItemType = "System",
+                        Error = "Error during CreateTagAsync operation",
+                        Details = ex.Message
+                    };
+                    return result;
+                }
+            });
+        }
+
+        #region Private Helper Methods
+
+        /// <summary>
+        /// Recursively finds GlobalDBs in groups.
+        /// </summary>
+        private void FindGlobalDBsRecursive(IEnumerable<object> groups, List<object> targetBlocks)
+        {
+            foreach (var group in groups)
+            {
+                var blocks = TiaReflectionHelper.GetBlocks(group);
+                if (blocks != null)
+                {
+                    foreach (var block in blocks)
+                    {
+                        var typeName = TiaReflectionHelper.GetTypeName(block);
+                        if (typeName == "GlobalDB")
+                        {
+                            targetBlocks.Add(block);
+                        }
+                    }
+                }
+
+                var nestedGroups = TiaReflectionHelper.GetGroups(group);
+                if (nestedGroups != null)
+                {
+                    FindGlobalDBsRecursive(nestedGroups, targetBlocks);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recursively finds GlobalDBs in groups by name.
+        /// </summary>
+        private void FindGlobalDBsInGroupsRecursive(IEnumerable<object> groups, string[] targetBlocks, List<object> targetBlockList)
+        {
+            foreach (var group in groups)
+            {
+                var blocks = TiaReflectionHelper.GetBlocks(group);
+                if (blocks != null)
+                {
+                    foreach (var block in blocks)
+                    {
+                        var blockName = TiaReflectionHelper.GetName(block);
+                        if (targetBlocks.Contains(blockName, StringComparer.OrdinalIgnoreCase))
+                        {
+                            targetBlockList.Add(block);
+                        }
+                    }
+                }
+
+                var nestedGroups = TiaReflectionHelper.GetGroups(group);
+                if (nestedGroups != null)
+                {
+                    FindGlobalDBsInGroupsRecursive(nestedGroups, targetBlocks, targetBlockList);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recursively finds UDTs in groups.
+        /// </summary>
+        private void FindUdtsRecursive(IEnumerable<object> groups, List<object> targetTypes)
+        {
+            foreach (var group in groups)
+            {
+                var types = TiaReflectionHelper.GetTypes(group);
+                if (types != null)
+                {
+                    foreach (var type in types)
+                    {
+                        var typeName = TiaReflectionHelper.GetTypeName(type);
+                        if (typeName == "PlcStruct")
+                        {
+                            targetTypes.Add(type);
+                        }
+                    }
+                }
+
+                var nestedGroups = TiaReflectionHelper.GetGroups(group);
+                if (nestedGroups != null)
+                {
+                    FindUdtsRecursive(nestedGroups, targetTypes);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recursively finds UDTs in groups by name.
+        /// </summary>
+        private void FindUdtsInGroupsRecursive(IEnumerable<object> groups, string[] targetTypes, List<object> targetTypeList)
+        {
+            foreach (var group in groups)
+            {
+                var types = TiaReflectionHelper.GetTypes(group);
+                if (types != null)
+                {
+                    foreach (var type in types)
+                    {
+                        var typeName = TiaReflectionHelper.GetName(type);
+                        if (targetTypes.Contains(typeName, StringComparer.OrdinalIgnoreCase))
+                        {
+                            targetTypeList.Add(type);
+                        }
+                    }
+                }
+
+                var nestedGroups = TiaReflectionHelper.GetGroups(group);
+                if (nestedGroups != null)
+                {
+                    FindUdtsInGroupsRecursive(nestedGroups, targetTypes, targetTypeList);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recursively processes DB members (handles nested structs).
+        /// </summary>
+        private void ProcessDbMembers(
+            object composition,
+            Dictionary<string, string> renameMap,
+            bool caseInsensitive,
+            bool dryRun,
+            string parentPath,
+            FindReplaceResult result)
+        {
+            var members = TiaReflectionHelper.GetCompositionMembers(composition);
+            if (members == null) return;
+
+            foreach (var member in members)
+            {
+                ProcessDbMember(member, renameMap, caseInsensitive, dryRun, parentPath, result);
+            }
+        }
+
+        /// <summary>
+        /// Processes a single DB member.
+        /// </summary>
+        private void ProcessDbMember(
+            object member,
+            Dictionary<string, string> renameMap,
+            bool caseInsensitive,
+            bool dryRun,
+            string parentPath,
+            FindReplaceResult result)
+        {
+            result.Summary.TotalProcessed++;
+
+            var nameProperty = member?.GetType().GetProperty("Name");
+            var memberName = nameProperty?.GetValue(member)?.ToString() ?? "Unknown";
+            var memberPath = BuildPath(parentPath, memberName);
+
+            try
+            {
+                // Look for matching rename entry
+                string oldName = memberName;
+                string? newName = null;
+
+                if (caseInsensitive)
+                {
+                    foreach (var kvp in renameMap)
+                    {
+                        if (string.Equals(oldName, kvp.Key, StringComparison.OrdinalIgnoreCase))
+                        {
+                            newName = kvp.Value;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    if (renameMap.ContainsKey(oldName))
+                    {
+                        newName = renameMap[oldName];
+                    }
+                }
+
+                if (newName != null)
+                {
+                    result.Summary.MatchesFound++;
+
+                    if (!dryRun)
+                    {
+                        // Set the new name using reflection
+                        nameProperty?.SetValue(member, newName);
+                        result.Summary.ChangesApplied++;
+                    }
+
+                    result.Changes.Add(new ChangeEntry
+                    {
+                        ItemType = "DB Member",
+                        Path = memberPath,
+                        Before = oldName,
+                        After = newName
+                    });
+                }
+                else
+                {
+                    result.Skipped.Add(new SkippedEntry
+                    {
+                        ItemType = "DB Member",
+                        Path = memberPath,
+                        Name = memberName,
+                        Reason = "No match in renameMap"
+                    });
+                }
+
+                // Recursively process nested members (UDT instances, structs, arrays)
+                if (TiaReflectionHelper.HasNestedComposition(member))
+                {
+                    var nestedComposition = TiaReflectionHelper.GetStructureComposition(member);
+                    if (nestedComposition != null)
+                    {
+                        ProcessDbMembers(
+                            nestedComposition,
+                            renameMap,
+                            caseInsensitive,
+                            dryRun,
+                            memberPath,
+                            result
+                        );
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add(new ErrorEntry
+                {
+                    ItemType = "DB Member",
+                    Path = memberPath,
+                    Name = memberName,
+                    Error = "Failed to process member",
+                    Details = ex.Message
+                });
+                result.Summary.Errors++;
+            }
+        }
+
+        /// <summary>
+        /// Recursively processes UDT members (handles nested structs).
+        /// </summary>
+        private void ProcessUdtMembers(
+            object members,
+            Dictionary<string, string> renameMap,
+            bool caseInsensitive,
+            bool dryRun,
+            string parentPath,
+            FindReplaceResult result)
+        {
+            var membersCollection = members as System.Collections.IEnumerable;
+            if (membersCollection == null) return;
+
+            foreach (var member in membersCollection)
+            {
+                ProcessUdtMember(member, renameMap, caseInsensitive, dryRun, parentPath, result);
+            }
+        }
+
+        /// <summary>
+        /// Processes a single UDT member.
+        /// </summary>
+        private void ProcessUdtMember(
+            object member,
+            Dictionary<string, string> renameMap,
+            bool caseInsensitive,
+            bool dryRun,
+            string parentPath,
+            FindReplaceResult result)
+        {
+            result.Summary.TotalProcessed++;
+
+            var nameProperty = member?.GetType().GetProperty("Name");
+            var memberName = nameProperty?.GetValue(member)?.ToString() ?? "Unknown";
+            var memberPath = BuildPath(parentPath, memberName);
+
+            try
+            {
+                // Look for matching rename entry
+                string oldName = memberName;
+                string? newName = null;
+
+                if (caseInsensitive)
+                {
+                    foreach (var kvp in renameMap)
+                    {
+                        if (string.Equals(oldName, kvp.Key, StringComparison.OrdinalIgnoreCase))
+                        {
+                            newName = kvp.Value;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    if (renameMap.ContainsKey(oldName))
+                    {
+                        newName = renameMap[oldName];
+                    }
+                }
+
+                if (newName != null)
+                {
+                    result.Summary.MatchesFound++;
+
+                    if (!dryRun)
+                    {
+                        // Set the new name using reflection
+                        nameProperty?.SetValue(member, newName);
+                        result.Summary.ChangesApplied++;
+                    }
+
+                    result.Changes.Add(new ChangeEntry
+                    {
+                        ItemType = "UDT Member",
+                        Path = memberPath,
+                        Before = oldName,
+                        After = newName
+                    });
+                }
+                else
+                {
+                    result.Skipped.Add(new SkippedEntry
+                    {
+                        ItemType = "UDT Member",
+                        Path = memberPath,
+                        Name = memberName,
+                        Reason = "No match in renameMap"
+                    });
+                }
+
+                // Recursively process nested members (UDT instances, structs, arrays)
+                if (TiaReflectionHelper.HasNestedComposition(member))
+                {
+                    var nestedComposition = TiaReflectionHelper.GetStructureComposition(member);
+                    if (nestedComposition != null)
+                    {
+                        var members = TiaReflectionHelper.GetCompositionMembers(nestedComposition);
+                        if (members != null)
+                        {
+                            ProcessUdtMembers(
+                                members,
+                                renameMap,
+                                caseInsensitive,
+                                dryRun,
+                                memberPath,
+                                result
+                            );
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add(new ErrorEntry
+                {
+                    ItemType = "UDT Member",
+                    Path = memberPath,
+                    Name = memberName,
+                    Error = "Failed to process member",
+                    Details = ex.Message
+                });
+                result.Summary.Errors++;
+            }
+        }
+
+        /// <summary>
+        /// Builds a hierarchical path string for reporting.
+        /// </summary>
+        private string BuildPath(params string[] segments)
+        {
+            var validSegments = segments.Where(s => !string.IsNullOrEmpty(s)).ToArray();
+            return string.Join(".", validSegments);
+        }
+
+        /// <summary>
+        /// Detects potential name collisions in the changes list.
+        /// </summary>
+        private List<WarningEntry> DetectCollisions(List<ChangeEntry> changes, HashSet<string> existingNames)
+        {
+            var warnings = new List<WarningEntry>();
+            var newNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var change in changes)
+            {
+                if (change.After != null)
+                {
+                    if (existingNames.Contains(change.After) || newNames.Contains(change.After))
+                    {
+                        warnings.Add(new WarningEntry
+                        {
+                            Code = "COLLISION",
+                            Message = $"Name '{change.After}' already exists or will be created multiple times",
+                            Path = change.Path
+                        });
+                    }
+                    newNames.Add(change.After);
+                }
+            }
+
+            return warnings;
+        }
+
+        #endregion
     }
 }

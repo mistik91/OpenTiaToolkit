@@ -11,10 +11,14 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 - **Dual Interface**: Single codebase serving both CLI and MCP workflows
 - **Interactive REPL Mode**: Persistent connections across commands with shell-like interface
 - **Clean Architecture**: Shared commands and services between CLI and MCP
-- **27 Commands**: Complete coverage of portal, project, device, HMI, and PLC operations (including advanced block operations)
+- **30 Commands**: Complete coverage of portal, project, device, HMI, and PLC operations (including advanced block operations)
+  - Tag Management: create-tag, find-replace-tags (with substring matching support)
+  - Block Operations: search-blocks, get-block-info, export-block, delete-blocks
+  - PLC Operations: compile-software, export-plc, get-software-tree, get-blocks
+  - And more...
 - **Multi-Version Support**: Compatible with TIA Portal V21 and later
 - **Graceful Degradation**: Automatically adapts to TIA Portal version capabilities
-- **100% Test Coverage**: 45 integration tests, all passing
+- **100% Test Coverage**: 45+ integration tests, all passing
 - **Open Source**: Ready for community collaboration
 
 ## Table of Contents
@@ -576,10 +580,61 @@ OpenTiaToolkit.CLI.exe search-blocks --plc-name="PLC_1" --pattern="FB" --filter-
 - `search-in` (optional): Where to search - "name" or "comment" (default: "name")
 - `filter-type` (optional): Block type filter (FB, FC, DB, OB)
 
+### Tag Management
+
+#### `create-tag`
+Creates a new PLC tag in the specified tag table.
+
+```bash
+# Create with logical address
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Motor_Status" --data-type="Bool" --logical-address="%M10.0"
+
+# Create without address (auto-assigned)
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Counter" --data-type="DInt"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `tag-name` (required): Name of the tag to create
+- `data-type` (required): Data type (Bool, Int, DInt, Real, String, etc.)
+- `logical-address` (optional): Logical address (e.g., %M10.0, %MW12)
+- `tag-table` (optional): Tag table name (default: first/default table)
+
+#### `find-replace-tags`
+Finds and replaces PLC tag names across all tag tables. Supports exact matching and substring matching.
+
+```bash
+# Exact matching - rename specific tags
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed"}' --dry-run=false
+
+# Substring matching - replace "Speed" with "RPM" in all tags
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Speed":"RPM"}' --substring-match=true --dry-run=true
+
+# Case-insensitive substring matching
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"speed":"RPM"}' --substring-match=true --case-insensitive=true --dry-run=false
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `rename-map` (required): Dictionary mapping old names to new names (JSON string)
+- `case-insensitive` (optional): Enable case-insensitive matching (default: false)
+- `dry-run` (optional): Preview changes without applying (default: true)
+- `substring-match` (optional): Enable substring matching (default: false)
+
+**Substring Matching Examples:**
+- `{"Speed":"RPM"}` replaces all occurrences of "Speed" with "RPM"
+  - `Motor_Speed_Setpoint` → `Motor_RPM_Setpoint`
+  - `Valve_Speed_Actual` → `Valve_RPM_Actual`
+- `{"_":"-"}` converts underscores to hyphens
+  - `Motor_Speed_Setpoint` → `Motor-Speed-Setpoint`
+
+**⚠️ Warning:** Substring matching can cause unintended replacements. Always use `--dry-run=true` first.
+
 **V21 API Features:**
 - Full block creation support (FB, FC, DB, OB, SFB, SFC, UDT)
 - Generic Create method with BlockType enum
 - Advanced block operations and search
+- Tag creation and management with substring matching support
 
 ## Architecture
 
@@ -590,7 +645,7 @@ OpenTiaToolkit.slnx
 ├── src/
 │   ├── OpenTiaToolkit.Core/      # Shared core library
 │   │   ├── Abstractions/         # Interfaces (ICommand, IPortalService, IPlcService)
-│   │   ├── Commands/             # Command implementations (26 commands)
+│   │   ├── Commands/             # Command implementations (30 commands)
 │   │   │   ├── Portal/           # Portal instance management
 │   │   │   ├── Project/          # Project operations
 │   │   │   ├── Devices/          # Device operations

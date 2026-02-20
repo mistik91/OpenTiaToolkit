@@ -100,6 +100,62 @@ public interface IPlcService
     /// <param name="programmingLanguage">Optional programming language (e.g., "SCL", "FBD", "LAD", "ST").</param>
     /// <returns>True if the block was created successfully.</returns>
     Task<bool> CreateBlockAsync(string blockName, string blockType, string? programmingLanguage = null);
+
+    /// <summary>
+    /// Finds and replaces PLC tag names across all tag tables.
+    /// </summary>
+    /// <param name="renameMap">Dictionary mapping old names to new names (or substrings for substring matching).</param>
+    /// <param name="caseInsensitive">Enable case-insensitive matching (default: false).</param>
+    /// <param name="dryRun">Preview changes without applying (default: true).</param>
+    /// <param name="substringMatch">Enable substring matching instead of exact matching (default: false).</param>
+    /// <returns>Result containing summary, changes, skipped items, warnings, and errors.</returns>
+    Task<FindReplaceResult> FindAndReplaceTagsAsync(
+        Dictionary<string, string> renameMap,
+        bool caseInsensitive = false,
+        bool dryRun = true,
+        bool substringMatch = false);
+
+    /// <summary>
+    /// Creates a new PLC tag in the specified tag table.
+    /// </summary>
+    /// <param name="tagName">The name of the tag to create.</param>
+    /// <param name="dataType">The data type (e.g., "Bool", "Int", "DInt").</param>
+    /// <param name="logicalAddress">Optional logical address (e.g., "%M10.0", "%MW12").</param>
+    /// <param name="tagTableName">Optional tag table name (default: first/default table).</param>
+    /// <returns>Result containing success status, created tag info, warnings, and errors.</returns>
+    Task<CreateTagResult> CreateTagAsync(
+        string tagName,
+        string dataType,
+        string? logicalAddress = null,
+        string? tagTableName = null);
+
+    /// <summary>
+    /// Finds and replaces GlobalDB member names with nested struct support.
+    /// </summary>
+    /// <param name="renameMap">Dictionary mapping old member names to new names.</param>
+    /// <param name="caseInsensitive">Enable case-insensitive matching.</param>
+    /// <param name="dryRun">Preview changes without applying.</param>
+    /// <param name="targetBlocks">Optional list of specific GlobalDB names (null = all).</param>
+    /// <returns>Result containing summary, changes, skipped items, warnings, and errors.</returns>
+    Task<FindReplaceResult> FindAndReplaceDbMembersAsync(
+        Dictionary<string, string> renameMap,
+        bool caseInsensitive = false,
+        bool dryRun = true,
+        string[]? targetBlocks = null);
+
+    /// <summary>
+    /// Finds and replaces UDT member names with nested struct support.
+    /// </summary>
+    /// <param name="renameMap">Dictionary mapping old member names to new names.</param>
+    /// <param name="caseInsensitive">Enable case-insensitive matching.</param>
+    /// <param name="dryRun">Preview changes without applying.</param>
+    /// <param name="targetTypes">Optional list of specific UDT names (null = all).</param>
+    /// <returns>Result containing summary, changes, skipped items, warnings, and errors.</returns>
+    Task<FindReplaceResult> FindAndReplaceUdtMembersAsync(
+        Dictionary<string, string> renameMap,
+        bool caseInsensitive = false,
+        bool dryRun = true,
+        string[]? targetTypes = null);
 }
 
 /// <summary>
@@ -274,3 +330,151 @@ public class DeviceItemInfo
     /// <summary>Gets the device item identification.</summary>
     public string? Identification { get; }
 }
+
+#region Find and Replace Data Models
+
+/// <summary>
+/// Summary statistics for find and replace operations.
+/// </summary>
+public class FindReplaceSummary
+{
+    /// <summary>Gets or sets the total number of items processed.</summary>
+    public int TotalProcessed { get; set; }
+
+    /// <summary>Gets or sets the number of matches found.</summary>
+    public int MatchesFound { get; set; }
+
+    /// <summary>Gets or sets the number of changes applied.</summary>
+    public int ChangesApplied { get; set; }
+
+    /// <summary>Gets or sets the number of items skipped.</summary>
+    public int Skipped { get; set; }
+
+    /// <summary>Gets or sets the number of warnings generated.</summary>
+    public int Warnings { get; set; }
+
+    /// <summary>Gets or sets the number of errors encountered.</summary>
+    public int Errors { get; set; }
+}
+
+/// <summary>
+/// Represents a single change entry in a find and replace operation.
+/// </summary>
+public class ChangeEntry
+{
+    /// <summary>Gets or sets the item type (e.g., "Tag", "DB Member", "UDT Member").</summary>
+    public string? ItemType { get; set; }
+
+    /// <summary>Gets or sets the location path (e.g., "TagTable.PLC tags", "GlobalDB.ProcessData").</summary>
+    public string? Path { get; set; }
+
+    /// <summary>Gets or sets the old value before the change.</summary>
+    public string? Before { get; set; }
+
+    /// <summary>Gets or sets the new value after the change.</summary>
+    public string? After { get; set; }
+}
+
+/// <summary>
+/// Represents an item that was skipped during a find and replace operation.
+/// </summary>
+public class SkippedEntry
+{
+    /// <summary>Gets or sets the item type.</summary>
+    public string? ItemType { get; set; }
+
+    /// <summary>Gets or sets the location path.</summary>
+    public string? Path { get; set; }
+
+    /// <summary>Gets or sets the item name.</summary>
+    public string? Name { get; set; }
+
+    /// <summary>Gets or sets the reason for skipping.</summary>
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Represents a warning generated during a find and replace operation.
+/// </summary>
+public class WarningEntry
+{
+    /// <summary>Gets or sets the warning code.</summary>
+    public string? Code { get; set; }
+
+    /// <summary>Gets or sets the warning message.</summary>
+    public string? Message { get; set; }
+
+    /// <summary>Gets or sets the location path.</summary>
+    public string? Path { get; set; }
+}
+
+/// <summary>
+/// Represents an error encountered during a find and replace operation.
+/// </summary>
+public class ErrorEntry
+{
+    /// <summary>Gets or sets the item type.</summary>
+    public string? ItemType { get; set; }
+
+    /// <summary>Gets or sets the location path.</summary>
+    public string? Path { get; set; }
+
+    /// <summary>Gets or sets the item name.</summary>
+    public string? Name { get; set; }
+
+    /// <summary>Gets or sets the error message.</summary>
+    public string? Error { get; set; }
+
+    /// <summary>Gets or sets detailed error information.</summary>
+    public string? Details { get; set; }
+}
+
+/// <summary>
+/// Represents the result of a find and replace operation.
+/// </summary>
+public class FindReplaceResult
+{
+    /// <summary>Gets or sets the summary statistics.</summary>
+    public FindReplaceSummary Summary { get; set; } = new FindReplaceSummary();
+
+    /// <summary>Gets or sets the list of changes made.</summary>
+    public List<ChangeEntry> Changes { get; set; } = new List<ChangeEntry>();
+
+    /// <summary>Gets or sets the list of skipped items.</summary>
+    public List<SkippedEntry> Skipped { get; set; } = new List<SkippedEntry>();
+
+    /// <summary>Gets or sets the list of warnings.</summary>
+    public List<WarningEntry> Warnings { get; set; } = new List<WarningEntry>();
+
+    /// <summary>Gets or sets the list of errors.</summary>
+    public List<ErrorEntry> Errors { get; set; } = new List<ErrorEntry>();
+}
+
+/// <summary>
+/// Represents the result of a tag creation operation.
+/// </summary>
+public class CreateTagResult
+{
+    /// <summary>Gets or sets whether the tag was created successfully.</summary>
+    public bool Success { get; set; }
+
+    /// <summary>Gets or sets the name of the created tag.</summary>
+    public string? TagName { get; set; }
+
+    /// <summary>Gets or sets the tag table where the tag was created.</summary>
+    public string? TagTableName { get; set; }
+
+    /// <summary>Gets or sets the data type of the created tag.</summary>
+    public string? DataType { get; set; }
+
+    /// <summary>Gets or sets the logical address of the created tag.</summary>
+    public string? LogicalAddress { get; set; }
+
+    /// <summary>Gets or sets the list of warnings.</summary>
+    public List<WarningEntry> Warnings { get; set; } = new List<WarningEntry>();
+
+    /// <summary>Gets or sets the error information (if creation failed).</summary>
+    public ErrorEntry? Error { get; set; }
+}
+
+#endregion

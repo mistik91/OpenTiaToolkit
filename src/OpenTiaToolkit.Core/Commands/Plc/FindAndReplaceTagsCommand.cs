@@ -1,0 +1,157 @@
+using Microsoft.Extensions.Logging;
+using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Utilities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+namespace OpenTiaToolkit.Core.Commands.Plc
+{
+    /// <summary>
+    /// Command to find and replace PLC tag names across all tag tables.
+    /// </summary>
+    public class FindAndReplaceTagsCommand : ICommand
+    {
+        private readonly IPlcService _plcService;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FindAndReplaceTagsCommand"/> class.
+        /// </summary>
+        /// <param name="plcService">The PLC service instance.</param>
+        public FindAndReplaceTagsCommand(IPlcService plcService)
+        {
+            _plcService = plcService;
+        }
+
+        /// <inheritdoc/>
+        public string Name => "find-replace-tags";
+
+        /// <inheritdoc/>
+        public string Description => "Finds and replaces PLC tag names across all tag tables";
+
+        /// <inheritdoc/>
+        public CommandSchema Schema => new CommandSchema(
+            Description,
+            new[]
+            {
+                new CommandParameter(
+                    "plc-name",
+                    CommandParameterType.String,
+                    "The name of the PLC device",
+                    required: true),
+                new CommandParameter(
+                    "rename-map",
+                    CommandParameterType.Object,
+                    "Dictionary mapping old tag names to new names (JSON string or Dictionary)",
+                    required: true),
+                new CommandParameter(
+                    "case-insensitive",
+                    CommandParameterType.Boolean,
+                    "Enable case-insensitive matching (default: false)",
+                    required: false),
+                new CommandParameter(
+                    "dry-run",
+                    CommandParameterType.Boolean,
+                    "Preview changes without applying (default: true)",
+                    required: false),
+                new CommandParameter(
+                    "substring-match",
+                    CommandParameterType.Boolean,
+                    "Enable substring matching instead of exact matching (default: false)",
+                    required: false)
+            }
+        );
+
+        /// <inheritdoc/>
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            logger.LogInformation("Executing command: {CommandName}", Name);
+
+            try
+            {
+                var plcName = args.GetString("plc-name");
+                if (string.IsNullOrEmpty(plcName))
+                {
+                    return CommandResult.CreateFailure("Missing required parameter: plc-name");
+                }
+
+                var renameMapObj = args.GetObject("rename-map");
+                if (renameMapObj == null)
+                {
+                    return CommandResult.CreateFailure("Missing required parameter: rename-map");
+                }
+
+                // Parse rename map
+                Dictionary<string, string> renameMap;
+                try
+                {
+                    renameMap = ParseRenameMap(renameMapObj);
+                }
+                catch (Exception ex)
+                {
+                    return CommandResult.CreateFailure($"Invalid rename-map format: {ex.Message}");
+                }
+
+                if (renameMap.Count == 0)
+                {
+                    return CommandResult.CreateFailure("Rename map must contain at least one mapping");
+                }
+
+                var caseInsensitive = args.GetBool("case-insensitive", false);
+                var dryRun = args.GetBool("dry-run", true);
+                var substringMatch = args.GetBool("substring-match", false);
+
+                logger.LogInformation("Find-replace-tags: PLC={PlcName}, Mappings={Count}, CaseInsensitive={CaseInsensitive}, DryRun={DryRun}, SubstringMatch={SubstringMatch}",
+                    plcName, renameMap.Count, caseInsensitive, dryRun, substringMatch);
+
+                // Open PLC if not already open
+                if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
+                {
+                    await _plcService.OpenPlcAsync(plcName);
+                }
+
+                var result = await _plcService.FindAndReplaceTagsAsync(renameMap, caseInsensitive, dryRun, substringMatch);
+
+                // Build summary message
+                var summary = result.Summary;
+                var message = $"Tags processed: {summary.TotalProcessed}, " +
+                            $"Matches: {summary.MatchesFound}, " +
+                            $"Changes: {(dryRun ? "previewed" : "applied")}: {summary.ChangesApplied}, " +
+                            $"Skipped: {summary.Skipped}, " +
+                            $"Warnings: {summary.Warnings}, " +
+                            $"Errors: {summary.Errors}";
+
+                // Return result with data
+                return CommandResult.CreateSuccess(
+                    data: new
+                    {
+                        summary,
+                        changes = result.Changes,
+                        skipped = result.Skipped,
+                        warnings = result.Warnings,
+                        errors = result.Errors
+                    },
+                    message: message
+                );
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error in find-replace-tags");
+                return CommandResult.CreateFailure(
+                    $"Error in find-replace-tags: {ex.Message}",
+                    ex
+                );
+            }
+        }
+
+        /// <summary>
+        /// Parses rename map from various input formats.
+        /// </summary>
+        private Dictionary<string, string> ParseRenameMap(object renameMapObj)
+        {
+            return RenameMapParser.Parse(renameMapObj);
+        }
+    }
+}

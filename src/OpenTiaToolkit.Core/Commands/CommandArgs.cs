@@ -108,4 +108,18 @@ public class CommandArgs
     /// Gets all argument names.
     /// </summary>
     public IEnumerable<string> Keys => _values.Keys;
+
+    /// <summary>
+    /// Gets a raw object value by argument name.
+    /// </summary>
+    /// <param name="name">The argument name.</param>
+    /// <returns>The object value or null if not found.</returns>
+    public object? GetObject(string name)
+    {
+        if (_values.TryGetValue(name, out var value))
+        {
+            return value;
+        }
+        return null;
+    }
 }

@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-02-20 - PLC Tag Management Features ✅
+
+#### Added
+- **create-tag command** - Creates new PLC tags in specified tag tables
+  - Support for all standard data types (Bool, Int, DInt, Real, String, etc.)
+  - Optional logical address assignment (e.g., %M10.0, %MW12, %DB1.DBD0)
+  - Optional tag table selection (defaults to first/default table)
+  - Auto-address assignment when logical address not specified
+  - Duplicate tag detection with error reporting
+  - Tag table validation and error handling
+- **CreateTagResult data model** - Comprehensive result reporting for tag creation
+  - Success status with tag details (name, table, type, address)
+  - Warning list for non-critical issues
+  - Error information with detailed messages
+- **IPlcService.CreateTagAsync()** - Service method for tag creation
+- **TiaReflectionHelper usage** - Simplified FindAndReplaceTagsAsync to use reflection helpers
+  - Replaced direct property access with `TiaReflectionHelper.GetName()`
+  - Replaced direct property assignment with `TiaReflectionHelper.SetProperty()`
+  - Improved error handling with try-catch
+- **Substring matching for find-replace-tags** - New substring-match parameter
+  - Replace substrings within tag names instead of exact matching
+  - Supports case-insensitive substring matching
+  - Useful for bulk renaming operations (e.g., replace "Speed" with "RPM" in all tags)
+  - Can change separators (e.g., underscores to hyphens)
+
+#### Changed
+- **FindAndReplaceTagsAsync simplified** - Uses TiaReflectionHelper for consistency
+  - Removed redundant property validation code
+  - Streamlined name assignment logic
+- **Command count** - Increased from 29 to 30 total commands
+
+#### Removed
+- **find-replace-db-members command** - Disabled (commented out) per requirements
+  - Command file retained for potential future re-enabling
+  - Service method (`FindAndReplaceDbMembersAsync`) remains available
+- **find-replace-udt-members command** - Disabled (commented out) per requirements
+  - Command file retained for potential future re-enabling
+  - Service method (`FindAndReplaceUdtMembersAsync`) remains available
+
+#### Technical Implementation Details
+- Tag creation via `Tags.Create(tagName, dataType, logicalAddress)` method
+- Reflection-based method invocation for TIA Portal API compatibility
+- Tag table discovery with name-based lookup
+- Collision detection for duplicate tag names
+- Consistent error handling pattern with try-catch
+
+#### Use Cases for create-tag
+- Batch tag creation via scripting
+- Automated PLC tag generation
+- Tag table population from external sources
+- Standardized tag creation workflows
+
 ### 2026-02-18 - V21 Migration (Primary Target) ✅
 
 #### Changed
@@ -99,6 +151,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### V19 vs V21+ Support Matrix
 - **V19**: FB, SFB only (FC, DB, OB not supported)
 - **V21+**: All block types (FB, FC, DB, OB, SFB, SFC, UDT) fully supported
+
+### Phase 5 - Find and Replace Operations
+
+#### Added
+- **3 Find and Replace commands** for large-scale PLC refactoring:
+  - `find-replace-tags` - Rename PLC tags across all tag tables
+  - `find-replace-db-members` - Rename GlobalDB members with nested struct support
+  - `find-replace-udt-members` - Rename UDT members with nested struct support
+- **RenameMapParser utility** - Handles multiple input formats (JSON, Dictionary, JsonElement)
+  - Supports escaped quotes and outer quote removal
+  - Case-insensitive dictionary for key comparisons
+  - Automatic parsing of CLI-friendly JSON formats
+- **TiaReflectionHelper extensions** - Reflection methods for TIA Portal API access
+  - TagTableGroup, TagTables, Tags access
+  - Structure, Composition, Members access for DB/UDT traversal
+  - BlockGroup, TypeGroup, Groups enumeration
+- **FindReplaceResult data model** - Comprehensive result reporting
+  - Summary with TotalProcessed, MatchesFound, ChangesApplied, Skipped, Warnings, Errors
+  - Detailed ChangeEntry list with ItemType, Path, Before, After
+  - SkippedEntry list with ItemType, Path, Name, Reason
+  - WarningEntry list with Code, Message, Path
+  - ErrorEntry list with ItemType, Path, Name, Error, Details
+- **Nested structure support** - Recursive traversal of complex data types
+  - Handles UDT instances within DBs
+  - Handles nested structs and arrays
+  - Full hierarchical path reporting
+- **Safety features**:
+  - Default `dry-run=true` for preview before applying changes
+  - Collision detection with warnings
+  - Read-only protection checks
+  - Case-insensitive matching option
+- **Targeted operations**:
+  - `target-blocks` parameter for specific GlobalDBs
+  - `target-types` parameter for specific UDTs
+- **IPlcService extensions** - 3 new async methods for find/replace operations
+- **Comprehensive documentation** - CLI_USAGE.md updated with examples
+- **4 new workflow examples** - Find/Replace usage patterns in documentation
+
+#### Changed
+- **Command count** - Increased from 26 to 29 total commands
+- **PlcService implementation** - Added reflection-based member access and renaming
+- **CLI Program.cs** - Registered 3 new Phase 5 commands
+- **MCP Program.cs** - Registered 3 new Phase 5 commands
+
+#### Technical Implementation Details
+- Tag renaming via PlcSoftware.TagTableGroup.TagTables collection
+- DB member renaming via PlcSoftware.BlockGroup.Blocks → Structure.Composition.Members
+- UDT member renaming via PlcSoftware.TypeGroup.Types → Structure.Members
+- Recursive composition traversal for nested structures
+- Name property modification via reflection (setvalue)
+- Collision detection before applying changes
+- Dry-run mode for safe preview
+
+#### Use Cases
+- Standardizing naming conventions across large projects
+- Renaming variables during project migration or refactoring
+- Fixing typos in variable names that appear multiple times
+- Converting between naming schemes (e.g., "Motor_Speed" to "MotorSpeed")
 
 ### Phase 4 - Advanced Block Operations
 
@@ -241,15 +351,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - TBD
 
-### Complete Release (Phases 1-4)
+### Complete Release (Phases 1-5)
 
 #### Features
 - Dual CLI and MCP interface sharing same commands
 - Interactive REPL mode with persistent connections
 - TIA Portal V19+ compatibility
-- 26 commands across 4 categories (Portal, Project, Device, PLC)
+- 29 commands across 5 categories (Portal, Project, Device, PLC, Find/Replace)
 - Automatic PLC discovery with multiple detection strategies
 - Advanced block operations (delete, search, detailed info, single export)
+- Find and Replace operations (tags, DB members, UDT members)
 - Session-only state management
 - Table-formatted output for CLI
 - JSON output for MCP
@@ -263,6 +374,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project Operations (7 commands)
 - Device Operations (3 commands)
 - PLC Operations (10 commands)
+- Find and Replace Operations (3 commands)
 
 #### Architecture
 - Layered architecture with clear separation of concerns

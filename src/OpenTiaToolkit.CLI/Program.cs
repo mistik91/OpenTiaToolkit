@@ -299,7 +299,19 @@ namespace OpenTiaToolkit.CLI
             services.AddSingleton<ICommand, GetBlockInfoCommand>();
             services.AddSingleton<ICommand, ExportBlockCommand>();
             services.AddSingleton<ICommand, SearchBlocksCommand>();
-            services.AddSingleton<ICommand, CreateBlockCommand>();
+            // services.AddSingleton<ICommand, CreateBlockCommand>(); // Disabled
+
+            // Register all Phase 5 commands (Find and Replace)
+            services.AddSingleton<ICommand, FindAndReplaceTagsCommand>();
+            // services.AddSingleton<ICommand, FindAndReplaceDbMembersCommand>(); // Disabled per requirements
+            // services.AddSingleton<ICommand, FindAndReplaceUdtMembersCommand>(); // Disabled per requirements
+
+            // Register Phase 5 commands - Tag Management
+            services.AddSingleton<ICommand, CreateTagCommand>();
+
+            // Register test command (for testing)
+            services.AddSingleton<ICommand, TestFindReplaceCommand>();
+            services.AddSingleton<ICommand, ListDbMembersCommand>();
 
             // Register router
             services.AddSingleton<CommandRouter>();

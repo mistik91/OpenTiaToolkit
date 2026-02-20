@@ -462,6 +462,244 @@ FC_Motor      Function              STL         10        Motor control
 FB_MotorCtrl  Function Block        FBD         1        Motor controller
 ```
 
+### Find and Replace Operations (Phase 5)
+
+#### create-tag
+
+Creates a new PLC tag in the specified tag table with support for various data types and optional logical address assignment.
+
+```bash
+# Create tag with logical address in default tag table
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Motor_Status" --data-type="Bool" --logical-address="%M10.0"
+
+# Create tag with specific tag table
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Temperature" --data-type="Int" --logical-address="%MW12" --tag-table="MyTags"
+
+# Create tag without address (auto-assigned by TIA Portal)
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Counter" --data-type="DInt"
+
+# Create Real (floating point) tag
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Setpoint" --data-type="Real" --logical-address="%MD20"
+
+# Create String tag
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Message" --data-type="String" --logical-address="%MB100"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `tag-name` (required): Name of the tag to create
+- `data-type` (required): Data type (e.g., 'Bool', 'Int', 'DInt', 'Real', 'String', 'Word', 'DWord', 'Byte', 'S5Time', 'Time')
+- `logical-address` (optional): Logical address (e.g., '%M10.0', '%MW12', '%DB1.DBD0', '%Q0.0', '%I0.0')
+- `tag-table` (optional): Tag table name (default: first/default table)
+
+**Supported Data Types**:
+- Boolean: `Bool`
+- Integers: `SInt`, `Int`, `DInt`, `USInt`, `UInt`, `UDInt`
+- Floating-point: `Real`, `LReal`
+- Strings/Bytes: `String`, `Char`, `Byte`, `Word`, `DWord`, `LWord`
+- Timers/Counters: `S5Time`, `Time`, `LTime`, `Date`, `Date_and_Time`, `TimeOfDay`
+- Hardware: `Timer`, `Counter`
+
+**Logical Address Format**:
+- Memory bits: `%M10.0`, `%MX10.0`
+- Memory words: `%MW12`, `%MD20`
+- Inputs: `%I0.0`, `%IW0`, `%ID0`
+- Outputs: `%Q0.0`, `%QW0`, `%QD0`
+- DB addresses: `%DB1.DBD0`, `%DB1.DBW0`, `%DB1.DBB0`
+
+**Output**:
+```
+Tag 'Motor_Status' created successfully in 'PLC tags' (Type: Bool, Address: %M10.0)
+
+Tag Name:      Motor_Status
+Tag Table:     PLC tags
+Data Type:     Bool
+Logical Address: %M10.0
+```
+
+**Error Handling**:
+- Duplicate tag names are detected and reported
+- Invalid tag table names return descriptive errors
+- Invalid data types are caught with clear messages
+- TIA Portal API limitations are documented
+
+#### find-replace-tags
+
+Finds and replaces PLC tag names across all tag tables with optional case-insensitive matching, substring matching, and dry-run preview.
+
+```bash
+# Preview tag name changes (dry-run is default)
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed","Valve_Open":"ValveOpen"}' --dry-run=true
+
+# Actually apply tag changes
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed"}' --dry-run=false
+
+# Rename with case-insensitive matching
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"motor_speed":"MotorSpeed"}' --case-insensitive=true --dry-run=false
+
+# Substring matching - replaces "Speed" with "RPM" in all matching tags
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Speed":"RPM"}' --substring-match=true --dry-run=true
+
+# Substring matching with case-insensitivity
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"speed":"RPM"}' --substring-match=true --case-insensitive=true --dry-run=false
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `rename-map` (required): Dictionary mapping old names to new names (JSON string)
+- `case-insensitive` (optional): Enable case-insensitive matching (default: false)
+- `dry-run` (optional): Preview changes without applying (default: true)
+- `substring-match` (optional): Enable substring matching instead of exact matching (default: false)
+
+**Substring Matching**:
+When `substring-match=true`, the command will find and replace substrings within tag names rather than requiring exact matches. This is useful for bulk renaming operations.
+
+Examples:
+- Mapping `{"Speed":"RPM"}` with `--substring-match=true`:
+  - `Motor_Speed_Setpoint` → `Motor_RPM_Setpoint`
+  - `Valve_Speed_Actual` → `Valve_RPM_Actual`
+  - `Speed_Setpoint` → `RPM_Setpoint`
+  - `Pump_Speed_RPM` → `Pump_RPM_RPM` ⚠️ (note: double replacement!)
+
+- Mapping `{"_":"-"}` with `--substring-match=true`:
+  - `Motor_Speed_Setpoint` → `Motor-Speed-Setpoint`
+  - `Valve_Open_Status` → `Valve-Open-Status`
+
+**⚠️ Warning**: Substring matching can cause unintended replacements:
+- Common substrings like `"Speed"` will match in many tags
+- Existing instances of the replacement text will be replaced again
+- Always use `--dry-run=true` first to see all affected tags
+- Use more specific substrings when possible (e.g., `"_Speed"` instead of `"Speed"`)
+
+**Note**: Substring matching applies only the first matching rule from the rename map to each tag.
+
+**Rename Map Format**:
+The `rename-map` parameter accepts multiple input formats:
+- JSON string: `'{"OldName":"NewName"}'`
+- Escaped JSON: `'"{\"OldName\":\"NewName\"}"'`
+
+**Output**:
+```
+Tags processed: 150, Matches: 25, Changes: previewed: 20, Skipped: 5, Warnings: 2, Errors: 0
+
+Summary:
+Total Processed: 150
+Matches Found: 25
+Changes Applied: 20 (previewed)
+Skipped: 5
+Warnings: 2
+Errors: 0
+
+Changes:
+- TagTable.PLC tags: Motor_Speed -> MotorSpeed
+- TagTable.PLC tags: Valve_Open -> ValveOpen
+
+Warnings:
+- COLLISION: Name 'MotorSpeed' already exists in tag tables at TagTable.PLC tags
+```
+
+**Substring Matching Output Example**:
+```
+Tags processed: 150, Matches: 45, Changes: previewed: 42, Skipped: 3, Warnings: 0, Errors: 0
+
+Changes:
+- TagTable.PLC tags: Motor_Speed_Setpoint -> Motor_RPM_Setpoint
+- TagTable.PLC tags: Valve_Speed_Actual -> Valve_RPM_Actual
+- TagTable.PLC tags: Speed_Setpoint -> RPM_Setpoint
+- TagTable.PLC tags: Pump_Speed_RPM -> Pump_RPM_RPM
+```
+
+**Best Practices**:
+1. Always use `dry-run=true` first to preview changes
+2. Check warnings and errors before applying
+3. Backup your project before using `dry-run=false`
+4. Review the "Skipped" items for potential issues
+5. **For substring matching:**
+   - Test with specific patterns first - `{"Speed":"RPM"}` affects ALL tags containing "Speed"
+   - Use more specific substrings to avoid unintended replacements
+   - Consider using `--case-insensitive` carefully - it catches more variations
+   - Preview the results carefully - substring matching can affect many tags
+   - Order matters: only the first matching rule in the rename map is applied
+
+#### find-replace-db-members
+
+> **NOTE**: This command is currently disabled. The command file and service method remain available for potential future re-enabling.
+
+Finds and replaces GlobalDB member names with nested struct support.
+
+```bash
+# Preview DB member changes (dry-run is default)
+OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"OldMember":"NewMember"}' --dry-run=true
+
+# Rename DB members in all GlobalDBs
+OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"Speed_RPM":"SpeedRpm"}' --dry-run=false
+
+# Rename specific DB members only
+OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"OldMember":"NewMember"}' --target-blocks="ProcessData" "Configuration"
+
+# Rename with case-insensitive matching
+OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"speed_rpm":"SpeedRpm"}' --case-insensitive=true --dry-run=false
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `rename-map` (required): Dictionary mapping old member names to new names (JSON string)
+- `case-insensitive` (optional): Enable case-insensitive matching (default: false)
+- `dry-run` (optional): Preview changes without applying (default: true)
+- `target-blocks` (optional): List of specific GlobalDB names (default: all)
+
+**Output**:
+```
+DB members processed: 500, Matches: 30, Changes: previewed: 25, Skipped: 5, Warnings: 0, Errors: 0
+
+Changes:
+- ProcessData.Motor.Speed_RPM -> SpeedRpm
+- Configuration.Valve.Open_Status -> OpenStatus
+```
+
+**Key Features**:
+- Nested structure support (handles UDT instances, structs, arrays)
+- Target specific blocks using `--target-blocks`
+- Recursive traversal of complex data types
+
+#### find-replace-udt-members
+
+> **NOTE**: This command is currently disabled. The command file and service method remain available for potential future re-enabling.
+
+Finds and replaces UDT member names with nested struct support.
+
+```bash
+# Preview UDT member changes (dry-run is default)
+OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map='{"Speed_RPM":"SpeedRpm"}' --dry-run=true
+
+# Rename UDT members in all UDTs
+OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map='{"Speed_RPM":"SpeedRpm"}' --dry-run=false
+
+# Rename specific UDT members only
+OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map='{"OldMember":"NewMember"}' --target-types="MotorType" "ValveType"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `rename-map` (required): Dictionary mapping old member names to new names (JSON string)
+- `case-insensitive` (optional): Enable case-insensitive matching (default: false)
+- `dry-run` (optional): Preview changes without applying (default: true)
+- `target-types` (optional): List of specific UDT names (default: all)
+
+**Output**:
+```
+UDT members processed: 200, Matches: 15, Changes: previewed: 12, Skipped: 3, Warnings: 0, Errors: 0
+
+Changes:
+- MotorType.Speed_RPM -> SpeedRpm
+- ValveType.Open_Status -> OpenStatus
+```
+
+**Key Features**:
+- Nested structure support for UDT definitions
+- Changes propagate to all DB instances using the UDT
+- Target specific types using `--target-types`
+
 ### Portal Instance Management (Phase 2)
 
 #### open-tia-portal
@@ -809,6 +1047,162 @@ foreach ($plc in $plcs) {
 
 OpenTiaToolkit.CLI.exe close-project
 OpenTiaToolkit.CLI.exe disconnect-portal
+```
+
+### Example 12: Tag Renaming Workflow (Find and Replace)
+
+```bash
+# Connect and open project
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+
+# Preview tag name changes (recommended first step)
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed","Valve_Open":"ValveOpen"}' --dry-run=true
+
+# Review the preview output, then apply the changes
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed","Valve_Open":"ValveOpen"}' --dry-run=false
+
+# Save the project after renaming
+OpenTiaToolkit.CLI.exe save-project
+```
+
+### Example 13: DB Member Renaming with Nested Structures
+
+```bash
+# Connect and open project
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+
+# Preview DB member changes in specific blocks
+OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"Speed_RPM":"SpeedRpm","Enable_Signal":"Enable"}' --target-blocks="MotorData" "ValveData" --dry-run=true
+
+# Apply changes to all GlobalDBs
+OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"Speed_RPM":"SpeedRpm"}' --dry-run=false
+
+# Rename UDT members (propagates to all DB instances)
+OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map='{"Status_Flag":"Status"}' --target-types="MotorType" --dry-run=false
+```
+
+### Example 14: Large-Scale Refactoring with Case-Insensitive Matching
+
+```bash
+# Connect and open project
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+
+# Standardize naming conventions (case-insensitive to catch variations)
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed","Valve_Open":"ValveOpen"}' --case-insensitive=true --dry-run=true
+
+# Review and apply
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed","Valve_Open":"ValveOpen"}' --case-insensitive=true --dry-run=false
+
+# Save and compile to verify
+OpenTiaToolkit.CLI.exe save-project
+OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1"
+```
+
+### Example 15: PLC Tag Creation Workflow
+
+```bash
+# Connect and open project
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+
+# Open PLC software
+OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
+
+# Create individual tags with specific addresses
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Motor_Run" --data-type="Bool" --logical-address="%M10.0"
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Motor_Speed" --data-type="Int" --logical-address="%MW12"
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Temperature" --data-type="Real" --logical-address="%MD20"
+
+# Create tags in a specific tag table
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Alarm_Text" --data-type="String" --tag-table="HMI_Tags"
+
+# Create tags with auto-assigned addresses
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Status_ID" --data-type="DInt"
+OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Error_Code" --data-type="Int"
+
+# Save the project
+OpenTiaToolkit.CLI.exe save-project
+```
+
+### Example 16: Substring Replacement Workflow
+
+```bash
+# Connect and open project
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+
+# Open PLC software
+OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
+
+# Preview substring replacement - replace "Speed" with "RPM"
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Speed":"RPM"}' --substring-match=true --dry-run=true
+
+# Preview underscore to hyphen conversion
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"_":"-"}' --substring-match=true --dry-run=true
+
+# Apply substring replacement
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Speed":"RPM"}' --substring-match=true --dry-run=false
+
+# Save and compile to verify
+OpenTiaToolkit.CLI.exe save-project
+OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1"
+```
+
+### Example 16b: Safer Substring Replacement with Specific Patterns
+
+```bash
+# Connect and open project
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+
+# Open PLC software
+OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
+
+# Use more specific patterns to avoid unintended replacements
+# Only replace "_Speed" (with underscore) to avoid matching "SpeedRef" or similar
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"_Speed":"_RPM"}' --substring-match=true --dry-run=true
+
+# Preview specific prefix replacements - only affect tags starting with pattern
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_":"MTR_","Valve_":"VLV_"}' --substring-match=true --dry-run=true
+
+# Apply safer patterns
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"_Speed":"_RPM"}' --substring-match=true --dry-run=false
+
+# Save project
+OpenTiaToolkit.CLI.exe save-project
+```
+
+### Example 17: Batch Tag Creation from CSV
+
+```powershell
+# PowerShell script to create tags from CSV file
+$csvFile = "C:\Tags\new_tags.csv"
+# CSV format: TagName,DataType,LogicalAddress,TagTable
+
+Import-Csv $csvFile | ForEach-Object {
+    $params = @{
+        "plc-name" = "PLC_1"
+        "tag-name" = $_.TagName
+        "data-type" = $_.DataType
+    }
+
+    if ($_.LogicalAddress) {
+        $params["logical-address"] = $_.LogicalAddress
+    }
+
+    if ($_.TagTable) {
+        $params["tag-table"] = $_.TagTable
+    }
+
+    $paramList = foreach ($key in $params.Keys) {
+        "--$key=$($params[$key])"
+    }
+
+    OpenTiaToolkit.CLI.exe create-tag @paramList
+}
 ```
 
 ## Argument Parsing Details
