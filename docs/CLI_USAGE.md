@@ -546,7 +546,7 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"spee
 
 **Parameters**:
 - `plc-name` (required): Name of the PLC device
-- `rename-map` (required): Dictionary mapping old names to new names (JSON string)
+- `rename-map` (required): Dictionary mapping old names to new names (JSON string or CSV file path)
 - `case-insensitive` (optional): Enable case-insensitive matching (default: false)
 - `dry-run` (optional): Preview changes without applying (default: true)
 - `substring-match` (optional): Enable substring matching instead of exact matching (default: false)
@@ -577,6 +577,21 @@ Examples:
 The `rename-map` parameter accepts multiple input formats:
 - JSON string: `'{"OldName":"NewName"}'`
 - Escaped JSON: `'"{\"OldName\":\"NewName\"}"'`
+- CSV file path: `"C:\Tags\rename_tags.csv"` (file must end with `.csv`)
+
+**CSV File Format**:
+CSV files should have two columns:
+```csv
+OldName,NewName
+Motor_Speed,MotorSpeed
+Valve_Open,ValveOpen
+Sensor_Temp1,SensorTemperature1
+```
+- Header row is optional (auto-detected if contains keywords like "old", "new", "current", "actual")
+- First column: Current/actual tag name (old name)
+- Second column: New/modified tag name
+- Empty lines are skipped
+- Whitespace in columns is trimmed
 
 **Output**:
 ```
@@ -1203,6 +1218,50 @@ Import-Csv $csvFile | ForEach-Object {
 
     OpenTiaToolkit.CLI.exe create-tag @paramList
 }
+```
+
+### Example 18: Batch Tag Rename from CSV File
+
+```powershell
+# Create CSV file with rename mappings
+# File: rename_tags.csv
+# Content:
+# OldName,NewName
+# Motor_Speed,MotorSpeed
+# Valve_Open,ValveOpen
+# Sensor_Temp1,SensorTemperature1
+
+# Connect and open project
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
+
+# Preview changes from CSV
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map="C:\Tags\rename_tags.csv" --dry-run=true
+
+# Apply changes
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map="C:\Tags\rename_tags.csv" --dry-run=false
+
+# Save project
+OpenTiaToolkit.CLI.exe save-project
+```
+
+**CSV Format Notes**:
+- Header row with "OldName,NewName" is recommended (auto-detected)
+- Files without headers also work: `Motor_Speed,MotorSpeed` on first line
+- Empty lines are skipped
+- Whitespace around values is trimmed automatically
+- Last occurrence wins for duplicate old names (case-insensitive)
+
+**Example CSV file creation**:
+```powershell
+# Create CSV file using PowerShell
+$csvContent = @"
+OldName,NewName
+Motor_Speed,MotorSpeed
+Valve_Open,ValveOpen
+Sensor_Temp1,SensorTemperature1
+"@
+Set-Content -Path "C:\Tags\rename_tags.csv" -Value $csvContent
 ```
 
 ## Argument Parsing Details

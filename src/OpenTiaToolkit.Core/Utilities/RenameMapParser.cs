@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace OpenTiaToolkit.Core.Utilities
@@ -59,6 +61,14 @@ namespace OpenTiaToolkit.Core.Utilities
                 throw new ArgumentException("Rename map JSON string cannot be empty.", nameof(jsonString));
             }
 
+            var working = jsonString.Trim();
+
+            // Check if it's a CSV file path (before any quote stripping)
+            if (working.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                return ParseCsvFile(working);
+            }
+
             // Handle CLI input which may include outer quotes or escaped quotes
             // Examples of possible input formats:
             // - "{\"M100\":\"M200\"}"  -> {"M100":"M200"}
@@ -66,10 +76,7 @@ namespace OpenTiaToolkit.Core.Utilities
             // - {"M100":"M200"}  -> {"M100":"M200"}
             // - {M100:M200}  -> {"M100":"M200"} (quotes stripped by REPL parser)
 
-            var working = jsonString;
-
             // Remove outer single quotes if present (from CLI input)
-            working = working.Trim();
             if (working.StartsWith("'") && working.EndsWith("'") && working.Length > 1)
             {
                 working = working.Substring(1, working.Length - 2).Trim();
@@ -191,12 +198,17 @@ namespace OpenTiaToolkit.Core.Utilities
                     throw new ArgumentException("Rename map string cannot be empty.");
                 }
 
-                // Check if it looks like a file path (contains path separator or .csv extension)
-                if (strValue.Contains("/") || strValue.Contains("\\") ||
-                    strValue.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                // Check if it's a CSV file (must end with .csv)
+                if (strValue.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ParseCsvFile(strValue);
+                }
+
+                // Check if it looks like a file path (contains path separator but not CSV)
+                if (strValue.Contains("/") || strValue.Contains("\\"))
                 {
                     throw new NotSupportedException(
-                        "CSV file paths are not currently supported. Please provide a JSON object or JSON string."
+                        "File paths are only supported for .csv files. Please provide a CSV file or JSON string."
                     );
                 }
 
@@ -259,6 +271,130 @@ namespace OpenTiaToolkit.Core.Utilities
             }
 
             return renameMap;
+        }
+
+        /// <summary>
+        /// Parses a CSV file containing rename mappings.
+        /// CSV format: OldName,NewName (header optional)
+        /// </summary>
+        /// <param name="filePath">Path to the CSV file.</param>
+        /// <returns>A dictionary mapping old names to new names (case-insensitive).</returns>
+        /// <exception cref="FileNotFoundException">Thrown when the CSV file doesn't exist.</exception>
+        /// <exception cref="ArgumentException">Thrown when the CSV format is invalid.</exception>
+        private static Dictionary<string, string> ParseCsvFile(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException(
+                    $"CSV file not found: {filePath}",
+                    filePath
+                );
+            }
+
+            var renameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string[] lines;
+
+            try
+            {
+                lines = File.ReadLines(filePath).ToArray();
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException(
+                    $"Failed to read CSV file: {filePath}. Error: {ex.Message}",
+                    nameof(filePath),
+                    ex
+                );
+            }
+
+            if (lines.Length == 0)
+            {
+                throw new ArgumentException(
+                    $"CSV file is empty: {filePath}"
+                );
+            }
+
+            // Determine if first row is a header by checking for header keywords
+            bool hasHeader = IsHeaderRow(lines[0]);
+
+            // Start parsing from the appropriate line
+            int startIndex = hasHeader ? 1 : 0;
+
+            for (int i = startIndex; i < lines.Length; i++)
+            {
+                var lineNum = i + 1;
+                var line = lines[i];
+
+                // Skip empty lines
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                // Split by comma (simple CSV - no quoted commas support)
+                var columns = line.Split(',');
+
+                if (columns.Length != 2)
+                {
+                    throw new ArgumentException(
+                        $"Invalid CSV format at line {lineNum}. Expected 2 columns, found {columns.Length}. Line content: '{line.Trim()}'"
+                    );
+                }
+
+                var oldName = columns[0].Trim();
+                var newName = columns[1].Trim();
+
+                // Skip empty entries
+                if (string.IsNullOrEmpty(oldName) || string.IsNullOrEmpty(newName))
+                {
+                    continue;
+                }
+
+                // Add to dictionary (last occurrence wins for duplicates)
+                renameMap[oldName] = newName;
+            }
+
+            if (renameMap.Count == 0)
+            {
+                throw new ArgumentException(
+                    $"CSV file contains no valid rename mappings: {filePath}"
+                );
+            }
+
+            return renameMap;
+        }
+
+        /// <summary>
+        /// Determines if a row is a header row by checking for common header keywords.
+        /// </summary>
+        /// <param name="row">The row to check.</param>
+        /// <returns>True if the row appears to be a header.</returns>
+        private static bool IsHeaderRow(string row)
+        {
+            if (string.IsNullOrWhiteSpace(row))
+            {
+                return false;
+            }
+
+            var columns = row.Split(',');
+            if (columns.Length < 2)
+            {
+                return false;
+            }
+
+            var col1 = columns[0].Trim().ToLowerInvariant();
+            var col2 = columns[1].Trim().ToLowerInvariant();
+
+            // Check for common header keywords in first column (old name indicators)
+            var oldNameKeywords = new[] { "old", "current", "actual", "existing", "from" };
+            // Check for common header keywords in second column (new name indicators)
+            var newNameKeywords = new[] { "new", "modified", "renamed", "to", "target" };
+
+            bool firstColIsHeader = oldNameKeywords.Any(keyword => col1.Contains(keyword));
+            bool secondColIsHeader = newNameKeywords.Any(keyword => col2.Contains(keyword));
+
+            // Consider it a header if at least one column contains header keywords
+            return firstColIsHeader || secondColIsHeader;
         }
     }
 }

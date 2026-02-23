@@ -45,6 +45,7 @@ namespace OpenTiaToolkit.CLI.Output
                 BlockInfo block => FormatBlockInfo(block),
                 BlockInfoDetail blockDetail => FormatBlockInfoDetail(blockDetail),
                 // Anonymous objects (status objects, etc.)
+                _ when IsFindReplaceResult(result.Data) => FormatFindReplaceResult(result.Data),
                 _ when result.Data.GetType().Name.Contains("AnonymousType") => FormatAnonymousObject(result.Data),
                 _ => result.ToTable() // Fallback to default formatting
             };
@@ -439,6 +440,163 @@ namespace OpenTiaToolkit.CLI.Output
             return value.Length <= maxLength
                 ? value
                 : value.Substring(0, maxLength - 3) + "...";
+        }
+
+        /// <summary>
+        /// Detects if the anonymous object is a find-replace result.
+        /// </summary>
+        private static bool IsFindReplaceResult(object data)
+        {
+            if (data == null) return false;
+
+            var type = data.GetType();
+            if (!type.Name.Contains("AnonymousType")) return false;
+
+            // Check for signature properties of find-replace results
+            var hasSummary = type.GetProperty("summary") != null;
+            var hasChanges = type.GetProperty("changes") != null;
+            var hasSkipped = type.GetProperty("skipped") != null;
+            var hasWarnings = type.GetProperty("warnings") != null;
+            var hasErrors = type.GetProperty("errors") != null;
+
+            return hasSummary && hasChanges && hasSkipped && hasWarnings && hasErrors;
+        }
+
+        /// <summary>
+        /// Formats a find-replace result object.
+        /// </summary>
+        private static string FormatFindReplaceResult(object data)
+        {
+            var lines = new List<string>();
+
+            var summaryProp = data.GetType().GetProperty("summary");
+            var changesProp = data.GetType().GetProperty("changes");
+            var skippedProp = data.GetType().GetProperty("skipped");
+            var warningsProp = data.GetType().GetProperty("warnings");
+            var errorsProp = data.GetType().GetProperty("errors");
+
+            var summary = summaryProp?.GetValue(data);
+            var changes = changesProp?.GetValue(data);
+            var skipped = skippedProp?.GetValue(data);
+            var warnings = warningsProp?.GetValue(data);
+            var errors = errorsProp?.GetValue(data);
+
+            // Format summary
+            if (summary != null)
+            {
+                var totalProcessed = summary.GetType().GetProperty("TotalProcessed")?.GetValue(summary);
+                var matchesFound = summary.GetType().GetProperty("MatchesFound")?.GetValue(summary);
+                var changesApplied = summary.GetType().GetProperty("ChangesApplied")?.GetValue(summary);
+                var skippedCount = summary.GetType().GetProperty("Skipped")?.GetValue(summary);
+                var warningsCount = summary.GetType().GetProperty("Warnings")?.GetValue(summary);
+                var errorsCount = summary.GetType().GetProperty("Errors")?.GetValue(summary);
+
+                lines.Add($"Summary:");
+                lines.Add($"  Total Processed: {totalProcessed ?? 0}");
+                lines.Add($"  Matches Found: {matchesFound ?? 0}");
+                lines.Add($"  Changes Applied: {changesApplied ?? 0}");
+                lines.Add($"  Skipped: {skippedCount ?? 0}");
+                lines.Add($"  Warnings: {warningsCount ?? 0}");
+                lines.Add($"  Errors: {errorsCount ?? 0}");
+            }
+
+            // Format changes
+            if (changes != null && changes.GetType().IsGenericType && changes.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var changeList = (System.Collections.IList)changes;
+                if (changeList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Changes:");
+                    foreach (var change in changeList)
+                    {
+                        if (change != null)
+                        {
+                            var path = change.GetType().GetProperty("Path")?.GetValue(change)?.ToString() ?? "";
+                            var before = change.GetType().GetProperty("Before")?.GetValue(change)?.ToString() ?? "";
+                            var after = change.GetType().GetProperty("After")?.GetValue(change)?.ToString() ?? "";
+                            lines.Add($"  - {path}: {before} -> {after}");
+                        }
+                    }
+                }
+            }
+
+            // Format skipped items
+            if (skipped != null && skipped.GetType().IsGenericType && skipped.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var skippedList = (System.Collections.IList)skipped;
+                if (skippedList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Skipped:");
+                    foreach (var item in skippedList)
+                    {
+                        if (item != null)
+                        {
+                            var path = item.GetType().GetProperty("Path")?.GetValue(item)?.ToString() ?? "";
+                            var name = item.GetType().GetProperty("Name")?.GetValue(item)?.ToString() ?? "";
+                            var reason = item.GetType().GetProperty("Reason")?.GetValue(item)?.ToString() ?? "";
+                            lines.Add($"  - {path}.{name}: {reason}");
+                        }
+                    }
+                }
+            }
+
+            // Format warnings
+            if (warnings != null && warnings.GetType().IsGenericType && warnings.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var warningsList = (System.Collections.IList)warnings;
+                if (warningsList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Warnings:");
+                    foreach (var warning in warningsList)
+                    {
+                        if (warning != null)
+                        {
+                            var code = warning.GetType().GetProperty("Code")?.GetValue(warning)?.ToString() ?? "";
+                            var message = warning.GetType().GetProperty("Message")?.GetValue(warning)?.ToString() ?? "";
+                            var path = warning.GetType().GetProperty("Path")?.GetValue(warning)?.ToString() ?? "";
+                            if (!string.IsNullOrEmpty(code))
+                            {
+                                lines.Add($"  - {code}: {message} at {path}");
+                            }
+                            else
+                            {
+                                lines.Add($"  - {message}");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Format errors
+            if (errors != null && errors.GetType().IsGenericType && errors.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var errorsList = (System.Collections.IList)errors;
+                if (errorsList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Errors:");
+                    foreach (var error in errorsList)
+                    {
+                        if (error != null)
+                        {
+                            var path = error.GetType().GetProperty("Path")?.GetValue(error)?.ToString() ?? "";
+                            var name = error.GetType().GetProperty("Name")?.GetValue(error)?.ToString() ?? "";
+                            var errorMessage = error.GetType().GetProperty("Error")?.GetValue(error)?.ToString() ?? "";
+                            var details = error.GetType().GetProperty("Details")?.GetValue(error)?.ToString() ?? "";
+                            lines.Add($"  - {path}.{name}: {errorMessage}");
+                            if (!string.IsNullOrEmpty(details))
+                            {
+                                lines.Add($"    Details: {details}");
+                            }
+                        }
+                    }
+                }
+            }
+
+            return string.Join(Environment.NewLine, lines);
         }
     }
 }
