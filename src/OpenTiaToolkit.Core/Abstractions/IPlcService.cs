@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -128,6 +129,18 @@ public interface IPlcService
         string dataType,
         string? logicalAddress = null,
         string? tagTableName = null);
+
+    /// <summary>
+    /// Updates PLC tags from a CSV file based on page-based naming rules.
+    /// Tags with page &gt;= 100 are matched by base name (can change both name and address).
+    /// Tags with page &lt; 100 are matched by full name (address only).
+    /// </summary>
+    /// <param name="csvFilePath">Path to the CSV file containing tag updates.</param>
+    /// <param name="dryRun">Preview changes without applying (default: true).</param>
+    /// <returns>Result containing summary, updated tags, created tags, warnings, and errors.</returns>
+    Task<TagUpdateResult> UpdateTagsFromCsvAsync(
+        string csvFilePath,
+        bool dryRun = true);
 
     /// <summary>
     /// Finds and replaces GlobalDB member names with nested struct support.

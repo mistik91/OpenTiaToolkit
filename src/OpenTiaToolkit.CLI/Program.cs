@@ -308,6 +308,7 @@ namespace OpenTiaToolkit.CLI
 
             // Register Phase 5 commands - Tag Management
             services.AddSingleton<ICommand, CreateTagCommand>();
+            services.AddSingleton<ICommand, UpdateTagsFromCsvCommand>();
 
             // Register test command (for testing)
             services.AddSingleton<ICommand, TestFindReplaceCommand>();

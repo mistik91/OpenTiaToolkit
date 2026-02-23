@@ -122,6 +122,7 @@ namespace OpenTiaToolkit.MCP
 
             // Register Phase 5 commands - Tag Management
             services.AddSingleton<ICommand, CreateTagCommand>();
+            services.AddSingleton<ICommand, UpdateTagsFromCsvCommand>();
 
             // Register MCP-specific services
             services.AddSingleton<ToolRegistry>();

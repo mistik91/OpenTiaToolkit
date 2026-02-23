@@ -1,0 +1,22 @@
+TagName,Address,DataType,Comment
+173MR100,%M100.0,Bool,Motor 100 start command (currently on page 173)
+243MR100,%M200.0,Bool,Motor 100 start command (moving to page 243)
+173MR101,%M100.1,Bool,Motor 101 stop command (currently on page 173)
+243MR101,%M201.0,Bool,Motor 101 stop command (moving to page 243)
+173MR200,%M102.0,Word,Motor 200 speed setpoint (moving to page 243)
+243MR200,%M202.0,Word,Motor 200 speed setpoint (moving to page 243)
+23F1,%M0.1,Bool,Emergency stop button (page < 100)
+23F2,%M0.2,Bool,Reset button (page < 100)
+23F3,%M0.3,Bool,Mode selector (page < 100)
+99TAG,%M50.0,Bool,Tag on page 99 (< 100)
+100TAG,%M60.0,Bool,Tag on page 100 (>= 100)
+101TAG,%M61.0,Bool,Tag on page 101 (>= 100)
+NEW_TAG_001,%M999.0,Word,Brand new tag for testing
+NEW_TAG_002,%M1000.0,DInt,New counter tag
+NEW_TAG_003,%M1001.0,Bool,New status flag
+150SENSOR1,%M150.0,Bool,Sensor 1 (page 150)
+151SENSOR1,%M151.0,Bool,Sensor 1 (moving to page 151)
+200ACTUATOR1,%M200.1,Bool,Actuator 1 control
+250ACTUATOR1,%M250.1,Bool,Actuator 1 control (moving to page 250)
+99FIXED,%M10.0,Bool,Fixed address tag (page 99 - won't change name)
+100MOVABLE,%M20.0,Bool,Movable tag (page 100 - can change name)

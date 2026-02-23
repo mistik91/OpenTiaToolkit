@@ -46,6 +46,7 @@ namespace OpenTiaToolkit.CLI.Output
                 BlockInfoDetail blockDetail => FormatBlockInfoDetail(blockDetail),
                 // Anonymous objects (status objects, etc.)
                 _ when IsFindReplaceResult(result.Data) => FormatFindReplaceResult(result.Data),
+                _ when IsTagUpdateResult(result.Data) => FormatTagUpdateResult(result.Data),
                 _ when result.Data.GetType().Name.Contains("AnonymousType") => FormatAnonymousObject(result.Data),
                 _ => result.ToTable() // Fallback to default formatting
             };
@@ -463,6 +464,26 @@ namespace OpenTiaToolkit.CLI.Output
         }
 
         /// <summary>
+        /// Detects if the anonymous object is a tag update result.
+        /// </summary>
+        private static bool IsTagUpdateResult(object data)
+        {
+            if (data == null) return false;
+
+            var type = data.GetType();
+            if (!type.Name.Contains("AnonymousType")) return false;
+
+            // Check for signature properties of tag update results
+            var hasSummary = type.GetProperty("summary") != null;
+            var hasUpdated = type.GetProperty("updated") != null;
+            var hasCreated = type.GetProperty("created") != null;
+            var hasWarnings = type.GetProperty("warnings") != null;
+            var hasErrors = type.GetProperty("errors") != null;
+
+            return hasSummary && hasUpdated && hasCreated && hasWarnings && hasErrors;
+        }
+
+        /// <summary>
         /// Formats a find-replace result object.
         /// </summary>
         private static string FormatFindReplaceResult(object data)
@@ -587,6 +608,150 @@ namespace OpenTiaToolkit.CLI.Output
                             var errorMessage = error.GetType().GetProperty("Error")?.GetValue(error)?.ToString() ?? "";
                             var details = error.GetType().GetProperty("Details")?.GetValue(error)?.ToString() ?? "";
                             lines.Add($"  - {path}.{name}: {errorMessage}");
+                            if (!string.IsNullOrEmpty(details))
+                            {
+                                lines.Add($"    Details: {details}");
+                            }
+                        }
+                    }
+                }
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        /// <summary>
+        /// Formats a tag update result object.
+        /// </summary>
+        private static string FormatTagUpdateResult(object data)
+        {
+            var lines = new List<string>();
+
+            var summaryProp = data.GetType().GetProperty("summary");
+            var updatedProp = data.GetType().GetProperty("updated");
+            var createdProp = data.GetType().GetProperty("created");
+            var warningsProp = data.GetType().GetProperty("warnings");
+            var errorsProp = data.GetType().GetProperty("errors");
+
+            var summary = summaryProp?.GetValue(data);
+            var updated = updatedProp?.GetValue(data);
+            var created = createdProp?.GetValue(data);
+            var warnings = warningsProp?.GetValue(data);
+            var errors = errorsProp?.GetValue(data);
+
+            // Format summary
+            if (summary != null)
+            {
+                var totalCsvRows = summary.GetType().GetProperty("TotalCsvRows")?.GetValue(summary);
+                var existingTagsScanned = summary.GetType().GetProperty("ExistingTagsScanned")?.GetValue(summary);
+                var tagsUpdated = summary.GetType().GetProperty("TagsUpdated")?.GetValue(summary);
+                var tagsCreated = summary.GetType().GetProperty("TagsCreated")?.GetValue(summary);
+                var tagsSkipped = summary.GetType().GetProperty("TagsSkipped")?.GetValue(summary);
+
+                lines.Add("Summary:");
+                lines.Add($"  CSV Rows: {totalCsvRows ?? 0}");
+                lines.Add($"  Existing Tags Scanned: {existingTagsScanned ?? 0}");
+                lines.Add($"  Tags Updated: {tagsUpdated ?? 0}");
+                lines.Add($"  Tags Created: {tagsCreated ?? 0}");
+                lines.Add($"  Tags Skipped: {tagsSkipped ?? 0}");
+            }
+
+            // Format updated tags
+            if (updated != null && updated.GetType().IsGenericType && updated.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var updatedList = (System.Collections.IList)updated;
+                if (updatedList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Updated Tags:");
+                    foreach (var entry in updatedList)
+                    {
+                        if (entry != null)
+                        {
+                            var tagTableName = entry.GetType().GetProperty("TagTableName")?.GetValue(entry)?.ToString() ?? "";
+                            var matchedBy = entry.GetType().GetProperty("MatchedBy")?.GetValue(entry)?.ToString() ?? "";
+                            var oldName = entry.GetType().GetProperty("OldName")?.GetValue(entry)?.ToString() ?? "";
+                            var newName = entry.GetType().GetProperty("NewName")?.GetValue(entry)?.ToString() ?? "";
+                            var oldAddress = entry.GetType().GetProperty("OldAddress")?.GetValue(entry)?.ToString() ?? "";
+                            var newAddress = entry.GetType().GetProperty("NewAddress")?.GetValue(entry)?.ToString() ?? "";
+
+                            if (matchedBy == "BaseName" && oldName != newName)
+                            {
+                                lines.Add($"  - [{tagTableName}] {oldName} -> {newName} ({oldAddress} -> {newAddress})");
+                            }
+                            else
+                            {
+                                lines.Add($"  - [{tagTableName}] {newName}: {oldAddress} -> {newAddress}");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Format created tags
+            if (created != null && created.GetType().IsGenericType && created.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var createdList = (System.Collections.IList)created;
+                if (createdList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Created Tags:");
+                    foreach (var entry in createdList)
+                    {
+                        if (entry != null)
+                        {
+                            var tagTableName = entry.GetType().GetProperty("TagTableName")?.GetValue(entry)?.ToString() ?? "";
+                            var tagName = entry.GetType().GetProperty("TagName")?.GetValue(entry)?.ToString() ?? "";
+                            var dataType = entry.GetType().GetProperty("DataType")?.GetValue(entry)?.ToString() ?? "";
+                            var address = entry.GetType().GetProperty("Address")?.GetValue(entry)?.ToString() ?? "";
+                            var comment = entry.GetType().GetProperty("Comment")?.GetValue(entry)?.ToString();
+                            var commentStr = string.IsNullOrEmpty(comment) ? "" : $" - {comment}";
+                            lines.Add($"  - [{tagTableName}] {tagName} ({dataType}): {address}{commentStr}");
+                        }
+                    }
+                }
+            }
+
+            // Format warnings
+            if (warnings != null && warnings.GetType().IsGenericType && warnings.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var warningsList = (System.Collections.IList)warnings;
+                if (warningsList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Warnings:");
+                    foreach (var warning in warningsList)
+                    {
+                        if (warning != null)
+                        {
+                            var item = warning.GetType().GetProperty("Item")?.GetValue(warning)?.ToString() ?? "";
+                            var reason = warning.GetType().GetProperty("Reason")?.GetValue(warning)?.ToString() ?? "";
+                            var lineNumber = warning.GetType().GetProperty("LineNumber")?.GetValue(warning);
+                            var lineStr = lineNumber != null ? $" (line {lineNumber})" : "";
+                            lines.Add($"  - {item}{lineStr}: {reason}");
+                        }
+                    }
+                }
+            }
+
+            // Format errors
+            if (errors != null && errors.GetType().IsGenericType && errors.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var errorsList = (System.Collections.IList)errors;
+                if (errorsList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Errors:");
+                    foreach (var error in errorsList)
+                    {
+                        if (error != null)
+                        {
+                            var item = error.GetType().GetProperty("Item")?.GetValue(error)?.ToString() ?? "";
+                            var errorMessage = error.GetType().GetProperty("Error")?.GetValue(error)?.ToString() ?? "";
+                            var details = error.GetType().GetProperty("Details")?.GetValue(error)?.ToString();
+                            var lineNumber = error.GetType().GetProperty("LineNumber")?.GetValue(error);
+                            var lineStr = lineNumber != null ? $" (line {lineNumber})" : "";
+                            lines.Add($"  - {item}{lineStr}: {errorMessage}");
                             if (!string.IsNullOrEmpty(details))
                             {
                                 lines.Add($"    Details: {details}");

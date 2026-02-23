@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Utilities;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
 using Siemens.Engineering.HW.Features;
@@ -2506,7 +2508,557 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
+        /// <inheritdoc/>
+        public async Task<TagUpdateResult> UpdateTagsFromCsvAsync(
+            string csvFilePath,
+            bool dryRun = true)
+        {
+            var result = new TagUpdateResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    result.Errors.Add(new TagUpdateError
+                    {
+                        Item = "System",
+                        Error = "No PLC software is currently open"
+                    });
+                    return result;
+                }
+
+                _logger?.LogInformation("UpdateTagsFromCsvAsync called: CsvPath={CsvPath}, DryRun={DryRun}",
+                    csvFilePath, dryRun);
+
+                try
+                {
+                    // Parse CSV file
+                    List<TagUpdateRow> csvRows;
+                    try
+                    {
+                        csvRows = TagUpdateCsvParser.Parse(csvFilePath);
+                        result.Summary.TotalCsvRows = csvRows.Count;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add(new TagUpdateError
+                        {
+                            Item = csvFilePath,
+                            Error = "Failed to parse CSV file",
+                            Details = ex.Message
+                        });
+                        return result;
+                    }
+
+                    // Regex pattern: ^(\d+)([a-zA-Z0-9_]+)$
+                    var tagPattern = new Regex(@"^(\d+)([a-zA-Z0-9_]+)$");
+
+                    // Build lookup dictionaries from existing tags
+                    var tagsOverPage100 = new Dictionary<string, TagInfo>(StringComparer.OrdinalIgnoreCase); // Key: BaseName
+                    var tagsUnderPage100 = new Dictionary<string, TagInfo>(StringComparer.OrdinalIgnoreCase); // Key: FullName
+
+                    // Get TagTableGroup
+                    var tagTableGroup = TiaReflectionHelper.GetTagTableGroup(_plcSoftware);
+                    if (tagTableGroup == null)
+                    {
+                        result.Errors.Add(new TagUpdateError
+                        {
+                            Item = "System",
+                            Error = "PLC software does not support tag tables"
+                        });
+                        return result;
+                    }
+
+                    // Get TagTables collection
+                    var tagTables = TiaReflectionHelper.GetTagTables(tagTableGroup);
+                    if (tagTables == null)
+                    {
+                        result.Errors.Add(new TagUpdateError
+                        {
+                            Item = "System",
+                            Error = "TagTables collection is null or not enumerable"
+                        });
+                        return result;
+                    }
+
+                    // Scan all tag tables to build lookup dictionaries
+                    foreach (var tagTable in tagTables)
+                    {
+                        var tagTableName = TiaReflectionHelper.GetName(tagTable) ?? "Unknown";
+                        var tags = TiaReflectionHelper.GetTags(tagTable);
+                        if (tags == null) continue;
+
+                        foreach (var tag in tags)
+                        {
+                            var tagName = TiaReflectionHelper.GetName(tag);
+                            if (string.IsNullOrEmpty(tagName)) continue;
+
+                            var match = tagPattern.Match(tagName);
+                            if (match.Success)
+                            {
+                                int pageNumber = int.Parse(match.Groups[1].Value);
+                                string baseName = match.Groups[2].Value;
+
+                                var tagInfo = new TagInfo
+                                {
+                                    TagObject = tag,
+                                    TagTableName = tagTableName,
+                                    FullName = tagName,
+                                    BaseName = baseName,
+                                    PageNumber = pageNumber
+                                };
+
+                                if (pageNumber >= 100)
+                                {
+                                    // For page >= 100, index by base name
+                                    // If duplicate base name exists, keep the first one
+                                    if (!tagsOverPage100.ContainsKey(baseName))
+                                    {
+                                        tagsOverPage100[baseName] = tagInfo;
+                                    }
+                                }
+                                else
+                                {
+                                    // For page < 100, index by full name
+                                    if (!tagsUnderPage100.ContainsKey(tagName))
+                                    {
+                                        tagsUnderPage100[tagName] = tagInfo;
+                                    }
+                                }
+
+                                result.Summary.ExistingTagsScanned++;
+                            }
+                        }
+                    }
+
+                    _logger?.LogInformation("Scanned {ExistingTags} existing tags ({OverPage} page>=100, {UnderPage} page<100)",
+                        result.Summary.ExistingTagsScanned, tagsOverPage100.Count, tagsUnderPage100.Count);
+
+                    // Get the first/default tag table for creating new tags
+                    var defaultTagTable = tagTables.FirstOrDefault();
+                    if (defaultTagTable == null)
+                    {
+                        result.Errors.Add(new TagUpdateError
+                        {
+                            Item = "System",
+                            Error = "No tag table found for creating new tags"
+                        });
+                        return result;
+                    }
+                    var defaultTableName = TiaReflectionHelper.GetName(defaultTagTable) ?? "Default";
+
+                    // Process CSV rows
+                    foreach (var csvRow in csvRows)
+                    {
+                        var match = tagPattern.Match(csvRow.TagName);
+                        if (!match.Success)
+                        {
+                            result.Warnings.Add(new TagUpdateWarning
+                            {
+                                Item = csvRow.TagName,
+                                Reason = "Tag name does not match pattern ^\\d+[a-zA-Z0-9_]+$ - skipping",
+                                LineNumber = csvRow.LineNumber
+                            });
+                            result.Summary.TagsSkipped++;
+                            continue;
+                        }
+
+                        int csvPageNumber = int.Parse(match.Groups[1].Value);
+                        string csvBaseName = match.Groups[2].Value;
+
+                        if (csvPageNumber >= 100)
+                        {
+                            // Search by base name
+                            if (tagsOverPage100.TryGetValue(csvBaseName, out var tagInfo))
+                            {
+                                // Update existing tag
+                                var oldAddress = TiaReflectionHelper.GetProperty(tagInfo.TagObject, "LogicalAddress")?.ToString();
+                                var oldComment = TiaReflectionHelper.GetProperty(tagInfo.TagObject, "Comment")?.ToString();
+
+                                if (!dryRun)
+                                {
+                                    try
+                                    {
+                                        // Update name (if changed)
+                                        if (!string.Equals(tagInfo.FullName, csvRow.TagName, StringComparison.Ordinal))
+                                        {
+                                            TiaReflectionHelper.SetProperty(tagInfo.TagObject, "Name", csvRow.TagName);
+                                        }
+
+                                        // Update address
+                                        if (!string.IsNullOrEmpty(csvRow.Address))
+                                        {
+                                            TiaReflectionHelper.SetProperty(tagInfo.TagObject, "LogicalAddress", csvRow.Address);
+                                        }
+
+                                        // Update comment if provided
+                                        if (csvRow.Comment != null)
+                                        {
+                                            SetTagComment(tagInfo.TagObject, csvRow.Comment);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        result.Errors.Add(new TagUpdateError
+                                        {
+                                            Item = csvRow.TagName,
+                                            Error = "Failed to update tag",
+                                            Details = ex.Message,
+                                            LineNumber = csvRow.LineNumber
+                                        });
+                                        result.Summary.TagsSkipped++;
+                                        continue;
+                                    }
+                                }
+
+                                result.Updated.Add(new TagUpdateEntry
+                                {
+                                    TagTableName = tagInfo.TagTableName,
+                                    MatchedBy = "BaseName",
+                                    OldName = tagInfo.FullName,
+                                    NewName = csvRow.TagName,
+                                    OldAddress = oldAddress,
+                                    NewAddress = csvRow.Address,
+                                    OldComment = oldComment,
+                                    NewComment = csvRow.Comment
+                                });
+                                result.Summary.TagsUpdated++;
+                            }
+                            else
+                            {
+                                // Create new tag
+                                if (string.IsNullOrEmpty(csvRow.DataType))
+                                {
+                                    result.Errors.Add(new TagUpdateError
+                                    {
+                                        Item = csvRow.TagName,
+                                        Error = "DataType is required for new tags",
+                                        LineNumber = csvRow.LineNumber
+                                    });
+                                    result.Summary.TagsSkipped++;
+                                    continue;
+                                }
+
+                                if (!dryRun)
+                                {
+                                    try
+                                    {
+                                        // Create tag using Tags.Create() method
+                                        var tagsCollection = TiaReflectionHelper.GetTags(defaultTagTable);
+                                        if (tagsCollection == null)
+                                        {
+                                            result.Errors.Add(new TagUpdateError
+                                            {
+                                                Item = csvRow.TagName,
+                                                Error = "Could not get tags collection",
+                                                LineNumber = csvRow.LineNumber
+                                            });
+                                            result.Summary.TagsSkipped++;
+                                            continue;
+                                        }
+
+                                        // Invoke Tags.Create(string name, string dataType, string logicalAddress) method
+                                        // This matches the pattern used in CreateTagAsync
+                                        var createMethod = tagsCollection.GetType().GetMethod("Create", new[] { typeof(string), typeof(string), typeof(string) });
+                                        if (createMethod == null)
+                                        {
+                                            result.Errors.Add(new TagUpdateError
+                                            {
+                                                Item = csvRow.TagName,
+                                                Error = "Tags.Create method not found",
+                                                LineNumber = csvRow.LineNumber
+                                            });
+                                            result.Summary.TagsSkipped++;
+                                            continue;
+                                        }
+
+                                        var address = string.IsNullOrEmpty(csvRow.Address) ? string.Empty : csvRow.Address;
+                                        var createdTag = createMethod.Invoke(tagsCollection, new object[] { csvRow.TagName, csvRow.DataType, address });
+                                        if (createdTag == null)
+                                        {
+                                            result.Errors.Add(new TagUpdateError
+                                            {
+                                                Item = csvRow.TagName,
+                                                Error = "Tag creation failed - Create returned null",
+                                                LineNumber = csvRow.LineNumber
+                                            });
+                                            result.Summary.TagsSkipped++;
+                                            continue;
+                                        }
+
+                                        // Set comment if provided
+                                        if (csvRow.Comment != null)
+                                        {
+                                            SetTagComment(createdTag, csvRow.Comment);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        result.Errors.Add(new TagUpdateError
+                                        {
+                                            Item = csvRow.TagName,
+                                            Error = "Failed to create tag",
+                                            Details = $"{ex.GetType().Name}: {ex.Message}",
+                                            LineNumber = csvRow.LineNumber
+                                        });
+                                        result.Summary.TagsSkipped++;
+                                        continue;
+                                    }
+                                }
+
+                                result.Created.Add(new TagCreateEntry
+                                {
+                                    TagTableName = defaultTableName,
+                                    TagName = csvRow.TagName,
+                                    DataType = csvRow.DataType,
+                                    Address = csvRow.Address,
+                                    Comment = csvRow.Comment
+                                });
+                                result.Summary.TagsCreated++;
+                            }
+                        }
+                        else
+                        {
+                            // Search by full name (page < 100)
+                            if (tagsUnderPage100.TryGetValue(csvRow.TagName, out var tagInfo))
+                            {
+                                // Update address and comment only (name stays the same)
+                                var oldAddress = TiaReflectionHelper.GetProperty(tagInfo.TagObject, "LogicalAddress")?.ToString();
+                                var oldComment = TiaReflectionHelper.GetProperty(tagInfo.TagObject, "Comment")?.ToString();
+
+                                if (!dryRun)
+                                {
+                                    try
+                                    {
+                                        // Update address
+                                        if (!string.IsNullOrEmpty(csvRow.Address))
+                                        {
+                                            TiaReflectionHelper.SetProperty(tagInfo.TagObject, "LogicalAddress", csvRow.Address);
+                                        }
+
+                                        // Update comment if provided
+                                        if (csvRow.Comment != null)
+                                        {
+                                            SetTagComment(tagInfo.TagObject, csvRow.Comment);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        result.Errors.Add(new TagUpdateError
+                                        {
+                                            Item = csvRow.TagName,
+                                            Error = "Failed to update tag",
+                                            Details = ex.Message,
+                                            LineNumber = csvRow.LineNumber
+                                        });
+                                        result.Summary.TagsSkipped++;
+                                        continue;
+                                    }
+                                }
+
+                                result.Updated.Add(new TagUpdateEntry
+                                {
+                                    TagTableName = tagInfo.TagTableName,
+                                    MatchedBy = "FullName",
+                                    OldName = tagInfo.FullName,
+                                    NewName = csvRow.TagName, // Same as old name
+                                    OldAddress = oldAddress,
+                                    NewAddress = csvRow.Address,
+                                    OldComment = oldComment,
+                                    NewComment = csvRow.Comment
+                                });
+                                result.Summary.TagsUpdated++;
+                            }
+                            else
+                            {
+                                // Create new tag
+                                if (string.IsNullOrEmpty(csvRow.DataType))
+                                {
+                                    result.Errors.Add(new TagUpdateError
+                                    {
+                                        Item = csvRow.TagName,
+                                        Error = "DataType is required for new tags",
+                                        LineNumber = csvRow.LineNumber
+                                    });
+                                    result.Summary.TagsSkipped++;
+                                    continue;
+                                }
+
+                                if (!dryRun)
+                                {
+                                    try
+                                    {
+                                        // Create tag using Tags.Create() method
+                                        var tagsCollection = TiaReflectionHelper.GetTags(defaultTagTable);
+                                        if (tagsCollection == null)
+                                        {
+                                            result.Errors.Add(new TagUpdateError
+                                            {
+                                                Item = csvRow.TagName,
+                                                Error = "Could not get tags collection",
+                                                LineNumber = csvRow.LineNumber
+                                            });
+                                            result.Summary.TagsSkipped++;
+                                            continue;
+                                        }
+
+                                        // Invoke Tags.Create(string name, string dataType, string logicalAddress) method
+                                        // This matches the pattern used in CreateTagAsync
+                                        var createMethod = tagsCollection.GetType().GetMethod("Create", new[] { typeof(string), typeof(string), typeof(string) });
+                                        if (createMethod == null)
+                                        {
+                                            result.Errors.Add(new TagUpdateError
+                                            {
+                                                Item = csvRow.TagName,
+                                                Error = "Tags.Create method not found",
+                                                LineNumber = csvRow.LineNumber
+                                            });
+                                            result.Summary.TagsSkipped++;
+                                            continue;
+                                        }
+
+                                        var address = string.IsNullOrEmpty(csvRow.Address) ? string.Empty : csvRow.Address;
+                                        var createdTag = createMethod.Invoke(tagsCollection, new object[] { csvRow.TagName, csvRow.DataType, address });
+                                        if (createdTag == null)
+                                        {
+                                            result.Errors.Add(new TagUpdateError
+                                            {
+                                                Item = csvRow.TagName,
+                                                Error = "Tag creation failed - Create returned null",
+                                                LineNumber = csvRow.LineNumber
+                                            });
+                                            result.Summary.TagsSkipped++;
+                                            continue;
+                                        }
+
+                                        // Set comment if provided
+                                        if (csvRow.Comment != null)
+                                        {
+                                            SetTagComment(createdTag, csvRow.Comment);
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        result.Errors.Add(new TagUpdateError
+                                        {
+                                            Item = csvRow.TagName,
+                                            Error = "Failed to create tag",
+                                            Details = $"{ex.GetType().Name}: {ex.Message}",
+                                            LineNumber = csvRow.LineNumber
+                                        });
+                                        result.Summary.TagsSkipped++;
+                                        continue;
+                                    }
+                                }
+
+                                result.Created.Add(new TagCreateEntry
+                                {
+                                    TagTableName = defaultTableName,
+                                    TagName = csvRow.TagName,
+                                    DataType = csvRow.DataType,
+                                    Address = csvRow.Address,
+                                    Comment = csvRow.Comment
+                                });
+                                result.Summary.TagsCreated++;
+                            }
+                        }
+                    }
+
+                    _logger?.LogInformation("UpdateTagsFromCsvAsync completed: {TotalCsvRows} CSV rows, {ExistingTags} scanned, {Updated} updated, {Created} created, {Skipped} skipped, {Warnings} warnings, {Errors} errors",
+                        result.Summary.TotalCsvRows, result.Summary.ExistingTagsScanned, result.Summary.TagsUpdated, result.Summary.TagsCreated, result.Summary.TagsSkipped, result.Warnings.Count, result.Errors.Count);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error during UpdateTagsFromCsvAsync operation");
+                    result.Errors.Add(new TagUpdateError
+                    {
+                        Item = "System",
+                        Error = "Error during UpdateTagsFromCsvAsync operation",
+                        Details = ex.Message
+                    });
+                    return result;
+                }
+            });
+        }
+
         #region Private Helper Methods
+
+        /// <summary>
+        /// Sets the comment on a tag using multilingual text API.
+        /// Comments in TIA Portal are multilingual text collections, not simple strings.
+        /// </summary>
+        /// <param name="tag">The tag object.</param>
+        /// <param name="commentText">The comment text to set.</param>
+        /// <param name="culture">The culture name (e.g., "en-US"). Defaults to "en-US".</param>
+        private void SetTagComment(object tag, string commentText, string culture = "en-US")
+        {
+            try
+            {
+                // Get the Comment property
+                var commentProperty = tag.GetType().GetProperty("Comment");
+                if (commentProperty == null) return;
+
+                var comment = commentProperty.GetValue(tag);
+                if (comment == null) return;
+
+                // Get the Items collection from the Comment
+                var itemsProperty = comment.GetType().GetProperty("Items");
+                if (itemsProperty == null) return;
+
+                var items = itemsProperty.GetValue(comment);
+                if (items == null) return;
+
+                // Try to find existing comment for this culture
+                var itemsEnumerable = items as System.Collections.IEnumerable;
+                if (itemsEnumerable != null)
+                {
+                    foreach (var item in itemsEnumerable)
+                    {
+                        // Get the Culture property from the item
+                        var cultureProp = item?.GetType().GetProperty("Culture");
+                        if (cultureProp == null) continue;
+
+                        var cultureObj = cultureProp.GetValue(item);
+                        if (cultureObj == null) continue;
+
+                        // Get the Name property from Culture
+                        var cultureNameProp = cultureObj.GetType().GetProperty("Name");
+                        if (cultureNameProp == null) continue;
+
+                        var cultureName = cultureNameProp.GetValue(cultureObj)?.ToString();
+                        if (string.Equals(cultureName, culture, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Found existing comment for this culture - update the Text property
+                            var textProp = item?.GetType().GetProperty("Text");
+                            textProp?.SetValue(item, commentText);
+                            return;
+                        }
+                    }
+                }
+
+                // No existing comment found - create a new one using Items.Create()
+                var createMethod = items.GetType().GetMethod("Create", new[] { typeof(string), typeof(string) });
+                createMethod?.Invoke(items, new object[] { culture, commentText });
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug(ex, "Failed to set comment for tag. Culture: {Culture}, Comment: {Comment}", culture, commentText);
+            }
+        }
+
+        /// <summary>
+        /// Internal class to store tag information during update operations.
+        /// </summary>
+        private class TagInfo
+        {
+            public object TagObject { get; set; } = null!;
+            public string TagTableName { get; set; } = string.Empty;
+            public string FullName { get; set; } = string.Empty;
+            public string BaseName { get; set; } = string.Empty;
+            public int PageNumber { get; set; }
+        }
 
         /// <summary>
         /// Recursively finds GlobalDBs in groups.
