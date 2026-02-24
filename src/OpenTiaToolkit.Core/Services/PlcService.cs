@@ -2673,7 +2673,7 @@ namespace OpenTiaToolkit.Core.Services
                             {
                                 // Update existing tag
                                 var oldAddress = TiaReflectionHelper.GetProperty(tagInfo.TagObject, "LogicalAddress")?.ToString();
-                                var oldComment = TiaReflectionHelper.GetProperty(tagInfo.TagObject, "Comment")?.ToString();
+                                var oldComment = GetCommentText(tagInfo.TagObject);
 
                                 if (!dryRun)
                                 {
@@ -2824,7 +2824,7 @@ namespace OpenTiaToolkit.Core.Services
                             {
                                 // Update address and comment only (name stays the same)
                                 var oldAddress = TiaReflectionHelper.GetProperty(tagInfo.TagObject, "LogicalAddress")?.ToString();
-                                var oldComment = TiaReflectionHelper.GetProperty(tagInfo.TagObject, "Comment")?.ToString();
+                                var oldComment = GetCommentText(tagInfo.TagObject);
 
                                 if (!dryRun)
                                 {
@@ -2865,7 +2865,7 @@ namespace OpenTiaToolkit.Core.Services
                                     OldAddress = oldAddress,
                                     NewAddress = csvRow.Address,
                                     OldComment = oldComment,
-                                    NewComment = csvRow.Comment
+                                    NewComment = csvRow.Comment ?? oldComment
                                 });
                                 result.Summary.TagsUpdated++;
                             }
@@ -2934,7 +2934,16 @@ namespace OpenTiaToolkit.Core.Services
                                         // Set comment if provided
                                         if (csvRow.Comment != null)
                                         {
-                                            SetTagComment(createdTag, csvRow.Comment);
+                                            bool commentSuccess = SetTagComment(createdTag, csvRow.Comment);
+                                            if (!commentSuccess)
+                                            {
+                                                result.Warnings.Add(new TagUpdateWarning
+                                                {
+                                                    Item = csvRow.TagName,
+                                                    Reason = $"Tag was created/updated, but failed to apply comment for {csvRow.TagName}.",
+                                                    LineNumber = csvRow.LineNumber
+                                                });
+                                            }
                                         }
                                     }
                                     catch (Exception ex)
@@ -2986,66 +2995,172 @@ namespace OpenTiaToolkit.Core.Services
         #region Private Helper Methods
 
         /// <summary>
+        /// Gets the comment text for a PLC tag.
+        /// Comments in TIA Portal are multilingual text collections, not simple strings.
+        /// </summary>
+        /// <param name="tag">The tag object.</param>
+        /// <param name="culture">The culture name (e.g., "en-US"). Defaults to "en-US".</param>
+        /// <returns>The comment text if found, null otherwise.</returns>
+        private string? GetCommentText(object tag, string culture = "en-US")
+        {
+            try
+            {
+                var commentProperty = tag.GetType().GetProperty("Comment");
+                if (commentProperty == null) return null;
+
+                var comment = commentProperty.GetValue(tag);
+                if (comment == null) return null;
+
+                var itemsProperty = comment.GetType().GetProperty("Items");
+                if (itemsProperty == null) return null;
+
+                var items = itemsProperty.GetValue(comment);
+                var itemsEnumerable = items as System.Collections.IEnumerable;
+                if (itemsEnumerable == null) return null;
+
+                foreach (var item in itemsEnumerable)
+                {
+                    var cultureProp = item?.GetType().GetProperty("Culture");
+                    if (cultureProp == null) continue;
+
+                    var cultureObj = cultureProp.GetValue(item);
+                    if (cultureObj == null) continue;
+
+                    var cultureNameProp = cultureObj.GetType().GetProperty("Name");
+                    if (cultureNameProp == null) continue;
+
+                    var cultureName = cultureNameProp.GetValue(cultureObj)?.ToString();
+                    if (string.Equals(cultureName, culture, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var textProp = item?.GetType().GetProperty("Text");
+                        return textProp?.GetValue(item)?.ToString();
+                    }
+                }
+
+                return null; // No comment found for this culture
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Sets the comment on a tag using multilingual text API.
         /// Comments in TIA Portal are multilingual text collections, not simple strings.
         /// </summary>
         /// <param name="tag">The tag object.</param>
         /// <param name="commentText">The comment text to set.</param>
         /// <param name="culture">The culture name (e.g., "en-US"). Defaults to "en-US".</param>
-        private void SetTagComment(object tag, string commentText, string culture = "en-US")
+        private bool SetTagComment(object tag, string commentText, string culture = "en-US")
         {
             try
             {
-                // Get the Comment property
-                var commentProperty = tag.GetType().GetProperty("Comment");
-                if (commentProperty == null) return;
+            var commentProperty = tag.GetType().GetProperty("Comment");
+            if (commentProperty == null) return false;
 
-                var comment = commentProperty.GetValue(tag);
-                if (comment == null) return;
+            var comment = commentProperty.GetValue(tag);
+            if (comment == null) return false;
 
-                // Get the Items collection from the Comment
-                var itemsProperty = comment.GetType().GetProperty("Items");
-                if (itemsProperty == null) return;
+            var itemsProperty = comment.GetType().GetProperty("Items");
+            if (itemsProperty == null) return false;
 
-                var items = itemsProperty.GetValue(comment);
-                if (items == null) return;
+            var items = itemsProperty.GetValue(comment);
+            var itemsEnumerable = items as System.Collections.IEnumerable;
+            if (itemsEnumerable == null) return false;
 
-                // Try to find existing comment for this culture
-                var itemsEnumerable = items as System.Collections.IEnumerable;
-                if (itemsEnumerable != null)
+            // Iterate through the pre-existing project language items
+            foreach (var item in itemsEnumerable)
+            {
+                // 1. Get the 'Language' property from MultilingualTextItem
+                var languageProp = item?.GetType().GetProperty("Language");
+                if (languageProp == null) continue;
+
+                var languageObj = languageProp.GetValue(item);
+                if (languageObj == null) continue;
+
+                // 2. Get the 'Culture' property from the Language object
+                var cultureProp = languageObj.GetType().GetProperty("Culture");
+                if (cultureProp == null) continue;
+
+                var cultureObj = cultureProp.GetValue(languageObj);
+                if (cultureObj == null) continue;
+
+                // 3. Get the 'Name' property from CultureInfo (e.g., "en-US")
+                var nameProp = cultureObj.GetType().GetProperty("Name");
+                var currentCultureName = nameProp?.GetValue(cultureObj)?.ToString();
+
+                // Check if this is the language we want to update
+                if (string.Equals(currentCultureName, culture, StringComparison.OrdinalIgnoreCase))
                 {
-                    foreach (var item in itemsEnumerable)
-                    {
-                        // Get the Culture property from the item
-                        var cultureProp = item?.GetType().GetProperty("Culture");
-                        if (cultureProp == null) continue;
-
-                        var cultureObj = cultureProp.GetValue(item);
-                        if (cultureObj == null) continue;
-
-                        // Get the Name property from Culture
-                        var cultureNameProp = cultureObj.GetType().GetProperty("Name");
-                        if (cultureNameProp == null) continue;
-
-                        var cultureName = cultureNameProp.GetValue(cultureObj)?.ToString();
-                        if (string.Equals(cultureName, culture, StringComparison.OrdinalIgnoreCase))
-                        {
-                            // Found existing comment for this culture - update the Text property
-                            var textProp = item?.GetType().GetProperty("Text");
-                            textProp?.SetValue(item, commentText);
-                            return;
-                        }
-                    }
+                    var textProp = item?.GetType().GetProperty("Text");
+                    textProp?.SetValue(item, commentText);
+                
+                    _logger?.LogDebug("Successfully set comment for culture: {Culture}", culture);
+                    return true; // Success!
                 }
+            }
 
-                // No existing comment found - create a new one using Items.Create()
-                var createMethod = items.GetType().GetMethod("Create", new[] { typeof(string), typeof(string) });
-                createMethod?.Invoke(items, new object[] { culture, commentText });
+            // If the loop finishes without returning, the target culture is NOT enabled in the TIA Portal project.
+            _logger?.LogWarning("Culture '{Culture}' is not enabled in the TIA Portal Project Languages. Cannot set comment.", culture);
+            return false;
             }
             catch (Exception ex)
             {
-                _logger?.LogDebug(ex, "Failed to set comment for tag. Culture: {Culture}, Comment: {Comment}", culture, commentText);
+                _logger?.LogError(ex, "Exception while setting comment for tag. Culture: {Culture}", culture);
+                return false;
             }
+        }
+
+        /// <summary>
+        /// Gets a Language object from the project for the specified culture.
+        /// </summary>
+        /// <param name="culture">The culture name (e.g., "en-US").</param>
+        /// <returns>The Language object if found, null otherwise.</returns>
+        private object? GetLanguageFromProject(string culture)
+        {
+            if (_portalService.Project == null) return null;
+
+            try
+            {
+                var project = _portalService.Project;
+                var languagesProperty = project?.GetType().GetProperty("Languages");
+                if (languagesProperty == null) return null;
+
+                var languages = languagesProperty.GetValue(project);
+                if (languages == null) return null;
+
+                // Try Find(string cultureName) method first
+                var findMethod = languages.GetType().GetMethod("Find", new[] { typeof(string) });
+                if (findMethod != null)
+                {
+                    return findMethod.Invoke(languages, new object[] { culture });
+                }
+
+                // Fallback: iterate through languages to find matching culture
+                var langsEnum = languages as System.Collections.IEnumerable;
+                if (langsEnum != null)
+                {
+                    foreach (var lang in langsEnum)
+                    {
+                        var nameProp = lang?.GetType().GetProperty("Name");
+                        if (nameProp != null)
+                        {
+                            var langName = nameProp.GetValue(lang)?.ToString();
+                            if (string.Equals(langName, culture, StringComparison.OrdinalIgnoreCase))
+                            {
+                                return lang;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug(ex, "Failed to get Language from project for culture: {Culture}", culture);
+            }
+
+            return null;
         }
 
         /// <summary>
