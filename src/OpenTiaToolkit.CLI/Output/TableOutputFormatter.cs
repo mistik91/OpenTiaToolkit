@@ -47,6 +47,7 @@ namespace OpenTiaToolkit.CLI.Output
                 // Anonymous objects (status objects, etc.)
                 _ when IsFindReplaceResult(result.Data) => FormatFindReplaceResult(result.Data),
                 _ when IsTagUpdateResult(result.Data) => FormatTagUpdateResult(result.Data),
+                _ when IsImportResult(result.Data) => FormatImportResult(result.Data),
                 _ when result.Data.GetType().Name.Contains("AnonymousType") => FormatAnonymousObject(result.Data),
                 _ => result.ToTable() // Fallback to default formatting
             };
@@ -352,14 +353,20 @@ namespace OpenTiaToolkit.CLI.Output
                     lines.Add($"{prop.Name,-20} :");
                     FormatAnonymousTreeNode(value, lines, "  ", 0);
                 }
-                else if (value != null && value.GetType().IsArray)
+                else if (value != null && (value.GetType().IsArray || IsGenericList(value)))
                 {
-                    // Check if it's an array of tree nodes
-                    var array = (Array)value;
-                    if (array.Length > 0 && IsTreeNode(array.GetValue(0)))
+                    // Check if it's a collection of tree nodes
+                    var collection = (System.Collections.IEnumerable)value;
+                    var itemList = new System.Collections.Generic.List<object>();
+                    foreach (var item in collection)
+                    {
+                        itemList.Add(item);
+                    }
+
+                    if (itemList.Count > 0 && IsTreeNode(itemList[0]))
                     {
                         lines.Add($"{prop.Name,-20} :");
-                        foreach (var item in array)
+                        foreach (var item in itemList)
                         {
                             if (item != null)
                             {
@@ -369,8 +376,19 @@ namespace OpenTiaToolkit.CLI.Output
                     }
                     else
                     {
-                        var valueStr = value.ToString() ?? "null";
-                        lines.Add($"{prop.Name,-20} : {valueStr}");
+                        // Format as a list of items
+                        if (itemList.Count > 0)
+                        {
+                            lines.Add($"{prop.Name,-20} :");
+                            foreach (var item in itemList)
+                            {
+                                lines.Add($"  - {item}");
+                            }
+                        }
+                        else
+                        {
+                            lines.Add($"{prop.Name,-20} : (empty)");
+                        }
                     }
                 }
                 else
@@ -394,6 +412,19 @@ namespace OpenTiaToolkit.CLI.Output
             var hasPath = type.GetProperty("path") != null || type.GetProperty("Path") != null;
 
             return hasName && hasType && hasChildren && hasPath;
+        }
+
+        private static bool IsGenericList(object obj)
+        {
+            if (obj == null) return false;
+
+            var type = obj.GetType();
+
+            // Check if it implements IEnumerable (but not string)
+            if (type == typeof(string)) return false;
+
+            var implementsIEnumerable = type.GetInterface("System.Collections.IEnumerable") != null;
+            return implementsIEnumerable && type.IsClass;
         }
 
         private static void FormatAnonymousTreeNode(object node, List<string> lines, string indent, int depth)
@@ -481,6 +512,27 @@ namespace OpenTiaToolkit.CLI.Output
             var hasErrors = type.GetProperty("errors") != null;
 
             return hasSummary && hasUpdated && hasCreated && hasWarnings && hasErrors;
+        }
+
+        /// <summary>
+        /// Detects if the anonymous object is an import result.
+        /// </summary>
+        private static bool IsImportResult(object data)
+        {
+            if (data == null) return false;
+
+            var type = data.GetType();
+            if (!type.Name.Contains("AnonymousType")) return false;
+
+            // Check for signature properties of import results
+            var hasTotalCount = type.GetProperty("TotalCount") != null;
+            var hasSuccessCount = type.GetProperty("SuccessCount") != null;
+            var hasFailedCount = type.GetProperty("FailedCount") != null;
+            var hasImportedItems = type.GetProperty("ImportedItems") != null;
+            var hasFailedItems = type.GetProperty("FailedItems") != null;
+            var hasErrors = type.GetProperty("Errors") != null;
+
+            return hasTotalCount && hasSuccessCount && hasFailedCount;
         }
 
         /// <summary>
@@ -756,6 +808,90 @@ namespace OpenTiaToolkit.CLI.Output
                             {
                                 lines.Add($"    Details: {details}");
                             }
+                        }
+                    }
+                }
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        /// <summary>
+        /// Formats an import result object.
+        /// </summary>
+        private static string FormatImportResult(object data)
+        {
+            var lines = new List<string>();
+
+            var totalCountProp = data.GetType().GetProperty("TotalCount");
+            var successCountProp = data.GetType().GetProperty("SuccessCount");
+            var failedCountProp = data.GetType().GetProperty("FailedCount");
+            var importedItemsProp = data.GetType().GetProperty("ImportedItems");
+            var failedItemsProp = data.GetType().GetProperty("FailedItems");
+            var errorsProp = data.GetType().GetProperty("Errors");
+
+            var totalCount = totalCountProp?.GetValue(data);
+            var successCount = successCountProp?.GetValue(data);
+            var failedCount = failedCountProp?.GetValue(data);
+            var importedItems = importedItemsProp?.GetValue(data);
+            var failedItems = failedItemsProp?.GetValue(data);
+            var errors = errorsProp?.GetValue(data);
+
+            // Format summary
+            lines.Add("Summary:");
+            lines.Add($"  Total Items: {totalCount ?? 0}");
+            lines.Add($"  Imported: {successCount ?? 0}");
+            lines.Add($"  Failed: {failedCount ?? 0}");
+
+            // Format imported items
+            if (importedItems != null && importedItems.GetType().IsGenericType && importedItems.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var importedList = (System.Collections.IList)importedItems;
+                if (importedList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Imported Items:");
+                    foreach (var item in importedList)
+                    {
+                        if (item != null)
+                        {
+                            lines.Add($"  - {item}");
+                        }
+                    }
+                }
+            }
+
+            // Format failed items
+            if (failedItems != null && failedItems.GetType().IsGenericType && failedItems.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var failedList = (System.Collections.IList)failedItems;
+                if (failedList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Failed Items:");
+                    foreach (var item in failedList)
+                    {
+                        if (item != null)
+                        {
+                            lines.Add($"  - {item}");
+                        }
+                    }
+                }
+            }
+
+            // Format errors
+            if (errors != null && errors.GetType().IsGenericType && errors.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var errorsList = (System.Collections.IList)errors;
+                if (errorsList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Errors:");
+                    foreach (var error in errorsList)
+                    {
+                        if (error != null)
+                        {
+                            lines.Add($"  - {error}");
                         }
                     }
                 }

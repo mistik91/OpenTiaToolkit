@@ -3575,5 +3575,1260 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         #endregion
+
+        #region SIMATIC SD Export and Type Export (V20+)
+
+        /// <inheritdoc/>
+        public async Task<bool> ExportBlockAsDocumentsAsync(string blockName, string exportPath)
+        {
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    _logger?.LogWarning("No PLC software is currently open");
+                    return false;
+                }
+
+                _logger?.LogInformation("Exporting block as SIMATIC SD documents: {BlockName} to {ExportPath}", blockName, exportPath);
+
+                try
+                {
+                    // Version check - SIMATIC SD export requires V20+
+                    var versionString = _portalService.Version;
+                    var version = TiaReflectionHelper.ParseTiaVersion(versionString);
+                    if (version == null || version.Major < 20)
+                    {
+                        _logger?.LogError("SIMATIC SD export requires TIA Portal V20 or newer. Current version: {Version}", versionString ?? "Unknown");
+                        throw new InvalidOperationException($"SIMATIC SD export requires TIA Portal V20 or newer. Current version: {versionString ?? "Unknown"}");
+                    }
+
+                    // Get PlcSoftware type and BlockGroup
+                    var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                    Type? plcSoftwareType = null;
+                    foreach (var assembly in assemblies)
+                    {
+                        try
+                        {
+                            if (assembly.FullName != null && assembly.FullName.StartsWith("Siemens.Engineering"))
+                            {
+                                var types = assembly.GetTypes();
+                                var foundType = types.FirstOrDefault(t => t.Name == "PlcSoftware");
+                                if (foundType != null)
+                                {
+                                    plcSoftwareType = foundType;
+                                    break;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Skip assemblies that can't be loaded
+                        }
+                    }
+
+                    if (plcSoftwareType == null)
+                    {
+                        _logger?.LogError("Could not find PlcSoftware type");
+                        return false;
+                    }
+
+                    var blockGroupProperty = plcSoftwareType.GetProperty("BlockGroup");
+                    if (blockGroupProperty == null)
+                    {
+                        _logger?.LogError("Could not find BlockGroup property");
+                        return false;
+                    }
+
+                    var blockGroup = blockGroupProperty.GetValue(_plcSoftware);
+                    if (blockGroup == null)
+                    {
+                        _logger?.LogError("BlockGroup is null");
+                        return false;
+                    }
+
+                    var blocksProperty = blockGroup.GetType().GetProperty("Blocks");
+                    if (blocksProperty == null)
+                    {
+                        _logger?.LogError("Could not find Blocks property");
+                        return false;
+                    }
+
+                    var blocksCollection = blocksProperty.GetValue(blockGroup) as System.Collections.IEnumerable;
+                    if (blocksCollection == null)
+                    {
+                        _logger?.LogError("Blocks collection is null");
+                        return false;
+                    }
+
+                    // Find the block by name
+                    foreach (var block in blocksCollection)
+                    {
+                        try
+                        {
+                            var nameProperty = block.GetType().GetProperty("Name");
+                            string name = nameProperty?.GetValue(block)?.ToString() ?? "";
+
+                            if (name.Equals(blockName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Ensure directory exists
+                                if (!Directory.Exists(exportPath))
+                                {
+                                    Directory.CreateDirectory(exportPath);
+                                }
+
+                                // Call ExportAsDocuments method
+                                var exportAsDocumentsMethod = block.GetType().GetMethod("ExportAsDocuments", new[] { typeof(DirectoryInfo), typeof(string) });
+                                if (exportAsDocumentsMethod == null)
+                                {
+                                    _logger?.LogError("ExportAsDocuments method not found on block type");
+                                    return false;
+                                }
+
+                                var result = exportAsDocumentsMethod.Invoke(block, new object[] { new DirectoryInfo(exportPath), blockName });
+
+                                // Check result state
+                                var resultType = result?.GetType();
+                                if (resultType != null)
+                                {
+                                    var stateProperty = resultType.GetProperty("State");
+                                    if (stateProperty != null)
+                                    {
+                                        var state = stateProperty.GetValue(result);
+                                        if (state != null && state.ToString() == "Success")
+                                        {
+                                            _logger?.LogInformation("Successfully exported block as SIMATIC SD documents: {BlockName}", blockName);
+                                            return true;
+                                        }
+                                    }
+                                }
+
+                                _logger?.LogError("ExportAsDocuments returned non-success state");
+                                return false;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning(ex, "Failed to process block: {BlockName}", blockName);
+                        }
+                    }
+
+                    _logger?.LogWarning("Block not found: {BlockName}", blockName);
+                    return false;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    _logger?.LogError(ex, "Version check failed for ExportBlockAsDocumentsAsync");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to export block as documents: {BlockName}", blockName);
+                    return false;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<ExportResult> ExportBlocksAsDocumentsAsync(string? filterRegex, string exportPath)
+        {
+            var result = new ExportResult();
+
+            return await Task.Run(async () =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    _logger?.LogWarning("No PLC software is currently open");
+                    result.Errors.Add("No PLC software is currently open");
+                    return result;
+                }
+
+                _logger?.LogInformation("Exporting blocks as SIMATIC SD documents: filter='{Filter}', path='{ExportPath}'", filterRegex ?? "all", exportPath);
+
+                try
+                {
+                    // Version check
+                    var versionString = _portalService.Version;
+                    var version = TiaReflectionHelper.ParseTiaVersion(versionString);
+                    if (version == null || version.Major < 20)
+                    {
+                        var error = $"SIMATIC SD export requires TIA Portal V20 or newer. Current version: {versionString ?? "Unknown"}";
+                        _logger?.LogError(error);
+                        result.Errors.Add(error);
+                        return result;
+                    }
+
+                    // Get blocks
+                    var blocks = await GetBlocksAsync(filterRegex);
+                    result.TotalCount = blocks.Count;
+
+                    // Ensure directory exists
+                    if (!Directory.Exists(exportPath))
+                    {
+                        Directory.CreateDirectory(exportPath);
+                    }
+
+                    // Filter out OB and FOB blocks (they can't be exported as SIMATIC SD documents)
+                    var blocksToSkip = blocks.Where(b => b.Type.Equals("OB", StringComparison.OrdinalIgnoreCase) ||
+                                                           b.Type.Equals("FOB", StringComparison.OrdinalIgnoreCase)).ToList();
+
+                    var blocksToExport = blocks.Where(b => !b.Type.Equals("OB", StringComparison.OrdinalIgnoreCase) &&
+                                                          !b.Type.Equals("FOB", StringComparison.OrdinalIgnoreCase)).ToList();
+
+                    // Log skipped blocks
+                    foreach (var skippedBlock in blocksToSkip)
+                    {
+                        _logger?.LogInformation("Skipped {BlockType} block: {BlockName} (SIMATIC SD export not supported)", skippedBlock.Type, skippedBlock.Name);
+                        result.FailedCount++;
+                        result.FailedItems.Add(skippedBlock.Name);
+                        result.Errors.Add($"Skipped {skippedBlock.Type} block '{skippedBlock.Name}': SIMATIC SD export not supported for Organization Blocks");
+                    }
+
+                    // Export each block
+                    foreach (var block in blocksToExport)
+                    {
+                        try
+                        {
+                            var success = await ExportBlockAsDocumentsAsync(block.Name, exportPath);
+                            if (success)
+                            {
+                                result.SuccessCount++;
+                                result.ExportedItems.Add(block.Name);
+                                _logger?.LogDebug("Successfully exported: {BlockName}", block.Name);
+                            }
+                            else
+                            {
+                                result.FailedCount++;
+                                result.FailedItems.Add(block.Name);
+                                result.Errors.Add($"Failed to export: {block.Name}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.FailedCount++;
+                            result.FailedItems.Add(block.Name);
+                            result.Errors.Add($"Error exporting {block.Name}: {ex.Message}");
+                        }
+                    }
+
+                    _logger?.LogInformation("Export blocks as documents complete: {SuccessCount} succeeded, {FailedCount} failed", result.SuccessCount, result.FailedCount);
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to export blocks as documents");
+                    result.Errors.Add($"Error: {ex.Message}");
+                    return result;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> ExportTypeAsync(string typeName, string exportPath)
+        {
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    _logger?.LogWarning("No PLC software is currently open");
+                    return false;
+                }
+
+                _logger?.LogInformation("Exporting type: {TypeName} to {ExportPath}", typeName, exportPath);
+
+                try
+                {
+                    // Get PlcSoftware type
+                    var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                    Type? plcSoftwareType = null;
+                    foreach (var assembly in assemblies)
+                    {
+                        try
+                        {
+                            if (assembly.FullName != null && assembly.FullName.StartsWith("Siemens.Engineering"))
+                            {
+                                var types = assembly.GetTypes();
+                                var foundType = types.FirstOrDefault(t => t.Name == "PlcSoftware");
+                                if (foundType != null)
+                                {
+                                    plcSoftwareType = foundType;
+                                    break;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Skip assemblies that can't be loaded
+                        }
+                    }
+
+                    if (plcSoftwareType == null)
+                    {
+                        _logger?.LogError("Could not find PlcSoftware type");
+                        return false;
+                    }
+
+                    // Get TypeList property
+                    var typeListProperty = plcSoftwareType.GetProperty("TypeList");
+                    if (typeListProperty == null)
+                    {
+                        _logger?.LogError("Could not find TypeList property");
+                        return false;
+                    }
+
+                    var typeList = typeListProperty.GetValue(_plcSoftware);
+                    if (typeList == null)
+                    {
+                        _logger?.LogError("TypeList is null");
+                        return false;
+                    }
+
+                    // Get Types collection
+                    var typesProperty = typeList.GetType().GetProperty("Types");
+                    if (typesProperty == null)
+                    {
+                        _logger?.LogError("Could not find Types property");
+                        return false;
+                    }
+
+                    var typesCollection = typesProperty.GetValue(typeList) as System.Collections.IEnumerable;
+                    if (typesCollection == null)
+                    {
+                        _logger?.LogError("Types collection is null");
+                        return false;
+                    }
+
+                    // Find ExportOptions type
+                    Type? exportOptionsType = null;
+                    object? none = null;
+
+                    foreach (var assembly in assemblies)
+                    {
+                        try
+                        {
+                            if (assembly.FullName != null && assembly.FullName.StartsWith("Siemens.Engineering"))
+                            {
+                                var types = assembly.GetTypes();
+                                var foundType = types.FirstOrDefault(t => t.Name == "ExportOptions");
+                                if (foundType != null)
+                                {
+                                    exportOptionsType = foundType;
+                                    break;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Skip assemblies that can't be loaded
+                        }
+                    }
+
+                    if (exportOptionsType != null)
+                    {
+                        var noneField = exportOptionsType.GetField("None");
+                        if (noneField != null)
+                        {
+                            none = noneField.GetValue(null);
+                        }
+                    }
+
+                    // Find the type by name and export it
+                    foreach (var type in typesCollection)
+                    {
+                        try
+                        {
+                            var nameProperty = type.GetType().GetProperty("Name");
+                            string name = nameProperty?.GetValue(type)?.ToString() ?? "";
+
+                            if (name.Equals(typeName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Check consistency
+                                var isConsistentProperty = type.GetType().GetProperty("IsConsistent");
+                                if (isConsistentProperty != null)
+                                {
+                                    var isConsistent = isConsistentProperty.GetValue(type);
+                                    if (isConsistent is bool consistent && !consistent)
+                                    {
+                                        _logger?.LogError("Type '{TypeName}' is not consistent and cannot be exported", typeName);
+                                        return false;
+                                    }
+                                }
+
+                                // Ensure directory exists
+                                var directory = Path.GetDirectoryName(exportPath);
+                                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                                {
+                                    Directory.CreateDirectory(directory);
+                                }
+
+                                bool exported = false;
+
+                                // Strategy 1: Try Export with ExportOptions.None
+                                if (!exported && exportOptionsType != null && none != null)
+                                {
+                                    try
+                                    {
+                                        var exportMethod = type.GetType().GetMethod("Export", new[] { typeof(FileInfo), exportOptionsType });
+                                        if (exportMethod != null)
+                                        {
+                                            exportMethod.Invoke(type, new object[] { new FileInfo(exportPath), none });
+                                            exported = true;
+                                            _logger?.LogInformation("Successfully exported type with None: {TypeName} to {ExportPath}", typeName, exportPath);
+                                            return true;
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger?.LogDebug(ex, "Export with None failed for type: {TypeName}", typeName);
+                                    }
+                                }
+
+                                // Strategy 2: Try Export with just FileInfo (no options)
+                                if (!exported)
+                                {
+                                    try
+                                    {
+                                        var simpleExportMethod = type.GetType().GetMethod("Export", new[] { typeof(FileInfo) });
+                                        if (simpleExportMethod != null)
+                                        {
+                                            simpleExportMethod.Invoke(type, new object[] { new FileInfo(exportPath) });
+                                            exported = true;
+                                            _logger?.LogInformation("Successfully exported type without options: {TypeName} to {ExportPath}", typeName, exportPath);
+                                            return true;
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger?.LogDebug(ex, "Export without options failed for type: {TypeName}", typeName);
+                                    }
+                                }
+
+                                _logger?.LogError("Failed to export type: {TypeName}", typeName);
+                                return false;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning(ex, "Failed to process type: {TypeName}", typeName);
+                        }
+                    }
+
+                    _logger?.LogWarning("Type not found: {TypeName}", typeName);
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to export type: {TypeName}", typeName);
+                    return false;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<ExportResult> ExportTypesAsync(string? filterRegex, string exportPath)
+        {
+            var result = new ExportResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    _logger?.LogWarning("No PLC software is currently open");
+                    result.Errors.Add("No PLC software is currently open");
+                    return result;
+                }
+
+                _logger?.LogInformation("Exporting types: filter='{Filter}', path='{ExportPath}'", filterRegex ?? "all", exportPath);
+
+                try
+                {
+                    // Get PlcSoftware type
+                    var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                    Type? plcSoftwareType = null;
+                    foreach (var assembly in assemblies)
+                    {
+                        try
+                        {
+                            if (assembly.FullName != null && assembly.FullName.StartsWith("Siemens.Engineering"))
+                            {
+                                var types = assembly.GetTypes();
+                                var foundType = types.FirstOrDefault(t => t.Name == "PlcSoftware");
+                                if (foundType != null)
+                                {
+                                    plcSoftwareType = foundType;
+                                    break;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Skip assemblies that can't be loaded
+                        }
+                    }
+
+                    if (plcSoftwareType == null)
+                    {
+                        _logger?.LogError("Could not find PlcSoftware type");
+                        result.Errors.Add("Could not find PlcSoftware type");
+                        return result;
+                    }
+
+                    // Get TypeList property
+                    var typeListProperty = plcSoftwareType.GetProperty("TypeList");
+                    if (typeListProperty == null)
+                    {
+                        _logger?.LogError("Could not find TypeList property");
+                        result.Errors.Add("Could not find TypeList property");
+                        return result;
+                    }
+
+                    var typeList = typeListProperty.GetValue(_plcSoftware);
+                    if (typeList == null)
+                    {
+                        _logger?.LogError("TypeList is null");
+                        result.Errors.Add("TypeList is null");
+                        return result;
+                    }
+
+                    // Get Types collection
+                    var typesProperty = typeList.GetType().GetProperty("Types");
+                    if (typesProperty == null)
+                    {
+                        _logger?.LogError("Could not find Types property");
+                        result.Errors.Add("Could not find Types property");
+                        return result;
+                    }
+
+                    var typesCollection = typesProperty.GetValue(typeList) as System.Collections.IEnumerable;
+                    if (typesCollection == null)
+                    {
+                        _logger?.LogError("Types collection is null");
+                        result.Errors.Add("Types collection is null");
+                        return result;
+                    }
+
+                    // Compile regex filter if provided
+                    Regex? regex = null;
+                    if (!string.IsNullOrEmpty(filterRegex))
+                    {
+                        try
+                        {
+                            regex = new Regex(filterRegex, RegexOptions.IgnoreCase);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogError(ex, "Invalid regex filter: {FilterRegex}", filterRegex);
+                            result.Errors.Add($"Invalid regex filter: {filterRegex}");
+                            return result;
+                        }
+                    }
+
+                    // Ensure directory exists
+                    if (!Directory.Exists(exportPath))
+                    {
+                        Directory.CreateDirectory(exportPath);
+                    }
+
+                    // Count total and export each type
+                    foreach (var type in typesCollection)
+                    {
+                        try
+                        {
+                            var nameProperty = type.GetType().GetProperty("Name");
+                            string name = nameProperty?.GetValue(type)?.ToString() ?? "";
+
+                            // Apply filter if provided
+                            if (regex != null && !regex.IsMatch(name))
+                            {
+                                continue;
+                            }
+
+                            result.TotalCount++;
+
+                            // Check consistency
+                            var isConsistentProperty = type.GetType().GetProperty("IsConsistent");
+                            if (isConsistentProperty != null)
+                            {
+                                var isConsistent = isConsistentProperty.GetValue(type);
+                                if (isConsistent is bool consistent && !consistent)
+                                {
+                                    result.FailedCount++;
+                                    result.FailedItems.Add(name);
+                                    result.Errors.Add($"Type '{name}' is not consistent and cannot be exported");
+                                    continue;
+                                }
+                            }
+
+                            // Export the type
+                            var typeExportPath = Path.Combine(exportPath, $"{name}.xml");
+                            bool exported = false;
+
+                            // Try Export methods
+                            var simpleExportMethod = type.GetType().GetMethod("Export", new[] { typeof(FileInfo) });
+                            if (simpleExportMethod != null)
+                            {
+                                try
+                                {
+                                    simpleExportMethod.Invoke(type, new object[] { new FileInfo(typeExportPath) });
+                                    exported = true;
+                                }
+                                catch
+                                {
+                                    // Try with ExportOptions
+                                }
+                            }
+
+                            if (exported)
+                            {
+                                result.SuccessCount++;
+                                result.ExportedItems.Add(name);
+                                _logger?.LogDebug("Successfully exported: {TypeName}", name);
+                            }
+                            else
+                            {
+                                result.FailedCount++;
+                                result.FailedItems.Add(name);
+                                result.Errors.Add($"Failed to export: {name}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Errors.Add($"Error processing type: {ex.Message}");
+                        }
+                    }
+
+                    _logger?.LogInformation("Export types complete: {SuccessCount} succeeded, {FailedCount} failed", result.SuccessCount, result.FailedCount);
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to export types");
+                    result.Errors.Add($"Error: {ex.Message}");
+                    return result;
+                }
+            });
+        }
+
+        #endregion
+
+        #region Import Operations
+
+        /// <inheritdoc/>
+        public async Task<bool> ImportBlockAsync(string importPath, string? groupPath = null)
+        {
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null) return false;
+
+                try
+                {
+                    var fileInfo = new FileInfo(importPath);
+                    if (!fileInfo.Exists)
+                    {
+                        _logger?.LogError("Import file not found: {ImportPath}", importPath);
+                        return false;
+                    }
+
+                    // Get block group (navigate to sub-group if path provided)
+                    var blockGroup = TiaReflectionHelper.GetBlockGroup(_plcSoftware);
+                    if (blockGroup == null) return false;
+
+                    var targetGroup = string.IsNullOrEmpty(groupPath)
+                        ? blockGroup
+                        : TiaReflectionHelper.GetBlockGroupByPath(blockGroup, groupPath);
+
+                    if (targetGroup == null)
+                    {
+                        _logger?.LogError("Block group not found: {GroupPath}", groupPath ?? "root");
+                        return false;
+                    }
+
+                    // Get Blocks collection and call Import
+                    var blocksCollection = TiaReflectionHelper.GetProperty(targetGroup, "Blocks");
+                    if (blocksCollection == null) return false;
+
+                    // Use reflection to call Import method with ImportOptions.Override = 2
+                    var importMethod = blocksCollection.GetType().GetMethod("Import", new[] { typeof(FileInfo), typeof(int) });
+
+                    if (importMethod != null)
+                    {
+                        var result = importMethod.Invoke(blocksCollection, new object[] { fileInfo, 2 });
+                        var resultList = result as System.Collections.IEnumerable;
+                        return resultList != null && resultList.Cast<object>().Any();
+                    }
+
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error importing block from {ImportPath}", importPath);
+                    return false;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<ImportResult> ImportBlocksAsync(string importDirectory, string? filterRegex = null, string? groupPath = null)
+        {
+            var result = new ImportResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    _logger?.LogWarning("No PLC software is currently open");
+                    result.Errors.Add("No PLC software is currently open");
+                    return result;
+                }
+
+                _logger?.LogInformation("Importing blocks: filter='{Filter}', directory='{Directory}'", filterRegex ?? "all", importDirectory);
+
+                try
+                {
+                    var dirInfo = new DirectoryInfo(importDirectory);
+                    if (!dirInfo.Exists)
+                    {
+                        _logger?.LogError("Import directory not found: {ImportDirectory}", importDirectory);
+                        result.Errors.Add($"Import directory not found: {importDirectory}");
+                        return result;
+                    }
+
+                    // Compile regex filter if provided
+                    Regex? regex = null;
+                    if (!string.IsNullOrEmpty(filterRegex))
+                    {
+                        try
+                        {
+                            regex = new Regex(filterRegex, RegexOptions.IgnoreCase);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogError(ex, "Invalid regex filter: {FilterRegex}", filterRegex);
+                            result.Errors.Add($"Invalid regex filter: {filterRegex}");
+                            return result;
+                        }
+                    }
+
+                    // Get block group
+                    var blockGroup = TiaReflectionHelper.GetBlockGroup(_plcSoftware);
+                    if (blockGroup == null)
+                    {
+                        result.Errors.Add("Could not get BlockGroup");
+                        return result;
+                    }
+
+                    var targetGroup = string.IsNullOrEmpty(groupPath)
+                        ? blockGroup
+                        : TiaReflectionHelper.GetBlockGroupByPath(blockGroup, groupPath);
+
+                    if (targetGroup == null)
+                    {
+                        _logger?.LogError("Block group not found: {GroupPath}", groupPath ?? "root");
+                        result.Errors.Add($"Block group not found: {groupPath ?? "root"}");
+                        return result;
+                    }
+
+                    var blocksCollection = TiaReflectionHelper.GetProperty(targetGroup, "Blocks");
+                    if (blocksCollection == null)
+                    {
+                        result.Errors.Add("Could not get Blocks collection");
+                        return result;
+                    }
+
+                    var importMethod = blocksCollection.GetType().GetMethod("Import", new[] { typeof(FileInfo), typeof(int) });
+                    if (importMethod == null)
+                    {
+                        result.Errors.Add("Could not get Import method");
+                        return result;
+                    }
+
+                    // Import each XML file
+                    foreach (var file in dirInfo.GetFiles("*.xml"))
+                    {
+                        try
+                        {
+                            // Apply filter if provided
+                            if (regex != null && !regex.IsMatch(Path.GetFileNameWithoutExtension(file.Name)))
+                            {
+                                continue;
+                            }
+
+                            result.TotalCount++;
+
+                            var importResult = importMethod.Invoke(blocksCollection, new object[] { file, 2 });
+                            var resultList = importResult as System.Collections.IEnumerable;
+
+                            if (resultList != null && resultList.Cast<object>().Any())
+                            {
+                                result.SuccessCount++;
+                                result.ImportedItems.Add(file.Name);
+                                _logger?.LogDebug("Successfully imported: {FileName}", file.Name);
+                            }
+                            else
+                            {
+                                result.FailedCount++;
+                                result.FailedItems.Add(file.Name);
+                                result.Errors.Add($"Failed to import: {file.Name}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.FailedCount++;
+                            result.FailedItems.Add(file.Name);
+                            result.Errors.Add($"Error importing {file.Name}: {ex.Message}");
+                        }
+                    }
+
+                    _logger?.LogInformation("Import blocks complete: {SuccessCount} succeeded, {FailedCount} failed", result.SuccessCount, result.FailedCount);
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to import blocks");
+                    result.Errors.Add($"Error: {ex.Message}");
+                    return result;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> ImportTypeAsync(string importPath, string? groupPath = null)
+        {
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null) return false;
+
+                try
+                {
+                    var fileInfo = new FileInfo(importPath);
+                    if (!fileInfo.Exists)
+                    {
+                        _logger?.LogError("Import file not found: {ImportPath}", importPath);
+                        return false;
+                    }
+
+                    // Get type group (navigate to sub-group if path provided)
+                    var typeGroup = TiaReflectionHelper.GetTypeGroup(_plcSoftware);
+                    if (typeGroup == null) return false;
+
+                    var targetGroup = string.IsNullOrEmpty(groupPath)
+                        ? typeGroup
+                        : TiaReflectionHelper.GetTypeGroupByPath(typeGroup, groupPath);
+
+                    if (targetGroup == null)
+                    {
+                        _logger?.LogError("Type group not found: {GroupPath}", groupPath ?? "root");
+                        return false;
+                    }
+
+                    // Get Types collection and call Import
+                    var typesCollection = TiaReflectionHelper.GetProperty(targetGroup, "Types");
+                    if (typesCollection == null) return false;
+
+                    // Use reflection to call Import method with ImportOptions.Override = 2
+                    var importMethod = typesCollection.GetType().GetMethod("Import", new[] { typeof(FileInfo), typeof(int) });
+
+                    if (importMethod != null)
+                    {
+                        var result = importMethod.Invoke(typesCollection, new object[] { fileInfo, 2 });
+                        var resultList = result as System.Collections.IEnumerable;
+                        return resultList != null && resultList.Cast<object>().Any();
+                    }
+
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error importing type from {ImportPath}", importPath);
+                    return false;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<ImportResult> ImportTypesAsync(string importDirectory, string? filterRegex = null, string? groupPath = null)
+        {
+            var result = new ImportResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    _logger?.LogWarning("No PLC software is currently open");
+                    result.Errors.Add("No PLC software is currently open");
+                    return result;
+                }
+
+                _logger?.LogInformation("Importing types: filter='{Filter}', directory='{Directory}'", filterRegex ?? "all", importDirectory);
+
+                try
+                {
+                    var dirInfo = new DirectoryInfo(importDirectory);
+                    if (!dirInfo.Exists)
+                    {
+                        _logger?.LogError("Import directory not found: {ImportDirectory}", importDirectory);
+                        result.Errors.Add($"Import directory not found: {importDirectory}");
+                        return result;
+                    }
+
+                    // Compile regex filter if provided
+                    Regex? regex = null;
+                    if (!string.IsNullOrEmpty(filterRegex))
+                    {
+                        try
+                        {
+                            regex = new Regex(filterRegex, RegexOptions.IgnoreCase);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogError(ex, "Invalid regex filter: {FilterRegex}", filterRegex);
+                            result.Errors.Add($"Invalid regex filter: {filterRegex}");
+                            return result;
+                        }
+                    }
+
+                    // Get type group
+                    var typeGroup = TiaReflectionHelper.GetTypeGroup(_plcSoftware);
+                    if (typeGroup == null)
+                    {
+                        result.Errors.Add("Could not get TypeGroup");
+                        return result;
+                    }
+
+                    var targetGroup = string.IsNullOrEmpty(groupPath)
+                        ? typeGroup
+                        : TiaReflectionHelper.GetTypeGroupByPath(typeGroup, groupPath);
+
+                    if (targetGroup == null)
+                    {
+                        _logger?.LogError("Type group not found: {GroupPath}", groupPath ?? "root");
+                        result.Errors.Add($"Type group not found: {groupPath ?? "root"}");
+                        return result;
+                    }
+
+                    var typesCollection = TiaReflectionHelper.GetProperty(targetGroup, "Types");
+                    if (typesCollection == null)
+                    {
+                        result.Errors.Add("Could not get Types collection");
+                        return result;
+                    }
+
+                    var importMethod = typesCollection.GetType().GetMethod("Import", new[] { typeof(FileInfo), typeof(int) });
+                    if (importMethod == null)
+                    {
+                        result.Errors.Add("Could not get Import method");
+                        return result;
+                    }
+
+                    // Import each XML file
+                    foreach (var file in dirInfo.GetFiles("*.xml"))
+                    {
+                        try
+                        {
+                            // Apply filter if provided
+                            if (regex != null && !regex.IsMatch(Path.GetFileNameWithoutExtension(file.Name)))
+                            {
+                                continue;
+                            }
+
+                            result.TotalCount++;
+
+                            var importResult = importMethod.Invoke(typesCollection, new object[] { file, 2 });
+                            var resultList = importResult as System.Collections.IEnumerable;
+
+                            if (resultList != null && resultList.Cast<object>().Any())
+                            {
+                                result.SuccessCount++;
+                                result.ImportedItems.Add(file.Name);
+                                _logger?.LogDebug("Successfully imported: {FileName}", file.Name);
+                            }
+                            else
+                            {
+                                result.FailedCount++;
+                                result.FailedItems.Add(file.Name);
+                                result.Errors.Add($"Failed to import: {file.Name}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.FailedCount++;
+                            result.FailedItems.Add(file.Name);
+                            result.Errors.Add($"Error importing {file.Name}: {ex.Message}");
+                        }
+                    }
+
+                    _logger?.LogInformation("Import types complete: {SuccessCount} succeeded, {FailedCount} failed", result.SuccessCount, result.FailedCount);
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to import types");
+                    result.Errors.Add($"Error: {ex.Message}");
+                    return result;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> ImportBlockFromDocumentsAsync(string importDirectory, string fileNameWithoutExtension, string? groupPath = null, string importOption = "Override")
+        {
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null) return false;
+
+                try
+                {
+                    // Check TIA Portal version - document import requires V20+
+                    var tiaVersion = TiaReflectionHelper.ParseTiaVersion(_portalService.Version);
+                    if (tiaVersion == null || tiaVersion.Major < 20)
+                    {
+                        _logger?.LogError("Import from documents requires TIA Portal V20 or newer (current: {Version})", _portalService.Version);
+                        throw new InvalidOperationException("Import from documents requires TIA Portal V20 or newer");
+                    }
+
+                    var dirInfo = new DirectoryInfo(importDirectory);
+                    if (!dirInfo.Exists)
+                    {
+                        _logger?.LogError("Import directory not found: {ImportDirectory}", importDirectory);
+                        return false;
+                    }
+
+                    // Verify the .s7dcl file exists (for validation)
+                    var s7dclFile = new FileInfo(Path.Combine(importDirectory, $"{fileNameWithoutExtension}.s7dcl"));
+                    if (!s7dclFile.Exists)
+                    {
+                        _logger?.LogError("Document file not found: {FileName}.s7dcl", fileNameWithoutExtension);
+                        return false;
+                    }
+
+                    // Get block group
+                    var blockGroup = TiaReflectionHelper.GetBlockGroup(_plcSoftware);
+                    if (blockGroup == null) return false;
+
+                    var targetGroup = string.IsNullOrEmpty(groupPath)
+                        ? blockGroup
+                        : TiaReflectionHelper.GetBlockGroupByPath(blockGroup, groupPath);
+
+                    if (targetGroup == null)
+                    {
+                        _logger?.LogError("Block group not found: {GroupPath}", groupPath ?? "root");
+                        return false;
+                    }
+
+                    var blocksCollection = TiaReflectionHelper.GetProperty(targetGroup, "Blocks");
+                    if (blocksCollection == null) return false;
+
+                    // Parse import option string to enum value
+                    int importOptionValue = importOption.ToLowerInvariant() switch
+                    {
+                        "none" => 0,
+                        "skipinactivecultures" => 1,
+                        "override" => 2,
+                        "activateinactivecultures" => 3,
+                        _ => 2 // Default to Override
+                    };
+
+                    // Look for ImportFromDocuments method (V20+)
+                    var importMethod = blocksCollection.GetType().GetMethod("ImportFromDocuments",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                    if (importMethod != null)
+                    {
+                        // ImportFromDocuments(DirectoryInfo, string, ImportDocumentOptions)
+                        var result = importMethod.Invoke(blocksCollection, new object[] { dirInfo, fileNameWithoutExtension, importOptionValue });
+                        return result != null;
+                    }
+
+                    _logger?.LogError("ImportFromDocuments method not found (requires TIA Portal V20+)");
+                    return false;
+                }
+                catch (InvalidOperationException)
+                {
+                    throw; // Re-throw InvalidOperationException for version check
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Error importing block from documents in {ImportDirectory}", importDirectory);
+                    return false;
+                }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<ImportResult> ImportBlocksFromDocumentsAsync(string importDirectory, string? filterRegex = null, string? groupPath = null, string importOption = "Override")
+        {
+            var result = new ImportResult();
+
+            return await Task.Run(() =>
+            {
+                if (_plcSoftware == null || string.IsNullOrEmpty(CurrentPlcName))
+                {
+                    _logger?.LogWarning("No PLC software is currently open");
+                    result.Errors.Add("No PLC software is currently open");
+                    return result;
+                }
+
+                _logger?.LogInformation("Importing blocks from documents: filter='{Filter}', directory='{Directory}'", filterRegex ?? "all", importDirectory);
+
+                try
+                {
+                    // Check TIA Portal version - document import requires V20+
+                    var tiaVersion = TiaReflectionHelper.ParseTiaVersion(_portalService.Version);
+                    if (tiaVersion == null || tiaVersion.Major < 20)
+                    {
+                        _logger?.LogError("Import from documents requires TIA Portal V20 or newer (current: {Version})", _portalService.Version);
+                        result.Errors.Add("Import from documents requires TIA Portal V20 or newer");
+                        return result;
+                    }
+
+                    var dirInfo = new DirectoryInfo(importDirectory);
+                    if (!dirInfo.Exists)
+                    {
+                        _logger?.LogError("Import directory not found: {ImportDirectory}", importDirectory);
+                        result.Errors.Add($"Import directory not found: {importDirectory}");
+                        return result;
+                    }
+
+                    // Compile regex filter if provided
+                    Regex? regex = null;
+                    if (!string.IsNullOrEmpty(filterRegex))
+                    {
+                        try
+                        {
+                            regex = new Regex(filterRegex, RegexOptions.IgnoreCase);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogError(ex, "Invalid regex filter: {FilterRegex}", filterRegex);
+                            result.Errors.Add($"Invalid regex filter: {filterRegex}");
+                            return result;
+                        }
+                    }
+
+                    // Get block group
+                    var blockGroup = TiaReflectionHelper.GetBlockGroup(_plcSoftware);
+                    if (blockGroup == null)
+                    {
+                        result.Errors.Add("Could not get BlockGroup");
+                        return result;
+                    }
+
+                    var targetGroup = string.IsNullOrEmpty(groupPath)
+                        ? blockGroup
+                        : TiaReflectionHelper.GetBlockGroupByPath(blockGroup, groupPath);
+
+                    if (targetGroup == null)
+                    {
+                        _logger?.LogError("Block group not found: {GroupPath}", groupPath ?? "root");
+                        result.Errors.Add($"Block group not found: {groupPath ?? "root"}");
+                        return result;
+                    }
+
+                    var blocksCollection = TiaReflectionHelper.GetProperty(targetGroup, "Blocks");
+                    if (blocksCollection == null)
+                    {
+                        result.Errors.Add("Could not get Blocks collection");
+                        return result;
+                    }
+
+                    // Parse import option string to enum value
+                    int importOptionValue = importOption.ToLowerInvariant() switch
+                    {
+                        "none" => 0,
+                        "skipinactivecultures" => 1,
+                        "override" => 2,
+                        "activateinactivecultures" => 3,
+                        _ => 2 // Default to Override
+                    };
+
+                    // Look for ImportFromDocuments method (V20+)
+                    var importMethod = blocksCollection.GetType().GetMethod("ImportFromDocuments",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                    if (importMethod == null)
+                    {
+                        result.Errors.Add("ImportFromDocuments method not found (requires TIA Portal V20+)");
+                        return result;
+                    }
+
+                    // Find all .s7dcl files (document exports have paired .s7dcl and .s7res files)
+                    var docFiles = dirInfo.GetFiles("*.s7dcl");
+                    _logger?.LogDebug("Found {DocFileCount} .s7dcl files in directory", docFiles.Length);
+
+                    // Apply filter to get list of files to import
+                    var filesToImport = new List<FileInfo>();
+                    foreach (var file in docFiles)
+                    {
+                        var blockName = Path.GetFileNameWithoutExtension(file.Name);
+                        if (regex != null && !regex.IsMatch(blockName))
+                        {
+                            _logger?.LogDebug("Skipping {BlockName} (does not match filter)", blockName);
+                            continue;
+                        }
+                        filesToImport.Add(file);
+                    }
+
+                    result.TotalCount = filesToImport.Count;
+
+                    if (filesToImport.Count == 0)
+                    {
+                        _logger?.LogWarning("No .s7dcl files found to import (after filtering)");
+                        return result;
+                    }
+
+                    // Import each file individually using ImportFromDocuments
+                    _logger?.LogInformation("Importing {Count} blocks from documents...", filesToImport.Count);
+
+                    foreach (var file in filesToImport)
+                    {
+                        var blockName = Path.GetFileNameWithoutExtension(file.Name);
+                        _logger?.LogDebug("Importing {BlockName} from documents...", blockName);
+
+                        try
+                        {
+                            var importResult = importMethod.Invoke(blocksCollection, new object[] { dirInfo, blockName, importOptionValue });
+
+                            if (importResult != null)
+                            {
+                                result.SuccessCount++;
+                                result.ImportedItems.Add(blockName);
+                                _logger?.LogDebug("Successfully imported {BlockName}", blockName);
+                            }
+                            else
+                            {
+                                result.FailedCount++;
+                                result.FailedItems.Add(blockName);
+                                result.Errors.Add($"Failed to import {blockName}: ImportFromDocuments returned null");
+                            }
+                        }
+                        catch (System.Reflection.TargetInvocationException tie)
+                        {
+                            result.FailedCount++;
+                            result.FailedItems.Add(blockName);
+                            var errorMsg = tie.InnerException?.Message ?? tie.Message;
+                            result.Errors.Add($"Failed to import {blockName}: {errorMsg}");
+                            _logger?.LogError(tie.InnerException, "Error importing {BlockName}", blockName);
+                        }
+                        catch (Exception ex)
+                        {
+                            result.FailedCount++;
+                            result.FailedItems.Add(blockName);
+                            result.Errors.Add($"Failed to import {blockName}: {ex.Message}");
+                            _logger?.LogError(ex, "Error importing {BlockName}", blockName);
+                        }
+                    }
+
+                    _logger?.LogInformation("Import blocks from documents complete: {SuccessCount} succeeded, {FailedCount} failed", result.SuccessCount, result.FailedCount);
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to import blocks from documents");
+                    result.Errors.Add($"Error: {ex.Message}");
+                    return result;
+                }
+            });
+        }
+
+        #endregion
     }
 }
