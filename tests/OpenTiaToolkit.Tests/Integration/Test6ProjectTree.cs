@@ -16,11 +16,11 @@ namespace OpenTiaToolkit.Tests.Integration
     [DoNotParallelize]
     public sealed class Test6ProjectTree
     {
-        private ILoggerFactory? _loggerFactory;
-        private ILogger? _logger;
-        private IPortalService? _portalService;
-        private ICommand? _connectCommand;
-        private ICommand? _openProjectCommand;
+        private ILoggerFactory _loggerFactory = null!;
+        private ILogger _logger = null!;
+        private IPortalService _portalService = null!;
+        private ICommand _connectCommand = null!;
+        private ICommand _openProjectCommand = null!;
 
         [TestInitialize]
         public void TestInitialize()

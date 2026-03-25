@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E57A7750-C4F8-4A40-AA97-B13D94EB189C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTiaToolkit.CLI", "src\OpenTiaToolkit.CLI\OpenTiaToolkit.CLI.csproj", "{C4CC865F-E781-4508-BC09-2F258DF0CB7D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTiaToolkit.Core", "src\OpenTiaToolkit.Core\OpenTiaToolkit.Core.csproj", "{8505D835-1834-4FCF-9B78-A3EFD9BD2A79}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTiaToolkit.MCP", "src\OpenTiaToolkit.MCP\OpenTiaToolkit.MCP.csproj", "{0F36756E-4213-4C89-8B9A-3B6D07AFE491}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{332E412D-B105-4A40-8C61-CB9E7EDAD1D1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenTiaToolkit.Tests", "tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj", "{54EE5C7D-4F61-4812-8479-64559DFA0039}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C4CC865F-E781-4508-BC09-2F258DF0CB7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C4CC865F-E781-4508-BC09-2F258DF0CB7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C4CC865F-E781-4508-BC09-2F258DF0CB7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C4CC865F-E781-4508-BC09-2F258DF0CB7D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8505D835-1834-4FCF-9B78-A3EFD9BD2A79}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8505D835-1834-4FCF-9B78-A3EFD9BD2A79}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8505D835-1834-4FCF-9B78-A3EFD9BD2A79}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8505D835-1834-4FCF-9B78-A3EFD9BD2A79}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F36756E-4213-4C89-8B9A-3B6D07AFE491}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F36756E-4213-4C89-8B9A-3B6D07AFE491}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F36756E-4213-4C89-8B9A-3B6D07AFE491}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F36756E-4213-4C89-8B9A-3B6D07AFE491}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54EE5C7D-4F61-4812-8479-64559DFA0039}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54EE5C7D-4F61-4812-8479-64559DFA0039}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54EE5C7D-4F61-4812-8479-64559DFA0039}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54EE5C7D-4F61-4812-8479-64559DFA0039}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C4CC865F-E781-4508-BC09-2F258DF0CB7D} = {E57A7750-C4F8-4A40-AA97-B13D94EB189C}
+		{8505D835-1834-4FCF-9B78-A3EFD9BD2A79} = {E57A7750-C4F8-4A40-AA97-B13D94EB189C}
+		{0F36756E-4213-4C89-8B9A-3B6D07AFE491} = {E57A7750-C4F8-4A40-AA97-B13D94EB189C}
+		{54EE5C7D-4F61-4812-8479-64559DFA0039} = {332E412D-B105-4A40-8C61-CB9E7EDAD1D1}
+	EndGlobalSection
+EndGlobal

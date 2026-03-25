@@ -11,14 +11,16 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 - **Dual Interface**: Single codebase serving both CLI and MCP workflows
 - **Interactive REPL Mode**: Persistent connections across commands with shell-like interface
 - **Clean Architecture**: Shared commands and services between CLI and MCP
-- **30 Commands**: Complete coverage of portal, project, device, HMI, and PLC operations (including advanced block operations)
+- **Broad Command Surface**: Coverage across portal, project, device, HMI, and PLC operations (including import/export)
   - Tag Management: create-tag, find-replace-tags (with substring matching support)
-  - Block Operations: search-blocks, get-block-info, export-block, delete-blocks
+  - Block Operations: search-blocks, get-block-info, export-block, delete-blocks, export-block-as-docs, export-blocks-as-docs
+  - Block Import: import-block, import-blocks, import-block-from-docs, import-blocks-from-docs
+  - Type Operations: export-type, export-types, import-type, import-types
   - PLC Operations: compile-software, export-plc, get-software-tree, get-blocks
   - And more...
-- **Multi-Version Support**: Compatible with TIA Portal V21 and later
-- **Graceful Degradation**: Automatically adapts to TIA Portal version capabilities
-- **100% Test Coverage**: 45+ integration tests, all passing
+- **Primary Target: TIA Portal V21**: The repo is developed and tested against the V21 modular Openness API
+- **Legacy Compatibility**: Reflection-based paths still aim to work with older installations where feasible
+- **Automated Coverage**: Fast unit tests plus machine-specific integration tests for real TIA validation
 - **Open Source**: Ready for community collaboration
 
 ## Table of Contents
@@ -54,8 +56,9 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 git clone https://github.com/your-org/OpenTiaToolkit.git
 cd OpenTiaToolkit
 
-# Build the solution
-dotnet build OpenTiaToolkit.slnx
+# Build the CLI and MCP applications
+dotnet build src/OpenTiaToolkit.CLI/OpenTiaToolkit.CLI.csproj
+dotnet build src/OpenTiaToolkit.MCP/OpenTiaToolkit.MCP.csproj
 ```
 
 ### Output Artifacts
@@ -134,10 +137,10 @@ Supports both `--name=value` and `--name value` formats:
 
 ```bash
 # Format 1: --name=value
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap21"
 
 # Format 2: --name value
-OpenTiaToolkit.CLI.exe open-project --project-path "C:\Project.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path "C:\Project.ap21"
 
 # Boolean flags
 OpenTiaToolkit.CLI.exe close-project --save
@@ -175,7 +178,7 @@ OpenTiaToolkit.CLI.exe -i
 - **Persistent Connections**: TIA Portal instance and project connections stay open across commands
 - **Faster Workflows**: No need to reconnect for each operation
 - **Shell-like Experience**: Familiar prompt and command interface
-- **Full Command Support**: All 27 commands work in REPL mode
+- **Full Command Support**: The registered CLI command surface works in REPL mode
 
 **REPL-Specific Commands**:
 
@@ -244,7 +247,7 @@ The MCP server communicates over stdin/stdout using JSON-RPC messages following 
 
 ### Available Tools
 
-All 27 CLI commands are automatically exposed as MCP tools with the same names:
+The registered MCP tool surface is generated from the shared command implementations:
 
 #### Portal Instance Management (Phase 2)
 | Tool Name | Description |
@@ -361,7 +364,7 @@ OpenTiaToolkit.CLI.exe portal-status
 ### Project Operations
 
 #### `open-project`
-Opens a TIA Portal project file (.ap21, .ap19, .als21, or .als19).
+Opens a TIA Portal project file (.ap21 or .als21 primary; legacy project formats are also supported).
 
 ```bash
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\My.ap21"
@@ -580,6 +583,226 @@ OpenTiaToolkit.CLI.exe search-blocks --plc-name="PLC_1" --pattern="FB" --filter-
 - `search-in` (optional): Where to search - "name" or "comment" (default: "name")
 - `filter-type` (optional): Block type filter (FB, FC, DB, OB)
 
+### SIMATIC SD Export (V20+)
+
+#### `export-block-as-docs`
+Exports a single block as SIMATIC SD documents (.s7dcl + .s7res). Requires TIA Portal V20 or newer.
+
+```bash
+OpenTiaToolkit.CLI.exe export-block-as-docs --plc-name="PLC_1" --block-name="Motor" --export-path="C:\Exports"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `block-name` (required): Name of the block to export
+- `export-path` (required): Directory path for exported files
+
+**Output Files:**
+- `{block-name}.s7dcl` - Multi-language document file
+- `{block-name}.s7res` - Resource file
+
+**Version Requirements:**
+- Requires TIA Portal V20 or newer
+- Throws `InvalidOperationException` if used with V19 or earlier
+
+#### `export-blocks-as-docs`
+Exports multiple blocks as SIMATIC SD documents with optional regex filtering. Requires TIA Portal V20 or newer.
+
+```bash
+# Export all blocks
+OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --export-path="C:\Exports"
+
+# Export with regex filter
+OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --filter-regex="Motor_.*" --export-path="C:\Exports"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `export-path` (required): Directory path for exported files
+- `filter-regex` (optional): Regex filter for block names (e.g., "Motor_.*")
+
+**Returns:**
+- Total count, success count, failed count
+- Lists of exported and failed blocks
+- Error messages for failures
+
+### Type Export (UDT)
+
+#### `export-type`
+Exports a single User Defined Type (UDT) to XML.
+
+```bash
+OpenTiaToolkit.CLI.exe export-type --plc-name="PLC_1" --type-name="MotorData" --export-path="C:\Exports\MotorData.xml"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `type-name` (required): Name of the type to export
+- `export-path` (required): Full file path for the exported XML file
+
+**Validation:**
+- Checks `IsConsistent` property before export
+- Returns error if type is inconsistent
+
+#### `export-types`
+Exports multiple User Defined Types (UDT) to XML with optional regex filtering.
+
+```bash
+# Export all types
+OpenTiaToolkit.CLI.exe export-types --plc-name="PLC_1" --export-path="C:\Exports"
+
+# Export with regex filter
+OpenTiaToolkit.CLI.exe export-types --plc-name="PLC_1" --filter-regex="Motor_.*" --export-path="C:\Exports"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `export-path` (required): Directory path for exported XML files
+- `filter-regex` (optional): Regex filter for type names (e.g., "Motor_.*")
+
+**Returns:**
+- Total count, success count, failed count
+- Lists of exported and failed types
+- Error messages for failures (including inconsistent types)
+
+### Import Operations (Phase 4.6)
+
+#### `import-block`
+Imports a single PLC block from an XML file.
+
+```bash
+# Import to root of PLC program
+OpenTiaToolkit.CLI.exe import-block --plc-name="PLC_1" --import-path="C:\Imports\FB_Motor.xml"
+
+# Import to specific group path
+OpenTiaToolkit.CLI.exe import-block --plc-name="PLC_1" --import-path="C:\Imports\FB_Motor.xml" --group-path="Program Blocks/Motors"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `import-path` (required): Full path to the XML file to import
+- `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
+
+#### `import-blocks`
+Imports multiple PLC blocks from XML files in a directory with optional regex filtering.
+
+```bash
+# Import all blocks from directory
+OpenTiaToolkit.CLI.exe import-blocks --plc-name="PLC_1" --import-directory="C:\Imports\Blocks"
+
+# Import with regex filter
+OpenTiaToolkit.CLI.exe import-blocks --plc-name="PLC_1" --import-directory="C:\Imports\Blocks" --filter-regex="FB_.*"
+
+# Import to specific group path
+OpenTiaToolkit.CLI.exe import-blocks --plc-name="PLC_1" --import-directory="C:\Imports\Blocks" --group-path="Program Blocks/Motors"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `import-directory` (required): Directory containing XML files to import
+- `filter-regex` (optional): Regex filter for file names (e.g., "FB_.*")
+- `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
+
+**Returns:**
+- Total count, success count, failed count
+- Lists of imported and failed blocks
+- Error messages for failures
+
+#### `import-type`
+Imports a single User Defined Type (UDT) from an XML file.
+
+```bash
+# Import to root of type groups
+OpenTiaToolkit.CLI.exe import-type --plc-name="PLC_1" --import-path="C:\Imports\MotorData.xml"
+
+# Import to specific type group path
+OpenTiaToolkit.CLI.exe import-type --plc-name="PLC_1" --import-path="C:\Imports\MotorData.xml" --group-path="Types/Motor"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `import-path` (required): Full path to the XML file to import
+- `group-path` (optional): Path within type groups (e.g., "Types/Subgroups"). Empty for root.
+
+#### `import-types`
+Imports multiple User Defined Types (UDT) from XML files in a directory with optional regex filtering.
+
+```bash
+# Import all types from directory
+OpenTiaToolkit.CLI.exe import-types --plc-name="PLC_1" --import-directory="C:\Imports\Types"
+
+# Import with regex filter
+OpenTiaToolkit.CLI.exe import-types --plc-name="PLC_1" --import-directory="C:\Imports\Types" --filter-regex="Motor_.*"
+
+# Import to specific type group path
+OpenTiaToolkit.CLI.exe import-types --plc-name="PLC_1" --import-directory="C:\Imports\Types" --group-path="Types/Motor"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `import-directory` (required): Directory containing XML files to import
+- `filter-regex` (optional): Regex filter for file names (e.g., "Motor_.*")
+- `group-path` (optional): Path within type groups (e.g., "Types/Subgroups"). Empty for root.
+
+**Returns:**
+- Total count, success count, failed count
+- Lists of imported and failed types
+- Error messages for failures
+
+#### `import-block-from-docs`
+Imports a single PLC block from SIMATIC SD documents (.s7dcl + .s7res) - requires TIA Portal V20 or newer.
+
+```bash
+# Import to root of PLC program
+OpenTiaToolkit.CLI.exe import-block-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --file-name="Motor"
+
+# Import with specific import option
+OpenTiaToolkit.CLI.exe import-block-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --file-name="Motor" --import-option="Override"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `import-directory` (required): Directory containing .s7dcl and .s7res files
+- `file-name` (required): Block name without extension
+- `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
+- `import-option` (optional): Import behavior - "Override", "None", "SkipInactiveCultures", or "ActivateInactiveCultures" (default: "Override")
+
+**Import Options:**
+- `Override`: Overwrites existing blocks (default)
+- `None`: Does not overwrite existing blocks
+- `SkipInactiveCultures`: Skips inactive language versions
+- `ActivateInactiveCultures`: Activates all language versions
+
+**Note**: Requires TIA Portal V20 or newer. The directory must contain both .s7dcl and .s7res files with matching names.
+
+#### `import-blocks-from-docs`
+Imports multiple PLC blocks from SIMATIC SD documents (.s7dcl + .s7res) with optional regex filtering - requires TIA Portal V20 or newer.
+
+```bash
+# Import all blocks from directory
+OpenTiaToolkit.CLI.exe import-blocks-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs"
+
+# Import with regex filter
+OpenTiaToolkit.CLI.exe import-blocks-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --filter-regex="Motor_.*"
+
+# Import with specific import option
+OpenTiaToolkit.CLI.exe import-blocks-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --import-option="Override"
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `import-directory` (required): Directory containing .s7dcl and .s7res files
+- `filter-regex` (optional): Regex filter for block names (e.g., "Motor_.*")
+- `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
+- `import-option` (optional): Import behavior - "Override", "None", "SkipInactiveCultures", or "ActivateInactiveCultures" (default: "Override")
+
+**Returns:**
+- Total count, success count, failed count
+- Lists of imported and failed blocks
+- Error messages for failures
+
+**Note**: Requires TIA Portal V20 or newer. Each block requires paired .s7dcl and .s7res files.
+
 ### Tag Management
 
 #### `create-tag`
@@ -641,7 +864,7 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"spee
 ### Solution Structure
 
 ```
-OpenTiaToolkit.slnx
+OpenTiaToolkit.sln
 ├── src/
 │   ├── OpenTiaToolkit.Core/      # Shared core library
 │   │   ├── Abstractions/         # Interfaces (ICommand, IPortalService, IPlcService)
@@ -687,7 +910,7 @@ OpenTiaToolkit.slnx
 ┌─────────────────────────────────────┐
 │      Command/Tool Abstraction Layer │
 │  (Unified interface for CLI tools & MCP)│
-│  - 27 commands across 4 categories  │
+│  - 40 commands across 6 categories  │
 └─────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────┐
@@ -784,9 +1007,9 @@ That's it! The command is now available in both CLI and MCP.
 
 - **Location**: `tests/OpenTiaToolkit.Tests/Integration/`
 - **Framework**: MSTest 3.9.2
-- **Count**: 45 tests (all passing, 100% success rate)
-- **Execution Time**: ~2 minutes
-- **Test Files**: 8 test classes covering all functionality
+- **Scope**: Integration tests rely on a local TIA Portal V21 installation and a configured test project
+- **Execution Time**: Environment-dependent
+- **Configuration**: Override paths with `OPEN_TIA_TEST_PROJECT_PATH`, `OPEN_TIA_TEST_EXPORT_PATH`, and `OPEN_TIA_TEST_OUTPUT_PATH`
 
 ```bash
 # Run all integration tests
@@ -858,8 +1081,8 @@ dotnet test --filter "TestClass=Test1Portal"
 
 ### Current Status
 
-- **Total Commands**: 27
-- **Test Coverage**: 45/45 passing (100%)
+- **Total Commands**: The command surface is actively evolving; use `help` for the current registered set
+- **Test Coverage**: Fast unit tests plus machine-specific integration coverage
 - **Documentation**: Complete
 - **Known Issues**: 2 tests ignored (TIA Portal SaveAs file access limitation)
 
@@ -892,6 +1115,12 @@ We welcome contributions! Please:
 - Ensure TIA Portal V21+ is installed at `C:\Program Files\Siemens\Automation\Portal V21\`
 - The custom TiaPortalAssemblyResolver will handle assembly loading at runtime
 - For development, set environment variable `TiaPortalLocation` to your TIA installation path
+
+To avoid the first-run Openness confirmation for a freshly built executable, use [Register-OpennessAllowList.ps1](/E:/Documents/Codex/OpenTiaToolkit/scripts/Register-OpennessAllowList.ps1) from an elevated PowerShell session:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe
+```
 
 ### MCP server not responding
 

@@ -25,7 +25,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         public string Name => "create-block";
 
         /// <inheritdoc/>
-        public string Description => "Creates a new block in PLC software";
+        public string Description => "Creates a new block in PLC software (currently validated for ProDiag FB creation)";
 
         /// <inheritdoc/>
         public CommandSchema Schema => new CommandSchema(
@@ -45,12 +45,12 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter(
                     "block-type",
                     CommandParameterType.String,
-                    "The type of block (FB, FC, DB, OB, SFB, SFC, UDT)",
+                    "The type of block (currently validated: FB)",
                     required: true),
                 new CommandParameter(
                     "language",
                     CommandParameterType.String,
-                    "The programming language (e.g., SCL, FBD, LAD, ST)",
+                    "The programming language (currently validated: ProDiag)",
                     required: false)
             }
         );
@@ -83,7 +83,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 var language = args.GetString("language");
 
                 // Validate block type
-                var validBlockTypes = new[] { "FB", "FC", "DB", "OB", "SFB", "SFC", "UDT" };
+                var validBlockTypes = new[] { "FB" };
                 if (!Array.Exists(validBlockTypes, t => t.Equals(blockType, StringComparison.OrdinalIgnoreCase)))
                 {
                     return CommandResult.CreateFailure(
@@ -94,7 +94,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Validate programming language if provided
                 if (!string.IsNullOrEmpty(language))
                 {
-                    var validLanguages = new[] { "SCL", "FBD", "LAD", "ST", "GRAPH" };
+                    var validLanguages = new[] { "ProDiag", "S7_PDIAG" };
                     if (!Array.Exists(validLanguages, l => l.Equals(language, StringComparison.OrdinalIgnoreCase)))
                     {
                         return CommandResult.CreateFailure(

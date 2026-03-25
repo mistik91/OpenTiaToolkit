@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -16,7 +17,7 @@ namespace OpenTiaToolkit.Core.Services
         /// <param name="obj">The object to get the property from.</param>
         /// <param name="propertyName">The name of the property.</param>
         /// <returns>The property value, or null if not found.</returns>
-        public static object? GetProperty(object obj, string propertyName)
+        public static object? GetProperty(object? obj, string propertyName)
         {
             if (obj == null) return null;
             var property = obj.GetType().GetProperty(propertyName);
@@ -29,7 +30,7 @@ namespace OpenTiaToolkit.Core.Services
         /// <param name="obj">The object to set the property on.</param>
         /// <param name="propertyName">The name of the property.</param>
         /// <param name="value">The value to set.</param>
-        public static void SetProperty(object obj, string propertyName, object value)
+        public static void SetProperty(object? obj, string propertyName, object value)
         {
             if (obj == null) return;
             var property = obj.GetType().GetProperty(propertyName);
@@ -41,9 +42,32 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="plcSoftware">The PlcSoftware object.</param>
         /// <returns>The TagTableGroup object, or null if not found.</returns>
-        public static object? GetTagTableGroup(object plcSoftware)
+        public static object? GetTagTableGroup(object? plcSoftware)
         {
             return GetProperty(plcSoftware, "TagTableGroup");
+        }
+
+        /// <summary>
+        /// Gets the ExternalSourceGroup from a PlcSoftware object.
+        /// </summary>
+        /// <param name="plcSoftware">The PlcSoftware object.</param>
+        /// <returns>The ExternalSourceGroup object, or null if not found.</returns>
+        public static object? GetExternalSourceGroup(object? plcSoftware)
+        {
+            return GetProperty(plcSoftware, "ExternalSourceGroup");
+        }
+
+        /// <summary>
+        /// Gets an enumerable property from an object.
+        /// </summary>
+        /// <param name="obj">The source object.</param>
+        /// <param name="propertyName">The enumerable property name.</param>
+        /// <returns>The enumerable items, or null if the property is missing.</returns>
+        public static IEnumerable<object>? GetEnumerableProperty(object? obj, string propertyName)
+        {
+            var value = GetProperty(obj, propertyName);
+            var enumerable = value as System.Collections.IEnumerable;
+            return enumerable?.Cast<object>();
         }
 
         /// <summary>
@@ -51,11 +75,9 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="tagTableGroup">The TagTableGroup object.</param>
         /// <returns>The TagTables collection, or null if not found.</returns>
-        public static IEnumerable<object>? GetTagTables(object tagTableGroup)
+        public static IEnumerable<object>? GetTagTables(object? tagTableGroup)
         {
-            var tagTables = GetProperty(tagTableGroup, "TagTables");
-            var enumerable = tagTables as System.Collections.IEnumerable;
-            return enumerable?.Cast<object>();
+            return GetEnumerableProperty(tagTableGroup, "TagTables");
         }
 
         /// <summary>
@@ -63,11 +85,29 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="tagTable">The tag table object.</param>
         /// <returns>The tags collection, or null if not found.</returns>
-        public static IEnumerable<object>? GetTags(object tagTable)
+        public static IEnumerable<object>? GetTags(object? tagTable)
         {
-            var tags = GetProperty(tagTable, "Tags");
-            var enumerable = tags as System.Collections.IEnumerable;
-            return enumerable?.Cast<object>();
+            return GetEnumerableProperty(tagTable, "Tags");
+        }
+
+        /// <summary>
+        /// Gets the external sources collection from an external source group.
+        /// </summary>
+        /// <param name="externalSourceGroup">The external source group object.</param>
+        /// <returns>The external sources collection, or null if not found.</returns>
+        public static IEnumerable<object>? GetExternalSources(object? externalSourceGroup)
+        {
+            return GetEnumerableProperty(externalSourceGroup, "ExternalSources");
+        }
+
+        /// <summary>
+        /// Gets the documents collection from a group.
+        /// </summary>
+        /// <param name="group">The source group object.</param>
+        /// <returns>The documents collection, or null if not found.</returns>
+        public static IEnumerable<object>? GetDocuments(object? group)
+        {
+            return GetEnumerableProperty(group, "Documents");
         }
 
         /// <summary>
@@ -75,7 +115,7 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="block">The block object.</param>
         /// <returns>The Structure object, or null if not found.</returns>
-        public static object? GetBlockStructure(object block)
+        public static object? GetBlockStructure(object? block)
         {
             return GetProperty(block, "Structure");
         }
@@ -85,7 +125,7 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="structure">The Structure object.</param>
         /// <returns>The Composition object, or null if not found.</returns>
-        public static object? GetStructureComposition(object structure)
+        public static object? GetStructureComposition(object? structure)
         {
             return GetProperty(structure, "Composition");
         }
@@ -95,7 +135,7 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="composition">The Composition object.</param>
         /// <returns>The members collection, or null if not found.</returns>
-        public static IEnumerable<object>? GetCompositionMembers(object composition)
+        public static IEnumerable<object>? GetCompositionMembers(object? composition)
         {
             var members = GetProperty(composition, "Members");
             if (members != null)
@@ -114,7 +154,7 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="member">The member object.</param>
         /// <returns>True if the member has a Composition property.</returns>
-        public static bool HasNestedComposition(object member)
+        public static bool HasNestedComposition(object? member)
         {
             if (member == null) return false;
             var compositionProperty = member.GetType().GetProperty("Composition");
@@ -127,7 +167,7 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="structure">The Structure object.</param>
         /// <returns>The Members collection, or null if not found.</returns>
-        public static IEnumerable<object>? GetStructureMembers(object structure)
+        public static IEnumerable<object>? GetStructureMembers(object? structure)
         {
             var members = GetProperty(structure, "Members");
             var enumerable = members as System.Collections.IEnumerable;
@@ -139,7 +179,7 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="plcSoftware">The PlcSoftware object.</param>
         /// <returns>The BlockGroup object, or null if not found.</returns>
-        public static object? GetBlockGroup(object plcSoftware)
+        public static object? GetBlockGroup(object? plcSoftware)
         {
             return GetProperty(plcSoftware, "BlockGroup");
         }
@@ -149,7 +189,7 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="plcSoftware">The PlcSoftware object.</param>
         /// <returns>The TypeGroup object, or null if not found.</returns>
-        public static object? GetTypeGroup(object plcSoftware)
+        public static object? GetTypeGroup(object? plcSoftware)
         {
             return GetProperty(plcSoftware, "TypeGroup");
         }
@@ -159,11 +199,9 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="blockGroup">The BlockGroup object.</param>
         /// <returns>The Blocks collection, or null if not found.</returns>
-        public static IEnumerable<object>? GetBlocks(object blockGroup)
+        public static IEnumerable<object>? GetBlocks(object? blockGroup)
         {
-            var blocks = GetProperty(blockGroup, "Blocks");
-            var enumerable = blocks as System.Collections.IEnumerable;
-            return enumerable?.Cast<object>();
+            return GetEnumerableProperty(blockGroup, "Blocks");
         }
 
         /// <summary>
@@ -171,11 +209,9 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="typeGroup">The TypeGroup object.</param>
         /// <returns>The Types collection, or null if not found.</returns>
-        public static IEnumerable<object>? GetTypes(object typeGroup)
+        public static IEnumerable<object>? GetTypes(object? typeGroup)
         {
-            var types = GetProperty(typeGroup, "Types");
-            var enumerable = types as System.Collections.IEnumerable;
-            return enumerable?.Cast<object>();
+            return GetEnumerableProperty(typeGroup, "Types");
         }
 
         /// <summary>
@@ -183,11 +219,9 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="group">The group object.</param>
         /// <returns>The Groups collection, or null if not found.</returns>
-        public static IEnumerable<object>? GetGroups(object group)
+        public static IEnumerable<object>? GetGroups(object? group)
         {
-            var groups = GetProperty(group, "Groups");
-            var enumerable = groups as System.Collections.IEnumerable;
-            return enumerable?.Cast<object>();
+            return GetEnumerableProperty(group, "Groups");
         }
 
         /// <summary>
@@ -195,7 +229,7 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="obj">The object.</param>
         /// <returns>The name, or null if not found.</returns>
-        public static string? GetName(object obj)
+        public static string? GetName(object? obj)
         {
             var name = GetProperty(obj, "Name");
             return name?.ToString();
@@ -206,9 +240,82 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="obj">The object.</param>
         /// <returns>The type name.</returns>
-        public static string? GetTypeName(object obj)
+        public static string? GetTypeName(object? obj)
         {
             return obj?.GetType().Name;
+        }
+
+        /// <summary>
+        /// Parses TIA Portal version string (e.g., "V21", "V20") to System.Version.
+        /// </summary>
+        /// <param name="versionString">The version string to parse.</param>
+        /// <returns>The parsed version, or null if parsing fails.</returns>
+        public static Version? ParseTiaVersion(string? versionString)
+        {
+            if (string.IsNullOrEmpty(versionString)) return null;
+            // Extract number from "V21", "V20", etc.
+            var match = Regex.Match(versionString, @"V(\d+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int major))
+                return new Version(major, 0);
+            return null;
+        }
+
+        /// <summary>
+        /// Navigates to a specific block group by path (e.g., "Program Blocks/Motors").
+        /// </summary>
+        /// <param name="blockGroup">The root BlockGroup.</param>
+        /// <param name="groupPath">The path to navigate (empty or null returns root).</param>
+        /// <returns>The target BlockGroup, or null if not found.</returns>
+        public static object? GetBlockGroupByPath(object blockGroup, string? groupPath)
+        {
+            if (blockGroup == null) return null;
+            if (string.IsNullOrEmpty(groupPath)) return blockGroup;
+
+            var groupNames = groupPath!.Split(['/'], StringSplitOptions.RemoveEmptyEntries);
+            object? currentGroup = blockGroup;
+
+            foreach (var groupName in groupNames)
+            {
+                var groups = GetGroups(currentGroup);
+                currentGroup = groups?.FirstOrDefault(g =>
+                {
+                    var name = GetName(g);
+                    return name?.Equals(groupName, StringComparison.OrdinalIgnoreCase) ?? false;
+                });
+
+                if (currentGroup == null) return null;
+            }
+
+            return currentGroup;
+        }
+
+        /// <summary>
+        /// Navigates to a specific type group by path (e.g., "Types/Subgroups").
+        /// </summary>
+        /// <param name="typeGroup">The root TypeGroup.</param>
+        /// <param name="groupPath">The path to navigate (empty or null returns root).</param>
+        /// <returns>The target TypeGroup, or null if not found.</returns>
+        public static object? GetTypeGroupByPath(object typeGroup, string? groupPath)
+        {
+            if (typeGroup == null) return null;
+            if (string.IsNullOrEmpty(groupPath)) return typeGroup;
+
+            var groupNames = groupPath!.Split(['/'], StringSplitOptions.RemoveEmptyEntries);
+            object? currentGroup = typeGroup;
+
+            foreach (var groupName in groupNames)
+            {
+                var groups = GetGroups(currentGroup);
+                currentGroup = groups?.FirstOrDefault(g =>
+                {
+                    var name = GetName(g);
+                    return name?.Equals(groupName, StringComparison.OrdinalIgnoreCase) ?? false;
+                });
+
+                if (currentGroup == null) return null;
+            }
+
+            return currentGroup;
         }
     }
 }

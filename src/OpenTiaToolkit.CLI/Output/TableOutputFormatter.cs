@@ -53,7 +53,7 @@ namespace OpenTiaToolkit.CLI.Output
             };
         }
 
-        private static string FormatError(string message, string error)
+        private static string FormatError(string message, string? error)
         {
             var lines = new List<string>
             {

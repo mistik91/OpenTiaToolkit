@@ -73,10 +73,13 @@ namespace OpenTiaToolkit.Core.Utilities
                 );
             }
 
+            // Auto-detect CSV delimiter (comma or semicolon)
+            var delimiter = DetectDelimiter(lines);
+
             var result = new List<TagUpdateRow>();
 
             // Parse header row
-            var headerColumns = ParseCsvLine(lines[0]);
+            var headerColumns = ParseCsvLine(lines[0], delimiter);
             var columnMap = BuildColumnMap(headerColumns);
 
             // Validate that we have at least the required columns
@@ -100,7 +103,7 @@ namespace OpenTiaToolkit.Core.Utilities
                     continue;
                 }
 
-                var columns = ParseCsvLine(line);
+                var columns = ParseCsvLine(line, delimiter);
                 if (columns.Length == 0)
                 {
                     continue;
@@ -156,8 +159,9 @@ namespace OpenTiaToolkit.Core.Utilities
         /// Parses a CSV line into columns, handling quoted values.
         /// </summary>
         /// <param name="line">The CSV line to parse.</param>
+        /// <param name="delimiter">The CSV delimiter character.</param>
         /// <returns>Array of column values.</returns>
-        private static string[] ParseCsvLine(string line)
+        private static string[] ParseCsvLine(string line, char delimiter)
         {
             var columns = new List<string>();
             var current = new System.Text.StringBuilder();
@@ -169,7 +173,7 @@ namespace OpenTiaToolkit.Core.Utilities
                 {
                     inQuotes = !inQuotes;
                 }
-                else if (c == ',' && !inQuotes)
+                else if (c == delimiter && !inQuotes)
                 {
                     columns.Add(current.ToString());
                     current.Clear();
@@ -205,6 +209,38 @@ namespace OpenTiaToolkit.Core.Utilities
             }
 
             return map;
+        }
+
+        /// <summary>
+        /// Auto-detects the CSV delimiter by counting comma and semicolon occurrences.
+        /// </summary>
+        /// <param name="lines">The CSV file lines.</param>
+        /// <returns>The detected delimiter (comma or semicolon).</returns>
+        private static char DetectDelimiter(string[] lines)
+        {
+            int commaCount = 0;
+            int semicolonCount = 0;
+
+            // Check first 10 non-empty lines
+            foreach (var line in lines.Take(10).Where(l => !string.IsNullOrWhiteSpace(l)))
+            {
+                bool inQuotes = false;
+                foreach (char c in line)
+                {
+                    if (c == '"')
+                    {
+                        inQuotes = !inQuotes;
+                    }
+                    else if (!inQuotes)
+                    {
+                        if (c == ',') commaCount++;
+                        if (c == ';') semicolonCount++;
+                    }
+                }
+            }
+
+            // Use semicolon if it's more common, otherwise default to comma
+            return semicolonCount > commaCount ? ';' : ',';
         }
     }
 }

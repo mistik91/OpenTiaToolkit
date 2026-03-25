@@ -180,7 +180,7 @@ namespace OpenTiaToolkit.Tests.Commands
             // Arrange
             var values = new System.Collections.Generic.Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
             {
-                { "ProjectPath", "C:\\Test.ap19" }
+                { "ProjectPath", "C:\\Test.ap21" }
             };
             var args = new CommandArgs(values);
 
@@ -196,7 +196,7 @@ namespace OpenTiaToolkit.Tests.Commands
             // The values should be the same
             Assert.AreEqual(result1, result2);
             // And should contain our test value
-            Assert.IsTrue(result1.Contains("Test.ap19"));
+            Assert.IsTrue(result1.Contains("Test.ap21"));
         }
     }
 }

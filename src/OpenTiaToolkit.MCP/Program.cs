@@ -115,6 +115,20 @@ namespace OpenTiaToolkit.MCP
             services.AddSingleton<ICommand, GetBlockInfoCommand>();
             // services.AddSingleton<ICommand, CreateBlockCommand>(); // Disabled
 
+            // Register Phase 4.5 commands (SIMATIC SD Export and Type Export)
+            services.AddSingleton<ICommand, ExportBlockAsDocumentsCommand>();
+            services.AddSingleton<ICommand, ExportBlocksAsDocumentsCommand>();
+            services.AddSingleton<ICommand, ExportTypeCommand>();
+            services.AddSingleton<ICommand, ExportTypesCommand>();
+
+            // Register Phase 4.6 commands - Import (mirrors Export)
+            services.AddSingleton<ICommand, ImportBlockCommand>();
+            services.AddSingleton<ICommand, ImportBlocksCommand>();
+            services.AddSingleton<ICommand, ImportTypeCommand>();
+            services.AddSingleton<ICommand, ImportTypesCommand>();
+            services.AddSingleton<ICommand, ImportBlockFromDocumentsCommand>();
+            services.AddSingleton<ICommand, ImportBlocksFromDocumentsCommand>();
+
             // Register all Phase 5 commands - Find and Replace
             services.AddSingleton<ICommand, FindAndReplaceTagsCommand>();
             // services.AddSingleton<ICommand, FindAndReplaceDbMembersCommand>(); // Disabled per requirements

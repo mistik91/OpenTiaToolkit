@@ -16,7 +16,7 @@ Guide for developers contributing to OpenTiaToolkit.
 
 ### Prerequisites
 
-1. **Install TIA Portal V19+** (for integration testing)
+1. **Install TIA Portal V21** (primary supported version for integration testing)
 2. **Install Visual Studio 2019+** with:
    - .NET desktop development workload
    - MSTest adapter
@@ -33,8 +33,11 @@ cd OpenTiaToolkit
 OpenTiaToolkit.sln
 
 # Build to verify setup
-dotnet build
+dotnet build src/OpenTiaToolkit.CLI/OpenTiaToolkit.CLI.csproj
+dotnet build src/OpenTiaToolkit.MCP/OpenTiaToolkit.MCP.csproj
 ```
+
+If you want to pre-authorize a freshly built executable for TIA Openness, run [Register-OpennessAllowList.ps1](/E:/Documents/Codex/OpenTiaToolkit/scripts/Register-OpennessAllowList.ps1) from an elevated PowerShell session after the build.
 
 ### Recommended Visual Studio Extensions
 
@@ -46,7 +49,7 @@ dotnet build
 ### Solution Architecture
 
 ```
-OpenTiaToolkit.slnx
+OpenTiaToolkit.sln
 ├── src/
 │   ├── OpenTiaToolkit.Core/      # Shared library (no UI)
 │   ├── OpenTiaToolkit.CLI/       # Console application
@@ -252,7 +255,7 @@ dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
 
 **Purpose**: Test with real TIA Portal instance
 
-**Location**: `D:\Siemens\V19\MCP_TEST\MCP_TEST`
+**Location**: Controlled by `OPEN_TIA_TEST_PROJECT_PATH` (defaults to the local V21 test project path in `tests/OpenTiaToolkit.Tests/Integration/Settings.cs`)
 
 **Characteristics**:
 - Slower execution (requires TIA Portal)
@@ -263,7 +266,7 @@ dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
 **Approach**:
 1. Start with existing test project structure
 2. Follow patterns from `tiaportal-mcp` tests
-3. Test against real TIA V19 projects
+3. Test against real TIA V21 projects
 
 ### Test Execution
 
@@ -343,7 +346,7 @@ logger.LogDebug("Parsed {Count} arguments", args.Keys.Count());
 /// <summary>
 /// Connects to a TIA Portal instance.
 /// </summary>
-/// <param name="projectPath">The full path to the .ap19 file.</param>
+/// <param name="projectPath">The full path to the .ap21 file.</param>
 /// <returns>True if connection succeeded.</returns>
 public async Task<bool> ConnectAsync(string projectPath)
 {
@@ -400,7 +403,7 @@ Update version in all `.csproj` files:
 - [ ] CHANGELOG.md updated
 - [ ] Version numbers updated
 - [ ] Built in Release mode
-- [ ] Tested with TIA V19 project
+- [ ] Tested with a real TIA V21 project
 
 ### Creating Release
 

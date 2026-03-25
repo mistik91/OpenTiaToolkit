@@ -20,7 +20,7 @@ namespace OpenTiaToolkit.Core.Commands
         /// Gets the data returned by the command.
         /// Can be a single value, a collection, or a complex object.
         /// </summary>
-        public object Data { get; private set; }
+        public object? Data { get; private set; }
 
         /// <summary>
         /// Gets a human-readable message about the command execution.
@@ -30,7 +30,7 @@ namespace OpenTiaToolkit.Core.Commands
         /// <summary>
         /// Gets the error message if the command failed.
         /// </summary>
-        public string Error { get; private set; }
+        public string? Error { get; private set; }
 
         /// <summary>
         /// Creates a successful command result.
@@ -38,7 +38,7 @@ namespace OpenTiaToolkit.Core.Commands
         /// <param name="data">The data returned by the command (optional).</param>
         /// <param name="message">Human-readable success message.</param>
         /// <returns>A successful CommandResult.</returns>
-        public static CommandResult CreateSuccess(object data = null, string message = "Command completed successfully")
+        public static CommandResult CreateSuccess(object? data = null, string message = "Command completed successfully")
         {
             return new CommandResult
             {
@@ -55,7 +55,7 @@ namespace OpenTiaToolkit.Core.Commands
         /// <param name="message">Error message describing the failure.</param>
         /// <param name="exception">Optional exception that caused the failure.</param>
         /// <returns>A failed CommandResult.</returns>
-        public static CommandResult CreateFailure(string message, Exception exception = null)
+        public static CommandResult CreateFailure(string message, Exception? exception = null)
         {
             return new CommandResult
             {

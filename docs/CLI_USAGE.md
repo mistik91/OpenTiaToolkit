@@ -52,7 +52,7 @@ OpenTiaToolkit.CLI.exe connect-portal
 
 **Output**:
 ```
-Connected to TIA Portal Siemens.Engineering.V19
+Connected to TIA Portal Siemens.Engineering.V21
 ```
 
 #### disconnect-portal
@@ -79,17 +79,17 @@ OpenTiaToolkit.CLI.exe portal-status
 **Output**:
 ```
 connected : True
-version   : V19
+version   : V21
 ```
 
 ### Project Operations
 
 #### open-project
 
-Opens a TIA Portal project file (.ap19 for local projects, .als19 for multiuser sessions).
+Opens a TIA Portal project file (.ap21 for local projects, .als21 for multiuser sessions; legacy formats are also accepted where supported).
 
 ```bash
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap21"
 ```
 
 **Parameters**:
@@ -100,8 +100,8 @@ OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap19"
 Project opened: MyProject
 
 Name:     MyProject
-Path:     C:\Projects\MyProject.ap19
-Version:  V19
+Path:     C:\Projects\MyProject.ap21
+Version:  V21
 Created:  2025-01-15 10:30:00
 ```
 
@@ -139,8 +139,8 @@ Found 2 project(s):
 
 Name                                    Path                                      Version    Created
 ------------------------------------------------------------------------------------------------------------
-MyProject                               C:\Projects\MyProject.ap19                  V19        2025-01-15 10:30
-MySession (Session)                       C:\Projects\MyProject.als19                 V19        2025-01-15 10:35
+MyProject                               C:\Projects\MyProject.ap21                  V21        2025-01-15 10:30
+MySession (Session)                       C:\Projects\MyProject.als21                 V21        2025-01-15 10:35
 ```
 
 #### get-project-info
@@ -156,8 +156,8 @@ OpenTiaToolkit.CLI.exe get-project-info
 Project Information:
 
 Name:     MyProject
-Path:     C:\Projects\MyProject.ap19
-Version:  V19
+Path:     C:\Projects\MyProject.ap21
+Version:  V21
 Created:  2025-01-15 10:30:00
 ```
 
@@ -462,6 +462,339 @@ FC_Motor      Function              STL         10        Motor control
 FB_MotorCtrl  Function Block        FBD         1        Motor controller
 ```
 
+### SIMATIC SD Export (V20+)
+
+#### export-block-as-docs
+
+Exports a single PLC block as SIMATIC SD documents (.s7dcl + .s7res) - requires TIA Portal V20 or newer.
+
+```bash
+OpenTiaToolkit.CLI.exe export-block-as-docs --plc-name="PLC_1" --block-name="Motor" --export-path="C:\Exports"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `block-name` (required): Name of the block to export
+- `export-path` (required): Directory path for exported files
+
+**Output Files**:
+- `{block-name}.s7dcl` - Multi-language document file
+- `{block-name}.s7res` - Resource file
+
+**Version Requirements**:
+- Requires TIA Portal V20 or newer
+- Throws error if used with V19 or earlier
+
+**Output**:
+```
+Successfully exported block as SIMATIC SD documents: Motor
+
+Format: SIMATIC SD (.s7dcl + .s7res)
+```
+
+#### export-blocks-as-docs
+
+Exports multiple PLC blocks as SIMATIC SD documents with optional regex filtering - requires TIA Portal V20 or newer.
+
+```bash
+# Export all blocks
+OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --export-path="C:\Exports"
+
+# Export with regex filter
+OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --filter-regex="Motor_.*" --export-path="C:\Exports"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `export-path` (required): Directory path for exported files
+- `filter-regex` (optional): Regex filter for block names (e.g., "Motor_.*")
+
+**Output**:
+```
+Exported 5/6 blocks as SIMATIC SD documents
+
+Summary:
+  Total:     6
+  Succeeded: 5
+  Failed:    1
+
+Exported:
+  - Motor_1
+  - Motor_2
+  - Motor_3
+  - Motor_4
+  - Motor_5
+
+Failed:
+  - Motor_Test (inconsistent)
+
+Format: SIMATIC SD (.s7dcl + .s7res)
+```
+
+### Type Export (UDT)
+
+#### export-type
+
+Exports a single User Defined Type (UDT) to XML.
+
+```bash
+OpenTiaToolkit.CLI.exe export-type --plc-name="PLC_1" --type-name="MotorData" --export-path="C:\Exports\MotorData.xml"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `type-name` (required): Name of the type to export
+- `export-path` (required): Full file path for the exported XML file
+
+**Validation**:
+- Checks `IsConsistent` property before export
+- Returns error if type is inconsistent
+
+**Output**:
+```
+Successfully exported type: MotorData
+
+Format: XML
+```
+
+#### export-types
+
+Exports multiple User Defined Types (UDT) to XML with optional regex filtering.
+
+```bash
+# Export all types
+OpenTiaToolkit.CLI.exe export-types --plc-name="PLC_1" --export-path="C:\Exports"
+
+# Export with regex filter
+OpenTiaToolkit.CLI.exe export-types --plc-name="PLC_1" --filter-regex="Motor_.*" --export-path="C:\Exports"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `export-path` (required): Directory path for exported XML files
+- `filter-regex` (optional): Regex filter for type names (e.g., "Motor_.*")
+
+**Output**:
+```
+Exported 3/4 types to XML
+
+Summary:
+  Total:     4
+  Succeeded: 3
+  Failed:    1
+
+Exported:
+  - Motor_1.xml
+  - Motor_2.xml
+  - Motor_3.xml
+
+Failed:
+  - Motor_Test (inconsistent)
+```
+
+### Import Operations (Phase 4.6)
+
+#### import-block
+
+Imports a single PLC block from an XML file.
+
+```bash
+# Import to root of PLC program
+OpenTiaToolkit.CLI.exe import-block --plc-name="PLC_1" --import-path="C:\Imports\FB_Motor.xml"
+
+# Import to specific group path
+OpenTiaToolkit.CLI.exe import-block --plc-name="PLC_1" --import-path="C:\Imports\FB_Motor.xml" --group-path="Program Blocks/Motors"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `import-path` (required): Full path to the XML file to import
+- `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
+
+**Output**:
+```
+Successfully imported block from: C:\Imports\FB_Motor.xml
+```
+
+#### import-blocks
+
+Imports multiple PLC blocks from XML files in a directory with optional regex filtering.
+
+```bash
+# Import all blocks from directory
+OpenTiaToolkit.CLI.exe import-blocks --plc-name="PLC_1" --import-directory="C:\Imports\Blocks"
+
+# Import with regex filter
+OpenTiaToolkit.CLI.exe import-blocks --plc-name="PLC_1" --import-directory="C:\Imports\Blocks" --filter-regex="FB_.*"
+
+# Import to specific group path
+OpenTiaToolkit.CLI.exe import-blocks --plc-name="PLC_1" --import-directory="C:\Imports\Blocks" --group-path="Program Blocks/Motors"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `import-directory` (required): Directory containing XML files to import
+- `filter-regex` (optional): Regex filter for file names (e.g., "FB_.*")
+- `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
+
+**Output**:
+```
+Successfully imported 5/6 blocks
+
+Summary:
+  Total:     6
+  Succeeded: 5
+  Failed:    1
+
+Imported:
+  - FB_Motor_1.xml
+  - FB_Motor_2.xml
+  - FB_Motor_3.xml
+  - FB_Valve.xml
+  - FC_Control.xml
+
+Failed:
+  - FB_Test.xml (invalid format)
+```
+
+#### import-type
+
+Imports a single User Defined Type (UDT) from an XML file.
+
+```bash
+# Import to root of type groups
+OpenTiaToolkit.CLI.exe import-type --plc-name="PLC_1" --import-path="C:\Imports\MotorData.xml"
+
+# Import to specific type group path
+OpenTiaToolkit.CLI.exe import-type --plc-name="PLC_1" --import-path="C:\Imports\MotorData.xml" --group-path="Types/Motor"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `import-path` (required): Full path to the XML file to import
+- `group-path` (optional): Path within type groups (e.g., "Types/Subgroups"). Empty for root.
+
+**Output**:
+```
+Successfully imported type from: C:\Imports\MotorData.xml
+```
+
+#### import-types
+
+Imports multiple User Defined Types (UDT) from XML files in a directory with optional regex filtering.
+
+```bash
+# Import all types from directory
+OpenTiaToolkit.CLI.exe import-types --plc-name="PLC_1" --import-directory="C:\Imports\Types"
+
+# Import with regex filter
+OpenTiaToolkit.CLI.exe import-types --plc-name="PLC_1" --import-directory="C:\Imports\Types" --filter-regex="Motor_.*"
+
+# Import to specific type group path
+OpenTiaToolkit.CLI.exe import-types --plc-name="PLC_1" --import-directory="C:\Imports\Types" --group-path="Types/Motor"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `import-directory` (required): Directory containing XML files to import
+- `filter-regex` (optional): Regex filter for file names (e.g., "Motor_.*")
+- `group-path` (optional): Path within type groups (e.g., "Types/Subgroups"). Empty for root.
+
+**Output**:
+```
+Successfully imported 3/4 types
+
+Summary:
+  Total:     4
+  Succeeded: 3
+  Failed:    1
+
+Imported:
+  - Motor_1.xml
+  - Motor_2.xml
+  - Motor_3.xml
+
+Failed:
+  - Motor_Test.xml (dependency missing)
+```
+
+#### import-block-from-docs
+
+Imports a single PLC block from SIMATIC SD documents (.s7dcl + .s7res) - requires TIA Portal V20 or newer.
+
+```bash
+# Import to root of PLC program
+OpenTiaToolkit.CLI.exe import-block-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --file-name="Motor"
+
+# Import with specific import option
+OpenTiaToolkit.CLI.exe import-block-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --file-name="Motor" --import-option="Override"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `import-directory` (required): Directory containing .s7dcl and .s7res files
+- `file-name` (required): Block name without extension
+- `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
+- `import-option` (optional): Import behavior - "Override", "None", "SkipInactiveCultures", or "ActivateInactiveCultures" (default: "Override")
+
+**Output**:
+```
+Successfully imported block from documents: Motor
+
+Format: SIMATIC SD (.s7dcl + .s7res)
+```
+
+**Import Options**:
+- `Override`: Overwrites existing blocks (default)
+- `None`: Does not overwrite existing blocks
+- `SkipInactiveCultures`: Skips inactive language versions
+- `ActivateInactiveCultures`: Activates all language versions
+
+**Note**: This command requires TIA Portal V20 or newer. The directory must contain both .s7dcl and .s7res files with matching names.
+
+#### import-blocks-from-docs
+
+Imports multiple PLC blocks from SIMATIC SD documents (.s7dcl + .s7res) with optional regex filtering - requires TIA Portal V20 or newer.
+
+```bash
+# Import all blocks from directory
+OpenTiaToolkit.CLI.exe import-blocks-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs"
+
+# Import with regex filter
+OpenTiaToolkit.CLI.exe import-blocks-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --filter-regex="Motor_.*"
+
+# Import with specific import option
+OpenTiaToolkit.CLI.exe import-blocks-from-docs --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --import-option="Override"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `import-directory` (required): Directory containing .s7dcl and .s7res files
+- `filter-regex` (optional): Regex filter for block names (e.g., "Motor_.*")
+- `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
+- `import-option` (optional): Import behavior - "Override", "None", "SkipInactiveCultures", or "ActivateInactiveCultures" (default: "Override")
+
+**Output**:
+```
+Successfully imported 4/5 blocks from documents
+
+Summary:
+  Total:     5
+  Succeeded: 4
+  Failed:    1
+
+Imported:
+  - Motor_1
+  - Motor_2
+  - Motor_3
+  - Valve_1
+
+Failed:
+  - Motor_Test (version mismatch)
+```
+
+**Note**: This command requires TIA Portal V20 or newer. Each block requires paired .s7dcl and .s7res files.
+
 ### Find and Replace Operations (Phase 5)
 
 #### create-tag
@@ -761,8 +1094,8 @@ Found 2 TIA Portal instance(s):
 
 Process ID    Version    Is Attached
 -----------------------------------------
-12345         V19        False
-67890         V19        True
+12345         V21        False
+67890         V21        True
 ```
 
 #### connect-instance
@@ -809,7 +1142,7 @@ OpenTiaToolkit.CLI.exe save-as-project --destination-path="C:\Projects\MyCopy"
 
 **Output**:
 ```
-Project saved to: C:\Projects\MyCopy\MyProject.ap19
+Project saved to: C:\Projects\MyCopy\MyProject.ap21
 ```
 
 #### get-project-tree
@@ -861,8 +1194,8 @@ Found 2 project(s):
 
 Name                 Path                  Version    Created
 -------------------------------------------------------------------
-Project1             C:\Path1.ap19        V19        2025-01-01
-Project2             C:\Path2.ap19        V19        2025-01-02
+Project1             C:\Path1.ap21        V21        2025-01-01
+Project2             C:\Path2.ap21        V21        2025-01-02
 ```
 
 ## Examples
@@ -884,7 +1217,7 @@ OpenTiaToolkit.CLI.exe list-projects
 
 ```bash
 # Open a project
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Get project info
 OpenTiaToolkit.CLI.exe get-project-info
@@ -904,9 +1237,9 @@ OpenTiaToolkit.CLI.exe disconnect-portal
 ```powershell
 # PowerShell script to process multiple projects
 $projects = @(
-    "C:\Projects\Line1.ap19",
-    "C:\Projects\Line2.ap19",
-    "C:\Projects\Line3.ap19"
+    "C:\Projects\Line1.ap21",
+    "C:\Projects\Line2.ap21",
+    "C:\Projects\Line3.ap21"
 )
 
 foreach ($project in $projects) {
@@ -922,7 +1255,7 @@ foreach ($project in $projects) {
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Open PLC software
 OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
@@ -962,7 +1295,7 @@ OpenTiaToolkit.CLI.exe connect-instance --instance-id=12345
 
 ```bash
 # Open project and get full tree
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 OpenTiaToolkit.CLI.exe get-project-tree
 
 # Get limited depth for overview
@@ -981,7 +1314,7 @@ OpenTiaToolkit.CLI.exe save-project
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # List all HMI devices
 OpenTiaToolkit.CLI.exe list-hmis
@@ -995,7 +1328,7 @@ OpenTiaToolkit.CLI.exe get-device-info --device-name="HMI_1"
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Open PLC software
 OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
@@ -1016,12 +1349,59 @@ OpenTiaToolkit.CLI.exe export-block --plc-name="PLC_1" --block-name="FB_Motor" -
 OpenTiaToolkit.CLI.exe get-block-info --plc-name="PLC_1" --block-name="Main"
 ```
 
-### Example 10: Safe Block Deletion Workflow
+### Example 10: SIMATIC SD Export (V20+)
+
+```bash
+# Connect and open project (requires TIA Portal V20 or newer)
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
+
+# Open PLC software
+OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
+
+# Export single block as SIMATIC SD documents
+OpenTiaToolkit.CLI.exe export-block-as-docs --plc-name="PLC_1" --block-name="FB_Motor" --export-path="C:\Exports"
+# Output: Creates FB_Motor.s7dcl and FB_Motor.s7res files
+
+# Export multiple blocks with regex filter
+OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --filter-regex="Motor_.*" --export-path="C:\Exports"
+# Output: Exports all blocks matching "Motor_.*" pattern
+
+# Export all blocks as SIMATIC SD documents
+OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --export-path="C:\Exports\AllBlocks"
+```
+
+**Note**: SIMATIC SD export requires TIA Portal V20 or newer. The .s7dcl + .s7res format is the official multi-language document format used by TIA Portal.
+
+### Example 11: Type Export (UDT)
 
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
+
+# Open PLC software
+OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
+
+# Export single type (UDT) to XML
+OpenTiaToolkit.CLI.exe export-type --plc-name="PLC_1" --type-name="MotorData" --export-path="C:\Exports\MotorData.xml"
+
+# Export multiple types with regex filter
+OpenTiaToolkit.CLI.exe export-types --plc-name="PLC_1" --filter-regex="Motor_.*" --export-path="C:\Exports"
+# Output: Exports all types matching "Motor_.*" pattern as XML files
+
+# Export all types
+OpenTiaToolkit.CLI.exe export-types --plc-name="PLC_1" --export-path="C:\Exports\AllTypes"
+```
+
+**Note**: Type export checks the `IsConsistent` property. Inconsistent types will be skipped with an error message.
+
+### Example 12: Safe Block Deletion Workflow
+
+```bash
+# Connect and open project
+OpenTiaToolkit.CLI.exe connect-portal
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Open PLC software
 OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
@@ -1042,7 +1422,7 @@ OpenTiaToolkit.CLI.exe get-blocks --plc-name="PLC_1"
 
 ```powershell
 # PowerShell script to backup all PLCs in a project
-$project = "C:\Projects\Line1.ap19"
+$project = "C:\Projects\Line1.ap21"
 $exportBase = "C:\Backups\$(Get-Date -Format 'yyyyMMdd')"
 
 OpenTiaToolkit.CLI.exe connect-portal
@@ -1064,12 +1444,12 @@ OpenTiaToolkit.CLI.exe close-project
 OpenTiaToolkit.CLI.exe disconnect-portal
 ```
 
-### Example 12: Tag Renaming Workflow (Find and Replace)
+### Example 13: Tag Renaming Workflow (Find and Replace)
 
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Preview tag name changes (recommended first step)
 OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed","Valve_Open":"ValveOpen"}' --dry-run=true
@@ -1081,12 +1461,12 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Moto
 OpenTiaToolkit.CLI.exe save-project
 ```
 
-### Example 13: DB Member Renaming with Nested Structures
+### Example 14: DB Member Renaming with Nested Structures
 
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Preview DB member changes in specific blocks
 OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"Speed_RPM":"SpeedRpm","Enable_Signal":"Enable"}' --target-blocks="MotorData" "ValveData" --dry-run=true
@@ -1098,12 +1478,12 @@ OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='
 OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map='{"Status_Flag":"Status"}' --target-types="MotorType" --dry-run=false
 ```
 
-### Example 14: Large-Scale Refactoring with Case-Insensitive Matching
+### Example 15: Large-Scale Refactoring with Case-Insensitive Matching
 
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Standardize naming conventions (case-insensitive to catch variations)
 OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed","Valve_Open":"ValveOpen"}' --case-insensitive=true --dry-run=true
@@ -1116,12 +1496,12 @@ OpenTiaToolkit.CLI.exe save-project
 OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1"
 ```
 
-### Example 15: PLC Tag Creation Workflow
+### Example 16: PLC Tag Creation Workflow
 
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Open PLC software
 OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
@@ -1142,12 +1522,12 @@ OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Error_Code" --d
 OpenTiaToolkit.CLI.exe save-project
 ```
 
-### Example 16: Substring Replacement Workflow
+### Example 17: Substring Replacement Workflow
 
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Open PLC software
 OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
@@ -1166,12 +1546,12 @@ OpenTiaToolkit.CLI.exe save-project
 OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1"
 ```
 
-### Example 16b: Safer Substring Replacement with Specific Patterns
+### Example 17b: Safer Substring Replacement with Specific Patterns
 
 ```bash
 # Connect and open project
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
 # Open PLC software
 OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
@@ -1190,7 +1570,7 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"_Spe
 OpenTiaToolkit.CLI.exe save-project
 ```
 
-### Example 17: Batch Tag Creation from CSV
+### Example 18: Batch Tag Creation from CSV
 
 ```powershell
 # PowerShell script to create tags from CSV file
@@ -1220,7 +1600,7 @@ Import-Csv $csvFile | ForEach-Object {
 }
 ```
 
-### Example 18: Batch Tag Rename from CSV File
+### Example 19: Batch Tag Rename from CSV File
 
 ```powershell
 # Create CSV file with rename mappings
@@ -1270,10 +1650,10 @@ Set-Content -Path "C:\Tags\rename_tags.csv" -Value $csvContent
 
 ```bash
 # Format 1: --name=value
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap21"
 
 # Format 2: --name value (without quotes)
-OpenTiaToolkit.CLI.exe open-project --project-path C:\Project.ap19
+OpenTiaToolkit.CLI.exe open-project --project-path C:\Project.ap21
 
 # Format 3: Short flags (single dash)
 OpenTiaToolkit.CLI.exe close-project -s
@@ -1298,10 +1678,10 @@ Windows paths with spaces should be quoted:
 
 ```bash
 # Correct
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\My Projects\Project.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\My Projects\Project.ap21"
 
 # Also works
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\My Projects\Project.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\My Projects\Project.ap21"
 ```
 
 ## Troubleshooting
@@ -1322,7 +1702,7 @@ OpenTiaToolkit.CLI.exe open-project --project-path="C:\My Projects\Project.ap19"
 
 **Solution**: Provide the required parameter:
 ```bash
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap21"
 ```
 
 ### TIA Portal Not Running
@@ -1337,7 +1717,7 @@ Details: No TIA Portal instance found
 ### Project Already Open
 
 ```
-✗ Error: Failed to open project: C:\Project.ap19
+✗ Error: Failed to open project: C:\Project.ap21
 Details: Project is already open
 ```
 
@@ -1350,7 +1730,7 @@ Fatal error: Cannot load Siemens.Engineering assembly
 ```
 
 **Solution**:
-- Ensure TIA Portal V19+ is installed
+- Ensure TIA Portal V21 is installed
 - The Siemens resolver package handles assembly loading
 - Set `TiaPortalLocation` environment variable if needed
 
@@ -1363,7 +1743,7 @@ Create batch files or aliases for common workflows:
 ```batch
 @REM dev-open.bat
 OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Dev\Current.ap19"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Dev\Current.ap21"
 OpenTiaToolkit.CLI.exe list-devices
 ```
 
@@ -1415,7 +1795,7 @@ PowerShell example:
 
 ```powershell
 # Open, inspect, close
-$project = "C:\Projects\MyProject.ap19"
+$project = "C:\Projects\MyProject.ap21"
 OpenTiaToolkit.CLI.exe connect-portal | Out-Null
 OpenTiaToolkit.CLI.exe open-project --project-path="$project" | Out-Null
 
@@ -1434,7 +1814,7 @@ OpenTiaToolkit.CLI.exe disconnect-portal | Out-Null
 $ErrorActionPreference = "Stop"
 
 try {
-    OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap19"
+    OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap21"
 }
 catch {
     Write-Host "Failed to open project"

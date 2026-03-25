@@ -51,7 +51,7 @@ namespace OpenTiaToolkit.CLI
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
@@ -60,7 +60,7 @@ namespace OpenTiaToolkit.CLI
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
-                    return CommandResult.CreateFailure("Missing required parameter: plc-name");
+                    return Task.FromResult(CommandResult.CreateFailure("Missing required parameter: plc-name"));
                 }
 
                 var blockName = args.GetString("block-name");
@@ -71,7 +71,7 @@ namespace OpenTiaToolkit.CLI
 
                 if (plcSoftware == null)
                 {
-                    return CommandResult.CreateFailure("PLC software is not open. Use open-plc first.");
+                    return Task.FromResult(CommandResult.CreateFailure("PLC software is not open. Use open-plc first."));
                 }
 
                 var results = new List<object>();
@@ -80,7 +80,7 @@ namespace OpenTiaToolkit.CLI
                 var blockGroup = TiaReflectionHelper.GetBlockGroup(plcSoftware);
                 if (blockGroup == null)
                 {
-                    return CommandResult.CreateFailure("BlockGroup not found");
+                    return Task.FromResult(CommandResult.CreateFailure("BlockGroup not found"));
                 }
 
                 // Get all Global DBs
@@ -215,21 +215,21 @@ namespace OpenTiaToolkit.CLI
                     }
                 }
 
-                return CommandResult.CreateSuccess(
+                return Task.FromResult(CommandResult.CreateSuccess(
                     data: new
                     {
                         blocks = results
                     },
                     message: $"Listed {results.Count} blocks with {results.Sum(b => (int)(b.GetType().GetProperty("MemberCount")?.GetValue(b) ?? 0))} total members"
-                );
+                ));
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error in list-db-members");
-                return CommandResult.CreateFailure(
+                return Task.FromResult(CommandResult.CreateFailure(
                     $"Error: {ex.Message}",
                     ex
-                );
+                ));
             }
         }
 

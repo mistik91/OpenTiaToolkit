@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-02-24 - SIMATIC SD Export and Type Export Features ✅
+
+#### Added
+- **SIMATIC SD Export (V20+)** - Export blocks as .s7dcl + .s7res files (multi-language document format)
+  - `export-block-as-docs` - Export single block as SIMATIC SD documents
+  - `export-blocks-as-docs` - Export multiple blocks with optional regex filtering
+  - Version check: Requires TIA Portal V20 or newer
+  - Creates two files per block: `{name}.s7dcl` and `{name}.s7res`
+  - **Automatically skips OB and FOB blocks** (Organization Blocks cannot be exported as SIMATIC SD)
+- **Type Export (UDT)** - Export User Defined Types to XML files
+  - `export-type` - Export single type (UDT) to XML
+  - `export-types` - Export multiple types with optional regex filtering
+  - Consistency check: Validates `IsConsistent` property before export
+- **ExportResult model** - Comprehensive result reporting for bulk export operations
+  - TotalCount, SuccessCount, FailedCount statistics
+  - ExportedItems, FailedItems lists
+  - Errors list with detailed messages
+- **TiaReflectionHelper.ParseTiaVersion()** - Version parsing helper
+  - Parses TIA Portal version strings (e.g., "V21" to System.Version)
+  - Used for version-specific feature detection
+- **IPlcService extensions** - 4 new async methods for export operations
+  - `ExportBlockAsDocumentsAsync()` - Single block SIMATIC SD export
+  - `ExportBlocksAsDocumentsAsync()` - Bulk SIMATIC SD export with filtering
+  - `ExportTypeAsync()` - Single type XML export
+  - `ExportTypesAsync()` - Bulk type XML export with filtering
+
+#### Changed
+- **Command count** - Increased from 30 to 34 total commands
+- **PlcService implementation** - Added reflection-based export methods
+- **CLI Program.cs** - Registered 4 new Phase 4.5 commands
+- **MCP Program.cs** - Registered 4 new Phase 4.5 commands
+- **IPlcService interface** - Added 4 new method definitions
+- **PortalService.Version property** - Fixed version detection to properly extract TIA Portal version
+  - Now uses reflection to get `Version` property from TiaPortal object
+  - Fallback to assembly file version if Version property unavailable
+  - Returns "V21", "V20", etc. instead of type name
+- **ExportBlocksAsDocumentsCommand output** - Improved human-readable summary message
+  - Shows "Exported X/Y blocks (Z skipped/failed)" format
+  - Cleaner data structure (removed redundant fields)
+- **ExportTypesCommand output** - Improved human-readable summary message
+  - Shows "Exported X/Y types (Z failed)" format
+  - Cleaner data structure (removed redundant fields)
+
+#### Technical Implementation Details
+- Version detection via `IPortalService.Version` and `ParseTiaVersion()`
+- SIMATIC SD export via `block.ExportAsDocuments(DirectoryInfo, blockName)`
+- Result state check: `DocumentResultState.Success`
+- Type export via `type.Export(FileInfo, ExportOptions.None)`
+- Type consistency validation: `type.IsConsistent` check before export
+- Reflection-based API access for TIA Portal compatibility
+
+#### Use Cases
+- Export blocks for multi-language documentation (.s7dcl + .s7res format)
+- Backup User Defined Types (UDT) to XML
+- Bulk export with regex filtering (e.g., export all Motor_* blocks)
+- Export blocks in TIA Portal V20+ native document format
+
 ### 2026-02-20 - PLC Tag Management Features ✅
 
 #### Added

@@ -16,9 +16,9 @@ namespace OpenTiaToolkit.Tests.Integration
     [DoNotParallelize]
     public sealed class Test3Devices
     {
-        private ILoggerFactory? _loggerFactory;
-        private ILogger? _logger;
-        private IPortalService? _portalService;
+        private ILoggerFactory _loggerFactory = null!;
+        private ILogger _logger = null!;
+        private IPortalService _portalService = null!;
 
         [TestInitialize]
         public async Task TestInitialize()

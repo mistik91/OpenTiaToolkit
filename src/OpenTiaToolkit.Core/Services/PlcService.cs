@@ -237,16 +237,51 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    // Create a basic tree structure with placeholder nodes
-                    // In a real implementation, this would use the TIA Openness API to traverse the software
-                    var children = new List<SoftwareTreeNode>
-                    {
-                        new SoftwareTreeNode("Blocks", "BlockContainer", $"{CurrentPlcName}/Blocks", new List<SoftwareTreeNode>()),
-                        new SoftwareTreeNode("Types", "TypeContainer", $"{CurrentPlcName}/Types", new List<SoftwareTreeNode>()),
-                        new SoftwareTreeNode("Sources", "SourceContainer", $"{CurrentPlcName}/Sources", new List<SoftwareTreeNode>())
-                    };
+                    var rootName = TiaReflectionHelper.GetName(_plcSoftware) ?? CurrentPlcName ?? "PLC";
+                    var rootPath = rootName;
+                    var children = new List<SoftwareTreeNode>();
 
-                    return new SoftwareTreeNode(CurrentPlcName ?? "PLC", "PlcSoftware", CurrentPlcName ?? "PLC", children);
+                    AddSoftwareContainerNode(
+                        children,
+                        "Blocks",
+                        "BlockContainer",
+                        rootPath,
+                        TiaReflectionHelper.GetBlockGroup(_plcSoftware),
+                        maxDepth,
+                        1,
+                        new[] { "Blocks" });
+
+                    AddSoftwareContainerNode(
+                        children,
+                        "Types",
+                        "TypeContainer",
+                        rootPath,
+                        TiaReflectionHelper.GetTypeGroup(_plcSoftware),
+                        maxDepth,
+                        1,
+                        new[] { "Types", "Documents" });
+
+                    AddSoftwareContainerNode(
+                        children,
+                        "Tag Tables",
+                        "TagTableContainer",
+                        rootPath,
+                        TiaReflectionHelper.GetTagTableGroup(_plcSoftware),
+                        maxDepth,
+                        1,
+                        new[] { "TagTables" });
+
+                    AddSoftwareContainerNode(
+                        children,
+                        "Source Files",
+                        "ExternalSourceContainer",
+                        rootPath,
+                        TiaReflectionHelper.GetExternalSourceGroup(_plcSoftware),
+                        maxDepth,
+                        1,
+                        new[] { "ExternalSources" });
+
+                    return new SoftwareTreeNode(rootName, "PlcSoftware", rootPath, children);
                 }
                 catch (Exception ex)
                 {
@@ -275,13 +310,66 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    // In a real implementation, this would use the TIA Openness API to compile
-                    // For now, return a placeholder result
+                    if (!string.IsNullOrWhiteSpace(password))
+                    {
+                        _logger?.LogWarning("Password parameter is currently ignored by the V21 compile service");
+                    }
+
+                    var compilableType = FindSiemensType("Siemens.Engineering.Compiler.ICompilable");
+                    if (compilableType == null)
+                    {
+                        return new CompilationResult(
+                            false,
+                            0,
+                            0,
+                            "Could not locate Siemens.Engineering.Compiler.ICompilable"
+                        );
+                    }
+
+                    var compileService = GetEngineeringService(_plcSoftware, compilableType);
+                    if (compileService == null)
+                    {
+                        return new CompilationResult(
+                            false,
+                            0,
+                            0,
+                            "PLC software does not expose the ICompilable service"
+                        );
+                    }
+
+                    var compileMethod = compileService.GetType().GetMethod("Compile", Type.EmptyTypes);
+                    if (compileMethod == null)
+                    {
+                        return new CompilationResult(
+                            false,
+                            0,
+                            0,
+                            "ICompilable service does not provide a Compile() method"
+                        );
+                    }
+
+                    var rawResult = compileMethod.Invoke(compileService, null);
+                    if (rawResult == null)
+                    {
+                        return new CompilationResult(
+                            false,
+                            0,
+                            0,
+                            "Compile() returned no result"
+                        );
+                    }
+
+                    var errorCount = GetIntProperty(rawResult, "ErrorCount");
+                    var warningCount = GetIntProperty(rawResult, "WarningCount");
+                    var state = TiaReflectionHelper.GetProperty(rawResult, "State")?.ToString() ?? "Unknown";
+                    var success = !string.Equals(state, "Error", StringComparison.OrdinalIgnoreCase) && errorCount == 0;
+                    var message = BuildCompilationMessage(rawResult, state, errorCount, warningCount);
+
                     return new CompilationResult(
-                        true,
-                        0,
-                        0,
-                        $"Compilation initiated for {CurrentPlcName}"
+                        success,
+                        errorCount,
+                        warningCount,
+                        message
                     );
                 }
                 catch (Exception ex)
@@ -674,7 +762,7 @@ namespace OpenTiaToolkit.Core.Services
                                 }
                             }
 
-                            if (type == null) type = "Unknown";
+                            type = InferBlockTypeName(block, type);
 
                             var blockInfo = new BlockInfo(name, type, language, number, isReadOnly, comment);
                             blocks.Add(blockInfo);
@@ -1031,9 +1119,11 @@ namespace OpenTiaToolkit.Core.Services
                                     }
                                 }
 
+                                type = InferBlockTypeName(block, type);
+
                                 return new BlockInfoDetail(
                                     name,
-                                    type ?? "Unknown",
+                                    type,
                                     language,
                                     number,
                                     isReadOnly,
@@ -1322,8 +1412,9 @@ namespace OpenTiaToolkit.Core.Services
                         // Search in comment
                         if ((searchInComment || searchInBoth) && !matches)
                         {
-                            if (!string.IsNullOrEmpty(block.Comment) &&
-                                block.Comment.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0)
+                            var blockComment = block.Comment;
+                            if (blockComment is string nonNullBlockComment &&
+                                nonNullBlockComment.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0)
                             {
                                 matches = true;
                             }
@@ -1460,40 +1551,36 @@ namespace OpenTiaToolkit.Core.Services
 
                     object? createdBlock = null;
 
-                    // V21 API uses specific methods for each block type
+                    // Current validated V21 support is intentionally conservative.
+                    // The runtime block composition on this project exposes CreateFB and
+                    // CreateInstanceDB, but CreateFB accepts only ProDiag in this context,
+                    // and the current service surface has no "instance-of" parameter for
+                    // Instance DB creation yet.
                     if (blockTypeUpper == "FB")
                     {
+                        if (string.IsNullOrWhiteSpace(programmingLanguage))
+                        {
+                            _logger?.LogError("Programming language is required for V21 FB creation. Supported language: ProDiag");
+                            return false;
+                        }
+
+                        var requestedLanguage = programmingLanguage!;
+                        if (!requestedLanguage.Equals("ProDiag", StringComparison.OrdinalIgnoreCase) &&
+                            !requestedLanguage.Equals("S7_PDIAG", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _logger?.LogError(
+                                "Unsupported programming language for V21 FB creation: {Language}. Supported language: ProDiag",
+                                requestedLanguage);
+                            return false;
+                        }
+
                         createdBlock = CreateBlockV21(blocksCollection, "CreateFB", blockName, programmingLanguageValue, requireLanguage: true);
-                    }
-                    else if (blockTypeUpper == "SFB")
-                    {
-                        createdBlock = CreateBlockV21(blocksCollection, "CreateFB", blockName, programmingLanguageValue, requireLanguage: true);
-                    }
-                    else if (blockTypeUpper == "FC")
-                    {
-                        createdBlock = CreateBlockV21(blocksCollection, "CreateFC", blockName, programmingLanguageValue, requireLanguage: true);
-                    }
-                    else if (blockTypeUpper == "SFC")
-                    {
-                        createdBlock = CreateBlockV21(blocksCollection, "CreateFC", blockName, programmingLanguageValue, requireLanguage: true);
-                    }
-                    else if (blockTypeUpper == "DB")
-                    {
-                        createdBlock = CreateBlockV21(blocksCollection, "CreateGlobalDB", blockName, programmingLanguageValue, requireLanguage: false);
-                    }
-                    else if (blockTypeUpper == "OB")
-                    {
-                        // OB creation requires a number parameter
-                        createdBlock = CreateOBV21(blocksCollection, blockName);
-                    }
-                    else if (blockTypeUpper == "UDT")
-                    {
-                        // UDT uses the generic Create method with BlockType.UDT
-                        createdBlock = CreateUDTV21(blocksCollection, blockName);
                     }
                     else
                     {
-                        _logger?.LogError("Unsupported block type: {BlockType}. Supported types: FB, SFB, FC, SFC, DB, OB, UDT", blockType);
+                        _logger?.LogError(
+                            "Unsupported block type for the current validated V21 creation path: {BlockType}. Supported: FB with ProDiag",
+                            blockType);
                         return false;
                     }
 
@@ -1702,10 +1789,15 @@ namespace OpenTiaToolkit.Core.Services
         /// <summary>
         /// Gets the ProgrammingLanguage enum value from a string
         /// </summary>
-        private object? GetProgrammingLanguageEnum(string language)
+        private object? GetProgrammingLanguageEnum(string? language)
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(language))
+                {
+                    return null;
+                }
+
                 // Load assemblies to find ProgrammingLanguage enum
                 var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
@@ -1727,10 +1819,13 @@ namespace OpenTiaToolkit.Core.Services
                                     { "FBD", "FBD" },
                                     { "LAD", "LD" },
                                     { "STL", "STL" },
-                                    { "GRAPH", "GRAPH" }
+                                    { "GRAPH", "GRAPH" },
+                                    { "PRODIAG", "ProDiag" },
+                                    { "S7_PDIAG", "ProDiag" }
                                 };
 
-                                string targetName = languageMapping.TryGetValue(language, out var fullName) ? fullName : language;
+                                var requestedLanguage = language!;
+                                string targetName = languageMapping.TryGetValue(requestedLanguage, out var fullName) ? fullName : requestedLanguage;
 
                                 foreach (var val in Enum.GetValues(programmingLanguageType))
                                 {
@@ -1754,6 +1849,27 @@ namespace OpenTiaToolkit.Core.Services
             {
                 return null;
             }
+        }
+
+        private string InferBlockTypeName(object block, string? explicitType)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitType))
+            {
+                return explicitType!;
+            }
+
+            var runtimeTypeName = block.GetType().Name;
+
+            return runtimeTypeName switch
+            {
+                "FB" => "FB",
+                "FC" => "FC",
+                "OB" => "OB",
+                "GlobalDB" => "DB",
+                "InstanceDB" => "InstanceDB",
+                "CodeBlock" => "CodeBlock",
+                _ => "Unknown"
+            };
         }
 
         /// <inheritdoc/>
@@ -2452,7 +2568,7 @@ namespace OpenTiaToolkit.Core.Services
                         }
 
                         // Invoke the Create method
-                        var address = string.IsNullOrEmpty(logicalAddress) ? string.Empty : logicalAddress;
+                        var address = logicalAddress ?? string.Empty;
                         var createdTag = createMethod.Invoke(tags, new object[] { tagName, dataType, address });
 
                         if (createdTag == null)
@@ -2556,6 +2672,7 @@ namespace OpenTiaToolkit.Core.Services
                     // Build lookup dictionaries from existing tags
                     var tagsOverPage100 = new Dictionary<string, TagInfo>(StringComparer.OrdinalIgnoreCase); // Key: BaseName
                     var tagsUnderPage100 = new Dictionary<string, TagInfo>(StringComparer.OrdinalIgnoreCase); // Key: FullName
+                    var tagsByTable = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase); // Key: TableName
 
                     // Get TagTableGroup
                     var tagTableGroup = TiaReflectionHelper.GetTagTableGroup(_plcSoftware);
@@ -2588,12 +2705,19 @@ namespace OpenTiaToolkit.Core.Services
                         var tags = TiaReflectionHelper.GetTags(tagTable);
                         if (tags == null) continue;
 
+                        // Initialize list for this table
+                        if (!tagsByTable.ContainsKey(tagTableName))
+                        {
+                            tagsByTable[tagTableName] = new List<TagInfo>();
+                        }
+
                         foreach (var tag in tags)
                         {
                             var tagName = TiaReflectionHelper.GetName(tag);
                             if (string.IsNullOrEmpty(tagName)) continue;
 
-                            var match = tagPattern.Match(tagName);
+                            var nonNullTagName = tagName!;
+                            var match = tagPattern.Match(nonNullTagName);
                             if (match.Success)
                             {
                                 int pageNumber = int.Parse(match.Groups[1].Value);
@@ -2603,7 +2727,7 @@ namespace OpenTiaToolkit.Core.Services
                                 {
                                     TagObject = tag,
                                     TagTableName = tagTableName,
-                                    FullName = tagName,
+                                    FullName = nonNullTagName,
                                     BaseName = baseName,
                                     PageNumber = pageNumber
                                 };
@@ -2620,11 +2744,14 @@ namespace OpenTiaToolkit.Core.Services
                                 else
                                 {
                                     // For page < 100, index by full name
-                                    if (!tagsUnderPage100.ContainsKey(tagName))
+                                    if (!tagsUnderPage100.ContainsKey(nonNullTagName))
                                     {
-                                        tagsUnderPage100[tagName] = tagInfo;
+                                        tagsUnderPage100[nonNullTagName] = tagInfo;
                                     }
                                 }
+
+                                // Add to table-based dictionary
+                                tagsByTable[tagTableName].Add(tagInfo);
 
                                 result.Summary.ExistingTagsScanned++;
                             }
@@ -2633,19 +2760,6 @@ namespace OpenTiaToolkit.Core.Services
 
                     _logger?.LogInformation("Scanned {ExistingTags} existing tags ({OverPage} page>=100, {UnderPage} page<100)",
                         result.Summary.ExistingTagsScanned, tagsOverPage100.Count, tagsUnderPage100.Count);
-
-                    // Get the first/default tag table for creating new tags
-                    var defaultTagTable = tagTables.FirstOrDefault();
-                    if (defaultTagTable == null)
-                    {
-                        result.Errors.Add(new TagUpdateError
-                        {
-                            Item = "System",
-                            Error = "No tag table found for creating new tags"
-                        });
-                        return result;
-                    }
-                    var defaultTableName = TiaReflectionHelper.GetName(defaultTagTable) ?? "Default";
 
                     // Process CSV rows
                     foreach (var csvRow in csvRows)
@@ -2739,12 +2853,26 @@ namespace OpenTiaToolkit.Core.Services
                                     continue;
                                 }
 
+                                // Find the best table for this specific tag
+                                var targetTagTable = FindBestTagTableForPage(tagTables, csvPageNumber, tagsByTable);
+                                if (targetTagTable == null)
+                                {
+                                    result.Errors.Add(new TagUpdateError
+                                    {
+                                        Item = csvRow.TagName,
+                                        Error = "No tag table found for creating new tags"
+                                    });
+                                    result.Summary.TagsSkipped++;
+                                    continue;
+                                }
+                                var targetTableName = TiaReflectionHelper.GetName(targetTagTable) ?? "Default";
+
                                 if (!dryRun)
                                 {
                                     try
                                     {
                                         // Create tag using Tags.Create() method
-                                        var tagsCollection = TiaReflectionHelper.GetTags(defaultTagTable);
+                                        var tagsCollection = TiaReflectionHelper.GetTags(targetTagTable);
                                         if (tagsCollection == null)
                                         {
                                             result.Errors.Add(new TagUpdateError
@@ -2808,7 +2936,7 @@ namespace OpenTiaToolkit.Core.Services
 
                                 result.Created.Add(new TagCreateEntry
                                 {
-                                    TagTableName = defaultTableName,
+                                    TagTableName = targetTableName,
                                     TagName = csvRow.TagName,
                                     DataType = csvRow.DataType,
                                     Address = csvRow.Address,
@@ -2884,12 +3012,26 @@ namespace OpenTiaToolkit.Core.Services
                                     continue;
                                 }
 
+                                // Find the best table for this specific tag
+                                var targetTagTable = FindBestTagTableForPage(tagTables, csvPageNumber, tagsByTable);
+                                if (targetTagTable == null)
+                                {
+                                    result.Errors.Add(new TagUpdateError
+                                    {
+                                        Item = csvRow.TagName,
+                                        Error = "No tag table found for creating new tags"
+                                    });
+                                    result.Summary.TagsSkipped++;
+                                    continue;
+                                }
+                                var targetTableName = TiaReflectionHelper.GetName(targetTagTable) ?? "Default";
+
                                 if (!dryRun)
                                 {
                                     try
                                     {
                                         // Create tag using Tags.Create() method
-                                        var tagsCollection = TiaReflectionHelper.GetTags(defaultTagTable);
+                                        var tagsCollection = TiaReflectionHelper.GetTags(targetTagTable);
                                         if (tagsCollection == null)
                                         {
                                             result.Errors.Add(new TagUpdateError
@@ -2962,7 +3104,7 @@ namespace OpenTiaToolkit.Core.Services
 
                                 result.Created.Add(new TagCreateEntry
                                 {
-                                    TagTableName = defaultTableName,
+                                    TagTableName = targetTableName,
                                     TagName = csvRow.TagName,
                                     DataType = csvRow.DataType,
                                     Address = csvRow.Address,
@@ -2990,6 +3132,47 @@ namespace OpenTiaToolkit.Core.Services
                     return result;
                 }
             });
+        }
+
+        /// <summary>
+        /// Finds the most appropriate tag table for a given page number by checking existing tags.
+        /// </summary>
+        /// <param name="tagTables">All available tag tables.</param>
+        /// <param name="pageNumber">The page number for the new tag.</param>
+        /// <param name="tagsByTable">Dictionary of tags organized by table name.</param>
+        /// <returns>The best matching tag table, or the first table if no match found.</returns>
+        private object? FindBestTagTableForPage(
+            IEnumerable<object> tagTables,
+            int pageNumber,
+            Dictionary<string, List<TagInfo>> tagsByTable)
+        {
+            // Find tables that already have tags from this page
+            var tablesWithSamePage = tagsByTable
+                .Where(kvp => kvp.Value.Any(t => t.PageNumber == pageNumber))
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            if (tablesWithSamePage.Count == 1)
+            {
+                // Found exactly one table with this page - use it
+                var tableName = tablesWithSamePage.First();
+                return tagTables.FirstOrDefault(t =>
+                    TiaReflectionHelper.GetName(t)?.Equals(tableName, StringComparison.OrdinalIgnoreCase) == true);
+            }
+            else if (tablesWithSamePage.Count > 1)
+            {
+                // Multiple tables have this page - use the one with most tags from this page
+                var bestTableName = tagsByTable
+                    .Where(kvp => tablesWithSamePage.Contains(kvp.Key))
+                    .OrderByDescending(kvp => kvp.Value.Count(t => t.PageNumber == pageNumber))
+                    .First().Key;
+
+                return tagTables.FirstOrDefault(t =>
+                    TiaReflectionHelper.GetName(t)?.Equals(bestTableName, StringComparison.OrdinalIgnoreCase) == true);
+            }
+
+            // No table has this page - use default (first) table
+            return tagTables.FirstOrDefault();
         }
 
         #region Private Helper Methods
@@ -3540,7 +3723,7 @@ namespace OpenTiaToolkit.Core.Services
         /// <summary>
         /// Builds a hierarchical path string for reporting.
         /// </summary>
-        private string BuildPath(params string[] segments)
+        private string BuildPath(params string?[] segments)
         {
             var validSegments = segments.Where(s => !string.IsNullOrEmpty(s)).ToArray();
             return string.Join(".", validSegments);
@@ -4827,6 +5010,215 @@ namespace OpenTiaToolkit.Core.Services
                     return result;
                 }
             });
+        }
+
+        private void AddSoftwareContainerNode(
+            List<SoftwareTreeNode> target,
+            string displayName,
+            string containerType,
+            string rootPath,
+            object? group,
+            int? maxDepth,
+            int currentDepth,
+            IReadOnlyList<string> itemCollectionPropertyNames)
+        {
+            if (group == null)
+            {
+                return;
+            }
+
+            var path = $"{rootPath}/{displayName}";
+            var children = maxDepth.HasValue && currentDepth >= maxDepth.Value
+                ? Array.Empty<SoftwareTreeNode>()
+                : BuildSoftwareGroupChildren(group, path, maxDepth, currentDepth + 1, itemCollectionPropertyNames);
+
+            target.Add(new SoftwareTreeNode(displayName, containerType, path, children));
+        }
+
+        private IReadOnlyList<SoftwareTreeNode> BuildSoftwareGroupChildren(
+            object group,
+            string parentPath,
+            int? maxDepth,
+            int currentDepth,
+            IReadOnlyList<string> itemCollectionPropertyNames)
+        {
+            var children = new List<SoftwareTreeNode>();
+
+            foreach (var propertyName in itemCollectionPropertyNames)
+            {
+                var items = TiaReflectionHelper.GetEnumerableProperty(group, propertyName);
+                if (items == null)
+                {
+                    continue;
+                }
+
+                foreach (var item in items)
+                {
+                    children.Add(BuildSoftwareLeafNode(item, parentPath));
+                }
+            }
+
+            var groups = TiaReflectionHelper.GetGroups(group);
+            if (groups != null)
+            {
+                foreach (var childGroup in groups)
+                {
+                    children.Add(BuildSoftwareGroupNode(childGroup, parentPath, maxDepth, currentDepth, itemCollectionPropertyNames));
+                }
+            }
+
+            return children;
+        }
+
+        private SoftwareTreeNode BuildSoftwareGroupNode(
+            object group,
+            string parentPath,
+            int? maxDepth,
+            int currentDepth,
+            IReadOnlyList<string> itemCollectionPropertyNames)
+        {
+            var name = TiaReflectionHelper.GetName(group) ?? TiaReflectionHelper.GetTypeName(group) ?? "Group";
+            var path = $"{parentPath}/{name}";
+            var children = maxDepth.HasValue && currentDepth >= maxDepth.Value
+                ? Array.Empty<SoftwareTreeNode>()
+                : BuildSoftwareGroupChildren(group, path, maxDepth, currentDepth + 1, itemCollectionPropertyNames);
+
+            return new SoftwareTreeNode(
+                name,
+                TiaReflectionHelper.GetTypeName(group) ?? "Group",
+                path,
+                children);
+        }
+
+        private static SoftwareTreeNode BuildSoftwareLeafNode(object item, string parentPath)
+        {
+            var name = TiaReflectionHelper.GetName(item) ?? TiaReflectionHelper.GetTypeName(item) ?? "Item";
+            var path = $"{parentPath}/{name}";
+            var nodeType = GetSoftwareLeafType(item);
+
+            return new SoftwareTreeNode(name, nodeType, path, Array.Empty<SoftwareTreeNode>());
+        }
+
+        private static string GetSoftwareLeafType(object item)
+        {
+            var explicitType = TiaReflectionHelper.GetProperty(item, "Type")?.ToString();
+            if (!string.IsNullOrWhiteSpace(explicitType))
+            {
+                return explicitType!;
+            }
+
+            var programmingLanguage = TiaReflectionHelper.GetProperty(item, "ProgrammingLanguage")?.ToString();
+            if (!string.IsNullOrWhiteSpace(programmingLanguage))
+            {
+                return $"{TiaReflectionHelper.GetTypeName(item) ?? "Item"} ({programmingLanguage})";
+            }
+
+            return TiaReflectionHelper.GetTypeName(item) ?? "Item";
+        }
+
+        private object? GetEngineeringService(object engineeringObject, Type serviceType)
+        {
+            var getServiceMethod = engineeringObject.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .FirstOrDefault(m => m.Name == "GetService" && m.IsGenericMethodDefinition && m.GetParameters().Length == 0);
+
+            if (getServiceMethod == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return getServiceMethod.MakeGenericMethod(serviceType).Invoke(engineeringObject, null);
+            }
+            catch (TargetInvocationException ex)
+            {
+                _logger?.LogDebug(ex.InnerException ?? ex, "Failed to resolve engineering service {ServiceType}", serviceType.FullName);
+                return null;
+            }
+        }
+
+        private static Type? FindSiemensType(string fullName)
+        {
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    if (assembly.FullName == null || !assembly.FullName.StartsWith("Siemens.Engineering", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var type = assembly.GetType(fullName, throwOnError: false, ignoreCase: false);
+                    if (type != null)
+                    {
+                        return type;
+                    }
+                }
+                catch
+                {
+                    // Skip assemblies that cannot be inspected.
+                }
+            }
+
+            return null;
+        }
+
+        private static int GetIntProperty(object source, string propertyName)
+        {
+            var value = TiaReflectionHelper.GetProperty(source, propertyName);
+            if (value == null)
+            {
+                return 0;
+            }
+
+            if (value is int intValue)
+            {
+                return intValue;
+            }
+
+            return int.TryParse(value.ToString(), out var parsed) ? parsed : 0;
+        }
+
+        private static string BuildCompilationMessage(object compileResult, string state, int errorCount, int warningCount)
+        {
+            var summary = $"Compilation state: {state}. Errors: {errorCount}. Warnings: {warningCount}.";
+            var rawMessages = TiaReflectionHelper.GetProperty(compileResult, "Messages") as System.Collections.IEnumerable;
+            if (rawMessages == null)
+            {
+                return summary;
+            }
+
+            var messages = new List<string>();
+            foreach (var rawMessage in rawMessages)
+            {
+                if (rawMessage == null)
+                {
+                    continue;
+                }
+
+                var description = TiaReflectionHelper.GetProperty(rawMessage, "Description")?.ToString();
+                if (string.IsNullOrWhiteSpace(description))
+                {
+                    continue;
+                }
+
+                var messageState = TiaReflectionHelper.GetProperty(rawMessage, "State")?.ToString();
+                var path = TiaReflectionHelper.GetProperty(rawMessage, "Path")?.ToString();
+                var formatted = string.IsNullOrWhiteSpace(path)
+                    ? $"{messageState}: {description}"
+                    : $"{messageState}: {path} - {description}";
+
+                messages.Add(formatted);
+                if (messages.Count == 3)
+                {
+                    break;
+                }
+            }
+
+            return messages.Count == 0
+                ? summary
+                : $"{summary} {string.Join(" | ", messages)}";
         }
 
         #endregion

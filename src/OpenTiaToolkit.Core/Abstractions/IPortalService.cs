@@ -18,7 +18,7 @@ public interface IPortalService : IDisposable
     bool IsConnected { get; }
 
     /// <summary>
-    /// Gets the TIA Portal version (e.g., "V19", "V20").
+    /// Gets the TIA Portal version (e.g., "V21", "V20").
     /// </summary>
     string? Version { get; }
 
@@ -68,7 +68,7 @@ public interface IPortalService : IDisposable
     /// <summary>
     /// Opens a TIA Portal project.
     /// </summary>
-    /// <param name="projectPath">The full path to the .ap19 file.</param>
+    /// <param name="projectPath">The full path to the project file (.ap21/.als21 primary, legacy formats also supported).</param>
     /// <returns>True if the project was opened successfully.</returns>
     Task<bool> OpenProjectAsync(string projectPath);
 

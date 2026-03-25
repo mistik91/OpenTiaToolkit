@@ -1,263 +1,97 @@
-# TIA Portal Version Compatibility
+# TIA Portal Version Support
 
 ## Overview
 
-OpenTia Toolkit is designed for **TIA Portal V21 and later** as the primary development target. This document outlines the version requirements, assembly structure, and supported features.
+OpenTiaToolkit is primarily developed and validated against **TIA Portal V21**.
 
-**Primary Target: TIA Portal V21** - The toolkit requires V21 or later for full functionality.
+That is the version assumed by:
 
-## Minimum Version: V21
+- the project references in `src/`
+- the bundled Openness API PDF references in `docs/`
+- the default integration-test paths
+- the current assembly resolver preference order
 
-### TIA Portal V21+ (Primary Target) ✅
+Older TIA versions may still work for some reflection-based operations, but they are considered **best-effort compatibility paths**, not the main supported target.
 
-**Primary development target with full block creation support.**
+## Support Levels
 
-The TIA Portal V21+ API provides a generic `Create()` method that supports all block types:
+| Version | Status | Notes |
+|---------|--------|-------|
+| **V21** | Primary supported version | Main development target and expected runtime environment |
+| **V20** | Limited / best effort | Some reflection-based paths may work; SIMATIC SD document features are V20+ |
+| **V19 and earlier** | Legacy / best effort | Not the primary validation target; expect gaps and less coverage |
 
-| Block Type | Abbreviation | Supported | Method Used |
-|------------|--------------|-----------|-------------|
-| Function Block | FB | ✅ Yes | `Create()` |
-| System Function Block | SFB | ✅ Yes | `Create()` |
-| Function | FC | ✅ Yes | `Create()` |
-| System Function | SFC | ✅ Yes | `Create()` |
-| Data Block (Global) | DB | ✅ Yes | `Create()` |
-| Instance Data Block | - | ✅ Yes | `Create()` |
-| Organization Block | OB | ✅ Yes | `Create()` |
-| User Defined Type | UDT | ✅ Yes | `Create()` |
-
-**API Methods Used:**
-```csharp
-PlcBlockComposition.Create(string name, BlockType type)
-PlcBlockComposition.Create(string name, BlockType type, string programmingLanguage)
-```
+## V21 API Surface Used By This Repo
 
-## Why V21+?
+The repo targets the V21 modular Openness API layout:
 
-The TIA Portal Openness API evolved significantly between V19 and V21:
+- `Siemens.Engineering.Base.dll`
+- `Siemens.Engineering.Step7.dll`
+- `Siemens.Engineering.WinCC.dll`
+- `Siemens.Engineering.WinCC.Extension.dll`
 
-### V19 vs V21+ Architecture Differences
+Common V21 PLC surfaces used by the toolkit include:
 
-| Aspect | V19 (Legacy) | V21+ (Current) |
-|--------|--------------|----------------|
-| **Assembly Structure** | Monolithic: 1 DLL (`Siemens.Engineering.dll`) | Modular: 4+ DLLs (`Base.dll`, `Step7.dll`) |
-| **Assembly Path** | `PublicAPI\V19\` | `PublicAPI\V21\net48\` |
-| **Block Creation** | Limited: Type-specific methods (`CreateFB()`) | Full: Generic `Create()` method |
-| **Supported Blocks** | FB, SFB only | FB, FC, DB, OB, SFB, SFC, UDT (all) |
+- `PlcSoftware.BlockGroup`
+- `PlcSoftware.TypeGroup`
+- `PlcSoftware.TagTableGroup`
+- `PlcSoftware.ExternalSourceGroup`
+- `GetService<ICompilable>()` for software compilation
 
-### V19 Limitations
+These surfaces are also reflected in the bundled V21 reference manuals under `docs/`.
 
-The TIA Portal V19 API only provides type-specific `Create` methods:
-- `CreateFB()` - Only creates FB/SFB blocks
-- `CreateInstanceDB()` - Creates instance DBs (requires FB name)
-- Missing: FC, SFC, DB (global), OB, UDT creation
+## Feature Notes
 
-**No Upgrade Path from V19**: V19's `BlockType` enum only contains 6 values (FB, SFB, UDT, FBT, SDT, Undef). FC, DB, and OB are not in the enum, making generic block creation impossible.
+### PLC software tree
 
-### V21+ Advantages
+`get-software-tree` is implemented against the V21 PLC software containers and currently enumerates:
 
-The TIA Portal V21+ API introduces a unified generic `Create()` method:
-- Single method for all block types
-- Full `BlockType` enum with all values (FB, FC, DB, OB, SFB, SFC, UDT)
-- Programming language parameter support
-- Cleaner, more maintainable code
+- blocks
+- types
+- tag tables
+- external source files
 
-## Assembly Loading Requirements
+The tree is built from the actual V21 software object model instead of placeholder nodes.
 
-### Assembly Structure by Version
+### PLC compilation
 
-**V21+ (Primary Target):**
-- Modular assembly structure (2+ DLLs):
-  - `Siemens.Engineering.Base.dll` (core infrastructure)
-  - `Siemens.Engineering.Step7.dll` (PLC operations)
-  - Optional: `Siemens.Engineering.WinCC.dll` (HMI operations)
-  - Optional: `Siemens.Engineering.WinCC.Extension.dll` (HMI extensions)
-- Assembly path: `C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48\`
+`compile-software` uses the V21 compile service exposed via `ICompilable`.
 
-**V19 (Backward Compatibility):**
-- Single monolithic assembly: `Siemens.Engineering.dll`
-- Assembly path: `C:\Program Files\Siemens\Automation\Portal V19\PublicAPI\V19\`
-- **Not recommended** - Limited block creation support
+Current behavior:
 
-### Custom Assembly Resolver
+- compilation is executed against the open PLC software
+- error and warning counts come from the Siemens compiler result
+- the optional `password` argument is currently accepted for command compatibility but is not used by the V21 compile-service call path
 
-**OpenTia Toolkit uses a custom assembly resolver that prioritizes V21+:**
+### Block creation
 
-- ✅ Uses `TiaPortalAssemblyResolver` (custom implementation)
-- ✅ Supports V21+ modular assembly structure (2+ DLLs)
-- ✅ Supports V19 monolithic assembly structure (1 DLL) for backward compatibility
-- ✅ Prefers V21 assemblies first, then V20, V19 for backward compatibility
-- ✅ Handles version detection automatically
-- ✅ No external dependencies on official resolver packages
+The public `create-block` command is not currently enabled in the CLI/MCP registrations.
 
-**Why a Custom Resolver?**
+During V21 validation on the current test project, the loaded `PlcBlockComposition` surface exposed `CreateFB(...)` and `CreateInstanceDB(...)`, and `CreateFB(...)` only accepted the `ProDiag` language in this context. Treat generic FC/DB/OB/UDT creation as unsupported until a broader V21-safe implementation is added and validated.
 
-The custom resolver provides:
-1. **V21 Primary Support**: Designed for V21 as the primary target
-2. **Backward Compatibility**: Gracefully supports V20-V19 when V21 unavailable
-3. **Simplicity**: No dependency on official resolver NuGet packages
-4. **Flexibility**: Can be customized for specific project needs
+### SIMATIC SD document import/export
 
-### Initialization
+Document-based block import/export requires **V20 or newer**. In practice, this repo is mainly validated on V21.
 
-The custom resolver is initialized at application startup:
+## Assembly Loading
 
-**CLI (Program.cs:18-21):**
-```csharp
-static Program()
-{
-    // Register custom TIA Portal assembly resolver
-    TiaPortalAssemblyResolver.Register();
-}
-```
+`TiaPortalAssemblyResolver` is V21-first:
 
-**MCP (Program.cs:17-20):**
-```csharp
-static Program()
-{
-    // Register custom TIA Portal assembly resolver
-    TiaPortalAssemblyResolver.Register();
-}
-```
+1. V21 PublicAPI
+2. V20 PublicAPI
+3. V19 fallback locations
+4. TIA `Bin` infrastructure folders
 
-**Tests (TestHelpers.cs:18-20):**
-```csharp
-static TestHelpers()
-{
-    // Register TIA Portal assembly resolver BEFORE any Openness types are loaded
-    TiaPortalAssemblyResolver.Register();
-}
-```
+This matches the repo's current V21-first support stance.
 
-### Assembly Resolution Order
+## Testing Guidance
 
-The resolver searches for assemblies in this order:
+Integration tests are designed for a locally installed TIA environment and a real test project.
 
-1. **V21 PublicAPI** (primary target):
-   - `C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48\`
+You can override the default paths with:
 
-2. **V20 PublicAPI** (backward compatibility):
-   - `C:\Program Files\Siemens\Automation\Portal V20\PublicAPI\V20\net48\`
+- `OPEN_TIA_TEST_PROJECT_PATH`
+- `OPEN_TIA_TEST_EXPORT_PATH`
+- `OPEN_TIA_TEST_OUTPUT_PATH`
 
-3. **V19 PublicAPI** (backward compatibility):
-   - `C:\Program Files\Siemens\Automation\Portal V19\PublicAPI\V19\`
-
-4. **Infrastructure assemblies** (Bin folders):
-   - `Bin\PublicAPI`
-   - `Bin\PublicAPI\Client`
-   - `Bin`
-
-### Important Notes
-
-- The custom `TiaPortalAssemblyResolver.cs` is used instead of the official resolver
-- All projects reference the TIA Portal assemblies directly (not via NuGet packages)
-- The custom resolver is initialized **before any Openness types are loaded**
-- Assemblies are loaded from the TIA Portal installation directory
-- All project files have `<Private>False</Private>` set (Copy Local = false)
-- Build targets delete Siemens DLLs from output to comply with Openness API requirements
-
-## Example Usage
-
-### Creating an FB Block
-
-```bash
-create-block --plc-name="MyPLC" --block-name="Motor_Control" --block-type="FB" --language="SCL"
-```
-
-**Result in V21+:** ✅ Created using generic `Create()`
-
-### Creating an FC Block
-
-```bash
-create-block --plc-name="MyPLC" --block-name="Calculate" --block-type="FC" --language="SCL"
-```
-
-**Result in V21+:** ✅ Created using generic `Create()`
-
-### Creating a DB Block
-
-```bash
-create-block --plc-name="MyPLC" --block-name="Process_Data" --block-type="DB" --language="SCL"
-```
-
-**Result in V21+:** ✅ Created using generic `Create()`
-
-## Technical Implementation
-
-The toolkit uses a **single code path** for V21+:
-
-1. **Detect V21+ API**: Check for generic `Create()` method
-2. **Use generic Create**: Invoke `Create(name, blockType)` or `Create(name, blockType, language)`
-3. **All block types supported**: FB, FC, DB, OB, SFB, SFC, UDT
-
-This ensures:
-- ✅ Clean, maintainable code
-- ✅ Full block creation support
-- ✅ Consistent behavior across all V21+ versions
-- ✅ Future-proof for newer TIA Portal versions
-
-## Upgrade from V19
-
-If you're currently using V19:
-
-1. **Upgrade to TIA Portal V21+**
-   - Full block creation support (all types)
-   - Generic `Create()` method
-   - Cleaner code architecture
-
-2. **Update assembly references**
-   - Replace `Siemens.Engineering.dll` with `Siemens.Engineering.Base.dll` and `Siemens.Engineering.Step7.dll`
-   - Update assembly path to `V21\net48\`
-
-3. **No code changes required**
-   - The toolkit abstracts TIA Portal version differences
-   - Same CLI commands and MCP tools work identically
-
-## Additional Resources
-
-- [TIA Portal Openness API Documentation (V21)](https://docs.tia.siemens.cloud/r/en-us/v21/tia-portal-openness-api-for-automation-of-engineering-workflows/)
-- [Siemens Support Portal](https://support.industry.siemens.com/)
-- [TIA Portal Applications on GitHub](https://github.com/tia-portal-applications)
-
-## Version Detection
-
-The toolkit automatically detects which TIA Portal version is installed and adapts its behavior accordingly. No manual configuration is required.
-
-To check your TIA Portal version:
-```bash
-open-tia-portal
-# Check the "version" field in the output
-```
-
-## Changelog
-
-### 2026-02-18 - V21 Migration (Primary Target) ✅
-- 🎉 **Migrated to TIA Portal V21 as primary development target**
-- ✅ All project files now reference V21 modular assemblies (Base.dll, Step7.dll)
-- ✅ Updated TiaPortalAssemblyResolver to prefer V21 first, then V20-V19 for backward compatibility
-- ✅ Updated test initialization to use V21
-- ✅ Updated test project paths to V21 location (D:\Siemens\V21\MCP_TEST_V21\)
-- ✅ Simplified PlcService: Removed V19 fallback code (~50 lines removed)
-- ✅ Updated documentation to reflect V21 as primary development target
-- ✅ V21 assembly structure: 2+ modular DLLs (Base.dll, Step7.dll)
-- ✅ V19 backward compatibility maintained (tries V21 first, falls back to V20-V19)
-- ✅ Custom TiaPortalAssemblyResolver retained (simpler than official resolver)
-- ✅ Full block creation support: All types (FB, FC, DB, OB, SFB, SFC, UDT)
-- ✅ Assembly resolution order: V21 (primary) → V20 → V19
-- ✅ Single code path using V21's generic `Create()` method
-
-### Previous Changes
-- ✅ 2026-02-16: V19 Migration (Primary Target) - Reverted back to V19
-- ✅ 2026-02-15: Official Resolver Migration (V21)
-- ✅ 2026-02-15: Complete V21 Migration
-- ✅ Added support for TIA Portal V21+ generic Create method
-- ✅ Implemented V19 fallback with type-specific Create methods
-- ✅ Fixed BlockType enum name (was "PlcBlockType", now "BlockType")
-- ✅ Fixed enum value mappings to use abbreviations (FB, FC, DB, etc.)
-
-## Support
-
-For issues or questions:
-1. Check this documentation first
-2. Verify your TIA Portal version (V21+ required)
-3. Review error logs for detailed version compatibility information
-4. Report issues on GitHub with your TIA Portal version and error details
+When in doubt, validate new PLC behavior against **TIA Portal V21** first.

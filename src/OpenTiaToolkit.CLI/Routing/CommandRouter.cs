@@ -142,7 +142,7 @@ namespace OpenTiaToolkit.CLI.Routing
         /// </summary>
         /// <param name="commandName">Optional command name to get detailed help for.</param>
         /// <returns>Help text string.</returns>
-        public string GetHelp(string commandName = null)
+        public string GetHelp(string? commandName = null)
         {
             if (string.IsNullOrEmpty(commandName))
             {
@@ -167,7 +167,7 @@ namespace OpenTiaToolkit.CLI.Routing
                 lines.Add("");
                 lines.Add("Examples:");
                 lines.Add("  OpenTiaToolkit.CLI.exe connect-portal");
-                lines.Add("  OpenTiaToolkit.CLI.exe open-project --project-path=\"C:\\Projects\\My.ap19\"");
+                lines.Add("  OpenTiaToolkit.CLI.exe open-project --project-path=\"C:\\Projects\\My.ap21\"");
                 lines.Add("  OpenTiaToolkit.CLI.exe list-devices");
 
                 return string.Join(Environment.NewLine, lines);
@@ -175,7 +175,7 @@ namespace OpenTiaToolkit.CLI.Routing
             else
             {
                 // Specific command help
-                var lookupName = commandName.TrimStart('-').Replace("-", "");
+                var lookupName = commandName!.TrimStart('-');
                 if (!_commands.TryGetValue(lookupName, out var command))
                 {
                     return $"Unknown command: '{commandName}'";

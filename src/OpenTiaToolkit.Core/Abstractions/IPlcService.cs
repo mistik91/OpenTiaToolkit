@@ -85,6 +85,39 @@ public interface IPlcService
     Task<bool> ExportBlockAsync(string blockName, string exportPath);
 
     /// <summary>
+    /// Exports a single block as SIMATIC SD documents (V20+).
+    /// Creates .s7dcl and .s7res files.
+    /// </summary>
+    /// <param name="blockName">The name of the block to export.</param>
+    /// <param name="exportPath">The directory path where files will be saved.</param>
+    /// <returns>True if the block was exported successfully.</returns>
+    Task<bool> ExportBlockAsDocumentsAsync(string blockName, string exportPath);
+
+    /// <summary>
+    /// Exports multiple blocks as SIMATIC SD documents (V20+).
+    /// </summary>
+    /// <param name="filterRegex">Optional regex filter for block names.</param>
+    /// <param name="exportPath">The directory path where files will be saved.</param>
+    /// <returns>Export result with success/failure statistics.</returns>
+    Task<ExportResult> ExportBlocksAsDocumentsAsync(string? filterRegex, string exportPath);
+
+    /// <summary>
+    /// Exports a single type (UDT) to XML.
+    /// </summary>
+    /// <param name="typeName">The name of the type to export.</param>
+    /// <param name="exportPath">The full file path where the XML will be saved.</param>
+    /// <returns>True if the type was exported successfully.</returns>
+    Task<bool> ExportTypeAsync(string typeName, string exportPath);
+
+    /// <summary>
+    /// Exports multiple types (UDT) to XML.
+    /// </summary>
+    /// <param name="filterRegex">Optional regex filter for type names.</param>
+    /// <param name="exportPath">The directory path where files will be saved.</param>
+    /// <returns>Export result with success/failure statistics.</returns>
+    Task<ExportResult> ExportTypesAsync(string? filterRegex, string exportPath);
+
+    /// <summary>
     /// Searches blocks by name or comment.
     /// </summary>
     /// <param name="pattern">Search text pattern.</param>
@@ -97,8 +130,8 @@ public interface IPlcService
     /// Creates a new block in the PLC software.
     /// </summary>
     /// <param name="blockName">The name of the block to create.</param>
-    /// <param name="blockType">The type of block (FB, FC, DB, OB, SFB, SFC, UDT).</param>
-    /// <param name="programmingLanguage">Optional programming language (e.g., "SCL", "FBD", "LAD", "ST").</param>
+    /// <param name="blockType">The type of block to create. The current validated V21 path is limited.</param>
+    /// <param name="programmingLanguage">Optional programming language. The currently validated V21 path supports ProDiag FB creation.</param>
     /// <returns>True if the block was created successfully.</returns>
     Task<bool> CreateBlockAsync(string blockName, string blockType, string? programmingLanguage = null);
 
@@ -169,6 +202,60 @@ public interface IPlcService
         bool caseInsensitive = false,
         bool dryRun = true,
         string[]? targetTypes = null);
+
+    /// <summary>
+    /// Imports a single block from XML.
+    /// </summary>
+    /// <param name="importPath">The full file path of the XML file to import.</param>
+    /// <param name="groupPath">Optional path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.</param>
+    /// <returns>True if the block was imported successfully.</returns>
+    Task<bool> ImportBlockAsync(string importPath, string? groupPath = null);
+
+    /// <summary>
+    /// Imports multiple blocks from XML files in a directory.
+    /// </summary>
+    /// <param name="importDirectory">The directory containing XML files to import.</param>
+    /// <param name="filterRegex">Optional regex filter for file names.</param>
+    /// <param name="groupPath">Optional path within PLC program.</param>
+    /// <returns>Import result with success/failure statistics.</returns>
+    Task<ImportResult> ImportBlocksAsync(string importDirectory, string? filterRegex = null, string? groupPath = null);
+
+    /// <summary>
+    /// Imports a single type (UDT) from XML.
+    /// </summary>
+    /// <param name="importPath">The full file path of the XML file to import.</param>
+    /// <param name="groupPath">Optional path within type groups (e.g., "Types/Subgroups"). Empty for root.</param>
+    /// <returns>True if the type was imported successfully.</returns>
+    Task<bool> ImportTypeAsync(string importPath, string? groupPath = null);
+
+    /// <summary>
+    /// Imports multiple types (UDT) from XML files in a directory.
+    /// </summary>
+    /// <param name="importDirectory">The directory containing XML files to import.</param>
+    /// <param name="filterRegex">Optional regex filter for file names.</param>
+    /// <param name="groupPath">Optional path within type groups.</param>
+    /// <returns>Import result with success/failure statistics.</returns>
+    Task<ImportResult> ImportTypesAsync(string importDirectory, string? filterRegex = null, string? groupPath = null);
+
+    /// <summary>
+    /// Imports a single block from SIMATIC SD documents (.s7dcl/.s7res) - V20+ only.
+    /// </summary>
+    /// <param name="importDirectory">The directory containing .s7dcl and .s7res files.</param>
+    /// <param name="fileNameWithoutExtension">Block name without extension.</param>
+    /// <param name="groupPath">Optional path within PLC program.</param>
+    /// <param name="importOption">Import behavior: "Override", "None", "SkipInactiveCultures", "ActivateInactiveCultures".</param>
+    /// <returns>True if the block was imported successfully.</returns>
+    Task<bool> ImportBlockFromDocumentsAsync(string importDirectory, string fileNameWithoutExtension, string? groupPath = null, string importOption = "Override");
+
+    /// <summary>
+    /// Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res) - V20+ only.
+    /// </summary>
+    /// <param name="importDirectory">The directory containing document files.</param>
+    /// <param name="filterRegex">Optional regex filter for block names.</param>
+    /// <param name="groupPath">Optional path within PLC program.</param>
+    /// <param name="importOption">Import behavior option.</param>
+    /// <returns>Import result with success/failure statistics.</returns>
+    Task<ImportResult> ImportBlocksFromDocumentsAsync(string importDirectory, string? filterRegex = null, string? groupPath = null, string importOption = "Override");
 }
 
 /// <summary>

@@ -107,8 +107,8 @@ namespace OpenTiaToolkit.Tests.Routing
 
             // Assert
             StringAssert.Contains(help, "test-command");
-            // The help should contain either the command name or description
-            Assert.IsTrue(help.Contains("Test description") || help.Contains("test-command"));
+            StringAssert.Contains(help, "Test description");
+            Assert.IsFalse(help.Contains("Unknown command"));
         }
 
         [TestMethod]

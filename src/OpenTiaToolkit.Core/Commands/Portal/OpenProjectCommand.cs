@@ -24,7 +24,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         public string Name => "open-project";
 
         /// <inheritdoc/>
-        public string Description => "Opens a TIA Portal project file (.ap19 or .als19)";
+        public string Description => "Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported)";
 
         /// <inheritdoc/>
         public CommandSchema Schema => new CommandSchema(
@@ -63,7 +63,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                     var projectInfo = await _portalService.GetProjectInfoAsync();
 
                     return CommandResult.CreateSuccess(
-                        data: projectInfo,
+                        data: projectInfo is null ? new { path = projectPath } : (object)projectInfo,
                         message: $"Project opened: {projectInfo?.Name}"
                     );
                 }

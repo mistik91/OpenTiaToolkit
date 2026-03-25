@@ -16,12 +16,12 @@ namespace OpenTiaToolkit.Tests.Integration
     [DoNotParallelize]
     public sealed class Test1Portal
     {
-        private ILoggerFactory? _loggerFactory;
-        private ILogger? _logger;
-        private IPortalService? _portalService;
-        private ICommand? _connectCommand;
-        private ICommand? _disconnectCommand;
-        private ICommand? _statusCommand;
+        private ILoggerFactory _loggerFactory = null!;
+        private ILogger _logger = null!;
+        private IPortalService _portalService = null!;
+        private ICommand _connectCommand = null!;
+        private ICommand _disconnectCommand = null!;
+        private ICommand _statusCommand = null!;
 
         [TestInitialize]
         public void TestInitialize()

@@ -199,7 +199,7 @@ namespace OpenTiaToolkit.Core.Utilities
                 }
 
                 // Check if it's a CSV file (must end with .csv)
-                if (strValue.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                if (strValue!.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
                 {
                     return ParseCsvFile(strValue);
                 }
@@ -262,7 +262,7 @@ namespace OpenTiaToolkit.Core.Utilities
                 }
 
                 // Check for duplicates (case-insensitive dictionary will handle this, but we want consistent behavior)
-                renameMap[oldName] = newName;
+                renameMap[oldName] = newName!;
             }
 
             if (renameMap.Count == 0)

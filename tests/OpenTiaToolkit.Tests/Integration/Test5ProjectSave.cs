@@ -17,13 +17,13 @@ namespace OpenTiaToolkit.Tests.Integration
     [DoNotParallelize]
     public sealed class Test5ProjectSave
     {
-        private ILoggerFactory? _loggerFactory;
-        private ILogger? _logger;
-        private IPortalService? _portalService;
-        private ICommand? _connectCommand;
-        private ICommand? _openProjectCommand;
-        private ICommand? _closeProjectCommand;
-        private ICommand? _disconnectCommand;
+        private ILoggerFactory _loggerFactory = null!;
+        private ILogger _logger = null!;
+        private IPortalService _portalService = null!;
+        private ICommand _connectCommand = null!;
+        private ICommand _openProjectCommand = null!;
+        private ICommand _closeProjectCommand = null!;
+        private ICommand _disconnectCommand = null!;
 
         [TestInitialize]
         public void TestInitialize()
@@ -128,8 +128,8 @@ namespace OpenTiaToolkit.Tests.Integration
             var saveAsCommand = new SaveAsProjectCommand(_portalService);
 
             // TIA Portal SaveAs creates a subdirectory with the project name
-            // e.g., saving to D:\Siemens\V19\MCP_TEST_OUTPUT creates:
-            // D:\Siemens\V19\MCP_TEST_OUTPUT\MCP_TEST\MCP_TEST.ap19
+            // e.g., saving to D:\Siemens\V21\MCP_TEST_OUTPUT creates:
+            // D:\Siemens\V21\MCP_TEST_OUTPUT\MCP_TEST\MCP_TEST.ap21
             var destinationDirectory = Settings.TestOutputPath;
 
             var args = TestHelpers.CreateArgs("destination-path", destinationDirectory);
@@ -188,7 +188,7 @@ namespace OpenTiaToolkit.Tests.Integration
             // Don't open a project
 
             var saveAsCommand = new SaveAsProjectCommand(_portalService);
-            var destinationPath = Path.Combine(Settings.TestOutputPath, "test_save_as.ap19");
+            var destinationPath = Path.Combine(Settings.TestOutputPath, "test_save_as.ap21");
             var args = TestHelpers.CreateArgs("destination-path", destinationPath);
 
             // Act
@@ -212,8 +212,8 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.IsTrue(projectOpened, $"Failed to open test project: {Settings.TestProjectPath}");
 
             // TIA Portal SaveAs creates a subdirectory with the project name
-            // e.g., saving to D:\Siemens\V19\MCP_TEST_OUTPUT creates:
-            // D:\Siemens\V19\MCP_TEST_OUTPUT\MCP_TEST\MCP_TEST.ap19
+            // e.g., saving to D:\Siemens\V21\MCP_TEST_OUTPUT creates:
+            // D:\Siemens\V21\MCP_TEST_OUTPUT\MCP_TEST\MCP_TEST.ap21
             var destinationDirectory = Settings.TestOutputPath;
             var projectName = Path.GetFileNameWithoutExtension(Settings.TestProjectPath);
             var savedProjectPath = Path.Combine(destinationDirectory, projectName, Path.GetFileName(Settings.TestProjectPath));

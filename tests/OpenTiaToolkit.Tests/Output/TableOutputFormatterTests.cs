@@ -59,8 +59,8 @@ namespace OpenTiaToolkit.Tests.Output
             // Arrange
             var projects = new List<ProjectInfo>
             {
-                new ProjectInfo("Project1", "C:\\Proj1.ap19", "V19", DateTime.Now),
-                new ProjectInfo("Project2", "C:\\Proj2.ap19", "V19", DateTime.Now)
+                new ProjectInfo("Project1", "C:\\Proj1.ap21", "V21", DateTime.Now),
+                new ProjectInfo("Project2", "C:\\Proj2.ap21", "V21", DateTime.Now)
             };
             var result = CommandResult.CreateSuccess(projects, "Found 2 projects");
 
@@ -130,7 +130,7 @@ namespace OpenTiaToolkit.Tests.Output
         public void FormatProjectInfo_ReturnsFormattedInfo()
         {
             // Arrange
-            var project = new ProjectInfo("TestProject", "C:\\Test.ap19", "V19", new DateTime(2025, 1, 1));
+            var project = new ProjectInfo("TestProject", "C:\\Test.ap21", "V21", new DateTime(2025, 1, 1));
             var result = CommandResult.CreateSuccess(project, "Project info");
 
             // Act
@@ -139,8 +139,8 @@ namespace OpenTiaToolkit.Tests.Output
             // Assert
             StringAssert.Contains(formatted, "Project Information:");
             StringAssert.Contains(formatted, "TestProject");
-            StringAssert.Contains(formatted, "C:\\Test.ap19");
-            StringAssert.Contains(formatted, "V19");
+            StringAssert.Contains(formatted, "C:\\Test.ap21");
+            StringAssert.Contains(formatted, "V21");
         }
 
         [TestMethod]
@@ -164,7 +164,7 @@ namespace OpenTiaToolkit.Tests.Output
         public void FormatAnonymousObject_ReturnsKeyValuePairs()
         {
             // Arrange
-            var status = new { connected = true, version = "V19", count = 3 };
+            var status = new { connected = true, version = "V21", count = 3 };
             var result = CommandResult.CreateSuccess(status, "Status");
 
             // Act
@@ -173,7 +173,7 @@ namespace OpenTiaToolkit.Tests.Output
             // Assert
             StringAssert.Contains(formatted, "connected");
             StringAssert.Contains(formatted, "version");
-            StringAssert.Contains(formatted, "V19");
+            StringAssert.Contains(formatted, "V21");
         }
     }
 }

@@ -16,9 +16,9 @@ namespace OpenTiaToolkit.Tests.Integration
     [DoNotParallelize]
     public sealed class Test2Project
     {
-        private ILoggerFactory? _loggerFactory;
-        private ILogger? _logger;
-        private IPortalService? _portalService;
+        private ILoggerFactory _loggerFactory = null!;
+        private ILogger _logger = null!;
+        private IPortalService _portalService = null!;
 
         [TestInitialize]
         public async Task TestInitialize()
@@ -163,7 +163,7 @@ namespace OpenTiaToolkit.Tests.Integration
         {
             // Arrange
             var command = new OpenProjectCommand(_portalService!);
-            var args = TestHelpers.CreateArgs("project-path", "C:\\Invalid\\Path\\Nonexistent.ap19");
+            var args = TestHelpers.CreateArgs("project-path", "C:\\Invalid\\Path\\Nonexistent.ap21");
 
             // Act
             var result = await command.ExecuteAsync(args, _logger!);
@@ -173,6 +173,22 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.IsNotNull(result.Error, "Error message should be provided");
 
             _logger.LogInformation("Correctly failed to open invalid project: {Error}", result.Error);
+        }
+
+        [TestMethod]
+        public async Task Test_207_OpenProject_AlreadyOpen_ReturnsSuccess()
+        {
+            // Arrange
+            var command = new OpenProjectCommand(_portalService!);
+            var args = TestHelpers.CreateArgs("project-path", Settings.TestProjectPath);
+
+            // Act
+            var firstResult = await command.ExecuteAsync(args, _logger!);
+            var secondResult = await command.ExecuteAsync(args, _logger!);
+
+            // Assert
+            Assert.IsTrue(firstResult.Success, $"Initial open should succeed: {firstResult.Error}");
+            Assert.IsTrue(secondResult.Success, $"Opening an already open project should succeed: {secondResult.Error}");
         }
     }
 }
