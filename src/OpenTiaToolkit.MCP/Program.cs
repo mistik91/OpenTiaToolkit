@@ -4,12 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core;
-using OpenTiaToolkit.Core.Abstractions;
-using OpenTiaToolkit.Core.Commands.Portal;
-using OpenTiaToolkit.Core.Commands.Devices;
-using OpenTiaToolkit.Core.Commands.Plc;
-using OpenTiaToolkit.Core.Commands.Hmi;
-using OpenTiaToolkit.Core.Services;
 using OpenTiaToolkit.MCP.Server;
 
 namespace OpenTiaToolkit.MCP
@@ -74,69 +68,8 @@ namespace OpenTiaToolkit.MCP
                 builder.SetMinimumLevel(LogLevel.Information);
             });
 
-            // Register core services
-            services.AddSingleton<IPortalService, PortalService>();
-            services.AddSingleton<IPlcService, PlcService>();
-
-            // Register all Phase 1 commands
-            services.AddSingleton<ICommand, ConnectPortalCommand>();
-            services.AddSingleton<ICommand, DisconnectPortalCommand>();
-            services.AddSingleton<ICommand, PortalStatusCommand>();
-            services.AddSingleton<ICommand, OpenProjectCommand>();
-            services.AddSingleton<ICommand, CloseProjectCommand>();
-            services.AddSingleton<ICommand, ListProjectsCommand>();
-            services.AddSingleton<ICommand, GetProjectInfoCommand>();
-            services.AddSingleton<ICommand, ListDevicesCommand>();
-
-            // Register all Phase 2 commands
-            services.AddSingleton<ICommand, OpenTiaPortalCommand>();
-            services.AddSingleton<ICommand, CloseTiaPortalCommand>();
-            services.AddSingleton<ICommand, ListInstancesCommand>();
-            services.AddSingleton<ICommand, ConnectInstanceCommand>();
-            services.AddSingleton<ICommand, SaveProjectCommand>();
-            services.AddSingleton<ICommand, SaveAsProjectCommand>();
-            services.AddSingleton<ICommand, GetProjectTreeCommand>();
-
-            // Register all Phase 3 commands
-            services.AddSingleton<ICommand, GetDeviceInfoCommand>();
-            services.AddSingleton<ICommand, GetDeviceItemInfoCommand>();
-            services.AddSingleton<ICommand, OpenPlcCommand>();
-            services.AddSingleton<ICommand, GetSoftwareTreeCommand>();
-            services.AddSingleton<ICommand, CompileSoftwareCommand>();
-            services.AddSingleton<ICommand, ExportPlcCommand>();
-            services.AddSingleton<ICommand, GetBlocksCommand>();
-            services.AddSingleton<ICommand, ListPlcsCommand>();
-            services.AddSingleton<ICommand, ListHmisCommand>();
-
-            // Register all Phase 4 commands
-            services.AddSingleton<ICommand, ExportBlockCommand>();
-            services.AddSingleton<ICommand, DeleteBlocksCommand>();
-            services.AddSingleton<ICommand, SearchBlocksCommand>();
-            services.AddSingleton<ICommand, GetBlockInfoCommand>();
-            // services.AddSingleton<ICommand, CreateBlockCommand>(); // Disabled
-
-            // Register Phase 4.5 commands (SIMATIC SD Export and Type Export)
-            services.AddSingleton<ICommand, ExportBlockAsDocumentsCommand>();
-            services.AddSingleton<ICommand, ExportBlocksAsDocumentsCommand>();
-            services.AddSingleton<ICommand, ExportTypeCommand>();
-            services.AddSingleton<ICommand, ExportTypesCommand>();
-
-            // Register Phase 4.6 commands - Import (mirrors Export)
-            services.AddSingleton<ICommand, ImportBlockCommand>();
-            services.AddSingleton<ICommand, ImportBlocksCommand>();
-            services.AddSingleton<ICommand, ImportTypeCommand>();
-            services.AddSingleton<ICommand, ImportTypesCommand>();
-            services.AddSingleton<ICommand, ImportBlockFromDocumentsCommand>();
-            services.AddSingleton<ICommand, ImportBlocksFromDocumentsCommand>();
-
-            // Register all Phase 5 commands - Find and Replace
-            services.AddSingleton<ICommand, FindAndReplaceTagsCommand>();
-            // services.AddSingleton<ICommand, FindAndReplaceDbMembersCommand>(); // Disabled per requirements
-            // services.AddSingleton<ICommand, FindAndReplaceUdtMembersCommand>(); // Disabled per requirements
-
-            // Register Phase 5 commands - Tag Management
-            services.AddSingleton<ICommand, CreateTagCommand>();
-            services.AddSingleton<ICommand, UpdateTagsFromCsvCommand>();
+            services.AddOpenTiaToolkitCoreServices();
+            services.AddOpenTiaToolkitCommands();
 
             // Register MCP-specific services
             services.AddSingleton<ToolRegistry>();
@@ -149,4 +82,3 @@ namespace OpenTiaToolkit.MCP
         private class MCPApplication { }
     }
 }
-

@@ -1,0 +1,90 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenTiaToolkit.Core;
+using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Core.Services;
+using System;
+using System.Linq;
+using System.Reflection;
+
+namespace OpenTiaToolkit.Tests.Composition
+{
+    /// <summary>
+    /// Unit tests for shared dependency-injection registration and session wiring.
+    /// </summary>
+    [TestClass]
+    public class ServiceCollectionExtensionsTests
+    {
+        [TestMethod]
+        public void AddOpenTiaToolkitCoreServices_SharesSessionContextBetweenPortalAndPlcServices()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddOpenTiaToolkitCoreServices();
+
+            using var serviceProvider = services.BuildServiceProvider();
+
+            // Act
+            var portalService = serviceProvider.GetRequiredService<IPortalService>();
+            var plcService = serviceProvider.GetRequiredService<IPlcService>();
+
+            // Assert
+            var portalContext = GetPrivateFieldValue(portalService, "_sessionContext");
+            var plcContext = GetPrivateFieldValue(plcService, "_sessionContext");
+
+            Assert.IsNotNull(portalContext);
+            Assert.IsNotNull(plcContext);
+            Assert.AreSame(portalContext, plcContext);
+        }
+
+        [TestMethod]
+        public void ConstructorPath_SharesSessionContextWhenPlcServiceUsesPortalServiceInstance()
+        {
+            // Arrange
+            using var loggerFactory = LoggerFactory.Create(builder => { });
+            var portalService = new PortalService(loggerFactory.CreateLogger<PortalService>());
+            var plcService = new PlcService(portalService, loggerFactory.CreateLogger<PlcService>());
+
+            // Act
+            var portalContext = GetPrivateFieldValue(portalService, "_sessionContext");
+            var plcContext = GetPrivateFieldValue(plcService, "_sessionContext");
+
+            // Assert
+            Assert.IsNotNull(portalContext);
+            Assert.IsNotNull(plcContext);
+            Assert.AreSame(portalContext, plcContext);
+        }
+
+        [TestMethod]
+        public void AddOpenTiaToolkitCommands_RegistersCommonCommandSurface()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddOpenTiaToolkitCoreServices();
+            services.AddOpenTiaToolkitCommands();
+
+            using var serviceProvider = services.BuildServiceProvider();
+
+            // Act
+            var commands = serviceProvider.GetServices<ICommand>().Select(command => command.Name).ToList();
+
+            // Assert
+            CollectionAssert.Contains(commands, "connect-portal");
+            CollectionAssert.Contains(commands, "open-project");
+            CollectionAssert.Contains(commands, "open-plc");
+            CollectionAssert.Contains(commands, "compile-software");
+            CollectionAssert.Contains(commands, "update-tags-from-csv");
+        }
+
+        private static object? GetPrivateFieldValue(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"Could not find field '{fieldName}' on type '{target.GetType().Name}'.");
+            return field!.GetValue(target);
+        }
+    }
+}

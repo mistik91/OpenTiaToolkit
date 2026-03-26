@@ -6,6 +6,7 @@ Guide for developers contributing to OpenTiaToolkit.
 
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
+- [Architecture](#architecture)
 - [Adding New Commands](#adding-new-commands)
 - [Testing Strategy](#testing-strategy)
 - [Code Style Guidelines](#code-style-guidelines)
@@ -16,11 +17,12 @@ Guide for developers contributing to OpenTiaToolkit.
 
 ### Prerequisites
 
-1. **Install TIA Portal V21** (primary supported version for integration testing)
-2. **Install Visual Studio 2019+** with:
+1. Install **TIA Portal V21**.
+   V21 is the primary supported version for development and integration validation.
+2. Install **Visual Studio 2019+** with:
    - .NET desktop development workload
    - MSTest adapter
-3. **Clone the repository**
+3. Clone the repository.
 
 ### Getting Started
 
@@ -33,8 +35,7 @@ cd OpenTiaToolkit
 OpenTiaToolkit.sln
 
 # Build to verify setup
-dotnet build src/OpenTiaToolkit.CLI/OpenTiaToolkit.CLI.csproj
-dotnet build src/OpenTiaToolkit.MCP/OpenTiaToolkit.MCP.csproj
+dotnet build OpenTiaToolkit.sln
 ```
 
 If you want to pre-authorize a freshly built executable for TIA Openness, run [Register-OpennessAllowList.ps1](/E:/Documents/Codex/OpenTiaToolkit/scripts/Register-OpennessAllowList.ps1) from an elevated PowerShell session after the build.
@@ -42,36 +43,112 @@ If you want to pre-authorize a freshly built executable for TIA Openness, run [R
 ### Recommended Visual Studio Extensions
 
 - .NET Productivity Tools
-- ReSharper (optional but recommended)
+- ReSharper (optional)
 
 ## Project Structure
 
-### Solution Architecture
+### Solution Layout
 
 ```
 OpenTiaToolkit.sln
 ├── src/
-│   ├── OpenTiaToolkit.Core/      # Shared library (no UI)
-│   ├── OpenTiaToolkit.CLI/       # Console application
-│   └── OpenTiaToolkit.MCP/       # MCP server (STDIO)
+│   ├── OpenTiaToolkit.Core/      # Shared commands, services, builders, models
+│   ├── OpenTiaToolkit.CLI/       # Console host
+│   └── OpenTiaToolkit.MCP/       # MCP host
 └── tests/
-    └── OpenTiaToolkit.Tests/     # All tests (unit + integration)
+    └── OpenTiaToolkit.Tests/     # Unit, composition, and integration tests
 ```
 
 ### Layer Responsibilities
 
-| Layer | Responsibility | Dependencies |
-|-------|---------------|--------------|
-| **Core** | Business logic, commands, services | TIA Openness API, Logging |
-| **CLI** | User interface, argument parsing, table formatting | Core, Spectre.Console |
-| **MCP** | MCP protocol, tool registry, JSON handling | Core, ModelContextProtocol |
-| **Tests** | Unit tests (mocks) + Integration tests (real TIA) | All projects |
+| Layer | Responsibility |
+|-------|----------------|
+| `OpenTiaToolkit.Core` | Shared abstractions, commands, services, builders, models |
+| `OpenTiaToolkit.CLI` | CLI routing, REPL flow, output formatting |
+| `OpenTiaToolkit.MCP` | MCP transport and tool registry |
+| `OpenTiaToolkit.Tests` | Fast tests plus real TIA integration validation |
+
+## Architecture
+
+### Shared Host Composition
+
+Both executable hosts reuse the same registrations from [ServiceCollectionExtensions.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
+
+- `AddOpenTiaToolkitCoreServices()`
+- `AddOpenTiaToolkitCommands()`
+
+That means command and service registration happens once in Core and is automatically shared by CLI and MCP.
+
+### Shared Session State
+
+[EngineeringSessionContext.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/EngineeringSessionContext.cs) is the single source of truth for:
+
+- attached `TiaPortal`
+- current project or local session
+- current PLC software
+- ownership flags used to decide whether close/dispose operations are allowed
+
+The main goal is to keep portal/project/PLC state consistent across services.
+
+### Service Boundaries
+
+The public service interfaces stay stable, but the implementation is now split into capability services:
+
+- [PortalService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PortalService.cs): thin facade for the public portal API
+- [PortalSessionService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PortalSessionService.cs): portal attachment, open/close, ownership, save flows
+- [PortalInspectionService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PortalInspectionService.cs): read-only project/device/PLC/HMI inspection
+- [PlcService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcService.cs): thin facade for the public PLC API
+- [PlcBrowseService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcBrowseService.cs): read-only browse/search/info operations
+- [PlcCompileService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcCompileService.cs): software compilation
+- [PlcBlockMutationService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcBlockMutationService.cs): block creation/deletion
+- [PlcTagService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcTagService.cs): tag creation and update flows
+- [PlcMemberRenameService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcMemberRenameService.cs): DB/UDT member rename flows
+- [PlcImportExportService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): XML and document import/export flows
+
+### Builders
+
+Tree-shaping logic is being extracted from services into dedicated builders:
+
+- [ProjectTreeBuilder.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/ProjectTreeBuilder.cs)
+- [SoftwareTreeBuilder.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/SoftwareTreeBuilder.cs)
+
+These builders are intended to be testable with fake object graphs so traversal behavior can be verified without a live TIA session.
+
+### V21 Adapter Boundary
+
+[V21OpennessAdapter.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs) is the current boundary for version-sensitive Siemens reflection. It centralizes:
+
+- V21 type and service discovery
+- compile-service invocation
+- V21 block creation helpers
+- export/import method selection
+- tag-table access, tag creation, logical-address updates, and comment access
+- recursive Global DB / UDT discovery and nested member traversal
+- PLC and HMI service detection
+
+When new V21-specific Siemens reflection is needed, prefer adding it there instead of duplicating assembly/type lookup in feature services.
+
+### Parallel Development Guidance
+
+If you are adding or changing features, prefer touching one capability area instead of the public facades.
+
+Good work lanes:
+
+- portal lifecycle
+- portal inspection/tree shaping
+- PLC browse/info
+- PLC compile
+- PLC import/export
+- PLC tags and rename flows
+- CLI/MCP presentation layers
+
+The main refactoring rule is: new behavior should usually require edits in one feature service, one command, and one test area.
 
 ## Adding New Commands
 
-### Step 1: Create Command Class
+### Step 1: Create the Command
 
-Create in `src/OpenTiaToolkit.Core/Commands/`:
+Create the command in `src/OpenTiaToolkit.Core/Commands/...`:
 
 ```csharp
 using Microsoft.Extensions.Logging;
@@ -96,429 +173,151 @@ namespace OpenTiaToolkit.Core.Commands.Portal
             Description,
             new[]
             {
-                new CommandParameter(
-                    "my-param",
-                    CommandParameterType.String,
-                    "Description of my parameter",
-                    required: false,
-                    defaultValue: "default-value"
-                )
-            }
-        );
+                new CommandParameter("my-param", CommandParameterType.String, "Example parameter")
+            });
 
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             logger.LogInformation("Executing {CommandName}", Name);
-
-            try
-            {
-                var myParam = args.GetString("my-param", "default-value");
-
-                // Your logic here
-                var result = DoSomething(myParam);
-
-                return CommandResult.CreateSuccess(
-                    data: result,
-                    message: "Command completed successfully"
-                );
-            }
-            catch (System.Exception ex)
-            {
-                logger.LogError(ex, "Error executing {CommandName}", Name);
-                return CommandResult.CreateFailure(
-                    $"Error: {ex.Message}",
-                    ex
-                );
-            }
-        }
-
-        private object DoSomething(string param)
-        {
-            // Implementation
-            return new { result = "done" };
+            return CommandResult.CreateSuccess(data: new { ok = true });
         }
     }
 }
 ```
 
-### Step 2: Register in CLI
+### Step 2: Register It Once
 
-Edit `src/OpenTiaToolkit.CLI/Program.cs`:
-
-```csharp
-private static IServiceProvider BuildServiceProvider()
-{
-    var services = new ServiceCollection();
-
-    // ... existing registrations ...
-
-    // Add your new command
-    services.AddSingleton<ICommand, MyNewCommand>();
-
-    return services.BuildServiceProvider();
-}
-```
-
-### Step 3: Register in MCP
-
-Edit `src/OpenTiaToolkit.MCP/Program.cs`:
+Register the command in [ServiceCollectionExtensions.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
 
 ```csharp
-private static IServiceProvider BuildServiceProvider()
-{
-    var services = new ServiceCollection();
-
-    // ... existing registrations ...
-
-    // Add your new command
-    services.AddSingleton<ICommand, MyNewCommand>();
-
-    return services.BuildServiceProvider();
-}
+services.AddSingleton<ICommand, MyNewCommand>();
 ```
 
-### Step 4: Write Tests
+If the command introduces a new service dependency, register that service in `AddOpenTiaToolkitCoreServices()`.
 
-Create `tests/OpenTiaToolkit.Tests/Commands/MyNewCommandTests.cs`:
+### Step 3: Add Tests
 
-```csharp
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
-using OpenTiaToolkit.Core.Commands;
+Prefer fast tests first:
 
-[TestClass]
-public class MyNewCommandTests
-{
-    [TestMethod]
-    public async Task ExecuteAsync_ReturnsSuccess_WhenParamValid()
-    {
-        // Arrange
-        var portalMock = new Mock<IPortalService>();
-        var command = new MyNewCommand(portalMock.Object);
-        var loggerMock = new Mock<ILogger>();
-        var args = new CommandArgs(new Dictionary<string, object?>
-        {
-            { "my-param", "test-value" }
-        });
+- command tests for argument handling and result shaping
+- builder tests if the feature adds traversal logic
+- composition tests if the feature adds registrations
 
-        // Act
-        var result = await command.ExecuteAsync(args, loggerMock.Object);
+Then add or extend integration tests if real TIA behavior needs validation.
 
-        // Assert
-        Assert.IsTrue(result.Success);
-    }
-}
-```
+### Step 4: Verify Both Hosts
 
-### Step 5: Test Manually
+Because CLI and MCP share registrations, you usually do not need separate registration edits.
+
+Typical local verification:
 
 ```bash
-# Build
-dotnet build
-
-# Test CLI
-src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe help
-src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe my-new-command
-
-# Test MCP (if Claude Desktop configured)
-echo '{"method":"tools/list"}' | src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
-```
-
-### Step 6: Run Tests
-
-```bash
-dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
+dotnet build OpenTiaToolkit.sln
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName!~Integration"
 ```
 
 ## Testing Strategy
 
-### Unit Tests
+### Fast Tests
 
-**Purpose**: Test framework logic without TIA dependencies
+Fast tests live under `tests/OpenTiaToolkit.Tests/` and should not require a live TIA session.
 
-**Location**: `tests/OpenTiaToolkit.Tests/`
+Typical coverage:
 
-**Characteristics**:
-- Fast execution (~3 seconds total)
-- Mock all dependencies (Moq)
-- Test one thing per test
-- No TIA Portal installation required
-
-**Categories**:
-- Command logic tests
-- Argument parsing tests
-- Output formatting tests
-- Routing tests
-- MCP protocol tests
+- command argument handling
+- command result shaping
+- routing and output formatting
+- dependency-injection composition
+- extracted builders
+- MCP protocol plumbing
 
 ### Integration Tests
 
-**Purpose**: Test with real TIA Portal instance
+Integration tests live under `tests/OpenTiaToolkit.Tests/Integration/` and validate real TIA behavior.
 
-**Location**: Controlled by `OPEN_TIA_TEST_PROJECT_PATH` (defaults to the local V21 test project path in `tests/OpenTiaToolkit.Tests/Integration/Settings.cs`)
+They assume:
 
-**Characteristics**:
-- Slower execution (requires TIA Portal)
-- Real project files
-- Test in numbered sequence (Test1, Test2, etc.)
-- Use `[DoNotParallelize]` attribute
+- TIA Portal V21 is installed
+- a real test project is available
+- the executable or `testhost` is authorized for Openness access
 
-**Approach**:
-1. Start with existing test project structure
-2. Follow patterns from `tiaportal-mcp` tests
-3. Test against real TIA V21 projects
+Configurable environment variables:
 
-### Test Execution
+- `OPEN_TIA_TEST_PROJECT_PATH`
+- `OPEN_TIA_TEST_EXPORT_PATH`
+- `OPEN_TIA_TEST_OUTPUT_PATH`
+
+### Test Commands
 
 ```bash
-# Unit tests only (fast, no TIA)
-dotnet test --filter "FullyQualifiedName~Unit"
+# Fast tests only
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName!~Integration"
 
-# All tests (requires TIA)
-dotnet test
+# All tests
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
 
-# Specific test class
-dotnet test --filter "FullyQualifiedName~CommandArgsTests"
+# Integration tests only
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName~Integration"
 ```
+
+Run build and test serially in the same workspace on Windows. Parallel build/test runs can leave `testhost` holding copied binaries and cause temporary file-lock failures.
 
 ## Code Style Guidelines
 
 ### C# Conventions
 
-- **PascalCase** for classes, methods, properties
-- **kebab-case** for command names
-- **_camelCase** for private fields
-- **Interfaces**: Prefix with `I` (e.g., `ICommand`, `IPortalService`)
-
-```csharp
-// Good
-public class PortalService : IPortalService
-{
-    private readonly ILogger _logger;
-
-    public async Task<bool> ConnectAsync()
-    {
-        return await Task.Run(() => { /* ... */ });
-    }
-}
-```
+- `PascalCase` for classes, methods, and properties
+- `kebab-case` for command names
+- `_camelCase` for private fields
+- prefix interfaces with `I`
 
 ### Error Handling
 
-```csharp
-public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
-{
-    try
-    {
-        // Do work
-        return CommandResult.CreateSuccess(data);
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Error in {Command}", Name);
-        return CommandResult.CreateFailure(
-            $"Error: {ex.Message}",
-            ex
-        );
-    }
-}
-```
+- log the exception with useful context
+- return a structured failure result when possible
+- avoid swallowing exceptions unless the fallback behavior is intentional
 
 ### Logging
 
-```csharp
-// Information level - normal operation flow
-logger.LogInformation("Connecting to TIA Portal...");
-
-// Warning level - something unexpected but handled
-logger.LogWarning("No project is currently open");
-
-// Error level - actual error
-logger.LogError(ex, "Failed to open project: {Path}", path);
-
-// Debug level - detailed diagnostics
-logger.LogDebug("Parsed {Count} arguments", args.Keys.Count());
-```
+- `Information`: normal operation flow
+- `Warning`: unexpected but handled conditions
+- `Error`: operation failed
+- `Debug`: detailed diagnostics
 
 ### Documentation
 
-```csharp
-/// <summary>
-/// Connects to a TIA Portal instance.
-/// </summary>
-/// <param name="projectPath">The full path to the .ap21 file.</param>
-/// <returns>True if connection succeeded.</returns>
-public async Task<bool> ConnectAsync(string projectPath)
-{
-    // ...
-}
-```
+Keep XML comments focused on behavior and important constraints, not on obvious syntax.
 
 ## Build Process
 
 ### Local Build
 
 ```bash
-# Clean and rebuild
 dotnet clean
-dotnet build
-
-# Build specific configuration
-dotnet build --configuration Release
+dotnet build OpenTiaToolkit.sln
 ```
 
 ### Release Build
 
 ```bash
-# Build release version
-dotnet build -c Release
-
-# Run tests
-dotnet test -c Release
+dotnet build OpenTiaToolkit.sln -c Release
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj -c Release
 ```
 
 ## Release Process
 
-### Version Numbering
+### Versioning
 
 Follow [Semantic Versioning](https://semver.org/):
 
-- **MAJOR**: Breaking changes
-- **MINOR**: New features (backwards compatible)
-- **PATCH**: Bug fixes
-
-Update version in all `.csproj` files:
-
-```xml
-<PropertyGroup>
-  <AssemblyVersion>1.0.0</AssemblyVersion>
-  <FileVersion>1.0.0.0</FileVersion>
-</PropertyGroup>
-```
+- `MAJOR`: breaking changes
+- `MINOR`: backwards-compatible features
+- `PATCH`: backwards-compatible fixes
 
 ### Pre-Release Checklist
 
-- [ ] All tests pass
-- [ ] Documentation updated
-- [ ] CHANGELOG.md updated
-- [ ] Version numbers updated
-- [ ] Built in Release mode
-- [ ] Tested with a real TIA V21 project
-
-### Creating Release
-
-```bash
-# Tag the version
-git tag -a v1.0.0 -m "Release 1.0.0: Phase 1 complete"
-git push origin v1.0.0
-
-# Create GitHub release (via web interface)
-# Attach binaries:
-# - OpenTiaToolkit.CLI.exe
-# - OpenTiaToolkit.MCP.exe
-# - OpenTiaToolkit.Core.dll
-```
-
-## Architecture Patterns
-
-### Dependency Injection
-
-All projects use `Microsoft.Extensions.DependencyInjection`:
-
-```csharp
-// Core library - no DI
-public class PortalService : IPortalService
-{
-    // Manual injection
-}
-
-// CLI/MCP - containerized
-services.AddSingleton<IPortalService, PortalService>();
-services.AddSingleton<ICommand, MyCommand>();
-```
-
-### Service Lifetime
-
-- **Singleton**: Services that maintain state (PortalService)
-- **Transient**: Commands (stateless)
-
-### Async/Await
-
-All I/O operations should be async:
-
-```csharp
-public async Task<bool> ConnectAsync()
-{
-    return await Task.Run(() =>
-    {
-        // TIA API calls
-    });
-}
-```
-
-## Debugging
-
-### Attaching Debugger
-
-1. Set OpenTiaToolkit.CLI as startup project
-2. F5 to debug
-3. Set breakpoints in command execution
-
-### Debugging MCP Server
-
-1. Set OpenTiaToolkit.MCP as startup project
-2. Use a test client to send JSON-RPC messages:
-
-```bash
-# Initialize
-{"jsonrpc":"2.0","id":1,"method":"initialize"}
-```
-
-3. Use `Console.WriteLine()` in MCP server for debugging
-
-## Common Tasks
-
-### Adding Dependencies
-
-1. Add to project file:
-```xml
-<PackageReference Include="PackageName" Version="1.0.0" />
-```
-
-2. Restore packages:
-```bash
-dotnet restore
-```
-
-### Updating TIA References
-
-When adding TIA functionality:
-
-1. Add `using` statements for TIA namespaces
-2. Update TIA assembly references if needed
-3. Test with real TIA projects in integration tests
-4. Document the new functionality
-
-### Refactoring Commands
-
-1. Make changes to command class
-2. Update tests
-3. Verify CLI still works
-4. Verify MCP still works (tools/list should show changes)
-
-## Getting Help
-
-### Questions?
-
-- **Issues**: https://github.com/your-org/OpenTiaToolkit/issues
-- **Discussions**: https://github.com/your-org/OpenTiaToolkit/discussions
-
-### Resources
-
-- [TIA Openness API Documentation](https://support.industry.siemens.com/cs/ww/en/posts/209744803-tia-portal-openness)
-- [Model Context Protocol](https://modelcontextprotocol.io/)
-- [.NET Framework 4.8 Documentation](https://docs.microsoft.com/en-us/dotnet/framework/)
-
----
-
-Remember: **Keep it clean, keep it lean, no fancy BS - straight to the point. Always write tests and TEST IT YOURSELF.**
+- all fast tests pass
+- integration tests pass against a real V21 project
+- documentation reflects the current command surface and architecture
+- version metadata is updated where needed
+- release build completes successfully

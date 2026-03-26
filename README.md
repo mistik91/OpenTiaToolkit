@@ -10,7 +10,8 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 
 - **Dual Interface**: Single codebase serving both CLI and MCP workflows
 - **Interactive REPL Mode**: Persistent connections across commands with shell-like interface
-- **Clean Architecture**: Shared commands and services between CLI and MCP
+- **Shared Composition**: CLI and MCP reuse the same Core service and command registration
+- **Parallel-Friendly Architecture**: Thin facades over focused portal/PLC capability services
 - **Broad Command Surface**: Coverage across portal, project, device, HMI, and PLC operations (including import/export)
   - Tag Management: create-tag, find-replace-tags (with substring matching support)
   - Block Operations: search-blocks, get-block-info, export-block, delete-blocks, export-block-as-docs, export-blocks-as-docs
@@ -45,7 +46,7 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 - Windows OS
 - .NET Framework 4.8 or later
 - TIA Portal V21 or later (for runtime)
-  - **Note**: Full block creation support (FB, FC, DB, OB, SFB, SFC, UDT)
+  - **Note**: V21 is the primary supported version. `create-block` is intentionally constrained to the validated V21-safe paths documented in [TIA Portal Version Support](docs/TIA_PORTAL_VERSION_SUPPORT.md).
   - See [TIA Portal Version Support](docs/TIA_PORTAL_VERSION_SUPPORT.md) for details
 - Visual Studio 2019 or later (for development)
 
@@ -56,9 +57,8 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 git clone https://github.com/your-org/OpenTiaToolkit.git
 cd OpenTiaToolkit
 
-# Build the CLI and MCP applications
-dotnet build src/OpenTiaToolkit.CLI/OpenTiaToolkit.CLI.csproj
-dotnet build src/OpenTiaToolkit.MCP/OpenTiaToolkit.MCP.csproj
+# Build the solution
+dotnet build OpenTiaToolkit.sln
 ```
 
 ### Output Artifacts
@@ -854,110 +854,76 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"spee
 **⚠️ Warning:** Substring matching can cause unintended replacements. Always use `--dry-run=true` first.
 
 **V21 API Features:**
-- Full block creation support (FB, FC, DB, OB, SFB, SFC, UDT)
-- Generic Create method with BlockType enum
-- Advanced block operations and search
+- Real PLC software tree enumeration across blocks, types, tag tables, and external sources
+- Real software compilation via the Siemens `ICompilable` service
+- Recursive block/type/document import-export over the validated V21 object model
 - Tag creation and management with substring matching support
 
 ## Architecture
 
-### Solution Structure
+### Host Composition
 
-```
-OpenTiaToolkit.sln
-├── src/
-│   ├── OpenTiaToolkit.Core/      # Shared core library
-│   │   ├── Abstractions/         # Interfaces (ICommand, IPortalService, IPlcService)
-│   │   ├── Commands/             # Command implementations (30 commands)
-│   │   │   ├── Portal/           # Portal instance management
-│   │   │   ├── Project/          # Project operations
-│   │   │   ├── Devices/          # Device operations
-│   │   │   └── Plc/              # PLC operations
-│   │   ├── Services/             # TIA API wrapper (PortalService, PlcService)
-│   │   └── Models/               # Data models
-│   │
-│   ├── OpenTiaToolkit.CLI/       # Console application
-│   │   ├── Routing/              # CommandRouter, argument parsing
-│   │   └── Output/               # TableOutputFormatter
-│   │
-│   └── OpenTiaToolkit.MCP/       # MCP server application
-│       └── Server/               # ToolRegistry, McpServerHost
-│
-└── tests/
-    └── OpenTiaToolkit.Tests/     # Unit & integration tests
-        ├── Integration/          # 45 integration tests
-        │   ├── Test1Portal.cs
-        │   ├── Test2Project.cs
-        │   ├── Test3Devices.cs
-        │   ├── Test4PortalInstances.cs
-        │   ├── Test5ProjectSave.cs
-        │   ├── Test6ProjectTree.cs
-        │   ├── Test7PlcSoftware.cs
-        │   └── Test8PlcOperations.cs
-        └── Settings.cs           # Test configuration
-```
+Both entry points call the shared Core registration extensions:
 
-### Layered Architecture
+- `AddOpenTiaToolkitCoreServices()` for portal/PLC services and shared session state
+- `AddOpenTiaToolkitCommands()` for the common command surface
 
-```
-┌─────────────────────────────────────┐
-│       Presentation Layer             │
-├──────────────┬──────────────┬───────────────┤
-│   CLI Mode    │  MCP Server  │  (Future?)    │
-│  (REPL/1-shot)│  (STDIO)    │  Library/API  │
-└──────────────┴──────────────┴───────────────┘
-                    ↓
-┌─────────────────────────────────────┐
-│      Command/Tool Abstraction Layer │
-│  (Unified interface for CLI tools & MCP)│
-│  - 40 commands across 6 categories  │
-└─────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────┐
-│           Business Logic Layer        │
-│  - Portal management (7 commands)   │
-│  - Project operations (7 commands)  │
-│  - Device operations (3 commands)   │
-│  - PLC operations (5 commands)      │
-└─────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────┐
-│         TIA Openness API Wrapper      │
-│  - IPortalService (Portal & Project) │
-│  - IPlcService (PLC operations)     │
-│  - Version compatibility (V21+)      │
-│  - Connection state management      │
-└─────────────────────────────────────┘
-                    ↓
-              TIA Openness API
-```
+That means new commands and services are registered once in Core and are then available to both the CLI and MCP hosts.
+
+### Session Ownership
+
+The runtime state for the current TIA attachment lives in a single shared `EngineeringSessionContext`. It owns:
+
+- attached `TiaPortal`
+- selected project or local session
+- selected PLC software
+- ownership flags used to decide whether a portal/project/session can be closed or should just be detached from
+
+### Service Boundaries
+
+`PortalService` and `PlcService` are now thin facades that preserve the public interfaces while delegating to focused capability services.
+
+- Portal lifecycle and ownership: `PortalSessionService`
+- Portal inspection and project/device tree queries: `PortalInspectionService`
+- PLC browse/read operations: `PlcBrowseService`
+- PLC compilation: `PlcCompileService`
+- PLC block creation/deletion: `PlcBlockMutationService`
+- PLC tag operations: `PlcTagService`
+- PLC DB/UDT member rename flows: `PlcMemberRenameService`
+- PLC import/export flows: `PlcImportExportService`
+
+Pure tree-building logic is extracted into standalone builders so traversal shape can be tested without going through the full service layer:
+
+- `ProjectTreeBuilder`
+- `SoftwareTreeBuilder`
+
+The remaining V21-sensitive Siemens reflection is now funneled through `V21OpennessAdapter`, so compile, block mutation, import/export, tag-table/tag mutation, member traversal, and PLC/HMI service discovery no longer each implement their own type-resolution path.
+
+This split is intentional so multiple contributors can work in parallel without constantly touching the same facade files.
 
 ## Development
 
 ### Building
 
 ```bash
-# Build all projects
-dotnet build
-
-# Build specific project
-dotnet build src/OpenTiaToolkit.Core
-dotnet build src/OpenTiaToolkit.CLI
-dotnet build src/OpenTiaToolkit.MCP
+# Build the solution
+dotnet build OpenTiaToolkit.sln
 ```
 
 ### Running Tests
 
 ```bash
-# Run all tests
-dotnet test
+# Run the full test assembly
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
 
-# Run unit tests only (fast, no TIA required)
-dotnet test --filter "Category=Unit"
+# Run fast tests only (skips real TIA integration tests)
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName!~Integration"
 
-# Run integration tests (requires TIA V21)
-dotnet test --filter "Category=Integration"
+# Run real TIA integration tests
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName~Integration"
 ```
+
+If you want to pre-authorize a freshly built executable for TIA Openness, run `scripts/Register-OpennessAllowList.ps1` from an elevated PowerShell session after the build.
 
 ### Adding New Commands
 
@@ -985,23 +951,22 @@ public class MyCommand : ICommand
 }
 ```
 
-2. **Register in CLI** (`src/OpenTiaToolkit.CLI/Program.cs`):
+2. **Register in Core** (`src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs`):
 
 ```csharp
 services.AddSingleton<ICommand, MyCommand>();
 ```
 
-3. **Register in MCP** (`src/OpenTiaToolkit.MCP/Program.cs`):
+3. **Add tests** for the new command
 
-```csharp
-services.AddSingleton<ICommand, MyCommand>();
-```
-
-4. **Add tests** for the new command
-
-That's it! The command is now available in both CLI and MCP.
+That's it. The shared host composition makes the command available in both CLI and MCP automatically.
 
 ## Testing
+
+### Test Types
+
+- Unit and composition tests: fast, no live TIA interaction required
+- Integration tests: real TIA Portal V21, real project, manual environment prerequisites
 
 ### Integration Tests
 
@@ -1019,26 +984,13 @@ dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "Ful
 dotnet test --filter "TestClass=Test1Portal"
 ```
 
-### Test Coverage
-
-| Test File | Tests | Coverage |
-|-----------|-------|----------|
-| Test1Portal.cs | 4 | Portal connection basics |
-| Test2Project.cs | 6 | Project open/close/info |
-| Test3Devices.cs | 3 | Device listing |
-| Test4PortalInstances.cs | 6 | Portal instance management |
-| Test5ProjectSave.cs | 6 | Project save operations |
-| Test6ProjectTree.cs | 6 | Project tree structure |
-| Test7PlcSoftware.cs | 6 | Device information |
-| Test8PlcOperations.cs | 10 | PLC operations |
-| **Total** | **45** | **All phases** |
-
-### Test Organization
+### Coverage Focus
 
 - **[DoNotParallelize]** attribute ensures tests don't interfere with TIA Portal
-- Each test file focuses on a specific command category
-- Tests use a dedicated test project: `D:\Siemens\V21\MCP_TEST_V21\MCP_TEST_V21.ap21`
-- Proper cleanup ensures no state leakage between tests
+- Unit tests cover command parsing, routing, output formatting, composition, and builder behavior
+- Integration tests are grouped by capability area (`Test1Portal` through `Test9BlockOperations`)
+- Test paths can be overridden with `OPEN_TIA_TEST_PROJECT_PATH`, `OPEN_TIA_TEST_EXPORT_PATH`, and `OPEN_TIA_TEST_OUTPUT_PATH`
+- On Windows, run build and test serially in the same workspace to avoid temporary `testhost` file locks
 
 ## Project Status
 
