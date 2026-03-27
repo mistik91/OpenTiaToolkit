@@ -41,6 +41,43 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void TryImport_UsesEnumImportOverloadWhenAvailable()
+        {
+            // Arrange
+            var collection = new FakeImportableCollection();
+            var adapter = new V21OpennessAdapter();
+            var importFile = new FileInfo(Path.Combine(Path.GetTempPath(), "adapter-import.xml"));
+
+            // Act
+            var success = adapter.TryImport(collection, importFile, 1, out var result);
+
+            // Assert
+            Assert.IsTrue(success);
+            Assert.AreEqual(importFile.FullName, collection.LastImportPath);
+            Assert.AreEqual(FakeImportOptions.Override, collection.LastImportOption);
+            Assert.AreSame(collection.ImportResult, result);
+        }
+
+        [TestMethod]
+        public void TryImportFromDocuments_UsesEnumImportDocumentOverloadWhenAvailable()
+        {
+            // Arrange
+            var collection = new FakeDocumentImportableCollection();
+            var adapter = new V21OpennessAdapter();
+            var importDirectory = new DirectoryInfo(Path.GetTempPath());
+
+            // Act
+            var success = adapter.TryImportFromDocuments(collection, importDirectory, "Block_1", 1, out var result);
+
+            // Assert
+            Assert.IsTrue(success);
+            Assert.AreEqual(importDirectory.FullName, collection.LastDirectoryPath);
+            Assert.AreEqual("Block_1", collection.LastBaseName);
+            Assert.AreEqual(FakeImportDocumentOptions.Override, collection.LastImportOption);
+            Assert.AreSame(collection.ImportResult, result);
+        }
+
+        [TestMethod]
         public void GetTagTables_AndFindTagTable_ReturnExpectedTables()
         {
             // Arrange
@@ -221,6 +258,18 @@ namespace OpenTiaToolkit.Tests.Services
             None
         }
 
+        private enum FakeImportOptions
+        {
+            None = 0,
+            Override = 1
+        }
+
+        private enum FakeImportDocumentOptions
+        {
+            None = 0,
+            Override = 1
+        }
+
         private sealed class FakePlcSoftware
         {
             public FakeTagTableGroup? TagTableGroup { get; set; }
@@ -325,6 +374,41 @@ namespace OpenTiaToolkit.Tests.Services
             public List<object> Types { get; } = new List<object>();
 
             public List<FakeTypeGroup> Groups { get; } = new List<FakeTypeGroup>();
+        }
+
+        private sealed class FakeImportableCollection
+        {
+            public object ImportResult { get; } = new object();
+
+            public string? LastImportPath { get; private set; }
+
+            public FakeImportOptions? LastImportOption { get; private set; }
+
+            public object Import(FileInfo path, FakeImportOptions importOptions)
+            {
+                LastImportPath = path.FullName;
+                LastImportOption = importOptions;
+                return ImportResult;
+            }
+        }
+
+        private sealed class FakeDocumentImportableCollection
+        {
+            public object ImportResult { get; } = new object();
+
+            public string? LastDirectoryPath { get; private set; }
+
+            public string? LastBaseName { get; private set; }
+
+            public FakeImportDocumentOptions? LastImportOption { get; private set; }
+
+            public object ImportFromDocuments(DirectoryInfo directoryInfo, string fileNameWithoutExtension, FakeImportDocumentOptions importDocumentOptions)
+            {
+                LastDirectoryPath = directoryInfo.FullName;
+                LastBaseName = fileNameWithoutExtension;
+                LastImportOption = importDocumentOptions;
+                return ImportResult;
+            }
         }
 
         private sealed class GlobalDB

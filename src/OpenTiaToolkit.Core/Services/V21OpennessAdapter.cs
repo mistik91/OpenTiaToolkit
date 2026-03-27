@@ -613,14 +613,48 @@ namespace OpenTiaToolkit.Core.Services
             if (fileInfo == null) throw new ArgumentNullException(nameof(fileInfo));
 
             result = null;
-            var importMethod = collection.GetType().GetMethod("Import", new[] { typeof(FileInfo), typeof(int) });
-            if (importMethod == null)
+            foreach (var importMethod in collection.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(method => string.Equals(method.Name, "Import", StringComparison.Ordinal))
+                .OrderBy(method => method.GetParameters().Length))
             {
-                return false;
+                var parameters = importMethod.GetParameters();
+                if (parameters.Length is < 2 or > 3 || parameters[0].ParameterType != typeof(FileInfo))
+                {
+                    continue;
+                }
+
+                if (!TryCreateImportArgument(parameters[1].ParameterType, importMode, out var importOptionValue))
+                {
+                    continue;
+                }
+
+                var arguments = new object?[parameters.Length];
+                arguments[0] = fileInfo;
+                arguments[1] = importOptionValue;
+
+                if (parameters.Length == 3)
+                {
+                    if (!TryCreateDefaultArgument(parameters[2].ParameterType, out var extraArgument))
+                    {
+                        continue;
+                    }
+
+                    arguments[2] = extraArgument;
+                }
+
+                try
+                {
+                    result = importMethod.Invoke(collection, arguments);
+                    return true;
+                }
+                catch
+                {
+                    // Try the next compatible overload if invocation fails.
+                }
             }
 
-            result = importMethod.Invoke(collection, new object[] { fileInfo, importMode });
-            return true;
+            return false;
         }
 
         public bool TryImportFromDocuments(object collection, DirectoryInfo importDirectory, string baseName, int importMode, out object? result)
@@ -630,13 +664,65 @@ namespace OpenTiaToolkit.Core.Services
             if (string.IsNullOrWhiteSpace(baseName)) throw new ArgumentException("Base name cannot be empty.", nameof(baseName));
 
             result = null;
-            var importMethod = collection.GetType().GetMethod("ImportFromDocuments", BindingFlags.Public | BindingFlags.Instance);
-            if (importMethod == null)
+            foreach (var importMethod in collection.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(method => string.Equals(method.Name, "ImportFromDocuments", StringComparison.Ordinal))
+                .OrderBy(method => method.GetParameters().Length))
             {
-                return false;
+                var parameters = importMethod.GetParameters();
+                if (parameters.Length != 3 ||
+                    parameters[0].ParameterType != typeof(DirectoryInfo) ||
+                    parameters[1].ParameterType != typeof(string))
+                {
+                    continue;
+                }
+
+                if (!TryCreateImportArgument(parameters[2].ParameterType, importMode, out var importOptionValue))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    result = importMethod.Invoke(collection, new[] { (object)importDirectory, baseName, importOptionValue });
+                    return true;
+                }
+                catch
+                {
+                    // Try the next compatible overload if invocation fails.
+                }
             }
 
-            result = importMethod.Invoke(collection, new object[] { importDirectory, baseName, importMode });
+            return false;
+        }
+
+        private static bool TryCreateImportArgument(Type parameterType, int importMode, out object? value)
+        {
+            if (parameterType == typeof(int))
+            {
+                value = importMode;
+                return true;
+            }
+
+            if (parameterType.IsEnum)
+            {
+                value = Enum.ToObject(parameterType, importMode);
+                return true;
+            }
+
+            value = null;
+            return false;
+        }
+
+        private static bool TryCreateDefaultArgument(Type parameterType, out object? value)
+        {
+            if (!parameterType.IsValueType)
+            {
+                value = null;
+                return true;
+            }
+
+            value = Activator.CreateInstance(parameterType);
             return true;
         }
 

@@ -1823,3 +1823,5 @@ catch {
 ```
 
 For more examples, see the [README.md](../README.md) or [Development Guide](DEV_GUIDE.md).
+
+For automated CLI regression coverage against a real V21 project, see the [CLI Testing Guide](CLI_TESTING.md).

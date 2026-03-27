@@ -925,6 +925,26 @@ dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "Ful
 
 If you want to pre-authorize a freshly built executable for TIA Openness, run `scripts/Register-OpennessAllowList.ps1` from an elevated PowerShell session after the build.
 
+### CLI Automation Harness
+
+Use `scripts/Test-CLI.ps1` to run CLI help, read-only, mutation, and negative-path automation from one place.
+
+- Generated transcripts, exports, disposable project copies, and summaries are written under `artifacts/cli-tests/<timestamp>/`
+- The `artifacts/` tree is git-ignored, so the harness keeps the repo clean
+- `Help` can run on its own; `ReadOnly` and `Mutation` require a real V21 project and PLC name
+- Detailed suite coverage, artifact layout, expected skips, and SIMATIC SD notes are documented in [docs/CLI_TESTING.md](docs/CLI_TESTING.md)
+
+```powershell
+# Help surface only
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-CLI.ps1 -Suite Help
+
+# Read-only real-project smoke run
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-CLI.ps1 -Suite ReadOnly -ProjectPath $env:OPEN_TIA_TEST_PROJECT_PATH -PlcName "PLC_1"
+
+# Full CLI automation run
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-CLI.ps1 -Suite All -ProjectPath $env:OPEN_TIA_TEST_PROJECT_PATH -PlcName "PLC_1"
+```
+
 ### Adding New Commands
 
 1. **Create command class** in `src/OpenTiaToolkit.Core/Commands/`:

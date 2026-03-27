@@ -260,6 +260,24 @@ dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
 dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName~Integration"
 ```
 
+### CLI Automation
+
+Use [Test-CLI.ps1](/E:/Documents/Codex/OpenTiaToolkit/scripts/Test-CLI.ps1) for end-to-end CLI automation against the built executable.
+
+See [CLI_TESTING.md](/E:/Documents/Codex/OpenTiaToolkit/docs/CLI_TESTING.md) for the full suite matrix, artifact layout, expected skips, and current V21 coverage notes.
+
+- `Help` validates general help plus `help <command>` for every command currently exposed by the CLI host
+- `ReadOnly` drives the real CLI through scripted REPL batches so project and PLC state stay alive inside one process
+- `Mutation` creates a disposable project copy under `artifacts/cli-tests/` before running block/tag/import-export roundtrips
+- `Negative` covers argument validation and unknown-command behavior
+
+Examples:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-CLI.ps1 -Suite Help
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-CLI.ps1 -Suite ReadOnly -ProjectPath $env:OPEN_TIA_TEST_PROJECT_PATH -PlcName "PLC_1"
+```
+
 Run build and test serially in the same workspace on Windows. Parallel build/test runs can leave `testhost` holding copied binaries and cause temporary file-lock failures.
 
 ## Code Style Guidelines

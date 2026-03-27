@@ -471,7 +471,7 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.TryImport(blocksCollection, fileInfo, 2, out var result))
+                    if (!_v21Adapter.TryImport(blocksCollection, fileInfo, 1, out var result))
                     {
                         return false;
                     }
@@ -585,7 +585,7 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.TryImport(typesCollection, fileInfo, 2, out var result))
+                    if (!_v21Adapter.TryImport(typesCollection, fileInfo, 1, out var result))
                     {
                         return false;
                     }
@@ -899,10 +899,10 @@ namespace OpenTiaToolkit.Core.Services
             return importOption.ToLowerInvariant() switch
             {
                 "none" => 0,
-                "skipinactivecultures" => 1,
-                "override" => 2,
-                "activateinactivecultures" => 3,
-                _ => 2
+                "override" => 1,
+                "skipinactivecultures" => 2,
+                "activateinactivecultures" => 4,
+                _ => 1
             };
         }
     }

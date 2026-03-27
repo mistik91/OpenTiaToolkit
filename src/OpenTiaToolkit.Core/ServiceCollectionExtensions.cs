@@ -65,7 +65,10 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ICommand, ListHmisCommand>();
 
             // Phase 4 commands
+            services.AddSingleton<ICommand, CreateBlockCommand>();
             services.AddSingleton<ICommand, DeleteBlocksCommand>();
+            services.AddSingleton<ICommand, FindAndReplaceDbMembersCommand>();
+            services.AddSingleton<ICommand, FindAndReplaceUdtMembersCommand>();
             services.AddSingleton<ICommand, GetBlockInfoCommand>();
             services.AddSingleton<ICommand, ExportBlockCommand>();
             services.AddSingleton<ICommand, SearchBlocksCommand>();

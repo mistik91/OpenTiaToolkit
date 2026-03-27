@@ -51,7 +51,7 @@ namespace OpenTiaToolkit.CLI
         );
 
         /// <inheritdoc/>
-        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
@@ -60,18 +60,25 @@ namespace OpenTiaToolkit.CLI
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
-                    return Task.FromResult(CommandResult.CreateFailure("Missing required parameter: plc-name"));
+                    return CommandResult.CreateFailure("Missing required parameter: plc-name");
                 }
 
                 var blockName = args.GetString("block-name");
 
-                // Access the private _plcSoftware field via reflection
-                var plcServiceField = _plcService.GetType().GetField("_plcSoftware", BindingFlags.NonPublic | BindingFlags.Instance);
-                var plcSoftware = plcServiceField?.GetValue(_plcService);
+                if (!_plcService.IsSoftwareOpen || !string.Equals(_plcService.CurrentPlcName, plcName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var opened = await _plcService.OpenPlcAsync(plcName);
+                    if (!opened)
+                    {
+                        return CommandResult.CreateFailure($"Failed to open PLC software: {plcName}");
+                    }
+                }
+
+                var plcSoftware = ResolvePlcSoftware();
 
                 if (plcSoftware == null)
                 {
-                    return Task.FromResult(CommandResult.CreateFailure("PLC software is not open. Use open-plc first."));
+                    return CommandResult.CreateFailure("PLC software is not open. Use open-plc first.");
                 }
 
                 var results = new List<object>();
@@ -80,7 +87,7 @@ namespace OpenTiaToolkit.CLI
                 var blockGroup = TiaReflectionHelper.GetBlockGroup(plcSoftware);
                 if (blockGroup == null)
                 {
-                    return Task.FromResult(CommandResult.CreateFailure("BlockGroup not found"));
+                    return CommandResult.CreateFailure("BlockGroup not found");
                 }
 
                 // Get all Global DBs
@@ -215,22 +222,54 @@ namespace OpenTiaToolkit.CLI
                     }
                 }
 
-                return Task.FromResult(CommandResult.CreateSuccess(
+                return CommandResult.CreateSuccess(
                     data: new
                     {
                         blocks = results
                     },
                     message: $"Listed {results.Count} blocks with {results.Sum(b => (int)(b.GetType().GetProperty("MemberCount")?.GetValue(b) ?? 0))} total members"
-                ));
+                );
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error in list-db-members");
-                return Task.FromResult(CommandResult.CreateFailure(
+                return CommandResult.CreateFailure(
                     $"Error: {ex.Message}",
                     ex
-                ));
+                );
             }
+        }
+
+        private object? ResolvePlcSoftware()
+        {
+            var serviceType = _plcService.GetType();
+
+            var plcSoftwareProperty = serviceType.GetProperty("_plcSoftware", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (plcSoftwareProperty?.GetValue(_plcService) is object propertyValue)
+            {
+                return propertyValue;
+            }
+
+            var plcSoftwareField = serviceType.GetField("_plcSoftware", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (plcSoftwareField?.GetValue(_plcService) is object fieldValue)
+            {
+                return fieldValue;
+            }
+
+            var sessionContextField = serviceType.GetField("_sessionContext", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (sessionContextField?.GetValue(_plcService) is object sessionContext)
+            {
+                var sessionPlcSoftwareProperty = sessionContext
+                    .GetType()
+                    .GetProperty("PlcSoftware", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (sessionPlcSoftwareProperty?.GetValue(sessionContext) is object sessionValue)
+                {
+                    return sessionValue;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

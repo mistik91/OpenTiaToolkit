@@ -30,101 +30,107 @@ namespace OpenTiaToolkit.Core.Services
             _logger = logger;
         }
 
-        public async Task<bool> DeleteBlocksAsync(string filterRegex, bool confirm = false)
+        public Task<bool> DeleteBlocksAsync(string filterRegex, bool confirm = false)
         {
-            var plcSoftware = _sessionContext.PlcSoftware;
-            var plcName = _sessionContext.CurrentPlcName;
-            if (plcSoftware == null || string.IsNullOrEmpty(plcName))
+            return Task.Run(() =>
             {
-                _logger?.LogWarning("No PLC software is currently open");
-                return false;
-            }
-
-            _logger?.LogInformation("Deleting blocks matching filter: {FilterRegex} (confirm: {Confirm})", filterRegex, confirm);
-
-            try
-            {
-                var blocks = await _browseService.GetBlocksAsync(null);
-                var regex = new Regex(filterRegex, RegexOptions.IgnoreCase);
-                var blocksToDelete = blocks.Where(block => regex.IsMatch(block.Name)).ToList();
-
-                if (blocksToDelete.Count == 0)
+                var plcSoftware = _sessionContext.PlcSoftware;
+                var plcName = _sessionContext.CurrentPlcName;
+                if (plcSoftware == null || string.IsNullOrEmpty(plcName))
                 {
-                    _logger?.LogInformation("No blocks matched the filter");
+                    _logger?.LogWarning("No PLC software is currently open");
                     return false;
                 }
 
-                _logger?.LogInformation("Found {Count} blocks to delete:", blocksToDelete.Count);
-                foreach (var block in blocksToDelete)
-                {
-                    _logger?.LogInformation("  - {BlockName} ({Type}){ReadOnly}", block.Name, block.Type, block.IsReadOnly ? " [Read-Only]" : string.Empty);
-                }
+                _logger?.LogInformation("Deleting blocks matching filter: {FilterRegex} (confirm: {Confirm})", filterRegex, confirm);
 
-                if (!confirm)
+                try
                 {
-                    _logger?.LogWarning("Deletion requires confirmation. Use --confirm=true to proceed.");
-                    return false;
-                }
+                    var regex = new Regex(filterRegex, RegexOptions.IgnoreCase);
+                    var blockGroup = TiaReflectionHelper.GetBlockGroup(plcSoftware);
+                    if (blockGroup == null)
+                    {
+                        _logger?.LogError("Could not find BlockGroup property");
+                        return false;
+                    }
 
-                var blocksCollection = TiaReflectionHelper.GetBlocks(TiaReflectionHelper.GetBlockGroup(plcSoftware));
-                if (blocksCollection == null)
-                {
-                    _logger?.LogError("Blocks collection is null");
-                    return false;
-                }
+                    var blocksToDelete = EnumerateBlocksRecursive(blockGroup)
+                        .Where(block =>
+                        {
+                            var name = TiaReflectionHelper.GetName(block) ?? string.Empty;
+                            return regex.IsMatch(name);
+                        })
+                        .ToList();
 
-                int deletedCount = 0;
-                int skippedCount = 0;
-                int errorCount = 0;
+                    if (blocksToDelete.Count == 0)
+                    {
+                        _logger?.LogInformation("No blocks matched the filter");
+                        return false;
+                    }
 
-                foreach (var block in blocksCollection)
-                {
-                    try
+                    _logger?.LogInformation("Found {Count} blocks to delete:", blocksToDelete.Count);
+                    foreach (var block in blocksToDelete)
                     {
                         var name = TiaReflectionHelper.GetName(block) ?? string.Empty;
-                        if (!regex.IsMatch(name))
-                        {
-                            continue;
-                        }
-
+                        var type = TiaReflectionHelper.GetTypeName(block) ?? "Unknown";
                         var isReadOnly = (bool?)TiaReflectionHelper.GetProperty(block, "IsReadOnly") ?? false;
-                        if (isReadOnly)
-                        {
-                            _logger?.LogWarning("Skipping read-only block: {BlockName}", name);
-                            skippedCount++;
-                            continue;
-                        }
-
-                        if (!_v21Adapter.TryDelete(block))
-                        {
-                            _logger?.LogWarning("Could not find a supported V21 delete path for block: {BlockName}", name);
-                            errorCount++;
-                            continue;
-                        }
-
-                        deletedCount++;
-                        _logger?.LogDebug("Deleted block: {BlockName}", name);
+                        _logger?.LogInformation("  - {BlockName} ({Type}){ReadOnly}", name, type, isReadOnly ? " [Read-Only]" : string.Empty);
                     }
-                    catch (Exception ex)
+
+                    if (!confirm)
                     {
-                        _logger?.LogWarning(ex, "Failed to delete block");
-                        errorCount++;
+                        _logger?.LogWarning("Deletion requires confirmation. Use --confirm=true to proceed.");
+                        return false;
                     }
+
+                    int deletedCount = 0;
+                    int skippedCount = 0;
+                    int errorCount = 0;
+
+                    foreach (var block in blocksToDelete)
+                    {
+                        try
+                        {
+                            var name = TiaReflectionHelper.GetName(block) ?? string.Empty;
+                            var isReadOnly = (bool?)TiaReflectionHelper.GetProperty(block, "IsReadOnly") ?? false;
+                            if (isReadOnly)
+                            {
+                                _logger?.LogWarning("Skipping read-only block: {BlockName}", name);
+                                skippedCount++;
+                                continue;
+                            }
+
+                            if (!_v21Adapter.TryDelete(block))
+                            {
+                                _logger?.LogWarning("Could not find a supported V21 delete path for block: {BlockName}", name);
+                                errorCount++;
+                                continue;
+                            }
+
+                            deletedCount++;
+                            _logger?.LogDebug("Deleted block: {BlockName}", name);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning(ex, "Failed to delete block");
+                            errorCount++;
+                        }
+                    }
+
+                    _logger?.LogInformation(
+                        "Deletion complete: {DeletedCount} deleted, {SkippedCount} skipped (read-only), {ErrorCount} errors",
+                        deletedCount,
+                        skippedCount,
+                        errorCount);
+
+                    return deletedCount > 0;
                 }
-
-                _logger?.LogInformation(
-                    "Deletion complete: {DeletedCount} deleted, {SkippedCount} skipped (read-only), {ErrorCount} errors",
-                    deletedCount,
-                    skippedCount,
-                    errorCount);
-
-                return deletedCount > 0;
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to delete blocks");
-                return false;
-            }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Failed to delete blocks");
+                    return false;
+                }
+            });
         }
 
         public async Task<bool> CreateBlockAsync(string blockName, string blockType, string? programmingLanguage = null)
@@ -233,6 +239,32 @@ namespace OpenTiaToolkit.Core.Services
             {
                 _logger?.LogError(ex, "Failed to create block: {BlockName}", blockName);
                 return false;
+            }
+        }
+
+        private static IEnumerable<object> EnumerateBlocksRecursive(object group)
+        {
+            var blocks = TiaReflectionHelper.GetBlocks(group);
+            if (blocks != null)
+            {
+                foreach (var block in blocks)
+                {
+                    yield return block;
+                }
+            }
+
+            var groups = TiaReflectionHelper.GetGroups(group);
+            if (groups == null)
+            {
+                yield break;
+            }
+
+            foreach (var childGroup in groups)
+            {
+                foreach (var block in EnumerateBlocksRecursive(childGroup))
+                {
+                    yield return block;
+                }
             }
         }
     }

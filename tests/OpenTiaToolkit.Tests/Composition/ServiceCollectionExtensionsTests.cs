@@ -77,6 +77,9 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "open-project");
             CollectionAssert.Contains(commands, "open-plc");
             CollectionAssert.Contains(commands, "compile-software");
+            CollectionAssert.Contains(commands, "create-block");
+            CollectionAssert.Contains(commands, "find-replace-db-members");
+            CollectionAssert.Contains(commands, "find-replace-udt-members");
             CollectionAssert.Contains(commands, "update-tags-from-csv");
         }
 
