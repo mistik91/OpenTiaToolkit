@@ -1,5 +1,6 @@
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Core.Commands.Hmi;
 using OpenTiaToolkit.Core.Commands.Plc;
 using System;
 using System.Collections.Generic;
@@ -36,11 +37,23 @@ namespace OpenTiaToolkit.CLI.Output
                 string str => str,
                 IEnumerable<ProjectInfo> projects => FormatProjects(projects),
                 IEnumerable<DeviceInfo> devices => FormatDevices(devices),
+                IEnumerable<HmiInfo> hmis => FormatHmis(hmis),
                 ProjectInfo project => FormatProjectInfo(project),
                 DeviceInfo device => FormatDeviceInfo(device),
                 ProjectTreeNode tree => FormatProjectTree(tree),
                 SoftwareTreeNode softwareTree => FormatSoftwareTree(softwareTree),
                 IEnumerable<PlcInfo> plcs => FormatPlcs(plcs),
+                IEnumerable<HmiTagInfo> tags => FormatHmiTags(tags),
+                IEnumerable<HmiScreenInfo> screens => FormatHmiScreens(screens),
+                HmiScreenInfo screen => FormatHmiScreenInfo(screen),
+                HmiScreenItemInfo screenItem => FormatHmiScreenItemInfo(screenItem),
+                HmiScreenCopyResult screenCopy => FormatHmiScreenCopyResult(screenCopy),
+                IEnumerable<HmiItemTypeInfo> itemTypes => FormatHmiItemTypes(itemTypes),
+                IEnumerable<HmiItemPropertyInfo> itemProperties => FormatHmiItemProperties(itemProperties),
+                HmiTrendInfo trendInfo => FormatHmiTrendInfo(trendInfo),
+                HmiJsonExportResult jsonExport => FormatHmiJsonExportResult(jsonExport),
+                HmiJsonDiffResult jsonDiff => FormatHmiJsonDiffResult(jsonDiff),
+                HmiJsonImportResult jsonImport => FormatHmiJsonImportResult(jsonImport),
                 IEnumerable<BlockInfo> blocks => FormatBlocks(blocks),
                 BlockInfo block => FormatBlockInfo(block),
                 BlockInfoDetail blockDetail => FormatBlockInfoDetail(blockDetail),
@@ -121,6 +134,35 @@ namespace OpenTiaToolkit.CLI.Output
                 var ip = device.IpAddress ?? "Not configured";
 
                 lines.Add($"{name,-30} {type,-30} {identification,-30} {ip,-15}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmis(IEnumerable<HmiInfo> hmis)
+        {
+            var list = hmis.ToList();
+            if (list.Count == 0)
+            {
+                return "No HMI devices found in the project.";
+            }
+
+            var lines = new List<string>
+            {
+                $"Found {list.Count} HMI device(s):",
+                "",
+                string.Format("{0,-30} {1,-25} {2,-30} {3,-12}", "Name", "Type", "Parent Device", "Confirmed"),
+                new string('-', 100)
+            };
+
+            foreach (var hmi in list)
+            {
+                lines.Add(string.Format(
+                    "{0,-30} {1,-25} {2,-30} {3,-12}",
+                    Truncate(hmi.Name, 30),
+                    Truncate(hmi.Type ?? "Unknown", 25),
+                    Truncate(hmi.ParentDevice ?? "N/A", 30),
+                    hmi.IsConfirmedHmi ? "Yes" : "No"));
             }
 
             return string.Join(Environment.NewLine, lines);
@@ -256,6 +298,289 @@ namespace OpenTiaToolkit.CLI.Output
                 var confirmed = plc.IsConfirmedPlc ? "✓ Yes" : "No";
 
                 lines.Add($"{name,-30} {parent,-40} {type,-25} {confirmed,-15}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiScreens(IEnumerable<HmiScreenInfo> screens)
+        {
+            var list = screens.ToList();
+            if (list.Count == 0)
+            {
+                return "No Unified HMI screens found.";
+            }
+
+            var lines = new List<string>
+            {
+                $"Found {list.Count} screen(s):",
+                "",
+                string.Format("{0,-45} {1,-10} {2,-10} {3,-8} {4,-10}", "Path", "Width", "Height", "Items", "Enabled"),
+                new string('-', 90)
+            };
+
+            foreach (var screen in list)
+            {
+                lines.Add(string.Format(
+                    "{0,-45} {1,-10} {2,-10} {3,-8} {4,-10}",
+                    Truncate(screen.Path, 45),
+                    screen.Width,
+                    screen.Height,
+                    screen.ItemCount,
+                    screen.Enabled ? "Yes" : "No"));
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiTags(IEnumerable<HmiTagInfo> tags)
+        {
+            var list = tags.ToList();
+            if (list.Count == 0)
+            {
+                return "No Unified HMI tags found.";
+            }
+
+            var lines = new List<string>
+            {
+                $"Found {list.Count} tag(s):",
+                "",
+                string.Format("{0,-45} {1,-16} {2,-18} {3,-8} {4,-8}", "Path", "Data Type", "Tag Table", "Members", "Logs"),
+                new string('-', 100)
+            };
+
+            foreach (var tag in list)
+            {
+                lines.Add(string.Format(
+                    "{0,-45} {1,-16} {2,-18} {3,-8} {4,-8}",
+                    Truncate(tag.Path, 45),
+                    Truncate(tag.DataType ?? tag.HmiDataType ?? "N/A", 16),
+                    Truncate(tag.TagTableName ?? "N/A", 18),
+                    tag.MemberCount,
+                    tag.LoggingTagCount));
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiScreenInfo(HmiScreenInfo screen)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI Screen:",
+                "",
+                $"Name:      {screen.Name}",
+                $"Path:      {screen.Path}",
+                $"Group:     {screen.GroupPath ?? "(root)"}",
+                $"Size:      {screen.Width}x{screen.Height}",
+                $"Enabled:   {(screen.Enabled ? "Yes" : "No")}",
+                $"Items:     {screen.ItemCount}"
+            };
+
+            if (screen.Items.Count > 0)
+            {
+                lines.Add("");
+                lines.Add("Items:");
+                foreach (var item in screen.Items)
+                {
+                    lines.Add($"  - {item.Name} [{item.Type}] ({item.Left ?? 0}, {item.Top ?? 0}) {item.Width ?? 0}x{item.Height ?? 0}");
+                }
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiScreenItemInfo(HmiScreenItemInfo item)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI Item:",
+                "",
+                $"Name:       {item.Name}",
+                $"Type:       {item.Type}",
+                $"Screen:     {item.ScreenPath}",
+                $"Position:   ({item.Left ?? 0}, {item.Top ?? 0})",
+                $"Size:       {item.Width ?? 0}x{item.Height ?? 0}"
+            };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiScreenCopyResult(HmiScreenCopyResult copy)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI Screen Copy:",
+                "",
+                $"Template:              {copy.TemplatePath}",
+                $"Target:                {copy.TargetPath}",
+                $"Replacement Applied:   {(copy.ReplacementApplied ? "Yes" : "No")}",
+                $"Copied Items:          {copy.CopiedItemCount}",
+                $"Screen Event Handlers: {copy.CopiedScreenEventHandlerCount}",
+                $"Item Event Handlers:   {copy.CopiedItemEventHandlerCount}",
+                "",
+                FormatHmiScreenInfo(copy.Screen)
+            };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiItemTypes(IEnumerable<HmiItemTypeInfo> itemTypes)
+        {
+            var list = itemTypes.ToList();
+            if (list.Count == 0)
+            {
+                return "No supported Unified HMI item types found.";
+            }
+
+            var lines = new List<string>
+            {
+                $"Found {list.Count} supported item type(s):",
+                "",
+                string.Format("{0,-28} {1,-14} {2,-12} {3,-25}", "Type", "Category", "Default Size", "Aliases"),
+                new string('-', 85)
+            };
+
+            foreach (var itemType in list)
+            {
+                lines.Add(string.Format(
+                    "{0,-28} {1,-14} {2,-12} {3,-25}",
+                    Truncate(itemType.Type, 28),
+                    Truncate(itemType.Category, 14),
+                    $"{itemType.DefaultWidth}x{itemType.DefaultHeight}",
+                    Truncate(string.Join(", ", itemType.Aliases), 25)));
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiItemProperties(IEnumerable<HmiItemPropertyInfo> itemProperties)
+        {
+            var list = itemProperties.ToList();
+            if (list.Count == 0)
+            {
+                return "No Unified HMI item properties found.";
+            }
+
+            var lines = new List<string>
+            {
+                $"Found {list.Count} property value(s):",
+                "",
+                string.Format("{0,-28} {1,-30} {2,-18} {3,-10} {4,-12}", "Name", "Value", "Type", "Writable", "Source"),
+                new string('-', 105)
+            };
+
+            foreach (var property in list)
+            {
+                lines.Add(string.Format(
+                    "{0,-28} {1,-30} {2,-18} {3,-10} {4,-12}",
+                    Truncate(property.Name, 28),
+                    Truncate(property.Value ?? string.Empty, 30),
+                    Truncate(property.ValueType, 18),
+                    property.IsWritable ? "Yes" : "No",
+                    Truncate(property.Source, 12)));
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiTrendInfo(HmiTrendInfo trendInfo)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI Trend:",
+                "",
+                $"Tag Path:         {trendInfo.TagPath}",
+                $"Tag Name:         {trendInfo.TagName}",
+                $"Logging Tag:      {trendInfo.LoggingTagName}",
+                $"Data Log:         {trendInfo.DataLogName}",
+                $"Logging Mode:     {trendInfo.LoggingMode}",
+                $"Cycle:            {trendInfo.Cycle ?? "(not used)"}",
+                $"Storage Folder:   {trendInfo.StorageFolder}",
+                $"Log Max Size:     {trendInfo.LogMaxSize}",
+                $"Duration Days:    {trendInfo.DurationDays}",
+                $"Segment Max Size: {trendInfo.SegmentMaxSize}",
+                $"Data Log Created: {(trendInfo.DataLogCreated ? "Yes" : "No")}",
+                $"Logging Tag Created: {(trendInfo.LoggingTagCreated ? "Yes" : "No")}"
+            };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiJsonExportResult(HmiJsonExportResult exportResult)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI JSON Export:",
+                "",
+                $"Output Path:   {exportResult.OutputPath}",
+                $"Screens:       {exportResult.ScreenCount}",
+                $"Items:         {exportResult.ItemCount}",
+                $"Warnings:      {exportResult.WarningCount}"
+            };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiJsonDiffResult(HmiJsonDiffResult diffResult)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI JSON Patch:",
+                "",
+                $"Output Path:       {diffResult.OutputPath}",
+                $"Screen Creates:    {diffResult.ScreenCreateCount}",
+                $"Screen Updates:    {diffResult.ScreenUpdateCount}",
+                $"Screen Deletes:    {diffResult.ScreenDeleteCount}",
+                $"Item Creates:      {diffResult.ItemCreateCount}",
+                $"Item Updates:      {diffResult.ItemUpdateCount}",
+                $"Item Deletes:      {diffResult.ItemDeleteCount}",
+                $"Item Recreates:    {diffResult.ItemRecreateCount}",
+                $"Property Changes:  {diffResult.PropertyChangeCount}",
+                $"Warnings:          {diffResult.WarningCount}"
+            };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiJsonImportResult(HmiJsonImportResult importResult)
+        {
+            var lines = new List<string>
+            {
+                importResult.DryRun ? "Unified HMI JSON Preflight:" : "Unified HMI JSON Import:",
+                "",
+                $"Input Path:            {importResult.InputPath}",
+                $"Report Path:           {importResult.ReportPath ?? "(not written)"}",
+                $"Safety Blocked:        {(importResult.SafetyBlocked ? "Yes" : "No")}",
+                $"Safety Message:        {importResult.SafetyMessage ?? "(none)"}",
+                $"Backup Path:           {importResult.BackupPath ?? "(none)"}",
+                $"Screens Processed:     {importResult.ScreenCount}",
+                $"Screens Created:       {importResult.ScreenCreated}",
+                $"Screens Deleted:       {importResult.ScreenDeleted}",
+                $"Items Processed:       {importResult.ItemCount}",
+                $"Items Created:         {importResult.ItemCreated}",
+                $"Items Deleted:         {importResult.ItemDeleted}",
+                $"Items Recreated:       {importResult.ItemRecreated}",
+                $"Properties Applied:    {importResult.PropertySetCount}",
+                $"Properties Unchanged:  {importResult.PropertyUnchangedCount}",
+                $"Properties Skipped:    {importResult.PropertySkippedCount}",
+                $"Properties Failed:     {importResult.PropertyFailedCount}",
+                $"Warnings:              {importResult.WarningCount}"
+            };
+
+            if (importResult.Warnings.Count > 0)
+            {
+                lines.Add("");
+                lines.Add("Warnings:");
+                foreach (var warning in importResult.Warnings.Take(5))
+                {
+                    lines.Add("  - " + warning);
+                }
+
+                if (importResult.Warnings.Count > 5)
+                {
+                    lines.Add($"  - ... {importResult.Warnings.Count - 5} more");
+                }
             }
 
             return string.Join(Environment.NewLine, lines);

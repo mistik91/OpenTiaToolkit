@@ -1,0 +1,4 @@
+interface:
+  display_name: "HMI Unified Agent Editing"
+  short_description: "Safe agent workflows for Unified HMI editing"
+  default_prompt: "Use $hmi-unified-agent-editing to safely edit a Unified HMI screen with dry-run, hash checks, and verification."

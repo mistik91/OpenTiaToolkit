@@ -24,6 +24,10 @@ Recommended environment variables:
 
 - `OPEN_TIA_TEST_PROJECT_PATH`
 - `OPEN_TIA_TEST_PLC_NAME`
+- `OPEN_TIA_TEST_HMI_PROJECT_PATH`
+- `OPEN_TIA_TEST_UNIFIED_HMI_NAME`
+
+The Unified HMI integration tests skip cleanly when `OPEN_TIA_TEST_HMI_PROJECT_PATH` does not point to an existing `.ap21` project.
 
 If the current CLI build has not been authorized for Openness yet, pre-authorize it from an elevated PowerShell session:
 

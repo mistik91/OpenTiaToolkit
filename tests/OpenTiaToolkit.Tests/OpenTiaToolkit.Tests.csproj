@@ -29,6 +29,11 @@
       <Private>False</Private>
       <CopyLocal>false</CopyLocal>
     </Reference>
+    <Reference Include="Siemens.Engineering.WinCCUnified">
+      <HintPath>C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48\Siemens.Engineering.WinCCUnified.dll</HintPath>
+      <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -48,6 +53,7 @@
   <Target Name="RemoveSiemensDllsFromOutput" AfterTargets="CopyFilesToOutputDirectory">
     <Delete Files="$(OutputPath)Siemens.Engineering.Base.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Base.dll')" />
     <Delete Files="$(OutputPath)Siemens.Engineering.Step7.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Step7.dll')" />
+    <Delete Files="$(OutputPath)Siemens.Engineering.WinCCUnified.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.WinCCUnified.dll')" />
   </Target>
 
 </Project>

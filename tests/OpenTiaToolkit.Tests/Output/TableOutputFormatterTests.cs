@@ -2,6 +2,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.CLI.Output;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Core.Commands.Hmi;
 using System;
 using System.Collections.Generic;
 
@@ -174,6 +175,207 @@ namespace OpenTiaToolkit.Tests.Output
             StringAssert.Contains(formatted, "connected");
             StringAssert.Contains(formatted, "version");
             StringAssert.Contains(formatted, "V21");
+        }
+
+        [TestMethod]
+        public void FormatHmiScreens_ReturnsTable_WhenScreensExist()
+        {
+            // Arrange
+            var screens = new List<HmiScreenInfo>
+            {
+                new HmiScreenInfo { Name = "Home", Path = "Root/Home", Width = 1920, Height = 1080, ItemCount = 3, Enabled = true },
+                new HmiScreenInfo { Name = "Alarms", Path = "Root/Alarms", Width = 1920, Height = 1080, ItemCount = 1, Enabled = true }
+            };
+            var result = CommandResult.CreateSuccess(screens, "Found screens");
+
+            // Act
+            var formatted = TableOutputFormatter.Format(result);
+
+            // Assert
+            StringAssert.Contains(formatted, "Found 2 screen(s)");
+            StringAssert.Contains(formatted, "Root/Home");
+            StringAssert.Contains(formatted, "Root/Alarms");
+            StringAssert.Contains(formatted, "Items");
+        }
+
+        [TestMethod]
+        public void FormatHmiTags_ReturnsTable()
+        {
+            // Arrange
+            var tags = new List<HmiTagInfo>
+            {
+                new HmiTagInfo { Path = "Motor.Run", DataType = "Bool", TagTableName = "Default", MemberCount = 0, LoggingTagCount = 1 },
+                new HmiTagInfo { Path = "Motor.Speed", DataType = "Real", TagTableName = "Default", MemberCount = 0, LoggingTagCount = 0 }
+            };
+            var result = CommandResult.CreateSuccess(tags, "Tags");
+
+            // Act
+            var formatted = TableOutputFormatter.Format(result);
+
+            // Assert
+            StringAssert.Contains(formatted, "Found 2 tag(s)");
+            StringAssert.Contains(formatted, "Motor.Run");
+            StringAssert.Contains(formatted, "Default");
+            StringAssert.Contains(formatted, "Logs");
+        }
+
+        [TestMethod]
+        public void FormatHmiJsonExportResult_ReturnsSummary()
+        {
+            var result = CommandResult.CreateSuccess(new HmiJsonExportResult
+            {
+                OutputPath = @"C:\Temp\unified_hmi_export.json",
+                ScreenCount = 2,
+                ItemCount = 4,
+                WarningCount = 1
+            });
+
+            var formatted = TableOutputFormatter.Format(result);
+
+            StringAssert.Contains(formatted, "Unified HMI JSON Export:");
+            StringAssert.Contains(formatted, "unified_hmi_export.json");
+            StringAssert.Contains(formatted, "Screens:       2");
+        }
+
+        [TestMethod]
+        public void FormatHmiJsonImportResult_ReturnsSummary()
+        {
+            var result = CommandResult.CreateSuccess(new HmiJsonImportResult
+            {
+                DryRun = true,
+                InputPath = @"C:\Temp\unified_hmi_patch.json",
+                ReportPath = @"C:\Temp\unified_hmi_preflight_report.json",
+                SafetyBlocked = true,
+                SafetyMessage = "Warnings found.",
+                ScreenCount = 1,
+                ItemCount = 1,
+                PropertySetCount = 2,
+                PropertyUnchangedCount = 1,
+                PropertySkippedCount = 0,
+                PropertyFailedCount = 0,
+                WarningCount = 1,
+                Warnings = new List<string> { "Warnings found." }
+            });
+
+            var formatted = TableOutputFormatter.Format(result);
+
+            StringAssert.Contains(formatted, "Unified HMI JSON Preflight:");
+            StringAssert.Contains(formatted, "Safety Blocked:        Yes");
+            StringAssert.Contains(formatted, "Warnings:");
+        }
+
+        [TestMethod]
+        public void FormatHmiScreenInfo_ReturnsDetailedOutput()
+        {
+            // Arrange
+            var screen = new HmiScreenInfo
+            {
+                Name = "Home",
+                Path = "Root/Home",
+                Width = 1920,
+                Height = 1080,
+                Enabled = true,
+                ItemCount = 1,
+                Items = new List<HmiScreenItemInfo>
+                {
+                    new HmiScreenItemInfo { Name = "BtnStart", Type = "HmiButton", Left = 10, Top = 20, Width = 120, Height = 40 }
+                }
+            };
+            var result = CommandResult.CreateSuccess(screen, "Screen info");
+
+            // Act
+            var formatted = TableOutputFormatter.Format(result);
+
+            // Assert
+            StringAssert.Contains(formatted, "Unified HMI Screen:");
+            StringAssert.Contains(formatted, "Home");
+            StringAssert.Contains(formatted, "BtnStart");
+            StringAssert.Contains(formatted, "HmiButton");
+        }
+
+        [TestMethod]
+        public void FormatHmiItemProperties_ReturnsTable()
+        {
+            // Arrange
+            var properties = new List<HmiItemPropertyInfo>
+            {
+                new HmiItemPropertyInfo { Name = "Visible", Value = "True", ValueType = "Boolean", IsWritable = true, Source = "Property" },
+                new HmiItemPropertyInfo { Name = "Left", Value = "10", ValueType = "Int32", IsWritable = true, Source = "Attribute" }
+            };
+            var result = CommandResult.CreateSuccess(properties, "Properties");
+
+            // Act
+            var formatted = TableOutputFormatter.Format(result);
+
+            // Assert
+            StringAssert.Contains(formatted, "Visible");
+            StringAssert.Contains(formatted, "Attribute");
+            StringAssert.Contains(formatted, "Boolean");
+        }
+
+        [TestMethod]
+        public void FormatHmiScreenCopyResult_ReturnsSummary()
+        {
+            // Arrange
+            var copyResult = new HmiScreenCopyResult
+            {
+                TemplatePath = "Templates/Base",
+                TargetPath = "Runtime/Screen01",
+                ReplacementApplied = true,
+                CopiedItemCount = 3,
+                CopiedScreenEventHandlerCount = 1,
+                CopiedItemEventHandlerCount = 2,
+                Screen = new HmiScreenInfo
+                {
+                    Name = "Screen01",
+                    Path = "Runtime/Screen01",
+                    Width = 1280,
+                    Height = 720,
+                    Enabled = true,
+                    ItemCount = 3
+                }
+            };
+            var result = CommandResult.CreateSuccess(copyResult, "Copied");
+
+            // Act
+            var formatted = TableOutputFormatter.Format(result);
+
+            // Assert
+            StringAssert.Contains(formatted, "Unified HMI Screen Copy:");
+            StringAssert.Contains(formatted, "Templates/Base");
+            StringAssert.Contains(formatted, "Runtime/Screen01");
+            StringAssert.Contains(formatted, "Copied Items");
+        }
+
+        [TestMethod]
+        public void FormatHmiTrendInfo_ReturnsDetails()
+        {
+            // Arrange
+            var trend = new HmiTrendInfo
+            {
+                TagPath = "Motor.Speed",
+                TagName = "Speed",
+                LoggingTagName = "Motor_Speed",
+                DataLogName = "TrendLog01",
+                LoggingMode = "Cyclic",
+                Cycle = "T2s",
+                StorageFolder = "/Trends",
+                LogMaxSize = 2000,
+                DurationDays = 365,
+                SegmentMaxSize = 500,
+                DataLogCreated = true,
+                LoggingTagCreated = true
+            };
+            var result = CommandResult.CreateSuccess(trend, "Trend");
+
+            // Act
+            var formatted = TableOutputFormatter.Format(result);
+
+            // Assert
+            StringAssert.Contains(formatted, "Unified HMI Trend:");
+            StringAssert.Contains(formatted, "Motor.Speed");
+            StringAssert.Contains(formatted, "TrendLog01");
+            StringAssert.Contains(formatted, "Cyclic");
         }
     }
 }

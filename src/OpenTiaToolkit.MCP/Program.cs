@@ -1,8 +1,9 @@
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Protocol;
 using OpenTiaToolkit.Core;
 using OpenTiaToolkit.MCP.Server;
 
@@ -24,61 +25,75 @@ namespace OpenTiaToolkit.MCP
 
         public static async Task<int> Main(string[] args)
         {
-            // Set up dependency injection
-            var serviceProvider = BuildServiceProvider();
-
             try
             {
-                var logger = serviceProvider.GetRequiredService<ILogger<MCPApplication>>();
-                var toolRegistry = serviceProvider.GetRequiredService<ToolRegistry>();
-                var serverHost = serviceProvider.GetRequiredService<McpServerHost>();
-
-                logger.LogInformation("OpenTiaToolkit MCP Server starting...");
-                logger.LogInformation("Registered {ToolCount} tools", toolRegistry.Tools.Count);
-
-                // Start the MCP server (reads from stdin, writes to stdout)
-                var exitCode = await serverHost.StartAsync();
-
-                logger.LogInformation("MCP Server shutting down with exit code: {ExitCode}", exitCode);
-                return exitCode;
+                using var host = BuildHost(args);
+                await host.RunAsync();
+                return 0;
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Fatal error: {ex.Message}");
                 return 1;
             }
-            finally
-            {
-                // Clean up
-                if (serviceProvider is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-            }
         }
 
-        private static IServiceProvider BuildServiceProvider()
+        private static IHost BuildHost(string[] args)
         {
-            var services = new ServiceCollection();
+            var minimumLogLevel = ResolveMinimumLogLevel();
+            var hostBuilder = Host.CreateDefaultBuilder(args);
 
-            // Add logging
-            services.AddLogging(builder =>
+            hostBuilder.ConfigureLogging(builder =>
             {
-                builder.AddConsole();
-                builder.SetMinimumLevel(LogLevel.Information);
+                builder.ClearProviders();
+                builder.AddConsole(options =>
+                {
+                    options.LogToStandardErrorThreshold = LogLevel.Trace;
+                });
+                builder.SetMinimumLevel(minimumLogLevel);
             });
 
-            services.AddOpenTiaToolkitCoreServices();
-            services.AddOpenTiaToolkitCommands();
+            hostBuilder.ConfigureServices(services =>
+            {
+                services.AddOpenTiaToolkitCoreServices();
+                services.AddOpenTiaToolkitCommands();
+                services.AddSingleton<ToolRegistry>();
+                services
+                    .AddMcpServer(options =>
+                    {
+                        options.ServerInfo = new Implementation
+                        {
+                            Name = "OpenTiaToolkit",
+                            Version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0"
+                        };
+                    })
+                    .WithStdioServerTransport()
+                    .WithListToolsHandler((request, cancellationToken) =>
+                    {
+                        var services = request.Services ?? throw new InvalidOperationException("MCP request services are unavailable.");
+                        var toolRegistry = services.GetRequiredService<ToolRegistry>();
+                        return new ValueTask<ListToolsResult>(new ListToolsResult
+                        {
+                            Tools = toolRegistry.ListTools()
+                        });
+                    })
+                    .WithCallToolHandler((request, cancellationToken) =>
+                    {
+                        var services = request.Services ?? throw new InvalidOperationException("MCP request services are unavailable.");
+                        var toolRegistry = services.GetRequiredService<ToolRegistry>();
+                        return toolRegistry.CallToolAsync(request.Params?.Name, request.Params?.Arguments, cancellationToken);
+                    });
+            });
 
-            // Register MCP-specific services
-            services.AddSingleton<ToolRegistry>();
-            services.AddSingleton<McpServerHost>();
-
-            return services.BuildServiceProvider();
+            return hostBuilder.Build();
         }
 
-        // Helper class for logging since static classes can't be used as generic type arguments
-        private class MCPApplication { }
+        private static LogLevel ResolveMinimumLogLevel()
+        {
+            var configuredLevel = Environment.GetEnvironmentVariable("OPEN_TIA_MCP_LOG_LEVEL");
+            return Enum.TryParse(configuredLevel, ignoreCase: true, out LogLevel parsedLevel)
+                ? parsedLevel
+                : LogLevel.Warning;
+        }
     }
 }

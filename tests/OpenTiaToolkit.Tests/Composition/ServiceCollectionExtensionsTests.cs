@@ -30,14 +30,18 @@ namespace OpenTiaToolkit.Tests.Composition
             // Act
             var portalService = serviceProvider.GetRequiredService<IPortalService>();
             var plcService = serviceProvider.GetRequiredService<IPlcService>();
+            var hmiService = serviceProvider.GetRequiredService<IHmiService>();
 
             // Assert
             var portalContext = GetPrivateFieldValue(portalService, "_sessionContext");
             var plcContext = GetPrivateFieldValue(plcService, "_sessionContext");
+            var hmiContext = GetPrivateFieldValue(hmiService, "_sessionContext");
 
             Assert.IsNotNull(portalContext);
             Assert.IsNotNull(plcContext);
+            Assert.IsNotNull(hmiContext);
             Assert.AreSame(portalContext, plcContext);
+            Assert.AreSame(portalContext, hmiContext);
         }
 
         [TestMethod]
@@ -77,6 +81,19 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "open-project");
             CollectionAssert.Contains(commands, "open-plc");
             CollectionAssert.Contains(commands, "compile-software");
+            CollectionAssert.Contains(commands, "open-unified-hmi");
+            CollectionAssert.Contains(commands, "list-hmi-tags");
+            CollectionAssert.Contains(commands, "list-hmi-screens");
+            CollectionAssert.Contains(commands, "copy-hmi-screen-from-template");
+            CollectionAssert.Contains(commands, "set-hmi-item-property");
+            CollectionAssert.Contains(commands, "create-hmi-trend");
+            CollectionAssert.Contains(commands, "export-hmi-json");
+            CollectionAssert.Contains(commands, "diff-hmi-json");
+            CollectionAssert.Contains(commands, "import-hmi-json");
+            CollectionAssert.Contains(commands, "get-hmi-screen-json");
+            CollectionAssert.Contains(commands, "apply-hmi-screen-json-edit");
+            CollectionAssert.Contains(commands, "apply-hmi-screen-json-patch");
+            CollectionAssert.Contains(commands, "inspect-hmi-screen-json-capabilities");
             CollectionAssert.Contains(commands, "create-block");
             CollectionAssert.Contains(commands, "find-replace-db-members");
             CollectionAssert.Contains(commands, "find-replace-udt-members");

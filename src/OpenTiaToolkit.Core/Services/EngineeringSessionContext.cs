@@ -1,5 +1,6 @@
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
+using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.Multiuser;
 
 namespace OpenTiaToolkit.Core.Services
@@ -27,6 +28,12 @@ namespace OpenTiaToolkit.Core.Services
 
         public string? CurrentPlcName { get; set; }
 
+        public HmiSoftware? HmiSoftware { get; set; }
+
+        public Device? CurrentHmiDevice { get; set; }
+
+        public string? CurrentHmiName { get; set; }
+
         public void ClearPortalSelection()
         {
             Portal = null;
@@ -40,6 +47,7 @@ namespace OpenTiaToolkit.Core.Services
             OwnsCurrentProject = false;
             OwnsCurrentSession = false;
             ClearPlcSelection();
+            ClearHmiSelection();
         }
 
         public void ClearPlcSelection()
@@ -47,6 +55,13 @@ namespace OpenTiaToolkit.Core.Services
             PlcSoftware = null;
             CurrentPlcDevice = null;
             CurrentPlcName = null;
+        }
+
+        public void ClearHmiSelection()
+        {
+            HmiSoftware = null;
+            CurrentHmiDevice = null;
+            CurrentHmiName = null;
         }
     }
 }

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-04-17 - Unified HMI JSON Agent Editing
+
+#### Added
+- **Unified HMI command surface** for agent-safe screen work:
+  - `open-unified-hmi`, `list-hmi-screens`, `get-hmi-screen-info`
+  - `create-hmi-screen`, `create-hmi-item`, `set-hmi-item-property`
+  - `list-hmi-item-types`, `list-hmi-tags`, `create-hmi-trend`
+  - `copy-hmi-screen-from-template`
+- **Unified HMI JSON import/export workflow**:
+  - `export-hmi-json`, `diff-hmi-json`, `import-hmi-json`
+  - Canonical JSON for screens, items, scalar properties, event handlers, property event handlers, dynamizations, and value-converter mapping tables
+  - Dry-run/preflight safety, backup support, runtime filters, and structured import reports
+- **Single-screen agent editing workflow**:
+  - `get-hmi-screen-json` returns a hash-bound screen snapshot and reusable patch arguments
+  - `apply-hmi-screen-json-edit` plans or applies focused screen JSON edits
+  - `apply-hmi-screen-json-patch` supports compact patch operations for property/layout/item lifecycle/composite changes
+  - `inspect-hmi-screen-json-capabilities` returns compact patch capabilities, item type metadata, writable properties, and filter guidance
+- **Agent guidance payloads** for stale base hashes, unsafe preflights, missing filters, patch failures, and recommended apply/verify next steps.
+
+#### Changed
+- MCP and CLI plumbing now support richer command schemas, object/array arguments, and table output for nested command results.
+- Unified HMI integration tests can be pointed at a local HMI project with `OPEN_TIA_TEST_HMI_PROJECT_PATH` and skip cleanly when that project is unavailable.
+
+#### Tested
+- Added unit coverage for Unified HMI JSON command parsing, diffing, patch application, guidance generation, and capability inspection.
+- Added live Unified HMI integration coverage for screen/item creation, JSON export/import/diff, screen JSON edits, compact patch edits, stale-base handling, item lifecycle changes, event handlers, property event handlers, and dynamizations.
+
 ### 2026-02-24 - SIMATIC SD Export and Type Export Features ✅
 
 #### Added

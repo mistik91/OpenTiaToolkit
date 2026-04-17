@@ -29,6 +29,12 @@ namespace OpenTiaToolkit.Core
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                     serviceProvider.GetService<ILogger<PlcService>>()));
 
+            services.AddSingleton<IHmiService>(serviceProvider =>
+                new HmiService(
+                    serviceProvider.GetRequiredService<IPortalService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>(),
+                    serviceProvider.GetService<ILogger<HmiService>>()));
+
             return services;
         }
 
@@ -63,6 +69,24 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ICommand, GetBlocksCommand>();
             services.AddSingleton<ICommand, ListPlcsCommand>();
             services.AddSingleton<ICommand, ListHmisCommand>();
+            services.AddSingleton<ICommand, OpenUnifiedHmiCommand>();
+            services.AddSingleton<ICommand, ListHmiTagsCommand>();
+            services.AddSingleton<ICommand, ListHmiScreensCommand>();
+            services.AddSingleton<ICommand, GetHmiScreenInfoCommand>();
+            services.AddSingleton<ICommand, CreateHmiScreenCommand>();
+            services.AddSingleton<ICommand, CopyHmiScreenFromTemplateCommand>();
+            services.AddSingleton<ICommand, ListHmiItemTypesCommand>();
+            services.AddSingleton<ICommand, CreateHmiItemCommand>();
+            services.AddSingleton<ICommand, GetHmiItemPropertiesCommand>();
+            services.AddSingleton<ICommand, SetHmiItemPropertyCommand>();
+            services.AddSingleton<ICommand, CreateHmiTrendCommand>();
+            services.AddSingleton<ICommand, ExportHmiJsonCommand>();
+            services.AddSingleton<ICommand, DiffHmiJsonCommand>();
+            services.AddSingleton<ICommand, ImportHmiJsonCommand>();
+            services.AddSingleton<ICommand, GetHmiScreenJsonCommand>();
+            services.AddSingleton<ICommand, ApplyHmiScreenJsonEditCommand>();
+            services.AddSingleton<ICommand, ApplyHmiScreenJsonPatchCommand>();
+            services.AddSingleton<ICommand, InspectHmiScreenJsonCapabilitiesCommand>();
 
             // Phase 4 commands
             services.AddSingleton<ICommand, CreateBlockCommand>();

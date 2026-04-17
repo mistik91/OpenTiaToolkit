@@ -18,6 +18,7 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
   - Block Import: import-block, import-blocks, import-block-from-docs, import-blocks-from-docs
   - Type Operations: export-type, export-types, import-type, import-types
   - PLC Operations: compile-software, export-plc, get-software-tree, get-blocks
+  - Unified HMI Operations: screen/item browse and mutation, tag/trend setup, JSON export/diff/import
   - And more...
 - **Primary Target: TIA Portal V21**: The repo is developed and tested against the V21 modular Openness API
 - **Legacy Compatibility**: Reflection-based paths still aim to work with older installations where feasible
@@ -243,7 +244,9 @@ tia> _
 
 ### Protocol
 
-The MCP server communicates over stdin/stdout using JSON-RPC messages following the [Model Context Protocol](https://modelcontextprotocol.io/) specification.
+The MCP server communicates over stdio using the official C# MCP SDK and the [Model Context Protocol](https://modelcontextprotocol.io/) specification.
+
+In practice, you normally launch it from an MCP client such as Claude Desktop rather than piping bare JSON lines into the executable.
 
 ### Available Tools
 
@@ -279,6 +282,28 @@ The registered MCP tool surface is generated from the shared command implementat
 | `get-device-item-info` | Gets device item details |
 | `list-hmis` | Lists all HMI devices in the project |
 
+#### Unified HMI Operations
+| Tool Name | Description |
+|-----------|-------------|
+| `open-unified-hmi` | Opens a Unified HMI by device or device item name |
+| `list-hmi-screens` | Lists Unified HMI screens, optionally within a screen group |
+| `get-hmi-screen-info` | Reads screen metadata and item summaries |
+| `create-hmi-screen` | Ensures a Unified HMI screen exists |
+| `copy-hmi-screen-from-template` | Clones a template screen with optional text replacement |
+| `list-hmi-item-types` | Lists validated Unified HMI item types |
+| `create-hmi-item` | Ensures a Unified HMI screen item exists |
+| `get-hmi-item-properties` | Reads item properties or attributes |
+| `set-hmi-item-property` | Writes an item property or attribute |
+| `list-hmi-tags` | Lists Unified HMI tags |
+| `create-hmi-trend` | Creates or updates tag logging infrastructure |
+| `export-hmi-json` | Exports the supported Unified HMI JSON surface |
+| `diff-hmi-json` | Creates a minimal patch from two HMI JSON exports |
+| `import-hmi-json` | Preflights or imports a Unified HMI JSON export or patch |
+| `get-hmi-screen-json` | Returns one screen as canonical JSON with a base hash for agent editing |
+| `apply-hmi-screen-json-edit` | Dry-runs or applies one edited screen JSON object through the safe import pipeline |
+| `apply-hmi-screen-json-patch` | Dry-runs or applies compact agent patch operations through the same safe pipeline |
+| `inspect-hmi-screen-json-capabilities` | Returns agent-oriented screen patch capabilities, item types, and property guidance |
+
 #### PLC Operations
 | Tool Name | Description |
 |-----------|-------------|
@@ -293,7 +318,9 @@ The registered MCP tool surface is generated from the shared command implementat
 | `export-block` | Exports a single block to XML |
 | `search-blocks` | Searches blocks by name/comment |
 
-### Example MCP Tool Call
+### Example MCP Tool Payload
+
+Inside a `tools/call` request, the tool arguments look like this:
 
 ```json
 {
@@ -452,6 +479,227 @@ Name                            Type                            Parent Device   
 ----------------------------------------------------------------------------------------
 HMI_1                           TP1200                          Controller_1                    Yes
 ```
+
+### Unified HMI Operations
+
+#### `open-unified-hmi`
+Opens a Unified HMI by device or device item name.
+
+```bash
+OpenTiaToolkit.CLI.exe open-unified-hmi --hmi-name="HMI_1"
+```
+
+#### `list-hmi-screens`
+Lists screens in a Unified HMI. Use `group-path` to focus on one screen group.
+
+```bash
+OpenTiaToolkit.CLI.exe list-hmi-screens --hmi-name="HMI_1"
+OpenTiaToolkit.CLI.exe list-hmi-screens --hmi-name="HMI_1" --group-path="Screens/Templates" --recursive=true
+```
+
+#### `get-hmi-screen-info`
+Gets screen metadata and item summaries.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hmi-screen-info --hmi-name="HMI_1" --screen-path="Screens/Main"
+```
+
+#### `create-hmi-screen`
+Creates a screen if it does not already exist.
+
+```bash
+OpenTiaToolkit.CLI.exe create-hmi-screen --hmi-name="HMI_1" --screen-path="Codex/Main" --width=1280 --height=720
+```
+
+#### `copy-hmi-screen-from-template`
+Clones a screen and optionally replaces text while copying.
+
+```bash
+OpenTiaToolkit.CLI.exe copy-hmi-screen-from-template --hmi-name="HMI_1" --template-screen-path="Templates/Motor" --target-screen-path="Generated/Motor_01" --find-text="Template" --replace-text="Motor 01"
+```
+
+#### `list-hmi-item-types`
+Lists validated item types and aliases that can be created by the toolkit.
+
+```bash
+OpenTiaToolkit.CLI.exe list-hmi-item-types
+OpenTiaToolkit.CLI.exe list-hmi-item-types --filter="button"
+```
+
+#### `create-hmi-item`
+Creates a screen item if it does not already exist.
+
+```bash
+OpenTiaToolkit.CLI.exe create-hmi-item --hmi-name="HMI_1" --screen-path="Codex/Main" --item-type="button" --item-name="StartButton" --left=40 --top=60 --width=160 --height=44
+```
+
+#### `get-hmi-item-properties`
+Reads item properties or attributes. `properties` can be omitted, comma-separated, or repeated depending on the host.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hmi-item-properties --hmi-name="HMI_1" --screen-path="Codex/Main" --item-name="StartButton" --properties="Text,Visible,Left,Top"
+```
+
+#### `set-hmi-item-property`
+Writes one item property or attribute.
+
+```bash
+OpenTiaToolkit.CLI.exe set-hmi-item-property --hmi-name="HMI_1" --screen-path="Codex/Main" --item-name="StartButton" --property="Text" --value="Start"
+```
+
+#### `list-hmi-tags`
+Lists Unified HMI tags, with optional filtering.
+
+```bash
+OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1"
+OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --filter="Motor"
+```
+
+#### `create-hmi-trend`
+Creates or updates the data log and logging tag infrastructure for a Unified HMI tag.
+
+```bash
+OpenTiaToolkit.CLI.exe create-hmi-trend --hmi-name="HMI_1" --tag-path="HMI_Tags/MotorSpeed" --datalog-name="MotorSpeedLog" --cyclic=true --cycle="T2s"
+```
+
+### Unified HMI JSON Import/Export
+
+The HMI JSON flow is the supported path for repeatable screen/item updates. It supports screens, screen items, scalar properties, event handlers, property event handlers, dynamizations, and value-converter mapping tables. It intentionally avoids importing every possible vendor-specific deep control subtree; add those as schema extensions when needed.
+
+#### `export-hmi-json`
+Exports the supported Unified HMI surface to a folder or JSON file.
+
+```bash
+OpenTiaToolkit.CLI.exe export-hmi-json --hmi-name="HMI_1" --output-path="C:\Exports\Hmi"
+OpenTiaToolkit.CLI.exe export-hmi-json --hmi-name="HMI_1" --output-path="C:\Exports\Main.json" --screens="Codex/Main" --properties="Text,Visible,EventHandlers,PropertyEventHandlers,Dynamizations"
+```
+
+#### `diff-hmi-json`
+Creates a minimal patch from a base export and an edited export.
+
+```bash
+OpenTiaToolkit.CLI.exe diff-hmi-json --base-path="C:\Exports\Hmi\Base" --modified-path="C:\Exports\Hmi\Edited" --patch-path="C:\Exports\Hmi\Patch"
+```
+
+#### `import-hmi-json`
+Preflights or imports an HMI JSON export or patch. Use `dry-run` first, then apply with `require-clean-preflight` and `backup` for safer mutation runs.
+
+```bash
+OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Exports\Hmi\Patch" --dry-run=true --fail-on-warning=true
+OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Exports\Hmi\Patch" --require-clean-preflight=true --backup=true --backup-path="C:\Exports\Hmi\Backup"
+```
+
+**JSON import safety:**
+- `dry-run=true` validates and reports changes without applying them.
+- `fail-on-warning=true` makes warnings block the run.
+- `require-clean-preflight=true` re-runs a clean dry-run before applying.
+- `backup=true` writes a pre-import export before mutation.
+- `screens`, `item-names`, and `properties` filters can scope export, diff, and import.
+
+### Agent-First HMI Screen Editing
+
+The agent-first screen edit tools wrap the same export/diff/import services, but avoid forcing an agent to manually manage base, edited, patch, backup, and verify files for common single-screen edits.
+
+#### `get-hmi-screen-json`
+Exports one screen as a canonical `HmiJsonScreen` object and returns a `baseHash`. Agents should preserve this hash and send it back with edits so stale state can be detected before mutation.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hmi-screen-json --hmi-name="HMI_1" --screen-path="Codex/Main" --properties="Text,Visible,EventHandlers,PropertyEventHandlers,Dynamizations"
+```
+
+#### `apply-hmi-screen-json-edit`
+Accepts an edited `HmiJsonScreen` object, exports the current screen, checks `base-hash` when provided, builds a minimal patch, preflights it, and optionally applies it with backup and verification. `dry-run` defaults to `true`.
+
+```bash
+OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-path="Codex/Main" --edited-screen="{...}" --base-hash="..." --dry-run=true
+OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-path="Codex/Main" --edited-screen="{...}" --base-hash="..." --dry-run=false --backup=true
+```
+
+For MCP/agent use, pass `edited-screen` as a JSON object instead of a string. If the screen changed since `get-hmi-screen-json`, the edit is blocked unless `allow-stale-base=true` is set.
+
+#### `apply-hmi-screen-json-patch`
+Accepts compact operations and internally turns them into an edited single-screen JSON document before running the same hash check, diff, preflight, import, backup, and verify flow. This is the preferred interface when an agent only needs to express a small intent.
+
+Supported operations are `set-property`, `set-properties`, `move-item`, `resize-item`, `set-layout`, `rename-item`, `create-item`, `delete-item`, `duplicate-item`, `set-event-handler`, `remove-event-handler`, `set-property-event-handler`, `remove-property-event-handler`, `set-dynamization`, and `remove-dynamization`.
+
+```json
+{
+  "operations": [
+    {
+      "op": "set-property",
+      "item": "Button_1",
+      "property": "Text",
+      "value": "Start"
+    },
+    {
+      "op": "set-layout",
+      "item": "Button_1",
+      "left": 120,
+      "top": 80,
+      "width": 180,
+      "height": 44
+    },
+    {
+      "op": "create-item",
+      "item": "StatusText",
+      "itemType": "text",
+      "left": 120,
+      "top": 140,
+      "width": 240,
+      "height": 40,
+      "properties": {
+        "Text": "Ready"
+      }
+    },
+    {
+      "op": "duplicate-item",
+      "source": "Button_1",
+      "item": "Button_2",
+      "left": 120,
+      "top": 200,
+      "properties": {
+        "Text": "Start backup"
+      }
+    },
+    {
+      "op": "delete-item",
+      "item": "OldButton"
+    },
+    {
+      "op": "set-event-handler",
+      "item": "Button_1",
+      "eventType": "Click",
+      "scriptCode": "return 42;"
+    },
+    {
+      "op": "set-dynamization",
+      "item": "Button_1",
+      "property": "Visible",
+      "tag": "HmiTag_Bool"
+    }
+  ]
+}
+```
+
+Snapshots include `snapshotFilters` and `recommendedPatchArgs` so agents can pass back the same `item-names`, `properties`, and `base-hash` without guessing. Patch/edit results include `guidance` with the recommended next action, suggested fixes, and `recommendedNextArgs` when the next call can be made safely. When using `base-hash`, keep filters identical because the hash represents that exact snapshot shape. For `duplicate-item`, include both the source item and the target item name in `item-names`; for composite operations, include the composite root property (`EventHandlers`, `PropertyEventHandlers`, or `Dynamizations`).
+
+#### `inspect-hmi-screen-json-capabilities`
+Returns compact agent-oriented guidance: supported patch operations, current item names, supported item types and aliases, optional writable property metadata, patchable composite roots, and operation hints. The full screen snapshot is omitted by default to keep agent context small; pass `--include-snapshot=true` when the caller also needs the snapshot payload.
+
+```bash
+OpenTiaToolkit.CLI.exe inspect-hmi-screen-json-capabilities --hmi-name="HMI_1" --screen-path="Codex/Main" --item-names="Button_1" --properties="Text,Left,Top,Width,Height,EventHandlers,Dynamizations"
+```
+
+#### Codex HMI Unified Skill
+
+The repo includes a packaged Codex skill at `skills/hmi-unified-agent-editing` for agent-safe Unified HMI screen editing. Package it as a zip, or install it into a Codex home, with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1 -Install
+```
+
+The packaging script validates the skill when `quick_validate.py` is available, writes the package under `artifacts\skills`, and can refresh `$CODEX_HOME\skills\hmi-unified-agent-editing`.
 
 ### PLC Operations
 
@@ -891,6 +1139,7 @@ The runtime state for the current TIA attachment lives in a single shared `Engin
 - PLC tag operations: `PlcTagService`
 - PLC DB/UDT member rename flows: `PlcMemberRenameService`
 - PLC import/export flows: `PlcImportExportService`
+- Unified HMI browse/mutation/copy/trend/JSON flows: `HmiService` with focused HMI services and `V21UnifiedHmiAdapter`
 
 Pure tree-building logic is extracted into standalone builders so traversal shape can be tested without going through the full service layer:
 
@@ -1009,6 +1258,7 @@ dotnet test --filter "TestClass=Test1Portal"
 - **[DoNotParallelize]** attribute ensures tests don't interfere with TIA Portal
 - Unit tests cover command parsing, routing, output formatting, composition, and builder behavior
 - Integration tests are grouped by capability area (`Test1Portal` through `Test9BlockOperations`)
+- Unified HMI live validation lives in `Test10HmiUnified`, including JSON export/diff/import round trips against a real Unified HMI
 - Test paths can be overridden with `OPEN_TIA_TEST_PROJECT_PATH`, `OPEN_TIA_TEST_EXPORT_PATH`, and `OPEN_TIA_TEST_OUTPUT_PATH`
 - On Windows, run build and test serially in the same workspace to avoid temporary `testhost` file locks
 
@@ -1055,7 +1305,8 @@ dotnet test --filter "TestClass=Test1Portal"
 
 - **Total Commands**: The command surface is actively evolving; use `help` for the current registered set
 - **Test Coverage**: Fast unit tests plus machine-specific integration coverage
-- **Documentation**: Complete
+- **Unified HMI Import**: Complete for the supported OpenTiaToolkit JSON schema, including live TIA Portal validation
+- **Documentation**: Complete for the current supported command surface
 - **Known Issues**: 2 tests ignored (TIA Portal SaveAs file access limitation)
 
 ## Contributing
@@ -1102,7 +1353,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps
 - Check the command path in Claude Desktop config
 - Ensure absolute path is used
 - Check logs for error messages
-- Test manually: `echo '{"method":"initialize"}' | OpenTiaToolkit.MCP.exe`
+- Use an MCP client or SDK that speaks the framed stdio transport; piping bare JSON directly into stdin is not sufficient
 
 ### Block export fails with various errors
 

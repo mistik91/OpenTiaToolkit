@@ -1,7 +1,13 @@
+using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.MCP.Server
@@ -11,6 +17,11 @@ namespace OpenTiaToolkit.MCP.Server
     /// </summary>
     public class ToolRegistry
     {
+        private static readonly JsonSerializerOptions StructuredContentSerializerOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
         private readonly Dictionary<string, ToolAdapter> _tools;
         private readonly ILogger<ToolRegistry> _logger;
 
@@ -51,36 +62,47 @@ namespace OpenTiaToolkit.MCP.Server
         /// Lists all available tools.
         /// </summary>
         /// <returns>List of tool information.</returns>
-        public List<ToolInfo> ListTools()
+        public List<Tool> ListTools()
         {
-            var tools = new List<ToolInfo>();
+            return _tools.Values
+                .OrderBy(tool => tool.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(tool => tool.ProtocolTool)
+                .ToList();
+        }
 
-            foreach (var kvp in _tools)
+        /// <summary>
+        /// Executes a tool by name.
+        /// </summary>
+        public async ValueTask<CallToolResult> CallToolAsync(
+            string? toolName,
+            IReadOnlyDictionary<string, JsonElement>? arguments,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(toolName))
             {
-                tools.Add(new ToolInfo
-                {
-                    Name = kvp.Value.Name,
-                    Description = kvp.Value.Description,
-                    InputSchema = kvp.Value.GetInputSchema()
-                });
+                throw new McpException("Missing tool name.");
             }
 
-            return tools;
+            var tool = GetTool(toolName!);
+            if (tool == null)
+            {
+                throw new McpException($"Tool not found: {toolName}");
+            }
+
+            var result = await tool.ExecuteAsync(arguments);
+
+            return new CallToolResult
+            {
+                IsError = result.IsError,
+                StructuredContent = JsonSerializer.SerializeToNode(result.StructuredContent, StructuredContentSerializerOptions),
+                Content = new List<ContentBlock>
+                {
+                    new TextContentBlock
+                    {
+                        Text = result.Text
+                    }
+                }
+            };
         }
-    }
-
-    /// <summary>
-    /// Information about a registered tool.
-    /// </summary>
-    public class ToolInfo
-    {
-        /// <summary>Gets or sets the tool name.</summary>
-        public string Name { get; set; } = string.Empty;
-
-        /// <summary>Gets or sets the tool description.</summary>
-        public string Description { get; set; } = string.Empty;
-
-        /// <summary>Gets or sets the JSON schema for input arguments.</summary>
-        public string InputSchema { get; set; } = string.Empty;
     }
 }

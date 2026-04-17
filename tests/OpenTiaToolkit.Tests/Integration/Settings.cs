@@ -19,6 +19,15 @@ namespace OpenTiaToolkit.Tests.Integration
             "OPEN_TIA_TEST_OUTPUT_PATH",
             "D:\\Siemens\\V21\\MCP_TEST_OUTPUT");
 
+        // Unified HMI-specific validation project
+        public static readonly string UnifiedHmiProjectPath = GetSetting(
+            "OPEN_TIA_TEST_HMI_PROJECT_PATH",
+            @"E:\Documents\Automation\HmiTest\HmiTest.ap21");
+
+        public static readonly string UnifiedHmiName = GetSetting(
+            "OPEN_TIA_TEST_UNIFIED_HMI_NAME",
+            "HMI_1");
+
         private static string GetSetting(string envVarName, string fallback)
         {
             var configured = Environment.GetEnvironmentVariable(envVarName);

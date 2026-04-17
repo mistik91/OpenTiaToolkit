@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.Core.Commands;
 using System;
+using System.Text.Json;
 
 namespace OpenTiaToolkit.Tests.Commands
 {
@@ -178,7 +179,7 @@ namespace OpenTiaToolkit.Tests.Commands
         public void CaseInsensitive_BothWork()
         {
             // Arrange
-            var values = new System.Collections.Generic.Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            var values = new System.Collections.Generic.Dictionary<string, object?>()
             {
                 { "ProjectPath", "C:\\Test.ap21" }
             };
@@ -197,6 +198,61 @@ namespace OpenTiaToolkit.Tests.Commands
             Assert.AreEqual(result1, result2);
             // And should contain our test value
             Assert.IsTrue(result1.Contains("Test.ap21"));
+        }
+
+        [TestMethod]
+        public void KebabSnakeAndCamelCase_BothWork()
+        {
+            // Arrange
+            var values = new System.Collections.Generic.Dictionary<string, object?>()
+            {
+                { "projectPath", "C:\\Test.ap21" }
+            };
+            var args = new CommandArgs(values);
+
+            // Act
+            var snakeCase = args.GetString("project_path");
+            var kebabCase = args.GetString("project-path");
+
+            // Assert
+            Assert.AreEqual("C:\\Test.ap21", snakeCase);
+            Assert.AreEqual("C:\\Test.ap21", kebabCase);
+        }
+
+        [TestMethod]
+        public void GetInt_ReadsJsonElementNumber_WhenArgumentsComeFromMcp()
+        {
+            using var document = JsonDocument.Parse("{\"count\":7}");
+            var args = new CommandArgs(new System.Collections.Generic.Dictionary<string, object?>
+            {
+                { "count", document.RootElement.GetProperty("count").Clone() }
+            });
+
+            Assert.AreEqual(7, args.GetInt("count"));
+        }
+
+        [TestMethod]
+        public void GetBool_ReadsJsonElementBoolean_WhenArgumentsComeFromMcp()
+        {
+            using var document = JsonDocument.Parse("{\"save\":true}");
+            var args = new CommandArgs(new System.Collections.Generic.Dictionary<string, object?>
+            {
+                { "save", document.RootElement.GetProperty("save").Clone() }
+            });
+
+            Assert.IsTrue(args.GetBool("save"));
+        }
+
+        [TestMethod]
+        public void GetStringArray_ReadsJsonElementArray_WhenArgumentsComeFromMcp()
+        {
+            using var document = JsonDocument.Parse("{\"items\":[\"item1\",\"item2\"]}");
+            var args = new CommandArgs(new System.Collections.Generic.Dictionary<string, object?>
+            {
+                { "items", document.RootElement.GetProperty("items").Clone() }
+            });
+
+            CollectionAssert.AreEqual(new[] { "item1", "item2" }, args.GetStringArray("items"));
         }
     }
 }
