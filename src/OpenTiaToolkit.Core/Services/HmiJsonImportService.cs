@@ -49,7 +49,7 @@ namespace OpenTiaToolkit.Core.Services
             if (dryRun)
             {
                 var preflightResult = await ImportCoreAsync(inputPath, filters, dryRun: true);
-                ApplyDryRunSafetyPolicy(preflightResult, options);
+                ApplySafetyPolicy(preflightResult, options);
                 return preflightResult;
             }
 
@@ -91,6 +91,7 @@ namespace OpenTiaToolkit.Core.Services
             if (result != null)
             {
                 result.BackupPath = backupOutputPath;
+                ApplySafetyPolicy(result, options, backupOutputPath);
                 TryWriteReport(result, inputPath, dryRun: false);
             }
 
@@ -497,14 +498,15 @@ namespace OpenTiaToolkit.Core.Services
                 }
             }
 
-            var changedKeys = HmiJsonCompositeComparer.GetChangedEventHandlerKeys(currentHandlers, filteredHandlers);
+            var desiredHandlers = MergeFilteredEventHandlers(currentHandlers, filteredHandlers, filters);
+            var changedKeys = HmiJsonCompositeComparer.GetChangedEventHandlerKeys(currentHandlers, desiredHandlers);
             if (changedKeys.Count == 0)
             {
                 result.PropertyUnchangedCount += filteredHandlers.Count;
                 return;
             }
 
-            if (!_adapter.TryValidateOrApplyEventHandlers(owner, ownerType, filteredHandlers, apply: !dryRun, out var error))
+            if (!_adapter.TryValidateOrApplyEventHandlers(owner, ownerType, desiredHandlers, apply: !dryRun, out var error))
             {
                 foreach (var eventType in changedKeys)
                 {
@@ -520,7 +522,7 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             var currentMap = HmiJsonCompositeComparer.BuildEventHandlerMap(currentHandlers);
-            var desiredMap = HmiJsonCompositeComparer.BuildEventHandlerMap(filteredHandlers);
+            var desiredMap = HmiJsonCompositeComparer.BuildEventHandlerMap(desiredHandlers);
             foreach (var eventType in changedKeys)
             {
                 currentMap.TryGetValue(eventType, out var currentHandler);
@@ -592,14 +594,15 @@ namespace OpenTiaToolkit.Core.Services
                 }
             }
 
-            var changedKeys = HmiJsonCompositeComparer.GetChangedPropertyEventHandlerKeys(currentHandlers, filteredHandlers);
+            var desiredHandlers = MergeFilteredPropertyEventHandlers(currentHandlers, filteredHandlers, filters);
+            var changedKeys = HmiJsonCompositeComparer.GetChangedPropertyEventHandlerKeys(currentHandlers, desiredHandlers);
             if (changedKeys.Count == 0)
             {
                 result.PropertyUnchangedCount += filteredHandlers.Count;
                 return;
             }
 
-            if (!_adapter.TryValidateOrApplyPropertyEventHandlers(owner, ownerType, filteredHandlers, apply: !dryRun, out var error))
+            if (!_adapter.TryValidateOrApplyPropertyEventHandlers(owner, ownerType, desiredHandlers, apply: !dryRun, out var error))
             {
                 foreach (var key in changedKeys)
                 {
@@ -621,7 +624,7 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             var currentMap = HmiJsonCompositeComparer.BuildPropertyEventHandlerMap(currentHandlers);
-            var desiredMap = HmiJsonCompositeComparer.BuildPropertyEventHandlerMap(filteredHandlers);
+            var desiredMap = HmiJsonCompositeComparer.BuildPropertyEventHandlerMap(desiredHandlers);
             foreach (var key in changedKeys)
             {
                 currentMap.TryGetValue(key, out var currentHandler);
@@ -685,14 +688,15 @@ namespace OpenTiaToolkit.Core.Services
                 }
             }
 
-            var changedProperties = HmiJsonCompositeComparer.GetChangedDynamizationProperties(currentDynamizations, filteredDynamizations);
+            var desiredDynamizations = MergeFilteredDynamizations(currentDynamizations, filteredDynamizations, filters);
+            var changedProperties = HmiJsonCompositeComparer.GetChangedDynamizationProperties(currentDynamizations, desiredDynamizations);
             if (changedProperties.Count == 0)
             {
                 result.PropertyUnchangedCount += filteredDynamizations.Count;
                 return;
             }
 
-            if (!_adapter.TryValidateOrApplyDynamizations(owner, ownerType, filteredDynamizations, apply: !dryRun, out var error))
+            if (!_adapter.TryValidateOrApplyDynamizations(owner, ownerType, desiredDynamizations, apply: !dryRun, out var error))
             {
                 foreach (var propertyName in changedProperties)
                 {
@@ -708,7 +712,7 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             var currentMap = HmiJsonCompositeComparer.BuildDynamizationMap(currentDynamizations);
-            var desiredMap = HmiJsonCompositeComparer.BuildDynamizationMap(filteredDynamizations);
+            var desiredMap = HmiJsonCompositeComparer.BuildDynamizationMap(desiredDynamizations);
             foreach (var propertyName in changedProperties)
             {
                 currentMap.TryGetValue(propertyName, out var currentDynamization);
@@ -727,7 +731,67 @@ namespace OpenTiaToolkit.Core.Services
             result.PropertySetCount += changedProperties.Count;
         }
 
-        private static void ApplyDryRunSafetyPolicy(HmiJsonImportResult? result, HmiJsonImportExecutionOptions options)
+        internal static List<HmiJsonEventHandler> MergeFilteredEventHandlers(
+            IReadOnlyList<HmiJsonEventHandler> currentHandlers,
+            IReadOnlyList<HmiJsonEventHandler> filteredHandlers,
+            HmiJsonFilterOptions filters)
+        {
+            if (!ShouldPreserveUnfilteredCompositeEntries(EventHandlersPropertyName, filters))
+            {
+                return HmiJsonCompositeComparer.CloneEventHandlers(filteredHandlers) ?? new List<HmiJsonEventHandler>();
+            }
+
+            var merged = HmiJsonCompositeComparer.BuildEventHandlerMap(currentHandlers)
+                .Where(entry => !HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(EventHandlersPropertyName, entry.Key, filters))
+                .Select(entry => entry.Value)
+                .Concat(filteredHandlers);
+
+            return HmiJsonCompositeComparer.CloneEventHandlers(merged) ?? new List<HmiJsonEventHandler>();
+        }
+
+        internal static List<HmiJsonPropertyEventHandler> MergeFilteredPropertyEventHandlers(
+            IReadOnlyList<HmiJsonPropertyEventHandler> currentHandlers,
+            IReadOnlyList<HmiJsonPropertyEventHandler> filteredHandlers,
+            HmiJsonFilterOptions filters)
+        {
+            if (!ShouldPreserveUnfilteredCompositeEntries(PropertyEventHandlersPropertyName, filters))
+            {
+                return HmiJsonCompositeComparer.ClonePropertyEventHandlers(filteredHandlers) ?? new List<HmiJsonPropertyEventHandler>();
+            }
+
+            var merged = HmiJsonCompositeComparer.BuildPropertyEventHandlerMap(currentHandlers)
+                .Where(entry => !HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(
+                    PropertyEventHandlersPropertyName,
+                    HmiJsonCompositeComparer.FormatPropertyEventHandlerKey(entry.Key),
+                    filters))
+                .Select(entry => entry.Value)
+                .Concat(filteredHandlers);
+
+            return HmiJsonCompositeComparer.ClonePropertyEventHandlers(merged) ?? new List<HmiJsonPropertyEventHandler>();
+        }
+
+        internal static List<HmiJsonDynamization> MergeFilteredDynamizations(
+            IReadOnlyList<HmiJsonDynamization> currentDynamizations,
+            IReadOnlyList<HmiJsonDynamization> filteredDynamizations,
+            HmiJsonFilterOptions filters)
+        {
+            if (!ShouldPreserveUnfilteredCompositeEntries(DynamizationsPropertyName, filters))
+            {
+                return HmiJsonCompositeComparer.CloneDynamizations(filteredDynamizations) ?? new List<HmiJsonDynamization>();
+            }
+
+            var merged = HmiJsonCompositeComparer.BuildDynamizationMap(currentDynamizations)
+                .Where(entry => !HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(DynamizationsPropertyName, entry.Key, filters))
+                .Select(entry => entry.Value)
+                .Concat(filteredDynamizations);
+
+            return HmiJsonCompositeComparer.CloneDynamizations(merged) ?? new List<HmiJsonDynamization>();
+        }
+
+        internal static void ApplySafetyPolicy(
+            HmiJsonImportResult? result,
+            HmiJsonImportExecutionOptions options,
+            string? backupPath = null)
         {
             if (result == null)
             {
@@ -737,19 +801,25 @@ namespace OpenTiaToolkit.Core.Services
             var blockingMessage = GetBlockingSafetyGateMessage(result, options);
             if (!string.IsNullOrWhiteSpace(blockingMessage))
             {
-                MarkSafetyBlocked(result, blockingMessage!, backupPath: null);
+                MarkSafetyBlocked(result, blockingMessage!, backupPath);
             }
         }
 
-        private static string? GetBlockingSafetyGateMessage(HmiJsonImportResult result, HmiJsonImportExecutionOptions options)
+        internal static string? GetBlockingSafetyGateMessage(HmiJsonImportResult result, HmiJsonImportExecutionOptions options)
         {
             if ((options.RequireCleanPreflight || options.FailOnWarning) &&
-                (result.WarningCount > 0 || result.PropertyFailedCount > 0))
+                (result.WarningCount > 0 || result.PropertyFailedCount > 0 || result.PropertySkippedCount > 0))
             {
-                return $"Clean preflight was required, but the run reported {result.WarningCount} warning(s) and {result.PropertyFailedCount} failed property change(s).";
+                return $"Clean preflight was required, but the run reported {result.WarningCount} warning(s), {result.PropertyFailedCount} failed property change(s), and {result.PropertySkippedCount} skipped property change(s).";
             }
 
             return null;
+        }
+
+        private static bool ShouldPreserveUnfilteredCompositeEntries(string propertyName, HmiJsonFilterOptions filters)
+        {
+            return filters.Properties.Count > 0 &&
+                   !filters.Properties.Contains(propertyName, StringComparer.OrdinalIgnoreCase);
         }
 
         private static HmiJsonImportResult CreateSafetyBlockedResult(string inputPath, bool dryRun, string safetyMessage)

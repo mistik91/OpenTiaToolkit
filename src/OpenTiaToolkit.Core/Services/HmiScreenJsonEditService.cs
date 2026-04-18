@@ -215,9 +215,20 @@ namespace OpenTiaToolkit.Core.Services
 
             result.Import = await _importService.ImportAsync(result.Diff.OutputPath, effectiveFilters, dryRun: false, executionOptions: options);
             result.BackupPath = result.Import?.BackupPath;
-            result.SafetyBlocked = result.Import?.SafetyBlocked == true;
-            result.SafetyMessage = result.Import?.SafetyMessage;
-            result.Applied = result.Import != null && !result.Import.SafetyBlocked;
+            if (result.Import == null)
+            {
+                result.SafetyBlocked = true;
+                result.SafetyMessage = "Screen edit import did not return a result.";
+                result.Warnings.Add(result.SafetyMessage);
+            }
+            else
+            {
+                HmiJsonImportService.ApplySafetyPolicy(result.Import, options, result.Import.BackupPath);
+                result.SafetyBlocked = result.Import.SafetyBlocked;
+                result.SafetyMessage = result.Import.SafetyMessage;
+            }
+
+            result.Applied = result.Import != null && !result.SafetyBlocked;
 
             if (result.Applied)
             {
