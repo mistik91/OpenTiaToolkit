@@ -216,6 +216,58 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
+        public async Task<HmiFaceplateInterfaceProbeResult?> ProbeFaceplateInterfaceAsync(
+            string screenPath,
+            string itemName,
+            string? propertyName = null,
+            bool write = false,
+            string? value = null,
+            bool restore = true)
+        {
+            return await Task.Run(() =>
+            {
+                var software = _sessionContext.HmiSoftware;
+                if (software == null)
+                {
+                    _logger?.LogWarning("No Unified HMI is currently open");
+                    return null;
+                }
+
+                if (!_adapter.TryGetScreen(software, screenPath, out var screen, out var normalizedPath) || screen == null)
+                {
+                    _logger?.LogWarning("Unified HMI screen not found: {ScreenPath}", screenPath);
+                    return null;
+                }
+
+                var item = screen.ScreenItems.Find(itemName);
+                if (item == null)
+                {
+                    _logger?.LogWarning("Unified HMI item not found: {ScreenPath}/{ItemName}", normalizedPath, itemName);
+                    return null;
+                }
+
+                // Reacquire immediately before write probes so the operation does not rely on an older item reference.
+                if (write)
+                {
+                    if (!_adapter.TryGetScreen(software, normalizedPath, out screen, out _) || screen == null)
+                    {
+                        _logger?.LogWarning("Unified HMI screen could not be reacquired before probe: {ScreenPath}", normalizedPath);
+                        return null;
+                    }
+
+                    item = screen.ScreenItems.Find(itemName);
+                    if (item == null)
+                    {
+                        _logger?.LogWarning("Unified HMI item could not be reacquired before probe: {ScreenPath}/{ItemName}", normalizedPath, itemName);
+                        return null;
+                    }
+                }
+
+                return _adapter.ProbeFaceplateInterface(normalizedPath, item, propertyName, write, value, restore);
+            });
+        }
+
+        /// <inheritdoc/>
         public async Task<HmiScreenJsonEditResult?> ApplyScreenJsonEditAsync(
             string screenPath,
             HmiJsonScreen editedScreen,

@@ -1,0 +1,14 @@
+# Add this block to:
+#   User scope:    C:\Users\<you>\.codex\config.toml
+#   Project scope: <OpenTiaToolkitRoot>\.codex\config.toml
+#
+# Replace E:\Path\To\OpenTiaToolkit with your local checkout path.
+
+[mcp_servers.opentia]
+command = 'E:\Path\To\OpenTiaToolkit\src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe'
+args = []
+cwd = 'E:\Path\To\OpenTiaToolkit'
+env = { OPEN_TIA_MCP_LOG_LEVEL = "Error" }
+enabled = true
+startup_timeout_sec = 60
+tool_timeout_sec = 600

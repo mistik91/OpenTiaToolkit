@@ -520,6 +520,41 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void Apply_SetsFaceplateInterfaceBinding()
+        {
+            var screen = CreateScreen();
+            var item = screen.Items.Single();
+            item.Type = "HmiFaceplateContainer";
+            item.Interface = new List<HmiJsonInterfaceBinding>
+            {
+                new HmiJsonInterfaceBinding
+                {
+                    PropertyName = "AV",
+                    Value = "Valve_Old.AV"
+                }
+            };
+
+            var result = HmiScreenJsonPatchApplier.Apply(
+                screen,
+                new[]
+                {
+                    new HmiScreenJsonPatchOperation
+                    {
+                        Op = "set-interface",
+                        Item = "Btn1",
+                        Property = "AV",
+                        Value = "Valve_New.AV"
+                    }
+                });
+
+            Assert.AreEqual(0, result.FailedCount);
+            var binding = result.Screen.Items.Single(item => item.Name == "Btn1").Interface!.Single();
+            Assert.AreEqual("AV", binding.PropertyName);
+            Assert.AreEqual("Valve_New.AV", binding.Value);
+            Assert.AreEqual("Interface.AV", result.OperationResults.Single().Property);
+        }
+
+        [TestMethod]
         public void Apply_SetsScriptDynamizationFromCompactFields()
         {
             var result = HmiScreenJsonPatchApplier.Apply(
@@ -617,7 +652,7 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.AreEqual(1, issues.Count);
             Assert.IsTrue(issues.Single().Message!.Contains("EventHandlers"));
             CollectionAssert.Contains(issues.Single().Suggestions, "Add 'EventHandlers' to properties.");
-            CollectionAssert.Contains(issues.Single().Suggestions, "Composite edits must filter by the root property name: EventHandlers, PropertyEventHandlers, or Dynamizations.");
+            CollectionAssert.Contains(issues.Single().Suggestions, "Composite edits must filter by the root property name: EventHandlers, PropertyEventHandlers, Dynamizations, or Interface.");
         }
 
         [TestMethod]
@@ -640,12 +675,20 @@ namespace OpenTiaToolkit.Tests.Services
                         Item = "Btn1",
                         Property = "Text",
                         Tag = "test_int"
+                    },
+                    new HmiScreenJsonPatchOperation
+                    {
+                        Op = "set-interface",
+                        Item = "Btn1",
+                        Property = "AV",
+                        Value = "Valve_A.AV"
                     }
                 });
 
             CollectionAssert.Contains(filters.ItemNames.ToList(), "Btn1");
             CollectionAssert.Contains(filters.Properties.ToList(), "EventHandlers");
             CollectionAssert.Contains(filters.Properties.ToList(), "Dynamizations");
+            CollectionAssert.Contains(filters.Properties.ToList(), "Interface");
         }
 
         [TestMethod]

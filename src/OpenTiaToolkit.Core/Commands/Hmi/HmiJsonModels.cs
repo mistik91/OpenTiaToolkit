@@ -80,6 +80,18 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         public List<HmiJsonPropertyEventHandler>? PropertyEventHandlers { get; set; }
 
         public List<HmiJsonDynamization>? Dynamizations { get; set; }
+
+        public List<HmiJsonInterfaceBinding>? Interface { get; set; }
+    }
+
+    /// <summary>
+    /// Faceplate container interface binding exported from or imported into Unified HMI.
+    /// </summary>
+    public sealed class HmiJsonInterfaceBinding
+    {
+        public string PropertyName { get; set; } = string.Empty;
+
+        public string? Value { get; set; }
     }
 
     /// <summary>

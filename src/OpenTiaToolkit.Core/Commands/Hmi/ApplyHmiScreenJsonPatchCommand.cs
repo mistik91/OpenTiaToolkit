@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -28,7 +29,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             {
                 new CommandParameter("hmi-name", CommandParameterType.String, "The Unified HMI name", required: true),
                 new CommandParameter("screen-path", CommandParameterType.String, "The slash-delimited screen path", required: true),
-                new CommandParameter("operations", CommandParameterType.Object, "Patch operations array or { operations: [...] } object", required: true),
+                new CommandParameter("operations", CommandParameterType.Object, "Patch operations array or { operations: [...] } object", required: false),
+                new CommandParameter("operations-path", CommandParameterType.Path, "Optional JSON file containing patch operations array or { operations: [...] } object", required: false),
                 new CommandParameter("base-hash", CommandParameterType.String, "Optional expected hash from get-hmi-screen-json", required: false),
                 new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate changes without applying them", required: false, defaultValue: true),
                 new CommandParameter("allow-stale-base", CommandParameterType.Boolean, "Allow applying when base-hash no longer matches", required: false, defaultValue: false),
@@ -56,9 +58,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 return CommandResult.CreateFailure("Missing required parameter: screen-path");
             }
 
-            if (!HmiJsonCommandSupport.TryGetPatchOperationsArgument(args, "operations", out var operations, out var parseError))
+            if (!TryGetPatchOperations(args, out var operations, out var parseError))
             {
-                return CommandResult.CreateFailure(parseError ?? "Missing required parameter: operations");
+                return CommandResult.CreateFailure(parseError ?? "Missing required parameter: operations or operations-path");
             }
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
@@ -102,6 +104,47 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         private static bool HasAgentFilters(HmiJsonFilterOptions filters)
         {
             return filters.ItemNames.Any() || filters.Properties.Any();
+        }
+
+        private static bool TryGetPatchOperations(
+            CommandArgs args,
+            out System.Collections.Generic.IReadOnlyList<HmiScreenJsonPatchOperation>? operations,
+            out string? error)
+        {
+            operations = null;
+            error = null;
+
+            if (args.Has("operations-path"))
+            {
+                var operationsPath = args.GetString("operations-path");
+                if (string.IsNullOrWhiteSpace(operationsPath))
+                {
+                    error = "Parameter operations-path must contain a JSON file path.";
+                    return false;
+                }
+
+                try
+                {
+                    return HmiJsonCommandSupport.TryParsePatchOperationsJson(
+                        "operations-path",
+                        File.ReadAllText(operationsPath),
+                        out operations,
+                        out error);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is NotSupportedException)
+                {
+                    error = $"Failed to read operations-path '{operationsPath}': {ex.Message}";
+                    return false;
+                }
+            }
+
+            if (!args.Has("operations"))
+            {
+                error = "Missing required parameter: operations or operations-path";
+                return false;
+            }
+
+            return HmiJsonCommandSupport.TryGetPatchOperationsArgument(args, "operations", out operations, out error);
         }
     }
 }

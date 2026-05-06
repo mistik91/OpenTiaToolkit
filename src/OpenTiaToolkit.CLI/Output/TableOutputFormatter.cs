@@ -23,7 +23,19 @@ namespace OpenTiaToolkit.CLI.Output
         {
             if (!result.Success)
             {
-                return FormatError(result.Message, result.Error);
+                var errorText = FormatError(result.Message, result.Error);
+                if (result.Data == null)
+                {
+                    return errorText;
+                }
+
+                var detailText = IsTagUpdateResult(result.Data)
+                    ? FormatTagUpdateResult(result.Data)
+                    : string.Empty;
+
+                return string.IsNullOrWhiteSpace(detailText)
+                    ? errorText
+                    : errorText + Environment.NewLine + Environment.NewLine + detailText;
             }
 
             if (result.Data == null)
@@ -699,6 +711,14 @@ namespace OpenTiaToolkit.CLI.Output
                             }
                         }
                     }
+                    else if (itemList.Count > 0 && itemList[0] is CompilationDiagnostic)
+                    {
+                        lines.Add($"{prop.Name,-20} :");
+                        foreach (var item in itemList.Cast<CompilationDiagnostic>())
+                        {
+                            lines.Add($"  - {FormatCompilationDiagnostic(item)}");
+                        }
+                    }
                     else
                     {
                         // Format as a list of items
@@ -724,6 +744,40 @@ namespace OpenTiaToolkit.CLI.Output
             }
 
             return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatCompilationDiagnostic(CompilationDiagnostic diagnostic)
+        {
+            var parts = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(diagnostic.Severity))
+            {
+                parts.Add(diagnostic.Severity);
+            }
+
+            if (!string.IsNullOrWhiteSpace(diagnostic.ErrorCode))
+            {
+                parts.Add(diagnostic.ErrorCode!);
+            }
+
+            var location = string.Join(
+                " / ",
+                new[] { diagnostic.Path, diagnostic.Name }
+                    .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            if (!string.IsNullOrWhiteSpace(location))
+            {
+                parts.Add(location);
+            }
+
+            if (!string.IsNullOrWhiteSpace(diagnostic.Description))
+            {
+                parts.Add(diagnostic.Description!);
+            }
+
+            return parts.Count == 0
+                ? "Compiler diagnostic without exposed details"
+                : string.Join(": ", parts);
         }
 
         private static bool IsTreeNode(object obj)
@@ -1007,12 +1061,14 @@ namespace OpenTiaToolkit.CLI.Output
             var summaryProp = data.GetType().GetProperty("summary");
             var updatedProp = data.GetType().GetProperty("updated");
             var createdProp = data.GetType().GetProperty("created");
+            var deletedProp = data.GetType().GetProperty("deleted");
             var warningsProp = data.GetType().GetProperty("warnings");
             var errorsProp = data.GetType().GetProperty("errors");
 
             var summary = summaryProp?.GetValue(data);
             var updated = updatedProp?.GetValue(data);
             var created = createdProp?.GetValue(data);
+            var deleted = deletedProp?.GetValue(data);
             var warnings = warningsProp?.GetValue(data);
             var errors = errorsProp?.GetValue(data);
 
@@ -1023,6 +1079,7 @@ namespace OpenTiaToolkit.CLI.Output
                 var existingTagsScanned = summary.GetType().GetProperty("ExistingTagsScanned")?.GetValue(summary);
                 var tagsUpdated = summary.GetType().GetProperty("TagsUpdated")?.GetValue(summary);
                 var tagsCreated = summary.GetType().GetProperty("TagsCreated")?.GetValue(summary);
+                var tagsDeleted = summary.GetType().GetProperty("TagsDeleted")?.GetValue(summary);
                 var tagsSkipped = summary.GetType().GetProperty("TagsSkipped")?.GetValue(summary);
 
                 lines.Add("Summary:");
@@ -1030,6 +1087,7 @@ namespace OpenTiaToolkit.CLI.Output
                 lines.Add($"  Existing Tags Scanned: {existingTagsScanned ?? 0}");
                 lines.Add($"  Tags Updated: {tagsUpdated ?? 0}");
                 lines.Add($"  Tags Created: {tagsCreated ?? 0}");
+                lines.Add($"  Tags Deleted: {tagsDeleted ?? 0}");
                 lines.Add($"  Tags Skipped: {tagsSkipped ?? 0}");
             }
 
@@ -1060,6 +1118,29 @@ namespace OpenTiaToolkit.CLI.Output
                             {
                                 lines.Add($"  - [{tagTableName}] {newName}: {oldAddress} -> {newAddress}");
                             }
+                        }
+                    }
+                }
+            }
+
+            // Format deleted tags
+            if (deleted != null && deleted.GetType().IsGenericType && deleted.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            {
+                var deletedList = (System.Collections.IList)deleted;
+                if (deletedList.Count > 0)
+                {
+                    lines.Add("");
+                    lines.Add("Deleted Tags:");
+                    foreach (var entry in deletedList)
+                    {
+                        if (entry != null)
+                        {
+                            var tagTableName = entry.GetType().GetProperty("TagTableName")?.GetValue(entry)?.ToString() ?? "";
+                            var tagName = entry.GetType().GetProperty("TagName")?.GetValue(entry)?.ToString() ?? "";
+                            var address = entry.GetType().GetProperty("Address")?.GetValue(entry)?.ToString() ?? "";
+                            var reason = entry.GetType().GetProperty("Reason")?.GetValue(entry)?.ToString();
+                            var reasonStr = string.IsNullOrEmpty(reason) ? "" : $" - {reason}";
+                            lines.Add($"  - [{tagTableName}] {tagName}: {address}{reasonStr}");
                         }
                     }
                 }

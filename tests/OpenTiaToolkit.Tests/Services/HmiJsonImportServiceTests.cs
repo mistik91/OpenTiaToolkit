@@ -159,6 +159,52 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void MergeFilteredInterfaceBindings_EntryFilterPreservesUnfilteredCurrentBindings()
+        {
+            var current = new List<HmiJsonInterfaceBinding>
+            {
+                InterfaceBinding("AV", "Valve_A.AV"),
+                InterfaceBinding("CMD", "Valve_A.CMD")
+            };
+            var filtered = new List<HmiJsonInterfaceBinding>
+            {
+                InterfaceBinding("AV", "Valve_B.AV")
+            };
+
+            var merged = HmiJsonImportService.MergeFilteredInterfaceBindings(
+                current,
+                filtered,
+                new HmiJsonFilterOptions { Properties = new[] { "Interface.AV" } });
+
+            Assert.AreEqual(2, merged.Count);
+            Assert.AreEqual("Valve_B.AV", merged.Single(binding => binding.PropertyName == "AV").Value);
+            Assert.AreEqual("Valve_A.CMD", merged.Single(binding => binding.PropertyName == "CMD").Value);
+        }
+
+        [TestMethod]
+        public void MergeFilteredInterfaceBindings_RootFilterAllowsUnspecifiedBindingDeletes()
+        {
+            var current = new List<HmiJsonInterfaceBinding>
+            {
+                InterfaceBinding("AV", "Valve_A.AV"),
+                InterfaceBinding("CMD", "Valve_A.CMD")
+            };
+            var filtered = new List<HmiJsonInterfaceBinding>
+            {
+                InterfaceBinding("AV", "Valve_B.AV")
+            };
+
+            var merged = HmiJsonImportService.MergeFilteredInterfaceBindings(
+                current,
+                filtered,
+                new HmiJsonFilterOptions { Properties = new[] { "Interface" } });
+
+            Assert.AreEqual(1, merged.Count);
+            Assert.AreEqual("AV", merged.Single().PropertyName);
+            Assert.AreEqual("Valve_B.AV", merged.Single().Value);
+        }
+
+        [TestMethod]
         public void ApplySafetyPolicy_RequireCleanPreflightBlocksSkippedProperties()
         {
             var result = new HmiJsonImportResult
@@ -218,6 +264,15 @@ namespace OpenTiaToolkit.Tests.Services
                 Property = propertyName,
                 Type = "Tag",
                 Binding = new HmiJsonDynamizationBinding { Tag = tag }
+            };
+        }
+
+        private static HmiJsonInterfaceBinding InterfaceBinding(string propertyName, string value)
+        {
+            return new HmiJsonInterfaceBinding
+            {
+                PropertyName = propertyName,
+                Value = value
             };
         }
     }

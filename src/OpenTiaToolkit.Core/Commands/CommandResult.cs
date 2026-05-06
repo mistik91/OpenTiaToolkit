@@ -67,6 +67,24 @@ namespace OpenTiaToolkit.Core.Commands
         }
 
         /// <summary>
+        /// Creates a failed command result while preserving structured data for callers.
+        /// </summary>
+        /// <param name="message">Error message describing the failure.</param>
+        /// <param name="data">Structured data collected before the failure was reported.</param>
+        /// <param name="exception">Optional exception that caused the failure.</param>
+        /// <returns>A failed CommandResult.</returns>
+        public static CommandResult CreateFailure(string message, object? data, Exception? exception = null)
+        {
+            return new CommandResult
+            {
+                Success = false,
+                Message = message,
+                Error = exception?.Message ?? message,
+                Data = data
+            };
+        }
+
+        /// <summary>
         /// Converts the result to a formatted table string for CLI output.
         /// Uses Spectre.Console for table formatting when Data is a collection.
         /// </summary>

@@ -762,6 +762,118 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
+        public HmiFaceplateInterfaceProbeResult ProbeFaceplateInterface(
+            string screenPath,
+            HmiScreenItemBase item,
+            string? propertyName,
+            bool write,
+            string? value,
+            bool restore)
+        {
+            var targetProperty = NormalizeOptionalString(propertyName);
+            var result = new HmiFaceplateInterfaceProbeResult
+            {
+                ScreenPath = screenPath,
+                ItemName = TryReadStringProperty(item, "Name") ?? string.Empty,
+                ItemType = item.GetType().FullName ?? item.GetType().Name,
+                ContainedType = TryReadStringProperty(item, "ContainedType"),
+                TargetProperty = targetProperty,
+                WriteRequested = write,
+                WriteValue = value,
+                RestoreRequested = write && restore
+            };
+
+            if (!TryGetNamedComposition(item, "Interface", out var composition) || composition is not IEnumerable enumerable)
+            {
+                result.WriteError = "Interface is not available or is not enumerable.";
+                return result;
+            }
+
+            object? targetEntry = null;
+            object? originalRawValue = null;
+
+            foreach (var entry in enumerable.Cast<object>())
+            {
+                var entryName = NormalizeOptionalString(TryReadStringProperty(entry, "PropertyName"));
+                if (string.IsNullOrWhiteSpace(entryName))
+                {
+                    continue;
+                }
+
+                var valueProperty = ResolvePublicInstanceProperty(entry.GetType(), "Value");
+                var rawValue = valueProperty?.CanRead == true ? TryReadPropertyValue(entry, "Value") : null;
+                var probeEntry = new HmiFaceplateInterfaceProbeEntry
+                {
+                    PropertyName = entryName!,
+                    Value = NormalizeOptionalString(FormatValue(rawValue)),
+                    EntryType = entry.GetType().FullName ?? entry.GetType().Name,
+                    ValuePropertyType = valueProperty?.PropertyType.FullName,
+                    ValueDeclaringType = valueProperty?.DeclaringType?.FullName,
+                    ValueCanRead = valueProperty?.CanRead == true,
+                    ValueCanWrite = valueProperty?.CanWrite == true,
+                    IsTarget = !string.IsNullOrWhiteSpace(targetProperty) &&
+                        entryName!.Equals(targetProperty, StringComparison.OrdinalIgnoreCase)
+                };
+                result.Entries.Add(probeEntry);
+
+                if (probeEntry.IsTarget)
+                {
+                    targetEntry = entry;
+                    originalRawValue = rawValue;
+                }
+            }
+
+            result.Entries = result.Entries
+                .OrderBy(entry => entry.PropertyName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!write)
+            {
+                return result;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetProperty))
+            {
+                result.WriteError = "A property name is required when write is true.";
+                return result;
+            }
+
+            if (targetEntry == null)
+            {
+                result.WriteError = $"Interface property '{targetProperty}' was not found.";
+                return result;
+            }
+
+            var targetProbeEntry = result.Entries.First(entry => entry.IsTarget);
+            try
+            {
+                SetObjectPropertyValueFlexible(targetEntry, "Value", value ?? string.Empty);
+                result.WriteSucceeded = true;
+                targetProbeEntry.ValueAfterWrite = NormalizeOptionalString(FormatValue(TryReadPropertyValue(targetEntry, "Value")));
+            }
+            catch (Exception ex)
+            {
+                result.WriteError = FormatExceptionMessage(ex);
+                return result;
+            }
+
+            if (restore)
+            {
+                try
+                {
+                    SetObjectPropertyValueFlexible(targetEntry, "Value", originalRawValue ?? string.Empty);
+                    result.RestoreSucceeded = true;
+                    targetProbeEntry.ValueAfterRestore = NormalizeOptionalString(FormatValue(TryReadPropertyValue(targetEntry, "Value")));
+                }
+                catch (Exception ex)
+                {
+                    result.RestoreError = FormatExceptionMessage(ex);
+                }
+            }
+
+            return result;
+        }
+
         public bool TryResolveItemClrType(string itemType, out Type resolvedType)
         {
             if (TryResolveItemType(itemType, out var descriptor))
@@ -839,6 +951,29 @@ namespace OpenTiaToolkit.Core.Services
             {
                 error = ex.InnerException?.Message ?? ex.Message;
                 dynamizations = new List<HmiJsonDynamization>();
+                return false;
+            }
+        }
+
+        public bool TryReadInterfaceBindings(object owner, out List<HmiJsonInterfaceBinding> bindings, out string? error)
+        {
+            bindings = new List<HmiJsonInterfaceBinding>();
+            error = null;
+
+            if (!TryGetNamedComposition(owner, "Interface", out var composition))
+            {
+                return false;
+            }
+
+            try
+            {
+                bindings = ReadInterfaceBindingsFromComposition(composition);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.InnerException?.Message ?? ex.Message;
+                bindings = new List<HmiJsonInterfaceBinding>();
                 return false;
             }
         }
@@ -986,6 +1121,63 @@ namespace OpenTiaToolkit.Core.Services
             return TrySynchronizeDynamizations(composition, desired, out error);
         }
 
+        public bool TryValidateOrApplyInterfaceBindings(
+            object? owner,
+            Type ownerType,
+            IReadOnlyList<HmiJsonInterfaceBinding>? desiredBindings,
+            bool apply,
+            out string? error)
+        {
+            error = null;
+
+            var desired = HmiJsonCompositeComparer.CloneInterfaceBindings(desiredBindings)?.ToList()
+                          ?? new List<HmiJsonInterfaceBinding>();
+            if (!TryValidateInterfaceBindingDefinitions(desired, out error))
+            {
+                return false;
+            }
+
+            if (ResolvePublicInstanceProperty(ownerType, "Interface") == null)
+            {
+                error = $"Interface is not available on type '{ownerType.Name}'.";
+                return false;
+            }
+
+            if (owner != null && TryGetNamedComposition(owner, "Interface", out var validationComposition))
+            {
+                var availableBindings = ReadRawInterfaceBindings(validationComposition);
+                foreach (var binding in desired)
+                {
+                    var propertyName = NormalizeOptionalString(binding.PropertyName);
+                    if (!string.IsNullOrWhiteSpace(propertyName) &&
+                        !availableBindings.ContainsKey(propertyName!))
+                    {
+                        error = $"Interface property '{propertyName}' was not found.";
+                        return false;
+                    }
+                }
+            }
+
+            if (!apply)
+            {
+                return true;
+            }
+
+            if (owner == null)
+            {
+                error = "The interface owner is not available.";
+                return false;
+            }
+
+            if (!TryGetNamedComposition(owner, "Interface", out var composition))
+            {
+                error = $"Interface is not available on {owner.GetType().Name}.";
+                return false;
+            }
+
+            return TrySynchronizeInterfaceBindings(composition, desired, out error);
+        }
+
         private static bool TryGetNamedComposition(object? source, string propertyName, out object composition)
         {
             composition = null!;
@@ -1013,6 +1205,37 @@ namespace OpenTiaToolkit.Core.Services
                 .OrderBy(handler => handler!.EventType, StringComparer.OrdinalIgnoreCase)
                 .Cast<HmiJsonEventHandler>()
                 .ToList();
+        }
+
+        private static List<HmiJsonInterfaceBinding> ReadInterfaceBindingsFromComposition(object composition)
+        {
+            if (composition is not IEnumerable enumerable)
+            {
+                throw new InvalidOperationException("Interface composition is not enumerable.");
+            }
+
+            return enumerable
+                .Cast<object>()
+                .Select(TryReadInterfaceBindingExport)
+                .Where(binding => binding != null)
+                .OrderBy(binding => binding!.PropertyName, StringComparer.OrdinalIgnoreCase)
+                .Cast<HmiJsonInterfaceBinding>()
+                .ToList();
+        }
+
+        private static HmiJsonInterfaceBinding? TryReadInterfaceBindingExport(object? binding)
+        {
+            var propertyName = NormalizeOptionalString(TryReadStringProperty(binding, "PropertyName"));
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                return null;
+            }
+
+            return new HmiJsonInterfaceBinding
+            {
+                PropertyName = propertyName!,
+                Value = NormalizeOptionalString(FormatValue(TryReadPropertyValue(binding, "Value")))
+            };
         }
 
         private static HmiJsonEventHandler? TryReadEventHandlerExport(object? eventHandler)
@@ -1096,7 +1319,7 @@ namespace OpenTiaToolkit.Core.Services
                 return true;
             }
 
-            var property = ownerType.GetProperty("EventHandlers", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var property = ResolvePublicInstanceProperty(ownerType, "EventHandlers");
             return property != null && TryResolveEventHandlerEnumTypeFromCompositionType(property.PropertyType, out enumType);
         }
 
@@ -1279,7 +1502,7 @@ namespace OpenTiaToolkit.Core.Services
                 return true;
             }
 
-            var property = ownerType.GetProperty("PropertyEventHandlers", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var property = ResolvePublicInstanceProperty(ownerType, "PropertyEventHandlers");
             return property != null && TryResolvePropertyEventHandlerEnumTypeFromCompositionType(property.PropertyType, out enumType);
         }
 
@@ -1795,6 +2018,32 @@ namespace OpenTiaToolkit.Core.Services
             return true;
         }
 
+        private static bool TryValidateInterfaceBindingDefinitions(
+            IEnumerable<HmiJsonInterfaceBinding> bindings,
+            out string? error)
+        {
+            error = null;
+            var seenProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var binding in bindings ?? Enumerable.Empty<HmiJsonInterfaceBinding>())
+            {
+                var propertyName = NormalizeOptionalString(binding?.PropertyName);
+                if (string.IsNullOrWhiteSpace(propertyName))
+                {
+                    error = "Interface entries require a PropertyName value.";
+                    return false;
+                }
+
+                if (!seenProperties.Add(propertyName!))
+                {
+                    error = $"Interface contains a duplicate property '{propertyName}'.";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static bool TryValidateDynamizationTarget(
             object? owner,
             Type ownerType,
@@ -1803,7 +2052,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             error = null;
 
-            if (ownerType.GetProperty("Dynamizations", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase) == null)
+            if (ResolvePublicInstanceProperty(ownerType, "Dynamizations") == null)
             {
                 error = $"Dynamizations is not available on type '{ownerType.Name}'.";
                 return false;
@@ -1967,6 +2216,80 @@ namespace OpenTiaToolkit.Core.Services
                 error = ex.InnerException?.Message ?? ex.Message;
                 return false;
             }
+        }
+
+        private static bool TrySynchronizeInterfaceBindings(
+            object composition,
+            IReadOnlyList<HmiJsonInterfaceBinding> desiredBindings,
+            out string? error)
+        {
+            error = null;
+
+            try
+            {
+                var desired = HmiJsonCompositeComparer.CloneInterfaceBindings(desiredBindings)?.ToList()
+                              ?? new List<HmiJsonInterfaceBinding>();
+                var currentAll = ReadRawInterfaceBindings(composition);
+                var current = currentAll.Values
+                    .Where(entry => entry.Export != null)
+                    .Select(entry => entry.Export!)
+                    .OrderBy(entry => entry.PropertyName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (HmiJsonCompositeComparer.AreInterfaceBindingCollectionsEquivalent(current, desired))
+                {
+                    return true;
+                }
+
+                foreach (var binding in desired)
+                {
+                    var propertyName = NormalizeOptionalString(binding.PropertyName)!;
+                    if (!currentAll.TryGetValue(propertyName, out var currentEntry) || currentEntry.Raw == null)
+                    {
+                        throw new InvalidOperationException($"Interface property '{propertyName}' was not found.");
+                    }
+
+                    try
+                    {
+                        SetObjectPropertyValueFlexible(currentEntry.Raw, "Value", binding.Value ?? string.Empty);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException(
+                            $"Interface property '{propertyName}' could not be written on {currentEntry.Raw.GetType().Name}: {FormatExceptionMessage(ex)}",
+                            ex);
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = FormatExceptionMessage(ex);
+                return false;
+            }
+        }
+
+        private static Dictionary<string, (object Raw, HmiJsonInterfaceBinding? Export, string PropertyName)> ReadRawInterfaceBindings(object composition)
+        {
+            var result = new Dictionary<string, (object Raw, HmiJsonInterfaceBinding? Export, string PropertyName)>(StringComparer.OrdinalIgnoreCase);
+            if (composition is not IEnumerable enumerable)
+            {
+                return result;
+            }
+
+            foreach (var entry in enumerable.Cast<object>())
+            {
+                var propertyName = NormalizeOptionalString(TryReadStringProperty(entry, "PropertyName"));
+                if (string.IsNullOrWhiteSpace(propertyName))
+                {
+                    continue;
+                }
+
+                result[propertyName!] = (entry, TryReadInterfaceBindingExport(entry), propertyName!);
+            }
+
+            return result;
         }
 
         private static Dictionary<string, (object Raw, HmiJsonDynamization? Export, string Property)> ReadRawDynamizations(object composition)
@@ -2490,6 +2813,21 @@ namespace OpenTiaToolkit.Core.Services
             return string.IsNullOrWhiteSpace(value) ? null : value?.Trim();
         }
 
+        private static string FormatExceptionMessage(Exception ex)
+        {
+            var messages = new List<string>();
+            for (var current = ex; current != null; current = current.InnerException)
+            {
+                if (!string.IsNullOrWhiteSpace(current.Message) &&
+                    !messages.Contains(current.Message, StringComparer.Ordinal))
+                {
+                    messages.Add(current.Message);
+                }
+            }
+
+            return messages.Count == 0 ? ex.GetType().Name : string.Join(" | Inner: ", messages);
+        }
+
         private static void DeleteEngineeringObject(object target)
         {
             var method = target.GetType().GetMethod("Delete", BindingFlags.Public | BindingFlags.Instance);
@@ -2508,9 +2846,7 @@ namespace OpenTiaToolkit.Core.Services
                 throw new InvalidOperationException("Invalid property target.");
             }
 
-            var property = targetObject.GetType().GetProperty(
-                propertyName,
-                BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var property = ResolvePublicInstanceProperty(targetObject.GetType(), propertyName);
 
             if (property != null && property.CanWrite)
             {
@@ -2563,9 +2899,7 @@ namespace OpenTiaToolkit.Core.Services
                 throw new InvalidOperationException("Invalid property target.");
             }
 
-            var property = targetObject.GetType().GetProperty(
-                propertyName,
-                BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var property = ResolvePublicInstanceProperty(targetObject.GetType(), propertyName);
 
             if (property != null && property.CanWrite)
             {
@@ -2593,9 +2927,7 @@ namespace OpenTiaToolkit.Core.Services
                 return true;
             }
 
-            var property = targetType.GetProperty(
-                propertyName,
-                BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var property = ResolvePublicInstanceProperty(targetType, propertyName);
             if (property == null)
             {
                 return true;
@@ -2867,7 +3199,7 @@ namespace OpenTiaToolkit.Core.Services
 
         private static void TryEnsureSolidBackFillPattern(object target)
         {
-            var property = target.GetType().GetProperty("BackFillPattern", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var property = ResolvePublicInstanceProperty(target.GetType(), "BackFillPattern");
             if (property == null || !property.CanWrite || !property.PropertyType.IsEnum)
             {
                 return;
@@ -3214,8 +3546,8 @@ namespace OpenTiaToolkit.Core.Services
 
         private static void TryCopyDirectProperty(object source, object target, string propertyName)
         {
-            var sourceProperty = source.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-            var targetProperty = target.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var sourceProperty = ResolvePublicInstanceProperty(source.GetType(), propertyName);
+            var targetProperty = ResolvePublicInstanceProperty(target.GetType(), propertyName);
             if (sourceProperty == null || targetProperty == null || !sourceProperty.CanRead || !targetProperty.CanWrite)
             {
                 return;
@@ -3386,7 +3718,7 @@ namespace OpenTiaToolkit.Core.Services
                 return false;
             }
 
-            var targetProperty = target.GetType().GetProperty(property.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var targetProperty = ResolvePublicInstanceProperty(target.GetType(), property.Name);
             if (targetProperty == null || !targetProperty.CanWrite)
             {
                 return false;
@@ -3674,8 +4006,8 @@ namespace OpenTiaToolkit.Core.Services
 
         private static void TryCopyScriptProperty(object source, object target, string propertyName, string? findText, string? replaceText)
         {
-            var sourceProperty = source.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-            var targetProperty = target.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var sourceProperty = ResolvePublicInstanceProperty(source.GetType(), propertyName);
+            var targetProperty = ResolvePublicInstanceProperty(target.GetType(), propertyName);
             if (sourceProperty == null || targetProperty == null || !sourceProperty.CanRead || !targetProperty.CanWrite)
             {
                 return;
@@ -3708,7 +4040,7 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            var property = source.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var property = ResolvePublicInstanceProperty(source.GetType(), propertyName);
             if (property == null || !property.CanRead)
             {
                 return null;
@@ -3722,6 +4054,58 @@ namespace OpenTiaToolkit.Core.Services
             {
                 return null;
             }
+        }
+
+        private static PropertyInfo? ResolvePublicInstanceProperty(Type type, string propertyName)
+        {
+            if (type == null || string.IsNullOrWhiteSpace(propertyName))
+            {
+                return null;
+            }
+
+            var candidates = type
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(property => property.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (candidates.Count == 0)
+            {
+                return null;
+            }
+
+            var exact = candidates
+                .Where(property => property.Name.Equals(propertyName, StringComparison.Ordinal))
+                .ToList();
+            if (exact.Count == 1)
+            {
+                return exact[0];
+            }
+
+            if (exact.Count > 1)
+            {
+                candidates = exact;
+            }
+
+            return candidates
+                .OrderBy(property => GetInheritanceDistance(type, property.DeclaringType))
+                .ThenByDescending(property => property.CanRead)
+                .ThenByDescending(property => property.CanWrite)
+                .FirstOrDefault();
+        }
+
+        private static int GetInheritanceDistance(Type sourceType, Type? declaringType)
+        {
+            var distance = 0;
+            for (var current = sourceType; current != null; current = current.BaseType)
+            {
+                if (current == declaringType)
+                {
+                    return distance;
+                }
+
+                distance++;
+            }
+
+            return int.MaxValue;
         }
 
         private static void TryDelete(object? target)

@@ -66,7 +66,8 @@ namespace OpenTiaToolkit.Core.Services
                             item.Properties.Count +
                             (item.EventHandlers?.Count ?? 0) +
                             (item.PropertyEventHandlers?.Count ?? 0) +
-                            (item.Dynamizations?.Count ?? 0));
+                            (item.Dynamizations?.Count ?? 0) +
+                            (item.Interface?.Count ?? 0));
                         patchDocument.Screens.Add(CloneScreen(modifiedScreen, action: "Create"));
                         continue;
                     }
@@ -181,10 +182,14 @@ namespace OpenTiaToolkit.Core.Services
                 var changedItemDynamizationProperties = HmiJsonFilterMatcher.ShouldIncludeCompositeProperty("Dynamizations", filters)
                     ? HmiJsonCompositeComparer.GetChangedDynamizationProperties(baseItem.Dynamizations, modifiedItem.Dynamizations)
                     : new List<string>();
+                var changedItemInterfaceProperties = HmiJsonFilterMatcher.ShouldIncludeCompositeProperty("Interface", filters)
+                    ? HmiJsonCompositeComparer.GetChangedInterfaceProperties(baseItem.Interface, modifiedItem.Interface)
+                    : new List<string>();
                 if (changedItemProperties.Count == 0 &&
                     changedItemEventHandlerKeys.Count == 0 &&
                     changedItemPropertyEventHandlerKeys.Count == 0 &&
-                    changedItemDynamizationProperties.Count == 0)
+                    changedItemDynamizationProperties.Count == 0 &&
+                    changedItemInterfaceProperties.Count == 0)
                 {
                     continue;
                 }
@@ -194,6 +199,7 @@ namespace OpenTiaToolkit.Core.Services
                 patchSummary.PropertyChangeCount += changedItemEventHandlerKeys.Count;
                 patchSummary.PropertyChangeCount += changedItemPropertyEventHandlerKeys.Count;
                 patchSummary.PropertyChangeCount += changedItemDynamizationProperties.Count;
+                patchSummary.PropertyChangeCount += changedItemInterfaceProperties.Count;
                 itemPatches.Add(new HmiJsonItem
                 {
                     Name = modifiedItem.Name,
@@ -208,6 +214,9 @@ namespace OpenTiaToolkit.Core.Services
                         : null,
                     Dynamizations = changedItemDynamizationProperties.Count > 0
                         ? HmiJsonCompositeComparer.CloneDynamizations(modifiedItem.Dynamizations) ?? new List<HmiJsonDynamization>()
+                        : null,
+                    Interface = changedItemInterfaceProperties.Count > 0
+                        ? HmiJsonCompositeComparer.CloneInterfaceBindings(modifiedItem.Interface) ?? new List<HmiJsonInterfaceBinding>()
                         : null
                 });
             }
@@ -299,7 +308,8 @@ namespace OpenTiaToolkit.Core.Services
                 Properties = new Dictionary<string, string?>(source.Properties, StringComparer.OrdinalIgnoreCase),
                 EventHandlers = HmiJsonCompositeComparer.CloneEventHandlers(source.EventHandlers),
                 PropertyEventHandlers = HmiJsonCompositeComparer.ClonePropertyEventHandlers(source.PropertyEventHandlers),
-                Dynamizations = HmiJsonCompositeComparer.CloneDynamizations(source.Dynamizations)
+                Dynamizations = HmiJsonCompositeComparer.CloneDynamizations(source.Dynamizations),
+                Interface = HmiJsonCompositeComparer.CloneInterfaceBindings(source.Interface)
             };
         }
     }

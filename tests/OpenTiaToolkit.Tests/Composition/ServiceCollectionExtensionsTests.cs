@@ -91,6 +91,8 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "diff-hmi-json");
             CollectionAssert.Contains(commands, "import-hmi-json");
             CollectionAssert.Contains(commands, "get-hmi-screen-json");
+            CollectionAssert.Contains(commands, "get-hmi-screen-summary");
+            CollectionAssert.Contains(commands, "probe-hmi-faceplate-interface");
             CollectionAssert.Contains(commands, "apply-hmi-screen-json-edit");
             CollectionAssert.Contains(commands, "apply-hmi-screen-json-patch");
             CollectionAssert.Contains(commands, "inspect-hmi-screen-json-capabilities");

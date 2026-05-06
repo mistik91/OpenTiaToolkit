@@ -81,5 +81,24 @@ namespace OpenTiaToolkit.Tests.Commands
             Assert.AreEqual(24, operation.Left);
             Assert.AreEqual(36, operation.Top);
         }
+
+        [TestMethod]
+        public void TryParsePatchOperationsJson_ParsesSetInterfaceOperation()
+        {
+            var parsed = HmiJsonCommandSupport.TryParsePatchOperationsJson(
+                "operations-path",
+                "[{\"op\":\"set-interface\",\"item\":\"V114\",\"property\":\"GEN\",\"value\":\"Valve_V114_GEN\"}]",
+                out var operations,
+                out var error);
+
+            Assert.IsTrue(parsed, error);
+            Assert.IsNotNull(operations);
+            var operation = operations!.Single();
+            Assert.AreEqual("set-interface", operation.Op);
+            Assert.AreEqual("V114", operation.Item);
+            Assert.AreEqual("GEN", operation.Property);
+            Assert.IsInstanceOfType(operation.Value, typeof(JsonElement));
+            Assert.AreEqual("Valve_V114_GEN", ((JsonElement)operation.Value!).GetString());
+        }
     }
 }

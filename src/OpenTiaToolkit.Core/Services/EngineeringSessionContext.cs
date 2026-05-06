@@ -26,6 +26,8 @@ namespace OpenTiaToolkit.Core.Services
 
         public Device? CurrentPlcDevice { get; set; }
 
+        public DeviceItem? CurrentPlcDeviceItem { get; set; }
+
         public string? CurrentPlcName { get; set; }
 
         public HmiSoftware? HmiSoftware { get; set; }
@@ -54,6 +56,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             PlcSoftware = null;
             CurrentPlcDevice = null;
+            CurrentPlcDeviceItem = null;
             CurrentPlcName = null;
         }
 

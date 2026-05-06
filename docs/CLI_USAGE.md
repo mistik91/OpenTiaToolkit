@@ -1192,6 +1192,65 @@ Changes:
    - Preview the results carefully - substring matching can affect many tags
    - Order matters: only the first matching rule in the rename map is applied
 
+#### update-tags-from-csv
+
+Updates existing PLC tags or creates new ones from a CSV file using page-based naming rules.
+
+```bash
+# Preview changes
+OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=true
+
+# Apply changes
+OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false
+
+# Apply changes after logging into the offline safety program
+OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false --safety-password="secret"
+```
+
+**CSV File Format**:
+```csv
+TagName,Address,DataType,Comment
+23F1,%M0.0,Bool,Address/comment update only
+101MotorRun,%M2.0,Bool,Page can change
+RESERVE,%E10.7,,Updates existing non-page tag by unique address
+```
+
+- `TagName`, `Address`, and `DataType` columns are required.
+- `Comment` is optional.
+- Comma and semicolon delimiters are auto-detected.
+- Empty `Comment` values leave the existing comment unchanged.
+- `DataType` is required for rows that create new tags only when it cannot be inferred from the address.
+- Addresses may use international notation (`%I`, `%Q`) or German notation (`%E`, `%A`); German input/output prefixes are normalized before matching and applying.
+- `safety-password` is optional. When provided with `dry-run=false`, the command attempts `SafetyAdministration.LoginToSafetyOfflineProgram` before editing tags. If Openness cannot log in, log into the safety program manually in TIA Portal before applying fail-safe tag changes.
+
+**Page Matching Rules**:
+- A unique address match is treated as the strongest match. If the old tag name also appears elsewhere in the CSV, it is treated as shifted and left for its own row.
+- If a unique address match uses an old tag name that no longer appears in the CSV, the old tag is deleted and a new tag is created at the same address. This intentionally breaks old PLC references so stale logic is found at compile time.
+- Page `< 100`: when there is no address match, the command matches by full tag name and updates address/comment only.
+- Page `>= 100`: the command matches by base name after the numeric page prefix. This lets the page prefix change, so the tag may be renamed.
+- Non-page tag names are updated when the CSV address uniquely matches an existing tag; otherwise they can be created in a tag table inferred from neighboring addresses.
+- Repeated CSV tag names are allowed when their addresses differ. TIA may auto-suffix duplicates such as `RESERVE(1)` or `30_EMERGENCY(1)`.
+- If a row would match multiple existing tags across tag tables, it is skipped as ambiguous.
+- Duplicate CSV addresses are skipped because they would target the same logical point twice.
+
+**Output**:
+```
+CSV rows processed: 2, Existing tags scanned: 45, Tags updated: previewed: 1, Tags created: previewed: 1, Skipped: 0, Warnings: 0, Errors: 0
+
+Summary:
+  CSV Rows: 2
+  Existing Tags Scanned: 45
+  Tags Updated: 1
+  Tags Created: 1
+  Tags Skipped: 0
+```
+
+**Best Practices**:
+1. Run with `dry-run=true` first.
+2. Resolve ambiguous matches before applying changes.
+3. Keep one canonical tag table owner for each page/base-name family.
+4. Review errors in multi-table projects before assuming missing rows should be created.
+
 #### find-replace-db-members
 
 > **NOTE**: This command is currently disabled. The command file and service method remain available for potential future re-enabling.

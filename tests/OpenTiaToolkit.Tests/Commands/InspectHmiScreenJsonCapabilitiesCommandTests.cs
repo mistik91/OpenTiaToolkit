@@ -46,6 +46,7 @@ namespace OpenTiaToolkit.Tests.Commands
             CollectionAssert.Contains(capabilities.Items.Single().AvailableCompositeProperties.ToList(), "EventHandlers");
             CollectionAssert.Contains(capabilities.Items.Single().AvailableCompositeProperties.ToList(), "PropertyEventHandlers");
             CollectionAssert.Contains(capabilities.Items.Single().AvailableCompositeProperties.ToList(), "Dynamizations");
+            CollectionAssert.Contains(capabilities.Items.Single().AvailableCompositeProperties.ToList(), "Interface");
         }
 
         [TestMethod]

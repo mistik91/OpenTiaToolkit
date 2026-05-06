@@ -22,14 +22,16 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             "set-property-event-handler",
             "remove-property-event-handler",
             "set-dynamization",
-            "remove-dynamization"
+            "remove-dynamization",
+            "set-interface"
         };
 
         private static readonly string[] CompositeProperties =
         {
             "EventHandlers",
             "PropertyEventHandlers",
-            "Dynamizations"
+            "Dynamizations",
+            "Interface"
         };
 
         public static IReadOnlyList<string> SupportedPatchOperations => SupportedOperations;
@@ -58,7 +60,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                     Hint("set-property-event-handler", "Create or replace a property event handler.", new[] { "property", "eventType", "scriptCode or propertyEventHandler" }, new[] { "PropertyEventHandlers" }),
                     Hint("remove-property-event-handler", "Remove a property event handler.", new[] { "property", "eventType" }, new[] { "PropertyEventHandlers" }),
                     Hint("set-dynamization", "Create or replace a property dynamization.", new[] { "property", "dynamizationType/tag or dynamization" }, new[] { "Dynamizations" }),
-                    Hint("remove-dynamization", "Remove a property dynamization.", new[] { "property" }, new[] { "Dynamizations" })
+                    Hint("remove-dynamization", "Remove a property dynamization.", new[] { "property" }, new[] { "Dynamizations" }),
+                    Hint("set-interface", "Set a faceplate interface value.", new[] { "propertyName/property", "value" }, new[] { "Interface" })
                 }
             };
         }

@@ -469,8 +469,10 @@ namespace OpenTiaToolkit.Core.Services
                     }
 
                     var tagPattern = new Regex(@"^(\d+)([a-zA-Z0-9_]+)$");
-                    var tagsOverPage100 = new Dictionary<string, TagInfo>(StringComparer.OrdinalIgnoreCase);
-                    var tagsUnderPage100 = new Dictionary<string, TagInfo>(StringComparer.OrdinalIgnoreCase);
+                    var tagsOverPage100 = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase);
+                    var tagsUnderPage100 = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase);
+                    var tagsByFullName = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase);
+                    var tagsByAddress = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase);
                     var tagsByTable = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase);
 
                     var tagTables = _v21Adapter.GetTagTables(plcSoftware);
@@ -507,6 +509,25 @@ namespace OpenTiaToolkit.Core.Services
                             }
 
                             var nonNullTagName = tagName!;
+                            var tagInfo = new TagInfo
+                            {
+                                TagObject = tag,
+                                TagTableName = tagTableName,
+                                FullName = nonNullTagName,
+                                NormalizedAddress = TagUpdateCsvParser.NormalizeLogicalAddress(_v21Adapter.GetLogicalAddress(tag) ?? string.Empty),
+                                BaseName = string.Empty,
+                                PageNumber = -1
+                            };
+
+                            AddTagIndex(tagsByFullName, nonNullTagName, tagInfo);
+                            if (!string.IsNullOrEmpty(tagInfo.NormalizedAddress))
+                            {
+                                AddTagIndex(tagsByAddress, tagInfo.NormalizedAddress, tagInfo);
+                            }
+
+                            tagsByTable[tagTableName].Add(tagInfo);
+                            result.Summary.ExistingTagsScanned++;
+
                             var match = tagPattern.Match(nonNullTagName);
                             if (!match.Success)
                             {
@@ -515,30 +536,17 @@ namespace OpenTiaToolkit.Core.Services
 
                             int pageNumber = int.Parse(match.Groups[1].Value);
                             string baseName = match.Groups[2].Value;
-
-                            var tagInfo = new TagInfo
-                            {
-                                TagObject = tag,
-                                TagTableName = tagTableName,
-                                FullName = nonNullTagName,
-                                BaseName = baseName,
-                                PageNumber = pageNumber
-                            };
+                            tagInfo.BaseName = baseName;
+                            tagInfo.PageNumber = pageNumber;
 
                             if (pageNumber >= 100)
                             {
-                                if (!tagsOverPage100.ContainsKey(baseName))
-                                {
-                                    tagsOverPage100[baseName] = tagInfo;
-                                }
+                                AddTagIndex(tagsOverPage100, baseName, tagInfo);
                             }
-                            else if (!tagsUnderPage100.ContainsKey(nonNullTagName))
+                            else
                             {
-                                tagsUnderPage100[nonNullTagName] = tagInfo;
+                                AddTagIndex(tagsUnderPage100, nonNullTagName, tagInfo);
                             }
-
-                            tagsByTable[tagTableName].Add(tagInfo);
-                            result.Summary.ExistingTagsScanned++;
                         }
                     }
 
@@ -548,18 +556,100 @@ namespace OpenTiaToolkit.Core.Services
                         tagsOverPage100.Count,
                         tagsUnderPage100.Count);
 
+                    var csvNameCounts = csvRows
+                        .GroupBy(row => row.TagName, StringComparer.OrdinalIgnoreCase)
+                        .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+                    var csvTagNames = new HashSet<string>(
+                        csvRows.Select(row => row.TagName),
+                        StringComparer.OrdinalIgnoreCase);
+                    var reservedTagNames = new HashSet<string>(tagsByFullName.Keys, StringComparer.OrdinalIgnoreCase);
+                    var seenCsvAddresses = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                     foreach (var csvRow in csvRows)
                     {
+                        if (!string.IsNullOrEmpty(csvRow.Address))
+                        {
+                            if (seenCsvAddresses.TryGetValue(csvRow.Address, out var firstAddressLineNumber))
+                            {
+                                result.Errors.Add(new TagUpdateError
+                                {
+                                    Item = csvRow.TagName,
+                                    Error = $"Duplicate CSV address '{csvRow.Address}'. First occurrence was on line {firstAddressLineNumber}.",
+                                    LineNumber = csvRow.LineNumber
+                                });
+                                result.Summary.TagsSkipped++;
+                                continue;
+                            }
+
+                            seenCsvAddresses[csvRow.Address] = csvRow.LineNumber;
+
+                            if (tagsByAddress.TryGetValue(csvRow.Address, out var addressMatches) && addressMatches.Count > 0)
+                            {
+                                if (addressMatches.Count > 1)
+                                {
+                                    var exactAddressMatches = addressMatches
+                                        .Where(match => string.Equals(match.FullName, csvRow.TagName, StringComparison.OrdinalIgnoreCase))
+                                        .ToList();
+                                    if (exactAddressMatches.Count == 1)
+                                    {
+                                        var exactAddressMatch = exactAddressMatches[0];
+                                        var obsoleteAddressMatches = addressMatches
+                                            .Where(match => !ReferenceEquals(match.TagObject, exactAddressMatch.TagObject)
+                                                && !csvTagNames.Contains(match.FullName))
+                                            .ToList();
+                                        var stillAmbiguousMatches = addressMatches
+                                            .Where(match => !ReferenceEquals(match.TagObject, exactAddressMatch.TagObject)
+                                                && csvTagNames.Contains(match.FullName))
+                                            .ToList();
+
+                                        if (stillAmbiguousMatches.Count == 0
+                                            && DeleteTags(obsoleteAddressMatches, $"Duplicate address reused by CSV tag '{csvRow.TagName}'", result, dryRun, csvRow.LineNumber))
+                                        {
+                                            UpdateMatchedTagFromCsvRow(
+                                                csvRow,
+                                                exactAddressMatch,
+                                                result,
+                                                dryRun,
+                                                matchedBy: "Address",
+                                                allowRename: false);
+                                            continue;
+                                        }
+                                    }
+
+                                    AddAmbiguousMatchError(csvRow, $"logical address '{csvRow.Address}'", addressMatches, result);
+                                    continue;
+                                }
+
+                                var addressMatch = addressMatches[0];
+                                if (string.Equals(addressMatch.FullName, csvRow.TagName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    UpdateMatchedTagFromCsvRow(
+                                        csvRow,
+                                        addressMatch,
+                                        result,
+                                        dryRun,
+                                        matchedBy: "Address",
+                                        allowRename: false);
+                                    continue;
+                                }
+
+                                if (!csvTagNames.Contains(addressMatch.FullName))
+                                {
+                                    ReplaceTagAtAddressFromCsvRow(csvRow, addressMatch, tagTables, reservedTagNames, result, dryRun);
+                                    continue;
+                                }
+
+                                if (!tagsByFullName.ContainsKey(csvRow.TagName))
+                                {
+                                    CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, reservedTagNames, result, dryRun, csvPageNumber: null);
+                                    continue;
+                                }
+                            }
+                        }
+
                         var match = tagPattern.Match(csvRow.TagName);
                         if (!match.Success)
                         {
-                            result.Warnings.Add(new TagUpdateWarning
-                            {
-                                Item = csvRow.TagName,
-                                Reason = "Tag name does not match pattern ^\\d+[a-zA-Z0-9_]+$ - skipping",
-                                LineNumber = csvRow.LineNumber
-                            });
-                            result.Summary.TagsSkipped++;
+                            CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, reservedTagNames, result, dryRun, csvPageNumber: null);
                             continue;
                         }
 
@@ -568,11 +658,11 @@ namespace OpenTiaToolkit.Core.Services
 
                         if (csvPageNumber >= 100)
                         {
-                            ProcessPage100OrAboveRow(csvRow, tagsOverPage100, tagsByTable, tagTables, result, dryRun);
+                            ProcessPage100OrAboveRow(csvRow, tagsOverPage100, tagsByFullName, tagsByTable, tagTables, reservedTagNames, result, dryRun, csvNameCounts[csvRow.TagName], csvTagNames);
                         }
                         else
                         {
-                            ProcessPageBelow100Row(csvRow, tagsUnderPage100, tagsByTable, tagTables, result, dryRun, csvPageNumber);
+                            ProcessPageBelow100Row(csvRow, tagsUnderPage100, tagsByFullName, tagsByTable, tagTables, reservedTagNames, result, dryRun, csvPageNumber, csvNameCounts[csvRow.TagName]);
                         }
                     }
 
@@ -604,177 +694,235 @@ namespace OpenTiaToolkit.Core.Services
 
         private void ProcessPage100OrAboveRow(
             TagUpdateRow csvRow,
-            Dictionary<string, TagInfo> tagsOverPage100,
+            Dictionary<string, List<TagInfo>> tagsOverPage100,
+            Dictionary<string, List<TagInfo>> tagsByFullName,
             Dictionary<string, List<TagInfo>> tagsByTable,
             IEnumerable<object> tagTables,
+            HashSet<string> reservedTagNames,
             TagUpdateResult result,
-            bool dryRun)
+            bool dryRun,
+            int csvNameCount,
+            HashSet<string> csvTagNames)
         {
             var match = Regex.Match(csvRow.TagName, @"^(\d+)([a-zA-Z0-9_]+)$");
             int csvPageNumber = int.Parse(match.Groups[1].Value);
             string csvBaseName = match.Groups[2].Value;
 
-            if (tagsOverPage100.TryGetValue(csvBaseName, out var tagInfo))
+            if (csvNameCount == 1 && tagsByFullName.TryGetValue(csvRow.TagName, out var exactNameMatches) && exactNameMatches.Count > 0)
             {
-                var oldAddress = _v21Adapter.GetLogicalAddress(tagInfo.TagObject);
-                var oldComment = GetCommentText(tagInfo.TagObject);
-
-                if (!dryRun)
+                if (exactNameMatches.Count > 1)
                 {
-                    try
-                    {
-                        if (!string.Equals(tagInfo.FullName, csvRow.TagName, StringComparison.Ordinal))
-                        {
-                            _v21Adapter.SetName(tagInfo.TagObject, csvRow.TagName);
-                        }
-
-                        if (!string.IsNullOrEmpty(csvRow.Address))
-                        {
-                            _v21Adapter.SetLogicalAddress(tagInfo.TagObject, csvRow.Address);
-                        }
-
-                        if (csvRow.Comment != null)
-                        {
-                            SetTagComment(tagInfo.TagObject, csvRow.Comment);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Errors.Add(new TagUpdateError
-                        {
-                            Item = csvRow.TagName,
-                            Error = "Failed to update tag",
-                            Details = ex.Message,
-                            LineNumber = csvRow.LineNumber
-                        });
-                        result.Summary.TagsSkipped++;
-                        return;
-                    }
+                    AddAmbiguousMatchError(csvRow, $"full tag name '{csvRow.TagName}'", exactNameMatches, result);
+                    return;
                 }
 
-                result.Updated.Add(new TagUpdateEntry
-                {
-                    TagTableName = tagInfo.TagTableName,
-                    MatchedBy = "BaseName",
-                    OldName = tagInfo.FullName,
-                    NewName = csvRow.TagName,
-                    OldAddress = oldAddress,
-                    NewAddress = csvRow.Address,
-                    OldComment = oldComment,
-                    NewComment = csvRow.Comment
-                });
-                result.Summary.TagsUpdated++;
+                UpdateMatchedTagFromCsvRow(
+                    csvRow,
+                    exactNameMatches[0],
+                    result,
+                    dryRun,
+                    matchedBy: "FullName",
+                    allowRename: false);
                 return;
             }
 
-            CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, result, dryRun, csvPageNumber);
+            if (csvNameCount == 1 && tagsOverPage100.TryGetValue(csvBaseName, out var matchingTags))
+            {
+                if (matchingTags.Count > 1)
+                {
+                    AddAmbiguousMatchError(csvRow, $"base name '{csvBaseName}'", matchingTags, result);
+                    return;
+                }
+
+                var tagInfo = matchingTags[0];
+                if (csvTagNames.Contains(tagInfo.FullName))
+                {
+                    CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, reservedTagNames, result, dryRun, csvPageNumber);
+                    return;
+                }
+
+                if (HasExactNameConflict(csvRow.TagName, tagInfo, tagsByFullName))
+                {
+                    AddExactNameConflictError(csvRow, tagsByFullName[csvRow.TagName], result);
+                    return;
+                }
+
+                UpdateMatchedTagFromCsvRow(
+                    csvRow,
+                    tagInfo,
+                    result,
+                    dryRun,
+                    matchedBy: "BaseName",
+                    allowRename: true);
+                return;
+            }
+
+            CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, reservedTagNames, result, dryRun, csvPageNumber);
         }
 
         private void ProcessPageBelow100Row(
             TagUpdateRow csvRow,
-            Dictionary<string, TagInfo> tagsUnderPage100,
+            Dictionary<string, List<TagInfo>> tagsUnderPage100,
+            Dictionary<string, List<TagInfo>> tagsByFullName,
             Dictionary<string, List<TagInfo>> tagsByTable,
             IEnumerable<object> tagTables,
+            HashSet<string> reservedTagNames,
             TagUpdateResult result,
             bool dryRun,
-            int csvPageNumber)
+            int csvPageNumber,
+            int csvNameCount)
         {
-            if (tagsUnderPage100.TryGetValue(csvRow.TagName, out var tagInfo))
+            if (csvNameCount == 1 && tagsUnderPage100.TryGetValue(csvRow.TagName, out var matchingTags))
             {
-                var oldAddress = _v21Adapter.GetLogicalAddress(tagInfo.TagObject);
-                var oldComment = GetCommentText(tagInfo.TagObject);
-
-                if (!dryRun)
+                if (matchingTags.Count > 1)
                 {
-                    try
-                    {
-                        if (!string.IsNullOrEmpty(csvRow.Address))
-                        {
-                            _v21Adapter.SetLogicalAddress(tagInfo.TagObject, csvRow.Address);
-                        }
-
-                        if (csvRow.Comment != null)
-                        {
-                            SetTagComment(tagInfo.TagObject, csvRow.Comment);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Errors.Add(new TagUpdateError
-                        {
-                            Item = csvRow.TagName,
-                            Error = "Failed to update tag",
-                            Details = ex.Message,
-                            LineNumber = csvRow.LineNumber
-                        });
-                        result.Summary.TagsSkipped++;
-                        return;
-                    }
+                    AddAmbiguousMatchError(csvRow, $"full tag name '{csvRow.TagName}'", matchingTags, result);
+                    return;
                 }
 
-                result.Updated.Add(new TagUpdateEntry
-                {
-                    TagTableName = tagInfo.TagTableName,
-                    MatchedBy = "FullName",
-                    OldName = tagInfo.FullName,
-                    NewName = csvRow.TagName,
-                    OldAddress = oldAddress,
-                    NewAddress = csvRow.Address,
-                    OldComment = oldComment,
-                    NewComment = csvRow.Comment ?? oldComment
-                });
-                result.Summary.TagsUpdated++;
+                var tagInfo = matchingTags[0];
+                UpdateMatchedTagFromCsvRow(
+                    csvRow,
+                    tagInfo,
+                    result,
+                    dryRun,
+                    matchedBy: "FullName",
+                    allowRename: false);
                 return;
             }
 
-            CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, result, dryRun, csvPageNumber);
+            CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, reservedTagNames, result, dryRun, csvPageNumber);
+        }
+
+        private void UpdateMatchedTagFromCsvRow(
+            TagUpdateRow csvRow,
+            TagInfo tagInfo,
+            TagUpdateResult result,
+            bool dryRun,
+            string matchedBy,
+            bool allowRename)
+        {
+            var oldAddress = _v21Adapter.GetLogicalAddress(tagInfo.TagObject);
+            var oldComment = GetCommentText(tagInfo.TagObject);
+            var newName = allowRename ? csvRow.TagName : tagInfo.FullName;
+            var newAddress = string.IsNullOrEmpty(csvRow.Address) ? oldAddress ?? string.Empty : csvRow.Address;
+            var newComment = csvRow.Comment ?? oldComment;
+
+            if (!dryRun)
+            {
+                try
+                {
+                    if (allowRename && !string.Equals(tagInfo.FullName, csvRow.TagName, StringComparison.Ordinal))
+                    {
+                        _v21Adapter.SetName(tagInfo.TagObject, csvRow.TagName);
+                    }
+
+                    if (!string.IsNullOrEmpty(csvRow.Address))
+                    {
+                        _v21Adapter.SetLogicalAddress(tagInfo.TagObject, csvRow.Address);
+                    }
+
+                    if (csvRow.Comment != null)
+                    {
+                        if (SetTagComment(tagInfo.TagObject, csvRow.Comment))
+                        {
+                            newComment = csvRow.Comment;
+                        }
+                        else
+                        {
+                            result.Warnings.Add(new TagUpdateWarning
+                            {
+                                Item = csvRow.TagName,
+                                Reason = $"Tag was updated, but failed to apply comment for {csvRow.TagName}.",
+                                LineNumber = csvRow.LineNumber
+                            });
+                            newComment = oldComment;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add(new TagUpdateError
+                    {
+                        Item = csvRow.TagName,
+                        Error = "Failed to update tag",
+                        Details = AddSafetyLoginReminder(ex.Message),
+                        LineNumber = csvRow.LineNumber
+                    });
+                    result.Summary.TagsSkipped++;
+                    return;
+                }
+            }
+
+            result.Updated.Add(new TagUpdateEntry
+            {
+                TagTableName = tagInfo.TagTableName,
+                MatchedBy = matchedBy,
+                OldName = tagInfo.FullName,
+                NewName = newName,
+                OldAddress = oldAddress,
+                NewAddress = newAddress,
+                OldComment = oldComment,
+                NewComment = newComment
+            });
+            result.Summary.TagsUpdated++;
         }
 
         private void CreateTagFromCsvRow(
             TagUpdateRow csvRow,
             IEnumerable<object> tagTables,
             Dictionary<string, List<TagInfo>> tagsByTable,
+            HashSet<string> reservedTagNames,
             TagUpdateResult result,
             bool dryRun,
-            int csvPageNumber)
+            int? csvPageNumber)
         {
-            if (string.IsNullOrEmpty(csvRow.DataType))
+            var dataType = string.IsNullOrEmpty(csvRow.DataType)
+                ? InferDataTypeFromAddress(csvRow.Address)
+                : csvRow.DataType;
+
+            if (string.IsNullOrEmpty(dataType))
             {
                 result.Errors.Add(new TagUpdateError
                 {
                     Item = csvRow.TagName,
-                    Error = "DataType is required for new tags",
+                    Error = "DataType is required for new tags when it cannot be inferred from the address",
                     LineNumber = csvRow.LineNumber
                 });
                 result.Summary.TagsSkipped++;
                 return;
             }
 
-            var targetTagTable = FindBestTagTableForPage(tagTables, csvPageNumber, tagsByTable);
+            var targetTagTable = FindBestTagTableForAddress(tagTables, csvRow.Address, tagsByTable)
+                ?? (csvPageNumber.HasValue ? FindBestTagTableForPage(tagTables, csvPageNumber.Value, tagsByTable) : null);
             if (targetTagTable == null)
             {
                 result.Errors.Add(new TagUpdateError
                 {
                     Item = csvRow.TagName,
-                    Error = "No tag table found for creating new tags"
+                    Error = csvPageNumber.HasValue
+                        ? "No tag table found for creating new tags"
+                        : "No tag table could be inferred from the address for creating a new non-page tag",
+                    LineNumber = csvRow.LineNumber
                 });
                 result.Summary.TagsSkipped++;
                 return;
             }
 
             var targetTableName = _v21Adapter.GetName(targetTagTable) ?? "Default";
+            var tagName = AllocateTagName(csvRow.TagName, reservedTagNames);
 
             if (!dryRun)
             {
                 try
                 {
                     var address = string.IsNullOrEmpty(csvRow.Address) ? string.Empty : csvRow.Address;
-                    if (!_v21Adapter.TryCreateTag(targetTagTable, csvRow.TagName, csvRow.DataType, address, out var createdTag, out var failureReason))
+                    if (!_v21Adapter.TryCreateTag(targetTagTable, tagName, dataType, address, out var createdTag, out var failureReason))
                     {
                         result.Errors.Add(new TagUpdateError
                         {
                             Item = csvRow.TagName,
-                            Error = failureReason ?? "Tag creation failed",
+                            Error = AddSafetyLoginReminder(failureReason ?? "Tag creation failed"),
                             LineNumber = csvRow.LineNumber
                         });
                         result.Summary.TagsSkipped++;
@@ -801,7 +949,7 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         Item = csvRow.TagName,
                         Error = "Failed to create tag",
-                        Details = $"{ex.GetType().Name}: {ex.Message}",
+                        Details = AddSafetyLoginReminder($"{ex.GetType().Name}: {ex.Message}"),
                         LineNumber = csvRow.LineNumber
                     });
                     result.Summary.TagsSkipped++;
@@ -812,12 +960,376 @@ namespace OpenTiaToolkit.Core.Services
             result.Created.Add(new TagCreateEntry
             {
                 TagTableName = targetTableName,
-                TagName = csvRow.TagName,
-                DataType = csvRow.DataType,
+                TagName = tagName,
+                DataType = dataType,
                 Address = csvRow.Address,
                 Comment = csvRow.Comment
             });
             result.Summary.TagsCreated++;
+        }
+
+        private void ReplaceTagAtAddressFromCsvRow(
+            TagUpdateRow csvRow,
+            TagInfo tagInfo,
+            IEnumerable<object> tagTables,
+            HashSet<string> reservedTagNames,
+            TagUpdateResult result,
+            bool dryRun)
+        {
+            var dataType = string.IsNullOrEmpty(csvRow.DataType)
+                ? InferDataTypeFromAddress(csvRow.Address)
+                : csvRow.DataType;
+
+            if (string.IsNullOrEmpty(dataType))
+            {
+                result.Errors.Add(new TagUpdateError
+                {
+                    Item = csvRow.TagName,
+                    Error = "DataType is required for replacement tags when it cannot be inferred from the address",
+                    LineNumber = csvRow.LineNumber
+                });
+                result.Summary.TagsSkipped++;
+                return;
+            }
+
+            var targetTagTable = tagTables.FirstOrDefault(table =>
+                _v21Adapter.GetName(table)?.Equals(tagInfo.TagTableName, StringComparison.OrdinalIgnoreCase) == true);
+            if (targetTagTable == null)
+            {
+                result.Errors.Add(new TagUpdateError
+                {
+                    Item = csvRow.TagName,
+                    Error = $"Could not find tag table '{tagInfo.TagTableName}' for replacement",
+                    LineNumber = csvRow.LineNumber
+                });
+                result.Summary.TagsSkipped++;
+                return;
+            }
+
+            var oldAddress = _v21Adapter.GetLogicalAddress(tagInfo.TagObject);
+            reservedTagNames.Remove(tagInfo.FullName);
+            var tagName = AllocateTagName(csvRow.TagName, reservedTagNames);
+            if (!dryRun)
+            {
+                try
+                {
+                    if (!_v21Adapter.TryDelete(tagInfo.TagObject))
+                    {
+                        result.Errors.Add(new TagUpdateError
+                        {
+                            Item = csvRow.TagName,
+                            Error = $"Could not delete old tag '{tagInfo.FullName}' before replacement",
+                            LineNumber = csvRow.LineNumber
+                        });
+                        result.Summary.TagsSkipped++;
+                        return;
+                    }
+
+                    var address = string.IsNullOrEmpty(csvRow.Address) ? string.Empty : csvRow.Address;
+                    if (!_v21Adapter.TryCreateTag(targetTagTable, tagName, dataType, address, out var createdTag, out var failureReason))
+                    {
+                        result.Errors.Add(new TagUpdateError
+                        {
+                            Item = csvRow.TagName,
+                            Error = AddSafetyLoginReminder(failureReason ?? "Replacement tag creation failed"),
+                            LineNumber = csvRow.LineNumber
+                        });
+                        result.Summary.TagsSkipped++;
+                        return;
+                    }
+
+                    if (csvRow.Comment != null)
+                    {
+                        bool commentSuccess = SetTagComment(createdTag!, csvRow.Comment);
+                        if (!commentSuccess)
+                        {
+                            result.Warnings.Add(new TagUpdateWarning
+                            {
+                                Item = csvRow.TagName,
+                                Reason = $"Tag was replaced, but failed to apply comment for {csvRow.TagName}.",
+                                LineNumber = csvRow.LineNumber
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add(new TagUpdateError
+                    {
+                        Item = csvRow.TagName,
+                        Error = "Failed to replace tag",
+                        Details = AddSafetyLoginReminder($"{ex.GetType().Name}: {ex.Message}"),
+                        LineNumber = csvRow.LineNumber
+                    });
+                    result.Summary.TagsSkipped++;
+                    return;
+                }
+            }
+
+            result.Deleted.Add(new TagDeleteEntry
+            {
+                TagTableName = tagInfo.TagTableName,
+                TagName = tagInfo.FullName,
+                Address = oldAddress,
+                Reason = $"Address reused by CSV tag '{csvRow.TagName}'"
+            });
+            result.Summary.TagsDeleted++;
+
+            result.Created.Add(new TagCreateEntry
+            {
+                TagTableName = tagInfo.TagTableName,
+                TagName = tagName,
+                DataType = dataType,
+                Address = csvRow.Address,
+                Comment = csvRow.Comment
+            });
+            result.Summary.TagsCreated++;
+        }
+
+        private static void AddTagIndex(Dictionary<string, List<TagInfo>> index, string key, TagInfo tagInfo)
+        {
+            if (!index.TryGetValue(key, out var matches))
+            {
+                matches = new List<TagInfo>();
+                index[key] = matches;
+            }
+
+            matches.Add(tagInfo);
+        }
+
+        private static string AllocateTagName(string requestedName, HashSet<string> reservedTagNames)
+        {
+            if (reservedTagNames.Add(requestedName))
+            {
+                return requestedName;
+            }
+
+            var suffix = 1;
+            string candidate;
+            do
+            {
+                candidate = $"{requestedName}({suffix})";
+                suffix++;
+            }
+            while (!reservedTagNames.Add(candidate));
+
+            return candidate;
+        }
+
+        private static bool HasExactNameConflict(
+            string tagName,
+            TagInfo allowedTag,
+            Dictionary<string, List<TagInfo>> tagsByFullName)
+        {
+            return tagsByFullName.TryGetValue(tagName, out var exactNameMatches)
+                && exactNameMatches.Any(match => !ReferenceEquals(match.TagObject, allowedTag.TagObject));
+        }
+
+        private static void AddAmbiguousMatchError(
+            TagUpdateRow csvRow,
+            string matchDescription,
+            List<TagInfo> matches,
+            TagUpdateResult result)
+        {
+            result.Errors.Add(new TagUpdateError
+            {
+                Item = csvRow.TagName,
+                Error = $"Multiple existing tags match {matchDescription}. Update is ambiguous.",
+                Details = FormatTagLocations(matches),
+                LineNumber = csvRow.LineNumber
+            });
+            result.Summary.TagsSkipped++;
+        }
+
+        private static void AddExactNameConflictError(
+            TagUpdateRow csvRow,
+            List<TagInfo> matches,
+            TagUpdateResult result)
+        {
+            result.Errors.Add(new TagUpdateError
+            {
+                Item = csvRow.TagName,
+                Error = $"A tag named '{csvRow.TagName}' already exists. Creation or rename would create a duplicate.",
+                Details = FormatTagLocations(matches),
+                LineNumber = csvRow.LineNumber
+            });
+            result.Summary.TagsSkipped++;
+        }
+
+        private static string FormatTagLocations(IEnumerable<TagInfo> matches)
+        {
+            return string.Join(
+                "; ",
+                matches.Select(match => $"[{match.TagTableName}] {match.FullName}"));
+        }
+
+        private static string AddSafetyLoginReminder(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return message;
+            }
+
+            return message.IndexOf("permission to modify the safety program", StringComparison.OrdinalIgnoreCase) >= 0
+                ? message + " Log into the safety program in TIA Portal, or rerun with --safety-password when Openness safety login is available."
+                : message;
+        }
+
+        private bool DeleteTags(
+            IEnumerable<TagInfo> tags,
+            string reason,
+            TagUpdateResult result,
+            bool dryRun,
+            int? lineNumber)
+        {
+            foreach (var tag in tags)
+            {
+                var oldAddress = _v21Adapter.GetLogicalAddress(tag.TagObject);
+                if (!dryRun)
+                {
+                    try
+                    {
+                        if (!_v21Adapter.TryDelete(tag.TagObject))
+                        {
+                            result.Errors.Add(new TagUpdateError
+                            {
+                                Item = tag.FullName,
+                                Error = AddSafetyLoginReminder($"Could not delete obsolete tag '{tag.FullName}'"),
+                                LineNumber = lineNumber
+                            });
+                            result.Summary.TagsSkipped++;
+                            return false;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add(new TagUpdateError
+                        {
+                            Item = tag.FullName,
+                            Error = "Failed to delete obsolete tag",
+                            Details = AddSafetyLoginReminder($"{ex.GetType().Name}: {ex.Message}"),
+                            LineNumber = lineNumber
+                        });
+                        result.Summary.TagsSkipped++;
+                        return false;
+                    }
+                }
+
+                result.Deleted.Add(new TagDeleteEntry
+                {
+                    TagTableName = tag.TagTableName,
+                    TagName = tag.FullName,
+                    Address = oldAddress,
+                    Reason = reason
+                });
+                result.Summary.TagsDeleted++;
+            }
+
+            return true;
+        }
+
+        private static string InferDataTypeFromAddress(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+            {
+                return string.Empty;
+            }
+
+            var normalized = TagUpdateCsvParser.NormalizeLogicalAddress(address);
+            if (Regex.IsMatch(normalized, @"^%[IQM]\d+\.\d+$", RegexOptions.IgnoreCase))
+            {
+                return "Bool";
+            }
+
+            if (Regex.IsMatch(normalized, @"^%[IQM]B\d+$", RegexOptions.IgnoreCase))
+            {
+                return "Byte";
+            }
+
+            if (Regex.IsMatch(normalized, @"^%[IQM]W\d+$", RegexOptions.IgnoreCase))
+            {
+                return "Word";
+            }
+
+            if (Regex.IsMatch(normalized, @"^%[IQM]D\d+$", RegexOptions.IgnoreCase))
+            {
+                return "DWord";
+            }
+
+            return string.Empty;
+        }
+
+        private object? FindBestTagTableForAddress(
+            IEnumerable<object> tagTables,
+            string address,
+            Dictionary<string, List<TagInfo>> tagsByTable)
+        {
+            var addressInfo = TryParseAddressLocation(address);
+            if (addressInfo == null)
+            {
+                return null;
+            }
+
+            var candidateTables = tagsByTable
+                .Where(kvp => kvp.Value.Any(tag =>
+                {
+                    var tagAddressInfo = TryParseAddressLocation(tag.NormalizedAddress);
+                    return tagAddressInfo != null
+                        && tagAddressInfo.Value.Area == addressInfo.Value.Area
+                        && tagAddressInfo.Value.ByteNumber == addressInfo.Value.ByteNumber;
+                }))
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            if (candidateTables.Count == 0)
+            {
+                candidateTables = tagsByTable
+                    .Where(kvp => kvp.Value.Any(tag =>
+                    {
+                        var tagAddressInfo = TryParseAddressLocation(tag.NormalizedAddress);
+                        return tagAddressInfo != null
+                            && tagAddressInfo.Value.Area == addressInfo.Value.Area;
+                    }))
+                    .OrderBy(kvp => kvp.Value
+                        .Select(tag => TryParseAddressLocation(tag.NormalizedAddress))
+                        .Where(parsed => parsed != null && parsed.Value.Area == addressInfo.Value.Area)
+                        .Min(parsed => Math.Abs(parsed!.Value.ByteNumber - addressInfo.Value.ByteNumber)))
+                    .Select(kvp => kvp.Key)
+                    .Take(1)
+                    .ToList();
+            }
+
+            if (candidateTables.Count == 0)
+            {
+                return null;
+            }
+
+            var bestTableName = candidateTables
+                .OrderByDescending(tableName => tagsByTable[tableName].Count(tag =>
+                {
+                    var tagAddressInfo = TryParseAddressLocation(tag.NormalizedAddress);
+                    return tagAddressInfo != null
+                        && tagAddressInfo.Value.Area == addressInfo.Value.Area
+                        && tagAddressInfo.Value.ByteNumber == addressInfo.Value.ByteNumber;
+                }))
+                .First();
+
+            return tagTables.FirstOrDefault(table =>
+                _v21Adapter.GetName(table)?.Equals(bestTableName, StringComparison.OrdinalIgnoreCase) == true);
+        }
+
+        private static AddressLocation? TryParseAddressLocation(string address)
+        {
+            var normalized = TagUpdateCsvParser.NormalizeLogicalAddress(address);
+            var match = Regex.Match(normalized, @"^%(?<area>[IQM])(?:(?<size>[BWD]))?(?<byte>\d+)(?:\.(?<bit>\d+))?$", RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            return new AddressLocation(
+                match.Groups["area"].Value.ToUpperInvariant(),
+                int.Parse(match.Groups["byte"].Value));
         }
 
         private object? FindBestTagTableForPage(
@@ -913,9 +1425,24 @@ namespace OpenTiaToolkit.Core.Services
 
             public string FullName { get; set; } = string.Empty;
 
+            public string NormalizedAddress { get; set; } = string.Empty;
+
             public string BaseName { get; set; } = string.Empty;
 
             public int PageNumber { get; set; }
+        }
+
+        private struct AddressLocation
+        {
+            public AddressLocation(string area, int byteNumber)
+            {
+                Area = area;
+                ByteNumber = byteNumber;
+            }
+
+            public string Area { get; }
+
+            public int ByteNumber { get; }
         }
     }
 }

@@ -175,6 +175,24 @@ public interface IHmiService
         string? workingPath = null);
 
     /// <summary>
+    /// Inspects a faceplate container interface and optionally performs one reversible write probe.
+    /// </summary>
+    /// <param name="screenPath">The slash-delimited screen path.</param>
+    /// <param name="itemName">The faceplate item name.</param>
+    /// <param name="propertyName">Optional interface property to target.</param>
+    /// <param name="write">Whether to attempt a write to the targeted property.</param>
+    /// <param name="value">The write value when <paramref name="write"/> is true.</param>
+    /// <param name="restore">Whether to restore the original value after a write attempt.</param>
+    /// <returns>The probe result, or null if the screen/item could not be resolved.</returns>
+    Task<HmiFaceplateInterfaceProbeResult?> ProbeFaceplateInterfaceAsync(
+        string screenPath,
+        string itemName,
+        string? propertyName = null,
+        bool write = false,
+        string? value = null,
+        bool restore = true);
+
+    /// <summary>
     /// Plans or applies a single-screen JSON edit using the import/export pipeline.
     /// </summary>
     /// <param name="screenPath">The slash-delimited screen path.</param>

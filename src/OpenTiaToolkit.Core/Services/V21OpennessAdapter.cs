@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security;
+using OpenTiaToolkit.Core.Abstractions;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -143,6 +146,108 @@ namespace OpenTiaToolkit.Core.Services
             return plcSoftwareType.IsInstanceOfType(software) ? software : null;
         }
 
+        public SafetyLoginResult LoginToSafetyOfflineProgram(object plcDeviceItem, string password)
+        {
+            if (plcDeviceItem == null) throw new ArgumentNullException(nameof(plcDeviceItem));
+            if (password == null) throw new ArgumentNullException(nameof(password));
+
+            var safetyAdministration = GetService(plcDeviceItem, "SafetyAdministration");
+            if (safetyAdministration == null)
+            {
+                return new SafetyLoginResult(
+                    success: false,
+                    serviceAvailable: false,
+                    passwordRequired: false,
+                    alreadyLoggedIn: false,
+                    message: "SafetyAdministration service is not available for the selected PLC. If the project contains fail-safe tags, log into the safety program manually in TIA Portal before applying changes.");
+            }
+
+            var isPasswordSet = GetBooleanProperty(safetyAdministration, "IsSafetyOfflineProgramPasswordSet");
+            var isLoggedIn = GetBooleanProperty(safetyAdministration, "IsLoggedOnToSafetyOfflineProgram");
+
+            if (isLoggedIn == true)
+            {
+                return new SafetyLoginResult(
+                    success: true,
+                    serviceAvailable: true,
+                    passwordRequired: isPasswordSet == true,
+                    alreadyLoggedIn: true,
+                    message: "Already logged into the safety offline program.");
+            }
+
+            if (isPasswordSet == false)
+            {
+                return new SafetyLoginResult(
+                    success: true,
+                    serviceAvailable: true,
+                    passwordRequired: false,
+                    alreadyLoggedIn: false,
+                    message: "No safety offline program password is set.");
+            }
+
+            var loginMethod = safetyAdministration.GetType()
+                .GetMethod("LoginToSafetyOfflineProgram", new[] { typeof(SecureString) });
+            if (loginMethod == null)
+            {
+                return new SafetyLoginResult(
+                    success: false,
+                    serviceAvailable: true,
+                    passwordRequired: true,
+                    alreadyLoggedIn: false,
+                    message: "SafetyAdministration does not expose LoginToSafetyOfflineProgram in this TIA Portal version. Log into the safety program manually in TIA Portal before applying changes.");
+            }
+
+            try
+            {
+                using var securePassword = ToSecureString(password);
+                loginMethod.Invoke(safetyAdministration, new object[] { securePassword });
+
+                return new SafetyLoginResult(
+                    success: true,
+                    serviceAvailable: true,
+                    passwordRequired: true,
+                    alreadyLoggedIn: false,
+                    message: "Logged into the safety offline program.");
+            }
+            catch (TargetInvocationException ex)
+            {
+                var message = ex.InnerException?.Message ?? ex.Message;
+                return new SafetyLoginResult(
+                    success: false,
+                    serviceAvailable: true,
+                    passwordRequired: true,
+                    alreadyLoggedIn: false,
+                    message: "Failed to log into the safety offline program: " + message);
+            }
+            catch (Exception ex)
+            {
+                return new SafetyLoginResult(
+                    success: false,
+                    serviceAvailable: true,
+                    passwordRequired: true,
+                    alreadyLoggedIn: false,
+                    message: "Failed to log into the safety offline program: " + ex.Message);
+            }
+        }
+
+        private static bool? GetBooleanProperty(object source, string propertyName)
+        {
+            var value = TiaReflectionHelper.GetProperty(source, propertyName);
+            return value is bool boolValue ? boolValue : null;
+        }
+
+        private static SecureString ToSecureString(string password)
+        {
+            var secureString = new SecureString();
+            foreach (var c in password)
+            {
+                secureString.AppendChar(c);
+            }
+
+            secureString.MakeReadOnly();
+            return secureString;
+        }
+
         public bool TryGetHmiDeviceClassification(object deviceItem, out string? typeInfo, out bool isConfirmedHmi)
         {
             if (deviceItem == null) throw new ArgumentNullException(nameof(deviceItem));
@@ -266,7 +371,16 @@ namespace OpenTiaToolkit.Core.Services
                 return false;
             }
 
-            createdTag = createMethod.Invoke(tagsCollection, new object[] { tagName, dataType, logicalAddress });
+            try
+            {
+                createdTag = createMethod.Invoke(tagsCollection, new object[] { tagName, dataType, logicalAddress });
+            }
+            catch (TargetInvocationException ex)
+            {
+                failureReason = ex.InnerException?.Message ?? ex.Message;
+                return false;
+            }
+
             if (createdTag == null)
             {
                 failureReason = "The Tags.Create() method returned null";
@@ -479,7 +593,137 @@ namespace OpenTiaToolkit.Core.Services
                 GetIntProperty(rawResult, "ErrorCount"),
                 GetIntProperty(rawResult, "WarningCount"),
                 TiaReflectionHelper.GetProperty(rawResult, "State")?.ToString() ?? "Unknown",
-                TiaReflectionHelper.GetProperty(rawResult, "Message")?.ToString());
+                TiaReflectionHelper.GetProperty(rawResult, "Message")?.ToString(),
+                ExtractCompileDiagnostics(rawResult));
+        }
+
+        private static IReadOnlyList<CompilationDiagnostic> ExtractCompileDiagnostics(object rawResult)
+        {
+            var diagnostics = new List<CompilationDiagnostic>();
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            ExtractCompileDiagnostics(rawResult, diagnostics, visited, depth: 0);
+            return diagnostics;
+        }
+
+        private static void ExtractCompileDiagnostics(
+            object? value,
+            List<CompilationDiagnostic> diagnostics,
+            HashSet<object> visited,
+            int depth)
+        {
+            if (value == null || depth > 5)
+            {
+                return;
+            }
+
+            if (value is string)
+            {
+                return;
+            }
+
+            var type = value.GetType();
+            if (type.IsPrimitive || type.IsEnum)
+            {
+                return;
+            }
+
+            if (!visited.Add(value))
+            {
+                return;
+            }
+
+            if (value is IEnumerable enumerable)
+            {
+                foreach (var item in enumerable)
+                {
+                    ExtractCompileDiagnostics(item, diagnostics, visited, depth + 1);
+                }
+
+                return;
+            }
+
+            if (LooksLikeCompileDiagnostic(value))
+            {
+                diagnostics.Add(new CompilationDiagnostic(
+                    GetFirstPropertyText(value, "Severity", "State", "Type") ?? "Unknown",
+                    GetFirstPropertyText(value, "Path", "PathName", "ObjectPath", "Location"),
+                    GetFirstPropertyText(value, "Name", "ObjectName", "ItemName"),
+                    GetFirstPropertyText(value, "Description", "Message", "Text", "ErrorText"),
+                    GetFirstPropertyText(value, "ErrorCode", "Code", "Id")));
+            }
+
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (property.GetIndexParameters().Length > 0)
+                {
+                    continue;
+                }
+
+                var propertyName = property.Name;
+                if (property.PropertyType == typeof(string)
+                    || property.PropertyType.IsPrimitive
+                    || property.PropertyType.IsEnum)
+                {
+                    continue;
+                }
+
+                if (propertyName.IndexOf("Message", StringComparison.OrdinalIgnoreCase) < 0
+                    && propertyName.IndexOf("Diagnostic", StringComparison.OrdinalIgnoreCase) < 0
+                    && propertyName.IndexOf("Result", StringComparison.OrdinalIgnoreCase) < 0
+                    && propertyName.IndexOf("Error", StringComparison.OrdinalIgnoreCase) < 0
+                    && propertyName.IndexOf("Warning", StringComparison.OrdinalIgnoreCase) < 0
+                    && propertyName.IndexOf("Item", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                object? child;
+                try
+                {
+                    child = property.GetValue(value);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                ExtractCompileDiagnostics(child, diagnostics, visited, depth + 1);
+            }
+        }
+
+        private static bool LooksLikeCompileDiagnostic(object value)
+        {
+            var type = value.GetType();
+            var hasText = GetFirstPropertyText(value, "Description", "Message", "Text", "ErrorText") != null;
+            var hasSeverity = GetFirstPropertyText(value, "Severity", "State", "Type") != null;
+            return hasText && (hasSeverity || type.Name.IndexOf("Message", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private static string? GetFirstPropertyText(object value, params string[] propertyNames)
+        {
+            foreach (var propertyName in propertyNames)
+            {
+                var property = value.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+                if (property == null || property.GetIndexParameters().Length > 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var propertyValue = property.GetValue(value);
+                    var text = propertyValue?.ToString();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        return text;
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            return null;
         }
 
         public bool TryDelete(object engineeringObject)
@@ -879,14 +1123,30 @@ namespace OpenTiaToolkit.Core.Services
         }
     }
 
+    internal sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+    {
+        public static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
+
+        public new bool Equals(object? x, object? y)
+        {
+            return ReferenceEquals(x, y);
+        }
+
+        public int GetHashCode(object obj)
+        {
+            return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+        }
+    }
+
     internal readonly struct V21CompileResult
     {
-        public V21CompileResult(int errorCount, int warningCount, string state, string? message)
+        public V21CompileResult(int errorCount, int warningCount, string state, string? message, IReadOnlyList<CompilationDiagnostic>? diagnostics = null)
         {
             ErrorCount = errorCount;
             WarningCount = warningCount;
             State = state;
             Message = message;
+            Diagnostics = diagnostics ?? Array.Empty<CompilationDiagnostic>();
         }
 
         public int ErrorCount { get; }
@@ -896,5 +1156,7 @@ namespace OpenTiaToolkit.Core.Services
         public string State { get; }
 
         public string? Message { get; }
+
+        public IReadOnlyList<CompilationDiagnostic> Diagnostics { get; }
     }
 }

@@ -19,6 +19,7 @@ namespace OpenTiaToolkit.Core.Services
         private const string EventHandlersPropertyName = "EventHandlers";
         private const string PropertyEventHandlersPropertyName = "PropertyEventHandlers";
         private const string DynamizationsPropertyName = "Dynamizations";
+        private const string InterfacePropertyName = "Interface";
         private static readonly string[] DefaultScreenProperties = { "Width", "Height", "Enabled", "BackGraphic" };
         private static readonly string[] DefaultNestedItemProperties = { "Caption.Text" };
 
@@ -198,6 +199,7 @@ namespace OpenTiaToolkit.Core.Services
             target.EventHandlers = ExportEventHandlers(source, filters, warnings, context);
             target.PropertyEventHandlers = ExportPropertyEventHandlers(source, filters, warnings, context);
             target.Dynamizations = ExportDynamizations(source, filters, warnings, context);
+            target.Interface = ExportInterface(source, filters, warnings, context);
         }
 
         private List<HmiJsonEventHandler>? ExportEventHandlers(
@@ -289,13 +291,41 @@ namespace OpenTiaToolkit.Core.Services
             return filteredDynamizations.Count > 0 ? filteredDynamizations : null;
         }
 
+        private List<HmiJsonInterfaceBinding>? ExportInterface(
+            object source,
+            HmiJsonFilterOptions filters,
+            ICollection<string> warnings,
+            string context)
+        {
+            if (!HmiJsonFilterMatcher.ShouldIncludeCompositeProperty(InterfacePropertyName, filters))
+            {
+                return null;
+            }
+
+            if (!_adapter.TryReadInterfaceBindings(source, out var bindings, out var error))
+            {
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    warnings.Add($"{context}: failed to export {InterfacePropertyName} ({error})");
+                }
+
+                return null;
+            }
+
+            var filteredBindings = bindings
+                .Where(binding => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(InterfacePropertyName, binding.PropertyName, filters))
+                .ToList();
+            return filteredBindings.Count > 0 ? filteredBindings : null;
+        }
+
         private static string[] GetRequestedScalarProperties(HmiJsonFilterOptions filters)
         {
             return filters.Properties
                 .Where(property =>
                     !property.StartsWith(EventHandlersPropertyName, StringComparison.OrdinalIgnoreCase) &&
                     !property.StartsWith(PropertyEventHandlersPropertyName, StringComparison.OrdinalIgnoreCase) &&
-                    !property.StartsWith(DynamizationsPropertyName, StringComparison.OrdinalIgnoreCase))
+                    !property.StartsWith(DynamizationsPropertyName, StringComparison.OrdinalIgnoreCase) &&
+                    !property.StartsWith(InterfacePropertyName, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
         }
 

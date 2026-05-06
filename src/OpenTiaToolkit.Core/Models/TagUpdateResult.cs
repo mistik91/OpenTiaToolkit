@@ -16,6 +16,9 @@ namespace OpenTiaToolkit.Core.Models
         /// <summary>Gets or sets the list of created tags.</summary>
         public List<TagCreateEntry> Created { get; set; } = new List<TagCreateEntry>();
 
+        /// <summary>Gets or sets the list of deleted tags.</summary>
+        public List<TagDeleteEntry> Deleted { get; set; } = new List<TagDeleteEntry>();
+
         /// <summary>Gets or sets the list of warnings.</summary>
         public List<TagUpdateWarning> Warnings { get; set; } = new List<TagUpdateWarning>();
 
@@ -39,6 +42,9 @@ namespace OpenTiaToolkit.Core.Models
 
         /// <summary>Gets or sets the number of tags created.</summary>
         public int TagsCreated { get; set; }
+
+        /// <summary>Gets or sets the number of tags deleted.</summary>
+        public int TagsDeleted { get; set; }
 
         /// <summary>Gets or sets the number of tags skipped.</summary>
         public int TagsSkipped { get; set; }
@@ -93,6 +99,24 @@ namespace OpenTiaToolkit.Core.Models
 
         /// <summary>Gets or sets the comment.</summary>
         public string? Comment { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a single tag deletion entry.
+    /// </summary>
+    public class TagDeleteEntry
+    {
+        /// <summary>Gets or sets the tag table name where the tag was deleted.</summary>
+        public string TagTableName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the deleted tag name.</summary>
+        public string TagName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the deleted tag logical address.</summary>
+        public string? Address { get; set; }
+
+        /// <summary>Gets or sets the reason for deleting the tag.</summary>
+        public string Reason { get; set; } = string.Empty;
     }
 
     /// <summary>

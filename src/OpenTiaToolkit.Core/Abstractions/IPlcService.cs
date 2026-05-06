@@ -28,6 +28,13 @@ public interface IPlcService
     Task<bool> OpenPlcAsync(string plcName);
 
     /// <summary>
+    /// Logs into the offline safety program for the currently open F-PLC when the SafetyAdministration service is available.
+    /// </summary>
+    /// <param name="password">The safety program password.</param>
+    /// <returns>Result describing whether safety access is available.</returns>
+    Task<SafetyLoginResult> LoginToSafetyOfflineProgramAsync(string password);
+
+    /// <summary>
     /// Closes the currently open PLC software.
     /// </summary>
     /// <returns>True if the PLC software was closed successfully.</returns>
@@ -289,12 +296,13 @@ public class SoftwareTreeNode
 /// </summary>
 public class CompilationResult
 {
-    public CompilationResult(bool success, int errorCount, int warningCount, string? message)
+    public CompilationResult(bool success, int errorCount, int warningCount, string? message, IReadOnlyList<CompilationDiagnostic>? diagnostics = null)
     {
         Success = success;
         ErrorCount = errorCount;
         WarningCount = warningCount;
         Message = message;
+        Diagnostics = diagnostics ?? System.Array.Empty<CompilationDiagnostic>();
     }
 
     /// <summary>Gets whether the compilation was successful.</summary>
@@ -308,6 +316,59 @@ public class CompilationResult
 
     /// <summary>Gets a descriptive message about the compilation result.</summary>
     public string? Message { get; }
+
+    /// <summary>Gets detailed compiler diagnostics when exposed by TIA Openness.</summary>
+    public IReadOnlyList<CompilationDiagnostic> Diagnostics { get; }
+}
+
+/// <summary>
+/// Represents the result of attempting to log into an offline safety program.
+/// </summary>
+public class SafetyLoginResult
+{
+    public SafetyLoginResult(bool success, bool serviceAvailable, bool passwordRequired, bool alreadyLoggedIn, string message)
+    {
+        Success = success;
+        ServiceAvailable = serviceAvailable;
+        PasswordRequired = passwordRequired;
+        AlreadyLoggedIn = alreadyLoggedIn;
+        Message = message;
+    }
+
+    public bool Success { get; }
+
+    public bool ServiceAvailable { get; }
+
+    public bool PasswordRequired { get; }
+
+    public bool AlreadyLoggedIn { get; }
+
+    public string Message { get; }
+}
+
+/// <summary>
+/// Represents one compiler diagnostic message.
+/// </summary>
+public class CompilationDiagnostic
+{
+    public CompilationDiagnostic(string severity, string? path, string? name, string? description, string? errorCode)
+    {
+        Severity = severity;
+        Path = path;
+        Name = name;
+        Description = description;
+        ErrorCode = errorCode;
+    }
+
+    public string Severity { get; }
+
+    public string? Path { get; }
+
+    public string? Name { get; }
+
+    public string? Description { get; }
+
+    public string? ErrorCode { get; }
 }
 
 /// <summary>

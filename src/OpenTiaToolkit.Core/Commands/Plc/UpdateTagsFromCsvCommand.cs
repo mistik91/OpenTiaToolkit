@@ -50,6 +50,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     "dry-run",
                     CommandParameterType.Boolean,
                     "Preview changes without applying (default: true)",
+                    required: false),
+                new CommandParameter(
+                    "safety-password",
+                    CommandParameterType.String,
+                    "Optional safety program password used to log into the offline safety program before applying changes",
                     required: false)
             }
         );
@@ -74,6 +79,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 var dryRun = args.GetBool("dry-run", true);
+                var safetyPassword = args.GetString("safety-password");
 
                 logger.LogInformation("UpdateTagsFromCsv: PLC={PlcName}, CsvPath={CsvPath}, DryRun={DryRun}",
                     plcName, csvPath, dryRun);
@@ -84,6 +90,16 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                SafetyLoginResult? safetyLogin = null;
+                if (!dryRun && !string.IsNullOrEmpty(safetyPassword))
+                {
+                    safetyLogin = await _plcService.LoginToSafetyOfflineProgramAsync(safetyPassword);
+                    if (!safetyLogin.Success && safetyLogin.PasswordRequired)
+                    {
+                        return CommandResult.CreateFailure(safetyLogin.Message, new { safetyLogin });
+                    }
+                }
+
                 var result = await _plcService.UpdateTagsFromCsvAsync(csvPath, dryRun);
 
                 // Build summary message
@@ -92,20 +108,32 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                               $"Existing tags scanned: {summary.ExistingTagsScanned}, " +
                               $"Tags updated: {(dryRun ? "previewed" : "applied")}: {summary.TagsUpdated}, " +
                               $"Tags created: {(dryRun ? "previewed" : "applied")}: {summary.TagsCreated}, " +
+                              $"Tags deleted: {(dryRun ? "previewed" : "applied")}: {summary.TagsDeleted}, " +
                               $"Skipped: {summary.TagsSkipped}, " +
                               $"Warnings: {result.Warnings.Count}, " +
                               $"Errors: {result.Errors.Count}";
 
+                var data = new
+                {
+                    safetyLogin,
+                    summary,
+                    updated = result.Updated,
+                    created = result.Created,
+                    deleted = result.Deleted,
+                    warnings = result.Warnings,
+                    errors = result.Errors
+                };
+
+                if (result.Errors.Count > 0)
+                {
+                    var firstError = result.Errors[0];
+                    var failureMessage = $"{message}. First error: {firstError.Item}: {firstError.Error}";
+                    return CommandResult.CreateFailure(failureMessage, data);
+                }
+
                 // Return result with data
                 return CommandResult.CreateSuccess(
-                    data: new
-                    {
-                        summary,
-                        updated = result.Updated,
-                        created = result.Created,
-                        warnings = result.Warnings,
-                        errors = result.Errors
-                    },
+                    data: data,
                     message: message
                 );
             }

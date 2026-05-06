@@ -55,7 +55,7 @@ namespace OpenTiaToolkit.Core.Services
                     var success = !string.Equals(state, "Error", StringComparison.OrdinalIgnoreCase) && errorCount == 0;
                     var message = BuildCompilationMessage(nonNullCompileResult.Message, state, errorCount, warningCount);
 
-                    return new CompilationResult(success, errorCount, warningCount, message);
+                    return new CompilationResult(success, errorCount, warningCount, message, nonNullCompileResult.Diagnostics);
                 }
                 catch (Exception ex)
                 {

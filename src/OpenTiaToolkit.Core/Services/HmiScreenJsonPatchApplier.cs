@@ -188,11 +188,14 @@ namespace OpenTiaToolkit.Core.Services
                 case "removedynamization":
                     ApplyRemoveDynamization(screen, operation, index, op, results);
                     break;
+                case "setinterface":
+                    ApplySetInterface(screen, operation, index, op, results);
+                    break;
                 default:
                     results.Add(Failure(
                         index,
                         op,
-                        "Unsupported patch operation. Supported operations are set-property, set-properties, move-item, resize-item, set-layout, rename-item, create-item, delete-item, duplicate-item, set-event-handler, remove-event-handler, set-property-event-handler, remove-property-event-handler, set-dynamization, and remove-dynamization.",
+                        "Unsupported patch operation. Supported operations are set-property, set-properties, move-item, resize-item, set-layout, rename-item, create-item, delete-item, duplicate-item, set-event-handler, remove-event-handler, set-property-event-handler, remove-property-event-handler, set-dynamization, remove-dynamization, and set-interface.",
                         suggestions: new List<string>
                         {
                             "Use one of: " + string.Join(", ", HmiScreenJsonAgentSupport.SupportedPatchOperations)
@@ -515,6 +518,59 @@ namespace OpenTiaToolkit.Core.Services
             results.Add(Success(index, op, target.Scope, target.ItemName, "Dynamizations." + propertyName, previousValue: propertyName, newValue: null));
         }
 
+        private static void ApplySetInterface(
+            HmiJsonScreen screen,
+            HmiScreenJsonPatchOperation operation,
+            int index,
+            string op,
+            List<HmiScreenJsonPatchOperationResult> results)
+        {
+            if (!TryResolveCompositeTarget(screen, operation, index, op, results, out var target))
+            {
+                return;
+            }
+
+            if (!string.Equals(target.Scope, "item", StringComparison.OrdinalIgnoreCase))
+            {
+                results.Add(Failure(index, op, "The set-interface operation requires an item because faceplate Interface belongs to a screen item.", ResolveItemName(operation), "Interface"));
+                return;
+            }
+
+            var propertyName = ResolveInterfacePropertyName(operation);
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                results.Add(Failure(index, op, "The set-interface operation requires propertyName or property.", ResolveItemName(operation), "Interface"));
+                return;
+            }
+
+            if (!TryConvertValue(operation.Value, out var value, out var error))
+            {
+                results.Add(Failure(index, op, error ?? "The set-interface operation requires a scalar value.", ResolveItemName(operation), "Interface." + propertyName));
+                return;
+            }
+
+            target.Interface ??= new List<HmiJsonInterfaceBinding>();
+            var existing = target.Interface.FirstOrDefault(binding => binding.PropertyName.Equals(propertyName!, StringComparison.OrdinalIgnoreCase));
+            var previousValue = existing?.Value;
+            if (existing == null)
+            {
+                target.Interface.Add(new HmiJsonInterfaceBinding
+                {
+                    PropertyName = propertyName!,
+                    Value = value
+                });
+            }
+            else
+            {
+                existing.Value = value;
+            }
+
+            target.Interface = target.Interface
+                .OrderBy(binding => binding.PropertyName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            results.Add(Success(index, op, target.Scope, target.ItemName, "Interface." + propertyName, previousValue, value));
+        }
+
         private static void ApplyProperty(
             HmiJsonScreen screen,
             HmiScreenJsonPatchOperation operation,
@@ -808,6 +864,9 @@ namespace OpenTiaToolkit.Core.Services
                 case "setdynamization":
                 case "removedynamization":
                     yield return "Dynamizations";
+                    break;
+                case "setinterface":
+                    yield return "Interface";
                     break;
             }
         }
@@ -1167,6 +1226,16 @@ namespace OpenTiaToolkit.Core.Services
                 GetExtensionString(operation, "property-name"));
         }
 
+        private static string? ResolveInterfacePropertyName(HmiScreenJsonPatchOperation operation)
+        {
+            return FirstNonEmpty(
+                GetExtensionString(operation, "propertyName"),
+                GetExtensionString(operation, "interfaceProperty"),
+                GetExtensionString(operation, "interface-property"),
+                operation.Property,
+                GetExtensionString(operation, "property-name"));
+        }
+
         private static string? ResolveNewName(HmiScreenJsonPatchOperation operation)
         {
             return FirstNonEmpty(
@@ -1375,7 +1444,7 @@ namespace OpenTiaToolkit.Core.Services
 
             if (HmiScreenJsonAgentSupport.CompositePropertyNames.Contains(propertyName, StringComparer.OrdinalIgnoreCase))
             {
-                suggestions.Add("Composite edits must filter by the root property name: EventHandlers, PropertyEventHandlers, or Dynamizations.");
+                suggestions.Add("Composite edits must filter by the root property name: EventHandlers, PropertyEventHandlers, Dynamizations, or Interface.");
             }
 
             return suggestions;
@@ -1524,6 +1593,18 @@ namespace OpenTiaToolkit.Core.Services
                     else
                     {
                         _screen!.Dynamizations = value;
+                    }
+                }
+            }
+
+            public List<HmiJsonInterfaceBinding>? Interface
+            {
+                get => _item?.Interface;
+                set
+                {
+                    if (_item != null)
+                    {
+                        _item.Interface = value;
                     }
                 }
             }

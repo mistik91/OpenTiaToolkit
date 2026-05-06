@@ -340,5 +340,96 @@ namespace OpenTiaToolkit.Tests.Services
                 }
             }
         }
+
+        [TestMethod]
+        public async Task CreatePatchAsync_TracksFaceplateInterfaceChanges()
+        {
+            var tempRoot = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "HmiJsonDiff", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempRoot);
+
+            try
+            {
+                var basePath = Path.Combine(tempRoot, "base");
+                var modifiedPath = Path.Combine(tempRoot, "modified");
+                var patchPath = Path.Combine(tempRoot, "patch");
+
+                HmiJsonDocumentStore.SaveDocument(
+                    new HmiJsonDocument
+                    {
+                        ExportedAtUtc = DateTime.UtcNow.ToString("o"),
+                        HmiName = "HMI_1",
+                        Screens =
+                        {
+                            new HmiJsonScreen
+                            {
+                                Path = "Screens/Main",
+                                Name = "Main",
+                                Items =
+                                {
+                                    new HmiJsonItem
+                                    {
+                                        Name = "V114",
+                                        Type = "HmiFaceplateContainer",
+                                        Interface = new List<HmiJsonInterfaceBinding>
+                                        {
+                                            new HmiJsonInterfaceBinding { PropertyName = "AV", Value = "Valve_Old.AV" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    HmiJsonDocumentStore.ResolveExportFilePath(basePath));
+
+                HmiJsonDocumentStore.SaveDocument(
+                    new HmiJsonDocument
+                    {
+                        ExportedAtUtc = DateTime.UtcNow.ToString("o"),
+                        HmiName = "HMI_1",
+                        Screens =
+                        {
+                            new HmiJsonScreen
+                            {
+                                Path = "Screens/Main",
+                                Name = "Main",
+                                Items =
+                                {
+                                    new HmiJsonItem
+                                    {
+                                        Name = "V114",
+                                        Type = "HmiFaceplateContainer",
+                                        Interface = new List<HmiJsonInterfaceBinding>
+                                        {
+                                            new HmiJsonInterfaceBinding { PropertyName = "AV", Value = "Valve_New.AV" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    HmiJsonDocumentStore.ResolveExportFilePath(modifiedPath));
+
+                var service = new HmiJsonDiffService();
+
+                var result = await service.CreatePatchAsync(basePath, modifiedPath, patchPath, filters: null);
+
+                Assert.IsNotNull(result);
+                Assert.AreEqual(1, result!.PropertyChangeCount);
+
+                var patchDocument = HmiJsonDocumentStore.LoadDocument(patchPath);
+                var updatedItem = patchDocument.Screens.Single().Items.Single();
+                Assert.AreEqual("Update", updatedItem.Action);
+                Assert.IsNotNull(updatedItem.Interface);
+                Assert.AreEqual("AV", updatedItem.Interface!.Single().PropertyName);
+                Assert.AreEqual("Valve_New.AV", updatedItem.Interface.Single().Value);
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+        }
     }
 }

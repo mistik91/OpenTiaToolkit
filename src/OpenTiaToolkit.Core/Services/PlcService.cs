@@ -44,6 +44,12 @@ namespace OpenTiaToolkit.Core.Services
             set => _sessionContext.CurrentPlcDevice = value;
         }
 
+        private DeviceItem? _currentDeviceItem
+        {
+            get => _sessionContext.CurrentPlcDeviceItem;
+            set => _sessionContext.CurrentPlcDeviceItem = value;
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PlcService"/> class.
         /// </summary>
@@ -147,6 +153,7 @@ namespace OpenTiaToolkit.Core.Services
                             if (plcSoftware != null)
                             {
                                 _currentDevice = device;
+                                _currentDeviceItem = deviceItem;
                                 break;
                             }
                         }
@@ -173,6 +180,36 @@ namespace OpenTiaToolkit.Core.Services
                     _logger?.LogError(ex, "Failed to open PLC software: {PlcName}", plcName);
                     return false;
                 }
+            });
+        }
+
+        /// <inheritdoc/>
+        public async Task<SafetyLoginResult> LoginToSafetyOfflineProgramAsync(string password)
+        {
+            return await Task.Run(() =>
+            {
+                if (string.IsNullOrEmpty(password))
+                {
+                    return new SafetyLoginResult(
+                        success: false,
+                        serviceAvailable: false,
+                        passwordRequired: true,
+                        alreadyLoggedIn: false,
+                        message: "Safety password is empty.");
+                }
+
+                if (_currentDeviceItem == null)
+                {
+                    return new SafetyLoginResult(
+                        success: false,
+                        serviceAvailable: false,
+                        passwordRequired: false,
+                        alreadyLoggedIn: false,
+                        message: "No PLC device item is currently open. Open the PLC before logging into the safety program.");
+                }
+
+                _logger?.LogInformation("Attempting safety offline program login for PLC {PlcName}", CurrentPlcName);
+                return _v21Adapter.LoginToSafetyOfflineProgram(_currentDeviceItem, password);
             });
         }
 

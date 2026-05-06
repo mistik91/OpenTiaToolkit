@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "opentia": {
+      "command": "E:\\Path\\To\\OpenTiaToolkit\\src\\OpenTiaToolkit.MCP\\bin\\Debug\\net48\\OpenTiaToolkit.MCP.exe",
+      "args": [],
+      "env": {
+        "OPEN_TIA_MCP_LOG_LEVEL": "Error"
+      }
+    }
+  }
+}

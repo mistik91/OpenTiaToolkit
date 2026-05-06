@@ -21,6 +21,7 @@ namespace OpenTiaToolkit.Core.Services
         private const string EventHandlersPropertyName = "EventHandlers";
         private const string PropertyEventHandlersPropertyName = "PropertyEventHandlers";
         private const string DynamizationsPropertyName = "Dynamizations";
+        private const string InterfacePropertyName = "Interface";
         private readonly EngineeringSessionContext _sessionContext;
         private readonly V21UnifiedHmiAdapter _adapter;
         private readonly HmiJsonExportService _exportService;
@@ -402,6 +403,16 @@ namespace OpenTiaToolkit.Core.Services
                 filters,
                 dryRun,
                 result);
+            ProcessInterfaceBindings(
+                scope: "Item",
+                screenPath,
+                itemDocument.Name,
+                itemDocument.Interface,
+                existingItem,
+                itemTargetType,
+                filters,
+                dryRun,
+                result);
         }
 
         private void ProcessItemProperties(
@@ -731,6 +742,94 @@ namespace OpenTiaToolkit.Core.Services
             result.PropertySetCount += changedProperties.Count;
         }
 
+        private void ProcessInterfaceBindings(
+            string scope,
+            string screenPath,
+            string? itemName,
+            IReadOnlyList<HmiJsonInterfaceBinding>? bindings,
+            object? owner,
+            Type ownerType,
+            HmiJsonFilterOptions filters,
+            bool dryRun,
+            HmiJsonImportResult result)
+        {
+            if (bindings == null)
+            {
+                return;
+            }
+
+            if (!HmiJsonFilterMatcher.ShouldIncludeCompositeProperty(InterfacePropertyName, filters))
+            {
+                AddSkippedProperty(result, scope, screenPath, itemName, InterfacePropertyName, "Filtered out");
+                return;
+            }
+
+            var filteredBindings = bindings
+                .Where(binding => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(InterfacePropertyName, binding.PropertyName, filters))
+                .ToList();
+            if (bindings.Count > 0 && filteredBindings.Count == 0)
+            {
+                AddSkippedProperty(result, scope, screenPath, itemName, InterfacePropertyName, "Filtered out");
+                return;
+            }
+
+            var currentBindings = new List<HmiJsonInterfaceBinding>();
+            if (owner != null)
+            {
+                if (!_adapter.TryReadInterfaceBindings(owner, out currentBindings, out var readError))
+                {
+                    if (!string.IsNullOrWhiteSpace(readError))
+                    {
+                        AddFailedProperty(result, scope, screenPath, itemName, InterfacePropertyName, readError!);
+                        AddWarning(result, $"{scope} '{FormatObjectPath(screenPath, itemName)}': {readError}");
+                        return;
+                    }
+                }
+            }
+
+            var desiredBindings = MergeFilteredInterfaceBindings(currentBindings, filteredBindings, filters);
+            var changedProperties = HmiJsonCompositeComparer.GetChangedInterfaceProperties(currentBindings, desiredBindings);
+            if (changedProperties.Count == 0)
+            {
+                result.PropertyUnchangedCount += filteredBindings.Count;
+                return;
+            }
+
+            if (!_adapter.TryValidateOrApplyInterfaceBindings(owner, ownerType, desiredBindings, apply: !dryRun, out var error))
+            {
+                foreach (var propertyName in changedProperties)
+                {
+                    AddFailedProperty(result, scope, screenPath, itemName, $"{InterfacePropertyName}.{propertyName}", error ?? "Interface bindings could not be applied.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    AddWarning(result, $"{scope} '{FormatObjectPath(screenPath, itemName)}': {error}");
+                }
+
+                return;
+            }
+
+            var currentMap = HmiJsonCompositeComparer.BuildInterfaceBindingMap(currentBindings);
+            var desiredMap = HmiJsonCompositeComparer.BuildInterfaceBindingMap(desiredBindings);
+            foreach (var propertyName in changedProperties)
+            {
+                currentMap.TryGetValue(propertyName, out var currentBinding);
+                desiredMap.TryGetValue(propertyName, out var desiredBinding);
+                AddPropertyChange(
+                    result,
+                    scope,
+                    screenPath,
+                    itemName,
+                    $"{InterfacePropertyName}.{propertyName}",
+                    currentBinding == null ? "Create" : desiredBinding == null ? "Delete" : "Update",
+                    SerializeCompositeValue(currentBinding),
+                    SerializeCompositeValue(desiredBinding));
+            }
+
+            result.PropertySetCount += changedProperties.Count;
+        }
+
         internal static List<HmiJsonEventHandler> MergeFilteredEventHandlers(
             IReadOnlyList<HmiJsonEventHandler> currentHandlers,
             IReadOnlyList<HmiJsonEventHandler> filteredHandlers,
@@ -786,6 +885,24 @@ namespace OpenTiaToolkit.Core.Services
                 .Concat(filteredDynamizations);
 
             return HmiJsonCompositeComparer.CloneDynamizations(merged) ?? new List<HmiJsonDynamization>();
+        }
+
+        internal static List<HmiJsonInterfaceBinding> MergeFilteredInterfaceBindings(
+            IReadOnlyList<HmiJsonInterfaceBinding> currentBindings,
+            IReadOnlyList<HmiJsonInterfaceBinding> filteredBindings,
+            HmiJsonFilterOptions filters)
+        {
+            if (!ShouldPreserveUnfilteredCompositeEntries(InterfacePropertyName, filters))
+            {
+                return HmiJsonCompositeComparer.CloneInterfaceBindings(filteredBindings) ?? new List<HmiJsonInterfaceBinding>();
+            }
+
+            var merged = HmiJsonCompositeComparer.BuildInterfaceBindingMap(currentBindings)
+                .Where(entry => !HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(InterfacePropertyName, entry.Key, filters))
+                .Select(entry => entry.Value)
+                .Concat(filteredBindings);
+
+            return HmiJsonCompositeComparer.CloneInterfaceBindings(merged) ?? new List<HmiJsonInterfaceBinding>();
         }
 
         internal static void ApplySafetyPolicy(

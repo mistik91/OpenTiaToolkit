@@ -104,6 +104,24 @@ namespace OpenTiaToolkit.Core.Services
                 .ToList();
         }
 
+        public static List<HmiJsonInterfaceBinding>? CloneInterfaceBindings(IEnumerable<HmiJsonInterfaceBinding>? bindings)
+        {
+            if (bindings == null)
+            {
+                return null;
+            }
+
+            return bindings
+                .Where(binding => binding != null)
+                .Select(binding => new HmiJsonInterfaceBinding
+                {
+                    PropertyName = binding.PropertyName,
+                    Value = binding.Value
+                })
+                .OrderBy(binding => binding.PropertyName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         public static List<string> GetChangedEventHandlerKeys(
             IEnumerable<HmiJsonEventHandler>? current,
             IEnumerable<HmiJsonEventHandler>? desired)
@@ -156,6 +174,25 @@ namespace OpenTiaToolkit.Core.Services
                     currentMap.TryGetValue(key, out var currentDynamization);
                     desiredMap.TryGetValue(key, out var desiredDynamization);
                     return !AreDynamizationsEquivalent(currentDynamization, desiredDynamization);
+                })
+                .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        public static List<string> GetChangedInterfaceProperties(
+            IEnumerable<HmiJsonInterfaceBinding>? current,
+            IEnumerable<HmiJsonInterfaceBinding>? desired)
+        {
+            var currentMap = BuildInterfaceBindingMap(current);
+            var desiredMap = BuildInterfaceBindingMap(desired);
+
+            return currentMap.Keys
+                .Union(desiredMap.Keys, StringComparer.OrdinalIgnoreCase)
+                .Where(key =>
+                {
+                    currentMap.TryGetValue(key, out var currentBinding);
+                    desiredMap.TryGetValue(key, out var desiredBinding);
+                    return !AreInterfaceBindingsEquivalent(currentBinding, desiredBinding);
                 })
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -214,6 +251,21 @@ namespace OpenTiaToolkit.Core.Services
                 if (!string.IsNullOrWhiteSpace(key) && dynamization != null)
                 {
                     map[key!] = dynamization;
+                }
+            }
+
+            return map;
+        }
+
+        public static Dictionary<string, HmiJsonInterfaceBinding> BuildInterfaceBindingMap(IEnumerable<HmiJsonInterfaceBinding>? bindings)
+        {
+            var map = new Dictionary<string, HmiJsonInterfaceBinding>(StringComparer.OrdinalIgnoreCase);
+            foreach (var binding in bindings ?? Enumerable.Empty<HmiJsonInterfaceBinding>())
+            {
+                var key = NormalizeString(binding?.PropertyName);
+                if (!string.IsNullOrWhiteSpace(key) && binding != null)
+                {
+                    map[key!] = binding;
                 }
             }
 
@@ -281,6 +333,29 @@ namespace OpenTiaToolkit.Core.Services
             {
                 if (!leftMap.TryGetValue(entry.Key, out var leftHandler) ||
                     !ArePropertyEventHandlersEquivalent(leftHandler, entry.Value))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static bool AreInterfaceBindingCollectionsEquivalent(
+            IEnumerable<HmiJsonInterfaceBinding>? left,
+            IEnumerable<HmiJsonInterfaceBinding>? right)
+        {
+            var leftMap = BuildInterfaceBindingMap(left);
+            var rightMap = BuildInterfaceBindingMap(right);
+            if (leftMap.Count != rightMap.Count)
+            {
+                return false;
+            }
+
+            foreach (var entry in rightMap)
+            {
+                if (!leftMap.TryGetValue(entry.Key, out var leftBinding) ||
+                    !AreInterfaceBindingsEquivalent(leftBinding, entry.Value))
                 {
                     return false;
                 }
@@ -358,6 +433,22 @@ namespace OpenTiaToolkit.Core.Services
                    Nullable.Equals(left.ValueConverter?.IsFormulaSelected, right.ValueConverter?.IsFormulaSelected) &&
                    StringsEqual(left.ValueConverter?.Formula, right.ValueConverter?.Formula) &&
                    AreMappingTablesEquivalent(left.ValueConverter?.MappingTable, right.ValueConverter?.MappingTable);
+        }
+
+        public static bool AreInterfaceBindingsEquivalent(HmiJsonInterfaceBinding? left, HmiJsonInterfaceBinding? right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null)
+            {
+                return false;
+            }
+
+            return StringsEqual(left.PropertyName, right.PropertyName) &&
+                   StringsEqual(left.Value, right.Value);
         }
 
         private static HmiJsonScriptPayload? CloneScriptPayload(HmiJsonScriptPayload? script)

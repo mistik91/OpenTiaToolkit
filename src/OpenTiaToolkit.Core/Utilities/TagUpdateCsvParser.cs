@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace OpenTiaToolkit.Core.Utilities
 {
@@ -32,8 +33,8 @@ namespace OpenTiaToolkit.Core.Utilities
     /// </summary>
     internal static class TagUpdateCsvParser
     {
-        // Required columns (case-insensitive)
-        private static readonly string[] RequiredColumns = { "TagName", "Address", "DataType", "Comment" };
+        // Required columns (case-insensitive). Comment is intentionally optional.
+        private static readonly string[] RequiredColumns = { "TagName", "Address", "DataType" };
 
         /// <summary>
         /// Parses a CSV file containing tag update information.
@@ -55,7 +56,7 @@ namespace OpenTiaToolkit.Core.Utilities
             string[] lines;
             try
             {
-                lines = File.ReadLines(csvFilePath).ToArray();
+                lines = ReadAllLinesWithEncodingFallback(csvFilePath);
             }
             catch (Exception ex)
             {
@@ -82,11 +83,15 @@ namespace OpenTiaToolkit.Core.Utilities
             var headerColumns = ParseCsvLine(lines[0], delimiter);
             var columnMap = BuildColumnMap(headerColumns);
 
-            // Validate that we have at least the required columns
-            if (columnMap.Count < 3)
+            var missingColumns = RequiredColumns
+                .Where(requiredColumn => !columnMap.ContainsKey(requiredColumn))
+                .ToArray();
+
+            if (missingColumns.Length > 0)
             {
                 throw new ArgumentException(
                     $"CSV file must contain at least TagName, Address, and DataType columns. " +
+                    $"Missing columns: {string.Join(", ", missingColumns)}. " +
                     $"Found columns: {string.Join(", ", headerColumns)}"
                 );
             }
@@ -120,7 +125,7 @@ namespace OpenTiaToolkit.Core.Utilities
                 // Extract Address (required)
                 if (columnMap.TryGetValue("Address", out int addressIndex) && addressIndex < columns.Length)
                 {
-                    row.Address = columns[addressIndex].Trim();
+                    row.Address = NormalizeLogicalAddress(columns[addressIndex].Trim());
                 }
 
                 // Extract DataType (required)
@@ -155,6 +160,54 @@ namespace OpenTiaToolkit.Core.Utilities
             return result;
         }
 
+        internal static string NormalizeLogicalAddress(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+            {
+                return string.Empty;
+            }
+
+            var normalized = address.Trim().ToUpperInvariant();
+            if (normalized.StartsWith("%E", StringComparison.Ordinal))
+            {
+                return "%I" + normalized.Substring(2);
+            }
+
+            if (normalized.StartsWith("%A", StringComparison.Ordinal))
+            {
+                return "%Q" + normalized.Substring(2);
+            }
+
+            return normalized;
+        }
+
+        private static string[] ReadAllLinesWithEncodingFallback(string csvFilePath)
+        {
+            try
+            {
+                using (var reader = new StreamReader(
+                    csvFilePath,
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true),
+                    detectEncodingFromByteOrderMarks: true))
+                {
+                    var content = reader.ReadToEnd();
+                    return SplitLines(content);
+                }
+            }
+            catch (DecoderFallbackException)
+            {
+                return File.ReadAllLines(csvFilePath, Encoding.Default);
+            }
+        }
+
+        private static string[] SplitLines(string content)
+        {
+            return content
+                .Replace("\r\n", "\n")
+                .Replace('\r', '\n')
+                .Split(new[] { '\n' }, StringSplitOptions.None);
+        }
+
         /// <summary>
         /// Parses a CSV line into columns, handling quoted values.
         /// </summary>
@@ -167,11 +220,20 @@ namespace OpenTiaToolkit.Core.Utilities
             var current = new System.Text.StringBuilder();
             bool inQuotes = false;
 
-            foreach (char c in line)
+            for (int i = 0; i < line.Length; i++)
             {
+                char c = line[i];
                 if (c == '"')
                 {
-                    inQuotes = !inQuotes;
+                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        current.Append('"');
+                        i++;
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                    }
                 }
                 else if (c == delimiter && !inQuotes)
                 {

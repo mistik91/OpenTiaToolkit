@@ -4,7 +4,7 @@ An open-source automation toolkit for Siemens TIA Portal, providing both CLI and
 
 ## Overview
 
-OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness API, providing a unified command interface that works both as a command-line tool for humans and as an MCP (Model Context Protocol) server for AI agents like Claude.
+OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness API, providing a unified command interface that works both as a command-line tool for humans and as an MCP (Model Context Protocol) server for AI agents.
 
 ### Key Features
 
@@ -247,6 +247,8 @@ tia> _
 The MCP server communicates over stdio using the official C# MCP SDK and the [Model Context Protocol](https://modelcontextprotocol.io/) specification.
 
 In practice, you normally launch it from an MCP client such as Claude Desktop rather than piping bare JSON lines into the executable.
+
+Client-specific configuration snippets for Codex, Claude Code, Google Antigravity, and VS Code are available in [`docs/mcp-client-configs`](docs/mcp-client-configs/README.md).
 
 ### Available Tools
 
@@ -1101,11 +1103,47 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"spee
 
 **⚠️ Warning:** Substring matching can cause unintended replacements. Always use `--dry-run=true` first.
 
+#### `update-tags-from-csv`
+Updates or creates PLC tags from a CSV file using page-based tag names.
+
+```bash
+OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=true
+OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false
+OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false --safety-password="secret"
+```
+
+CSV columns:
+
+```csv
+TagName,Address,DataType,Comment
+23F1,%M0.0,Bool,Updated address/comment only
+101MotorRun,%M2.0,Bool,Can rename by page
+RESERVE,%E10.7,,Updates existing non-page tag by unique address
+```
+
+**Parameters:**
+- `plc-name` (required): Name of the PLC device
+- `csv-path` (required): Path to the CSV file
+- `dry-run` (optional): Preview changes without applying (default: true)
+- `safety-password` (optional): Logs into the offline safety program before applying changes when the selected PLC exposes the Openness SafetyAdministration service. If safety login is unavailable, log in manually in TIA Portal before applying fail-safe tag changes.
+
+**Rules:**
+- `TagName`, `Address`, and `DataType` columns are required; `Comment` is optional.
+- Addresses may use international notation (`%I`, `%Q`) or German notation (`%E`, `%A`); German input/output prefixes are normalized before matching and applying.
+- Tag names usually start with a page number, followed by letters, digits, or underscores.
+- A unique address match is treated as the strongest match. If the old tag name also appears elsewhere in the CSV, it is treated as shifted and left for its own row.
+- If a unique address match uses an old tag name that no longer appears in the CSV, the old tag is deleted and a new tag is created at the same address. This intentionally breaks old PLC references so stale logic is found at compile time.
+- Repeated CSV tag names are allowed when their addresses differ. TIA may auto-suffix duplicates such as `RESERVE(1)` or `30_EMERGENCY(1)`.
+- Page `< 100`: when there is no address match, matches by full tag name and updates address/comment only.
+- Page `>= 100`: matches by base name after the page number, so the page prefix can change and the tag can be renamed.
+- If more than one existing tag matches across tag tables, the row is skipped as ambiguous instead of creating or updating a duplicate.
+- New tags are created when no existing match is found; for empty `DataType`, the command infers common types from the address (`Bool`, `Byte`, `Word`, `DWord`) when possible.
+
 **V21 API Features:**
 - Real PLC software tree enumeration across blocks, types, tag tables, and external sources
 - Real software compilation via the Siemens `ICompilable` service
 - Recursive block/type/document import-export over the validated V21 object model
-- Tag creation and management with substring matching support
+- Tag creation and management with substring matching and CSV update support
 
 ## Architecture
 

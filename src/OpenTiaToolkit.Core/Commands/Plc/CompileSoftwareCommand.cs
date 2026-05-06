@@ -75,7 +75,8 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                         success = result.Success,
                         errorCount = result.ErrorCount,
                         warningCount = result.WarningCount,
-                        message = result.Message
+                        message = result.Message,
+                        diagnostics = result.Diagnostics
                     },
                     message: result.Success
                         ? $"Compilation successful: {result.ErrorCount} errors, {result.WarningCount} warnings"

@@ -170,12 +170,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                         parsedOperations = DeserializePatchOperations(jsonElement);
                         break;
                     case string jsonText:
-                        using (var document = JsonDocument.Parse(jsonText))
-                        {
-                            parsedOperations = DeserializePatchOperations(document.RootElement);
-                        }
-
-                        break;
+                        return TryParsePatchOperationsJson(name, jsonText, out operations, out error);
                     default:
                         using (var document = JsonDocument.Parse(JsonSerializer.Serialize(rawObject, JsonOptions)))
                         {
@@ -185,6 +180,28 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                         break;
                 }
 
+                return ValidateOperations(name, parsedOperations, out operations, out error);
+            }
+            catch (Exception ex)
+            {
+                error = $"Parameter {name} is not valid Unified HMI screen patch operations JSON: {ex.Message}";
+                return false;
+            }
+        }
+
+        public static bool TryParsePatchOperationsJson(
+            string name,
+            string jsonText,
+            out IReadOnlyList<HmiScreenJsonPatchOperation>? operations,
+            out string? error)
+        {
+            operations = null;
+            error = null;
+
+            try
+            {
+                using var document = JsonDocument.Parse(jsonText);
+                var parsedOperations = DeserializePatchOperations(document.RootElement);
                 return ValidateOperations(name, parsedOperations, out operations, out error);
             }
             catch (Exception ex)
