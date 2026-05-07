@@ -302,6 +302,10 @@ The registered MCP tool surface is generated from the shared command implementat
 | `diff-hmi-json` | Creates a minimal patch from two HMI JSON exports |
 | `import-hmi-json` | Preflights or imports a Unified HMI JSON export or patch |
 | `get-hmi-screen-json` | Returns one screen as canonical JSON with a base hash for agent editing |
+| `get-hmi-screen-summary` | Returns compact item and faceplate counts before large edits |
+| `hmi-status` | Reports Unified HMI session health and can probe a screen |
+| `probe-hmi-faceplate-interface` | Inspects faceplate interface metadata and optional direct write/restore behavior |
+| `audit-hmi-label-proximity` | Emits an auditable nearest-label mapping report for bulk HMI edits |
 | `apply-hmi-screen-json-edit` | Dry-runs or applies one edited screen JSON object through the safe import pipeline |
 | `apply-hmi-screen-json-patch` | Dry-runs or applies compact agent patch operations through the same safe pipeline |
 | `inspect-hmi-screen-json-capabilities` | Returns agent-oriented screen patch capabilities, item types, and property guidance |
@@ -622,7 +626,7 @@ For MCP/agent use, pass `edited-screen` as a JSON object instead of a string. If
 #### `apply-hmi-screen-json-patch`
 Accepts compact operations and internally turns them into an edited single-screen JSON document before running the same hash check, diff, preflight, import, backup, and verify flow. This is the preferred interface when an agent only needs to express a small intent.
 
-Supported operations are `set-property`, `set-properties`, `move-item`, `resize-item`, `set-layout`, `rename-item`, `create-item`, `delete-item`, `duplicate-item`, `set-event-handler`, `remove-event-handler`, `set-property-event-handler`, `remove-property-event-handler`, `set-dynamization`, and `remove-dynamization`.
+Supported operations are `set-property`, `set-properties`, `move-item`, `resize-item`, `set-layout`, `rename-item`, `create-item`, `delete-item`, `duplicate-item`, `set-event-handler`, `remove-event-handler`, `set-property-event-handler`, `remove-property-event-handler`, `set-dynamization`, `remove-dynamization`, and `set-interface`.
 
 ```json
 {

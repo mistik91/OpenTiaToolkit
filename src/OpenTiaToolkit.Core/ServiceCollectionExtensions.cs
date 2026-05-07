@@ -85,6 +85,8 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ICommand, ImportHmiJsonCommand>();
             services.AddSingleton<ICommand, GetHmiScreenJsonCommand>();
             services.AddSingleton<ICommand, GetHmiScreenSummaryCommand>();
+            services.AddSingleton<ICommand, HmiStatusCommand>();
+            services.AddSingleton<ICommand, AuditHmiLabelProximityCommand>();
             services.AddSingleton<ICommand, ProbeHmiFaceplateInterfaceCommand>();
             services.AddSingleton<ICommand, ApplyHmiScreenJsonEditCommand>();
             services.AddSingleton<ICommand, ApplyHmiScreenJsonPatchCommand>();

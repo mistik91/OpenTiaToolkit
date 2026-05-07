@@ -410,6 +410,7 @@ namespace OpenTiaToolkit.Core.Services
                 itemDocument.Interface,
                 existingItem,
                 itemTargetType,
+                software,
                 filters,
                 dryRun,
                 result);
@@ -749,6 +750,7 @@ namespace OpenTiaToolkit.Core.Services
             IReadOnlyList<HmiJsonInterfaceBinding>? bindings,
             object? owner,
             Type ownerType,
+            HmiSoftware software,
             HmiJsonFilterOptions filters,
             bool dryRun,
             HmiJsonImportResult result)
@@ -771,6 +773,12 @@ namespace OpenTiaToolkit.Core.Services
             {
                 AddSkippedProperty(result, scope, screenPath, itemName, InterfacePropertyName, "Filtered out");
                 return;
+            }
+
+            if (!dryRun && string.Equals(scope, "Item", StringComparison.OrdinalIgnoreCase))
+            {
+                owner = ReacquireItemOwnerForInterfaceWrite(software, screenPath, itemName, result);
+                ownerType = owner?.GetType() ?? ownerType;
             }
 
             var currentBindings = new List<HmiJsonInterfaceBinding>();
@@ -828,6 +836,40 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             result.PropertySetCount += changedProperties.Count;
+        }
+
+        private object? ReacquireItemOwnerForInterfaceWrite(
+            HmiSoftware software,
+            string screenPath,
+            string? itemName,
+            HmiJsonImportResult result)
+        {
+            if (string.IsNullOrWhiteSpace(itemName))
+            {
+                return null;
+            }
+
+            try
+            {
+                if (!_adapter.TryGetScreen(software, screenPath, out var screen, out var normalizedPath) || screen == null)
+                {
+                    AddWarning(result, $"Item '{FormatObjectPath(screenPath, itemName)}': screen could not be reacquired before Interface write.");
+                    return null;
+                }
+
+                var item = screen.ScreenItems.Find(itemName);
+                if (item == null)
+                {
+                    AddWarning(result, $"Item '{FormatObjectPath(normalizedPath, itemName)}': item could not be reacquired before Interface write.");
+                }
+
+                return item;
+            }
+            catch (Exception ex)
+            {
+                AddWarning(result, $"Item '{FormatObjectPath(screenPath, itemName)}': item reacquire before Interface write failed: {FormatExceptionMessage(ex)}");
+                return null;
+            }
         }
 
         internal static List<HmiJsonEventHandler> MergeFilteredEventHandlers(
@@ -1184,6 +1226,21 @@ namespace OpenTiaToolkit.Core.Services
             return string.IsNullOrWhiteSpace(itemName)
                 ? screenPath
                 : screenPath + "/" + itemName;
+        }
+
+        private static string FormatExceptionMessage(Exception ex)
+        {
+            var messages = new List<string>();
+            for (var current = ex; current != null; current = current.InnerException)
+            {
+                if (!string.IsNullOrWhiteSpace(current.Message) &&
+                    !messages.Contains(current.Message, StringComparer.Ordinal))
+                {
+                    messages.Add(current.Message);
+                }
+            }
+
+            return messages.Count == 0 ? ex.GetType().Name : string.Join(" | Inner: ", messages);
         }
 
         private static string? SerializeCompositeValue<T>(T? value)

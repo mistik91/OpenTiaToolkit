@@ -2241,7 +2241,9 @@ namespace OpenTiaToolkit.Core.Services
                     return true;
                 }
 
-                foreach (var binding in desired)
+                var changedProperties = HmiJsonCompositeComparer.GetChangedInterfaceProperties(current, desired);
+                foreach (var binding in desired.Where(binding =>
+                    changedProperties.Contains(binding.PropertyName ?? string.Empty, StringComparer.OrdinalIgnoreCase)))
                 {
                     var propertyName = NormalizeOptionalString(binding.PropertyName)!;
                     if (!currentAll.TryGetValue(propertyName, out var currentEntry) || currentEntry.Raw == null)

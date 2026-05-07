@@ -338,7 +338,7 @@ OpenTiaToolkit.CLI.exe create-hmi-trend --hmi-name="HMI_1" --tag-path="HMI_Tags/
 
 ### Unified HMI JSON Import/Export
 
-The JSON flow is the repeatable import/export path for Unified HMI screens. It supports screens, items, scalar properties, event handlers, property event handlers, dynamizations, and value-converter mapping tables.
+The JSON flow is the repeatable import/export path for Unified HMI screens. It supports screens, items, scalar properties, faceplate interface bindings, event handlers, property event handlers, dynamizations, and value-converter mapping tables.
 
 #### export-hmi-json
 
@@ -413,6 +413,7 @@ Dry-runs or applies compact agent operations by first transforming the current s
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-property\",\"item\":\"Button_1\",\"property\":\"Text\",\"value\":\"Start\"}]}" --base-hash="..." --dry-run=true
+OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations-path="C:\Exports\Hmi\patch-ops.json" --base-hash="..." --item-names="Valve_1" --properties="Interface" --dry-run=true
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-layout\",\"item\":\"Button_1\",\"left\":120,\"top\":80,\"width\":180,\"height\":44}]}" --base-hash="..." --dry-run=false
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"create-item\",\"item\":\"StatusText\",\"itemType\":\"text\",\"left\":120,\"top\":140,\"width\":240,\"height\":40,\"properties\":{\"Text\":\"Ready\"}}]}" --base-hash="..." --dry-run=false
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"duplicate-item\",\"source\":\"Button_1\",\"item\":\"Button_2\",\"left\":120,\"top\":200,\"properties\":{\"Text\":\"Start backup\"}},{\"op\":\"delete-item\",\"item\":\"OldButton\"}]}" --base-hash="..." --dry-run=true
@@ -432,17 +433,53 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - `set-event-handler` / `remove-event-handler`: Create, replace, or remove event handlers. Use `eventHandler` for full JSON or `eventType` plus `scriptCode` for compact script handlers.
 - `set-property-event-handler` / `remove-property-event-handler`: Create, replace, or remove property event handlers. Use `propertyEventHandler` for full JSON or `property`, `eventType`, and `scriptCode`.
 - `set-dynamization` / `remove-dynamization`: Create, replace, or remove property dynamizations. Use `dynamization` for full JSON or compact `property`, `dynamizationType`, and `tag`.
+- `set-interface`: Set one faceplate container interface binding. Use `item`, `property`/`propertyName`, and `value`; filter with the root property `Interface`.
 
 **Parameters**:
 - `operations` (required): JSON array or `{ "operations": [...] }`. MCP clients should pass this as an object/array instead of a CLI string.
+- `operations-path`: Optional JSON file containing the operations array or `{ "operations": [...] }`; use this for large or quote-heavy patches.
 - `base-hash`: Optional hash returned by `get-hmi-screen-json`; mismatches block the patch by default.
-- `item-names` and `properties`: When using `base-hash`, keep these identical to the snapshot filters so the hash represents the same JSON shape. `get-hmi-screen-json` returns `snapshotFilters` and `recommendedPatchArgs` to make this round-trip explicit for agents. For `duplicate-item`, include both source and target item names. For composite operations, include the composite root property: `EventHandlers`, `PropertyEventHandlers`, or `Dynamizations`.
+- `item-names` and `properties`: When using `base-hash`, keep these identical to the snapshot filters so the hash represents the same JSON shape. `get-hmi-screen-json` returns `snapshotFilters` and `recommendedPatchArgs` to make this round-trip explicit for agents. For `duplicate-item`, include both source and target item names. For composite operations, include the composite root property: `EventHandlers`, `PropertyEventHandlers`, `Dynamizations`, or `Interface`.
 - `allow-stale-base`: Allows patches when the current screen hash differs from `base-hash`.
 - `dry-run`: Validate and return operation, diff, and preflight details without applying.
 - `backup` and `backup-path`: Export a backup before mutation.
 - `working-path`: Optional root for generated base, edited, patch, backup, and verify artifacts.
 
 Patch/edit results include `guidance`, which tells agents whether to apply, re-read, fix filters, inspect preflight, or verify. When the next call can be made safely, `guidance.recommendedNextArgs` echoes the base hash and filters to reuse; `guidance.suggestedFixes` contains short recovery actions.
+
+#### get-hmi-screen-summary
+
+Returns compact screen counts without exporting a large payload. Use this before broad HMI edits to understand item counts and faceplate contained types.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hmi-screen-summary --hmi-name="HMI_1" --screen-path="Codex/Main"
+OpenTiaToolkit.CLI.exe get-hmi-screen-summary --hmi-name="HMI_1" --screen-path="Codex/Main" --include-items=true
+```
+
+#### hmi-status
+
+Reports TIA/HMI session health, current project, selected HMI, running TIA instances, and optionally probes a screen. Use it after Openness failures or before long HMI workflows.
+
+```bash
+OpenTiaToolkit.CLI.exe hmi-status --hmi-name="HMI_1" --screen-path="Codex/Main" --open-if-needed=true
+```
+
+#### probe-hmi-faceplate-interface
+
+Inspects a faceplate container's `Interface` composition and optionally performs one direct write probe with restore. This is diagnostic tooling for separating Siemens Openness setter behavior from the JSON patch/import pipeline.
+
+```bash
+OpenTiaToolkit.CLI.exe probe-hmi-faceplate-interface --hmi-name="HMI_1" --screen-path="Codex/Main" --item-name="Valve_1" --property="GEN"
+OpenTiaToolkit.CLI.exe probe-hmi-faceplate-interface --hmi-name="HMI_1" --screen-path="Codex/Main" --item-name-path="C:\Exports\Hmi\item-name.txt" --property="GEN" --write=true --value="Valve_1_GEN" --restore=true
+```
+
+#### audit-hmi-label-proximity
+
+Creates an offline JSON report from an exported HMI JSON file showing nearest-label matches before a bulk edit. The report includes target item, matched label item/text, distance, deltas, candidate counts, skipped candidates, and duplicate-label flags.
+
+```bash
+OpenTiaToolkit.CLI.exe audit-hmi-label-proximity --input-path="C:\Exports\Hmi\Main.json" --screen-path="Codex/Main" --label-texts="V116" --output-path="C:\Exports\Hmi\Main_label_audit.json"
+```
 
 #### inspect-hmi-screen-json-capabilities
 
