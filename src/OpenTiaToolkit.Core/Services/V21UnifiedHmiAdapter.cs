@@ -762,6 +762,71 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
+        public bool TryValidateItemProperty(HmiScreenItemBase item, string propertyName, string value, HmiSoftware software, out string? error)
+        {
+            error = null;
+
+            try
+            {
+                var propertyPath = propertyName.Trim();
+                var resolvedProperty = ResolveProperty(item, propertyPath);
+                if (resolvedProperty != null)
+                {
+                    if (IsMultilingualText(resolvedProperty.PropertyInfo.PropertyType))
+                    {
+                        if (resolvedProperty.PropertyInfo.GetValue(resolvedProperty.Target) == null)
+                        {
+                            error = $"Multilingual text property '{propertyPath}' is not initialized.";
+                            return false;
+                        }
+
+                        return true;
+                    }
+
+                    if (!resolvedProperty.PropertyInfo.CanWrite)
+                    {
+                        error = $"Property '{propertyPath}' is read-only.";
+                        return false;
+                    }
+
+                    if ((Nullable.GetUnderlyingType(resolvedProperty.PropertyInfo.PropertyType) ?? resolvedProperty.PropertyInfo.PropertyType) == typeof(string))
+                    {
+                        NormalizeStringPropertyValue(resolvedProperty.Target, resolvedProperty.PropertyInfo, value);
+                        return true;
+                    }
+
+                    ConvertStringToType(value, resolvedProperty.PropertyInfo.PropertyType, software);
+                    return true;
+                }
+
+                var resolvedAttribute = ResolveAttribute(item, propertyPath);
+                if (resolvedAttribute == null)
+                {
+                    error = $"Property or attribute '{propertyName}' was not found or is not writable.";
+                    return false;
+                }
+
+                if (resolvedAttribute.AttributeInfo.AccessMode != EngineeringAttributeAccessMode.Write &&
+                    resolvedAttribute.AttributeInfo.AccessMode != EngineeringAttributeAccessMode.ReadWrite)
+                {
+                    error = $"Attribute '{propertyPath}' is not writable.";
+                    return false;
+                }
+
+                ConvertStringToAttributeValue(
+                    value,
+                    resolvedAttribute.Target,
+                    resolvedAttribute.AttributeInfo,
+                    software);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.InnerException?.Message ?? ex.Message;
+                return false;
+            }
+        }
+
         public HmiFaceplateInterfaceProbeResult ProbeFaceplateInterface(
             string screenPath,
             HmiScreenItemBase item,

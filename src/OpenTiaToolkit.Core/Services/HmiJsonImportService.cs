@@ -6,6 +6,7 @@ using Siemens.Engineering.HmiUnified.UI.Screens;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Drawing;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -264,6 +265,12 @@ namespace OpenTiaToolkit.Core.Services
                 AddPropertyChange(result, "Screen", screenPath, itemName: null, property.Key, hasCurrentValue ? "Update" : "Create", currentValue, property.Value);
                 if (dryRun)
                 {
+                    if (screen != null && !TryValidateScreenProperty(screen, property.Key, property.Value, out var validationError))
+                    {
+                        AddFailedProperty(result, "Screen", screenPath, itemName: null, property.Key, validationError ?? "Screen property could not be validated.");
+                        continue;
+                    }
+
                     result.PropertySetCount++;
                     continue;
                 }
@@ -292,6 +299,7 @@ namespace OpenTiaToolkit.Core.Services
 
             var itemAction = NormalizeAction(itemDocument.Action, defaultAction: "Update");
             var existingItem = screen?.ScreenItems.Find(itemDocument.Name);
+            HmiScreenItemBase? temporaryDryRunItem = null;
 
             if (string.Equals(itemAction, "Delete", StringComparison.OrdinalIgnoreCase))
             {
@@ -319,7 +327,12 @@ namespace OpenTiaToolkit.Core.Services
             {
                 result.ItemCreated++;
                 AddObjectAction(result, "Item", screenPath, itemDocument.Name, itemDocument.Type, "Create", dryRun ? "Item would be created." : "Item was created.");
-                if (!dryRun)
+                if (dryRun)
+                {
+                    temporaryDryRunItem = TryCreateTemporaryDryRunItem(screen, itemDocument, result, screenPath);
+                    existingItem = temporaryDryRunItem;
+                }
+                else
                 {
                     if (screen == null)
                     {
@@ -331,6 +344,16 @@ namespace OpenTiaToolkit.Core.Services
                     if (existingItem == null)
                     {
                         AddWarning(result, $"Item '{screenPath}/{itemDocument.Name}' could not be created as type '{itemDocument.Type}'.");
+                        return;
+                    }
+
+                    if (HasInvalidItemProperties(screenPath, itemDocument, existingItem, software, filters, result))
+                    {
+                        if (!TryDeleteEngineeringObject(existingItem, out var deleteError))
+                        {
+                            AddWarning(result, $"Item '{screenPath}/{itemDocument.Name}' was created during validation but could not be removed after validation failed: {deleteError}");
+                        }
+
                         return;
                     }
                 }
@@ -359,6 +382,12 @@ namespace OpenTiaToolkit.Core.Services
                         AddWarning(result, $"Item '{screenPath}/{itemDocument.Name}' could not be recreated as type '{itemDocument.Type}'.");
                         return;
                     }
+
+                    if (HasInvalidItemProperties(screenPath, itemDocument, existingItem, software, filters, result))
+                    {
+                        AddWarning(result, $"Item '{screenPath}/{itemDocument.Name}' was recreated but property validation failed after the original item was deleted.");
+                        return;
+                    }
                 }
             }
             else if (string.Equals(itemAction, "Create", StringComparison.OrdinalIgnoreCase))
@@ -366,54 +395,64 @@ namespace OpenTiaToolkit.Core.Services
                 AddWarning(result, $"Item '{screenPath}/{itemDocument.Name}' already exists; create action is being treated as update.");
             }
 
-            ProcessItemProperties(screenPath, itemDocument, existingItem, software, filters, dryRun, result);
-            var itemTargetType = existingItem?.GetType();
-            if (itemTargetType == null && !_adapter.TryResolveItemClrType(itemDocument.Type, out itemTargetType))
+            try
             {
-                itemTargetType = typeof(HmiScreenItemBase);
-            }
+                ProcessItemProperties(screenPath, itemDocument, existingItem, software, filters, dryRun, result);
+                var itemTargetType = existingItem?.GetType();
+                if (itemTargetType == null && !_adapter.TryResolveItemClrType(itemDocument.Type, out itemTargetType))
+                {
+                    itemTargetType = typeof(HmiScreenItemBase);
+                }
 
-            ProcessEventHandlers(
-                scope: "Item",
-                screenPath,
-                itemDocument.Name,
-                itemDocument.EventHandlers,
-                existingItem,
-                itemTargetType,
-                filters,
-                dryRun,
-                result);
-            ProcessPropertyEventHandlers(
-                scope: "Item",
-                screenPath,
-                itemDocument.Name,
-                itemDocument.PropertyEventHandlers,
-                existingItem,
-                itemTargetType,
-                filters,
-                dryRun,
-                result);
-            ProcessDynamizations(
-                scope: "Item",
-                screenPath,
-                itemDocument.Name,
-                itemDocument.Dynamizations,
-                existingItem,
-                itemTargetType,
-                filters,
-                dryRun,
-                result);
-            ProcessInterfaceBindings(
-                scope: "Item",
-                screenPath,
-                itemDocument.Name,
-                itemDocument.Interface,
-                existingItem,
-                itemTargetType,
-                software,
-                filters,
-                dryRun,
-                result);
+                ProcessEventHandlers(
+                    scope: "Item",
+                    screenPath,
+                    itemDocument.Name,
+                    itemDocument.EventHandlers,
+                    existingItem,
+                    itemTargetType,
+                    filters,
+                    dryRun,
+                    result);
+                ProcessPropertyEventHandlers(
+                    scope: "Item",
+                    screenPath,
+                    itemDocument.Name,
+                    itemDocument.PropertyEventHandlers,
+                    existingItem,
+                    itemTargetType,
+                    filters,
+                    dryRun,
+                    result);
+                ProcessDynamizations(
+                    scope: "Item",
+                    screenPath,
+                    itemDocument.Name,
+                    itemDocument.Dynamizations,
+                    existingItem,
+                    itemTargetType,
+                    filters,
+                    dryRun,
+                    result);
+                ProcessInterfaceBindings(
+                    scope: "Item",
+                    screenPath,
+                    itemDocument.Name,
+                    itemDocument.Interface,
+                    existingItem,
+                    itemTargetType,
+                    software,
+                    filters,
+                    dryRun,
+                    result);
+            }
+            finally
+            {
+                if (temporaryDryRunItem != null && !TryDeleteEngineeringObject(temporaryDryRunItem, out var deleteError))
+                {
+                    AddWarning(result, $"Temporary dry-run item for '{screenPath}/{itemDocument.Name}' could not be removed: {deleteError}");
+                }
+            }
         }
 
         private void ProcessItemProperties(
@@ -450,6 +489,12 @@ namespace OpenTiaToolkit.Core.Services
                 AddPropertyChange(result, "Item", screenPath, itemDocument.Name, property.Key, hasCurrentValue ? "Update" : "Create", currentValue, property.Value);
                 if (dryRun)
                 {
+                    if (item != null && !_adapter.TryValidateItemProperty(item, property.Key, property.Value, software, out var validationError))
+                    {
+                        AddFailedProperty(result, "Item", screenPath, itemDocument.Name, property.Key, validationError ?? "Item property could not be validated.");
+                        continue;
+                    }
+
                     result.PropertySetCount++;
                     continue;
                 }
@@ -463,6 +508,55 @@ namespace OpenTiaToolkit.Core.Services
 
                 result.PropertySetCount++;
             }
+        }
+
+        private HmiScreenItemBase? TryCreateTemporaryDryRunItem(
+            HmiScreen? screen,
+            HmiJsonItem itemDocument,
+            HmiJsonImportResult result,
+            string screenPath)
+        {
+            if (screen == null)
+            {
+                return null;
+            }
+
+            var temporaryName = $"__OpenTiaToolkit_Preflight_{Guid.NewGuid():N}";
+            try
+            {
+                return _adapter.CreateScreenItem(screen, itemDocument.Type, temporaryName);
+            }
+            catch (Exception ex)
+            {
+                AddWarning(result, $"Temporary dry-run item for '{screenPath}/{itemDocument.Name}' could not be created as type '{itemDocument.Type}': {FormatExceptionMessage(ex)}");
+                return null;
+            }
+        }
+
+        private bool HasInvalidItemProperties(
+            string screenPath,
+            HmiJsonItem itemDocument,
+            HmiScreenItemBase item,
+            HmiSoftware software,
+            HmiJsonFilterOptions filters,
+            HmiJsonImportResult result)
+        {
+            var hasInvalidProperties = false;
+            foreach (var property in itemDocument.Properties.OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!HmiJsonFilterMatcher.ShouldIncludeProperty(property.Key, filters) || property.Value == null)
+                {
+                    continue;
+                }
+
+                if (!_adapter.TryValidateItemProperty(item, property.Key, property.Value, software, out var validationError))
+                {
+                    AddFailedProperty(result, "Item", screenPath, itemDocument.Name, property.Key, validationError ?? "Item property could not be validated.");
+                    hasInvalidProperties = true;
+                }
+            }
+
+            return hasInvalidProperties;
         }
 
         private void ProcessEventHandlers(
@@ -1098,12 +1192,73 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     convertedValue = uint.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
                 }
+                else if (targetType == typeof(Color))
+                {
+                    convertedValue = ColorTranslator.FromHtml(value);
+                }
                 else if (targetType.IsEnum)
                 {
                     convertedValue = Enum.Parse(targetType, value, ignoreCase: true);
                 }
 
                 property.SetValue(screen, convertedValue);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.InnerException?.Message ?? ex.Message;
+                return false;
+            }
+        }
+
+        private static bool TryValidateScreenProperty(HmiScreen screen, string propertyName, string value, out string? error)
+        {
+            error = null;
+
+            try
+            {
+                switch (propertyName)
+                {
+                    case "Width":
+                        uint.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+                        return true;
+                    case "Height":
+                        uint.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+                        return true;
+                    case "Enabled":
+                        bool.Parse(value);
+                        return true;
+                }
+
+                var property = screen.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+                if (property == null || !property.CanWrite)
+                {
+                    error = $"Property '{propertyName}' is not writable on screens.";
+                    return false;
+                }
+
+                var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+                if (targetType == typeof(bool))
+                {
+                    bool.Parse(value);
+                }
+                else if (targetType == typeof(int))
+                {
+                    int.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+                }
+                else if (targetType == typeof(uint))
+                {
+                    uint.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+                }
+                else if (targetType == typeof(Color))
+                {
+                    ColorTranslator.FromHtml(value);
+                }
+                else if (targetType.IsEnum)
+                {
+                    Enum.Parse(targetType, value, ignoreCase: true);
+                }
+
                 return true;
             }
             catch (Exception ex)
