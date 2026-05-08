@@ -699,6 +699,8 @@ Supported operations are `set-property`, `set-properties`, `move-item`, `resize-
 
 Snapshots include `snapshotFilters` and `recommendedPatchArgs` so agents can pass back the same `item-names`, `properties`, and `base-hash` without guessing. Patch/edit results include `guidance` with the recommended next action, suggested fixes, and `recommendedNextArgs` when the next call can be made safely. When using `base-hash`, keep filters identical because the hash represents that exact snapshot shape. For `duplicate-item`, include both the source item and the target item name in `item-names`; for composite operations, include the composite root property (`EventHandlers`, `PropertyEventHandlers`, or `Dynamizations`).
 
+Circle geometry is intentionally circle-native in the JSON patch/import surface. For `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` inside `properties`, and include those names in the snapshot/apply `properties` filter. Do not use rectangular `Left`, `Top`, `Width`, or `Height` geometry for circles in JSON patch/edit payloads; preflight will reject those fields.
+
 #### `inspect-hmi-screen-json-capabilities`
 Returns compact agent-oriented guidance: supported patch operations, current item names, supported item types and aliases, optional writable property metadata, patchable composite roots, and operation hints. The full screen snapshot is omitted by default to keep agent context small; pass `--include-snapshot=true` when the caller also needs the snapshot payload.
 

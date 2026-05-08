@@ -10,6 +10,8 @@ When using `base-hash`, repeat the same `item-names` and `properties` from the s
 
 ## Scalar and Layout Edits
 
+Most layout examples below use rectangular geometry. Circles are the exception: for `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in `properties`; do not use `Left`, `Top`, `Width`, or `Height` in JSON patch/import payloads for circles.
+
 Set one property:
 
 ```json
@@ -77,7 +79,25 @@ Create an item:
 
 For `create-item` with `base-hash`, include the new item name in `item-names` even though it does not exist yet, and repeat that filter on dry-run and apply.
 
-If the create sets geometry, include `Left`, `Top`, `Width`, and `Height` in `properties` along with any scalar overrides such as `Text`.
+If the create sets rectangular geometry, include `Left`, `Top`, `Width`, and `Height` in `properties` along with any scalar overrides such as `Text`.
+
+Create a circle:
+
+```json
+{
+  "op": "create-item",
+  "itemName": "KiwiCircle1",
+  "itemType": "circle",
+  "properties": {
+    "CenterX": "160",
+    "CenterY": "300",
+    "Radius": "60",
+    "BackColor": "#C5E17A"
+  }
+}
+```
+
+For that circle create, snapshot and apply filters should include `item-names: ["KiwiCircle1"]` and `properties: ["CenterX", "CenterY", "Radius", "BackColor"]`. If a circle payload fails on `Left`, `Top`, `Width`, or `Height`, correct the geometry model instead of bypassing preflight.
 
 Duplicate and rename:
 

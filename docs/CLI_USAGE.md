@@ -427,7 +427,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - `resize-item`: Set `width` and/or `height` for an item.
 - `set-layout`: Set any combination of `left`, `top`, `width`, and `height`.
 - `rename-item`: Rename an item using `newName` or `targetName`; `source` is accepted as an alias for the current item name.
-- `create-item`: Create an item using `itemType`, geometry fields, and optional `properties`.
+- `create-item`: Create an item using `itemType`, geometry fields, and optional `properties`. Rectangular items use `left`/`top`/`width`/`height`; `HmiCircle` / `circle` uses `CenterX`, `CenterY`, and `Radius` inside `properties`.
 - `delete-item`: Delete an item from the screen.
 - `duplicate-item`: Clone `source`/`sourceItem` into `item`/`targetItem`/`targetName`, with optional geometry and property overrides.
 - `set-event-handler` / `remove-event-handler`: Create, replace, or remove event handlers. Use `eventHandler` for full JSON or `eventType` plus `scriptCode` for compact script handlers.
@@ -440,6 +440,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - `operations-path`: Optional JSON file containing the operations array or `{ "operations": [...] }`; use this for large or quote-heavy patches.
 - `base-hash`: Optional hash returned by `get-hmi-screen-json`; mismatches block the patch by default.
 - `item-names` and `properties`: When using `base-hash`, keep these identical to the snapshot filters so the hash represents the same JSON shape. `get-hmi-screen-json` returns `snapshotFilters` and `recommendedPatchArgs` to make this round-trip explicit for agents. For `duplicate-item`, include both source and target item names. For composite operations, include the composite root property: `EventHandlers`, `PropertyEventHandlers`, `Dynamizations`, or `Interface`.
+- Circle geometry: For `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in the operation `properties` object and include those names in the filter. Do not use `Left`, `Top`, `Width`, or `Height` for circles in JSON patch/edit payloads.
 - `allow-stale-base`: Allows patches when the current screen hash differs from `base-hash`.
 - `dry-run`: Validate and return operation, diff, and preflight details without applying.
 - `backup` and `backup-path`: Export a backup before mutation.

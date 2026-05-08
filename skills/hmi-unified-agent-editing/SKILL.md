@@ -28,7 +28,9 @@ When using `base-hash`, the snapshot, dry-run apply, real apply, and verificatio
 
 For generated item operations, include new target names in `item-names` before the item exists. For rename and duplicate operations, include both the old/source name and the new/target name.
 
-Geometry fields are filtered properties too. Whenever an operation sets `left`, `top`, `width`, or `height`, include the corresponding `Left`, `Top`, `Width`, and/or `Height` names in `properties`. This applies to `create-item`, `duplicate-item`, `move-item`, `resize-item`, and `set-layout`.
+Geometry fields are filtered properties too. Whenever an operation sets `left`, `top`, `width`, or `height`, include the corresponding `Left`, `Top`, `Width`, and/or `Height` names in `properties`. This applies to rectangular item types in `create-item`, `duplicate-item`, `move-item`, `resize-item`, and `set-layout`.
+
+Circle geometry is different in the HMI JSON patch/import surface. For `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in `properties` and set them through the operation `properties` object. Do not use `left`, `top`, `width`, `height`, `Left`, `Top`, `Width`, or `Height` for circles in `apply-hmi-screen-json-patch` or `apply-hmi-screen-json-edit`; preflight should block those as not writable. If a lower-level `create-hmi-item` command accepts rectangular placement for a circle, treat that as command-specific convenience, not as the JSON patch shape.
 
 ## Command Schema Rules
 
@@ -81,7 +83,7 @@ If guidance says `apply-with-dry-run-false`, replay the same `apply-hmi-screen-j
 
 When asked for full safe payloads, include four calls: snapshot, dry-run apply, real apply, and verify. If summarizing, explicitly state that the real apply is the same payload with only `dry-run=false`; otherwise show the real apply JSON too.
 
-For a create with geometry, the filters must include the target item and every geometry/text property:
+For a create with rectangular geometry, the filters must include the target item and every geometry/text property:
 
 ```json
 {
@@ -111,6 +113,36 @@ The matching create operation should keep operation fields canonical:
   }
 }
 ```
+
+For a circle create, use circle-native geometry instead:
+
+```json
+{
+  "command": "get-hmi-screen-json",
+  "args": {
+    "hmi-name": "HMI_1",
+    "screen-path": "Screen/Path",
+    "item-names": ["KiwiCircle1"],
+    "properties": ["CenterX", "CenterY", "Radius", "BackColor"]
+  }
+}
+```
+
+```json
+{
+  "op": "create-item",
+  "item": "KiwiCircle1",
+  "itemType": "circle",
+  "properties": {
+    "CenterX": "160",
+    "CenterY": "300",
+    "Radius": "60",
+    "BackColor": "#C5E17A"
+  }
+}
+```
+
+If a circle preflight fails on `Left`, `Top`, `Width`, or `Height`, do not bypass safety or switch to broad imports. Re-express the circle with `CenterX`, `CenterY`, and `Radius`, re-read the snapshot with those filters, then dry-run again.
 
 ## Tool Choice
 
