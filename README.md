@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/opentia-toolkit-logo.png" alt="OpenTiaToolkit logo" width="720">
+</p>
+
 # OpenTiaToolkit
 
 An open-source automation toolkit for Siemens TIA Portal, providing both CLI and MCP server interfaces for human and AI agent interactions.
