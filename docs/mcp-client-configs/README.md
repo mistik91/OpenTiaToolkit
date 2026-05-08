@@ -26,6 +26,7 @@ If you switch to a Release build, replace `Debug` with `Release` in the snippets
 ### Development Checkout
 
 - `codex.config.toml`: OpenAI Codex `config.toml` server block.
+- `opencode.jsonc`: OpenCode project or user `opencode.json` MCP server block.
 - `claude-code-add.ps1`: Claude Code CLI registration command for PowerShell.
 - `claude-code.mcp.json`: Claude Code project `.mcp.json` snippet.
 - `antigravity.mcp_config.json`: Google Antigravity raw MCP config snippet.
@@ -35,6 +36,7 @@ If you switch to a Release build, replace `Debug` with `Release` in the snippets
 ### Product Install
 
 - `codex.installed.config.toml`: OpenAI Codex `config.toml` server block for the installed product.
+- `opencode.installed.jsonc`: OpenCode project or user `opencode.json` MCP server block for the installed product.
 - `claude-desktop.installed.json`: Claude Desktop config snippet.
 - `claude-code-installed-add.ps1`: Claude Code CLI registration command for PowerShell.
 - `claude-code.installed.mcp.json`: Claude Code project `.mcp.json` snippet.
@@ -51,6 +53,17 @@ The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit
 - a helper script for manually registering the installed MCP executable during development or manual installs
 
 The marketplace entry lives at [`../../.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json).
+
+## OpenCode Plugin Bundle
+
+The repo also includes a copyable OpenCode bundle at [`plugins/opentia-toolkit-opencode`](../../plugins/opentia-toolkit-opencode). It bundles:
+
+- the installed-product `opentia` MCP server configuration in `opencode.json`
+- an `AGENTS.md` rule file with the required TIA Portal connection sequence
+- a local `.opencode/plugins/opentia-toolkit.js` plugin that sets the default OpenTiaToolkit shell log level
+- the `hmi-unified-agent-editing` skill and references under `.opencode/skills`
+
+OpenCode uses `opencode.json` for project or user config, `.opencode/plugins/` for local plugins, and `.opencode/skills/<name>/SKILL.md` for reusable skills. Use `opencode.jsonc` from this folder for development checkouts, or `opencode.installed.jsonc` / the bundle for installed-product paths.
 
 ## Required TIA Portal Sequence
 
@@ -82,5 +95,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps
 
 - JSON configs need escaped backslashes, for example `E:\\Path\\To\\OpenTiaToolkit\\...`.
 - TOML configs can use single-quoted Windows paths, for example `'E:\Path\To\OpenTiaToolkit\...'`.
+- OpenCode local MCP configs use a `command` array and `environment` object inside an `mcp.<server-name>` entry.
 - Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.
 - Do not enable parallel MCP tool calls for this server. TIA Portal sessions are stateful and should be driven serially.

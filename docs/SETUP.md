@@ -70,6 +70,8 @@ C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
 
 The Codex plugin package lives in `plugins/opentia-toolkit` and uses the installed-product MCP path.
 
+The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its contents into an OpenCode project root to get the installed-product MCP config, `.opencode` plugin, HMI Unified skill, and `AGENTS.md` rules. For a development checkout, use `docs/mcp-client-configs/opencode.jsonc` and replace the placeholder path with your local build output.
+
 ## Run Tests
 
 Fast tests do not require a live TIA Portal session:
@@ -101,4 +103,3 @@ If build cannot find Siemens assemblies, confirm the PublicAPI path exists or pa
 If TIA rejects CLI or MCP access, refresh the Openness allow-list entry for the exact rebuilt executable.
 
 If an MCP client cannot start the server, run the MCP executable directly from PowerShell first and verify the path in the client config.
-

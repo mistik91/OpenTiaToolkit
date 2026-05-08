@@ -258,7 +258,7 @@ The MCP server communicates over stdio using the official C# MCP SDK and the [Mo
 
 In practice, you normally launch it from an MCP client such as Claude Desktop rather than piping bare JSON lines into the executable.
 
-Client-specific configuration snippets for Codex, Claude Desktop, Claude Code, Google Antigravity, and VS Code are available in [`docs/mcp-client-configs`](docs/mcp-client-configs/README.md). The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit`](plugins/opentia-toolkit) that bundles the installed-product MCP configuration with the HMI Unified editing skill.
+Client-specific configuration snippets for Codex, OpenCode, Claude Desktop, Claude Code, Google Antigravity, and VS Code are available in [`docs/mcp-client-configs`](docs/mcp-client-configs/README.md). The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit`](plugins/opentia-toolkit) and an OpenCode bundle at [`plugins/opentia-toolkit-opencode`](plugins/opentia-toolkit-opencode) that package the installed-product MCP configuration with the HMI Unified editing skill.
 
 ### Available Tools
 
