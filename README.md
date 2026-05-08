@@ -37,6 +37,7 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 - [Architecture](#architecture)
 - [Development](#development)
 - [Testing](#testing)
+- [Examples](#examples)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -55,12 +56,14 @@ OpenTiaToolkit is a C# .NET Framework 4.8 library that wraps the TIA Openness AP
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/OpenTiaToolkit.git
+git clone https://github.com/mistik91/OpenTiaToolkit.git
 cd OpenTiaToolkit
 
 # Build the solution
 dotnet build OpenTiaToolkit.sln
 ```
+
+See [docs/SETUP.md](docs/SETUP.md) for full setup, Siemens Openness allow-list registration, MCP client configuration, and test environment details.
 
 ### Output Artifacts
 
@@ -105,15 +108,18 @@ OpenTiaToolkit.CLI.exe help open-project
 ```json
 {
   "mcpServers": {
-    "open-tia-toolkit": {
-      "command": "C:\\Path\\To\\OpenTiaToolkit.MCP.exe",
+    "opentia": {
+      "command": "C:\\Program Files\\OpenTiaToolkit\\OpenTiaToolkit.MCP.exe",
+      "args": [],
       "env": {
-        "PATH": "C:\\Program Files\\Siemens\\Automation\\Portal V21\\PublicAPI\\V21\\net48"
+        "OPEN_TIA_MCP_LOG_LEVEL": "Error"
       }
     }
   }
 }
 ```
+
+For development checkouts, use the templates in [`docs/mcp-client-configs`](docs/mcp-client-configs/README.md) and replace the executable path with your local build output.
 
 2. **Restart Claude Desktop**
 
@@ -248,7 +254,7 @@ The MCP server communicates over stdio using the official C# MCP SDK and the [Mo
 
 In practice, you normally launch it from an MCP client such as Claude Desktop rather than piping bare JSON lines into the executable.
 
-Client-specific configuration snippets for Codex, Claude Code, Google Antigravity, and VS Code are available in [`docs/mcp-client-configs`](docs/mcp-client-configs/README.md).
+Client-specific configuration snippets for Codex, Claude Desktop, Claude Code, Google Antigravity, and VS Code are available in [`docs/mcp-client-configs`](docs/mcp-client-configs/README.md). The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit`](plugins/opentia-toolkit) that bundles the installed-product MCP configuration with the HMI Unified editing skill.
 
 ### Available Tools
 
@@ -1208,10 +1214,10 @@ dotnet build OpenTiaToolkit.sln
 dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
 
 # Run fast tests only (skips real TIA integration tests)
-dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName!~Integration"
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
 
 # Run real TIA integration tests
-dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName~Integration"
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory=Integration"
 ```
 
 If you want to pre-authorize a freshly built executable for TIA Openness, run `scripts/Register-OpennessAllowList.ps1` from an elevated PowerShell session after the build.
@@ -1284,12 +1290,13 @@ That's it. The shared host composition makes the command available in both CLI a
 - **Location**: `tests/OpenTiaToolkit.Tests/Integration/`
 - **Framework**: MSTest 3.9.2
 - **Scope**: Integration tests rely on a local TIA Portal V21 installation and a configured test project
+- **Category**: Integration test classes are marked with `[TestCategory("Integration")]`
 - **Execution Time**: Environment-dependent
 - **Configuration**: Override paths with `OPEN_TIA_TEST_PROJECT_PATH`, `OPEN_TIA_TEST_EXPORT_PATH`, and `OPEN_TIA_TEST_OUTPUT_PATH`
 
 ```bash
 # Run all integration tests
-dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName~Integration"
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory=Integration"
 
 # Run specific test class
 dotnet test --filter "TestClass=Test1Portal"
@@ -1303,6 +1310,10 @@ dotnet test --filter "TestClass=Test1Portal"
 - Unified HMI live validation lives in `Test10HmiUnified`, including JSON export/diff/import round trips against a real Unified HMI
 - Test paths can be overridden with `OPEN_TIA_TEST_PROJECT_PATH`, `OPEN_TIA_TEST_EXPORT_PATH`, and `OPEN_TIA_TEST_OUTPUT_PATH`
 - On Windows, run build and test serially in the same workspace to avoid temporary `testhost` file locks
+
+## Examples
+
+Practical CLI and MCP examples live in [examples](examples/README.md). Start with the read-only examples, then use disposable project copies for mutation workflows.
 
 ## Project Status
 
@@ -1421,7 +1432,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps
 
 ## License
 
-[Specify your license - e.g., MIT, Apache 2.0, etc.]
+OpenTiaToolkit is licensed under the [MIT License](LICENSE).
 
 ## Acknowledgments
 
@@ -1431,5 +1442,5 @@ Built with inspiration from:
 
 ## Contact
 
-- **Issues**: https://github.com/your-org/OpenTiaToolkit/issues
-- **Discussions**: https://github.com/your-org/OpenTiaToolkit/discussions
+- **Issues**: https://github.com/mistik91/OpenTiaToolkit/issues
+- **Discussions**: https://github.com/mistik91/OpenTiaToolkit/discussions

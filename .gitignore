@@ -1,115 +1,61 @@
-# .NET Framework / Visual Studio
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[xX]86/
+[xX]64/
+[Ll]og/
+[Ll]ogs/
+artifacts/
 
-## Build results
-[Bb]in/             Build outputs
-[Bb]in/obj/        Intermediate build files
-*.suo             Solution user options
-*.user             Solution user options
-
-# Visual Studio cache/options directory
+# Visual Studio and editor state
 .vs/
 .vscode/
-
-# User-specific files
+.idea/
 *.rsuser
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
-
-# Build results
-[Dd]ebug/
-[Rr]elease/
-[xX]86/
-[xX]64/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
-
-# Visual Studio 2015 cache/options directory
-.vs/
-
-# MSTest test Results
-[Tt]estResults/
-*.trx
-*.coverage
-*.coverage
-*.coveragexml
-
-# NUnit
-*.VisualState.xml
-TestResult.xml
-nunit-*.xml
-
-# .NET Core
-project.lock.json
-project.fragment.lock.json
-artifacts/
-
-# ASP.NET Scaffolding
-ScaffoldingReadMe.txt
-
-# StyleCop
-StyleCopReport.xml
-
-# JetBrains Rider
-.idea/
 *.sln.iml
+*.DotSettings.user
 
-# User-specific files
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-
-# Visual Studio Code
-.vscode/
-
-# Build results
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
-
-# Visual Studio 2015 cache/options directory
-.vs/
-
-# MSTest test Results
-[Tt]estResults/
+# Test results and coverage
+[Tt]est[Rr]esults/
+coverage/
 *.trx
 *.coverage
-*.coverage
 *.coveragexml
-
-# NUnit
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
 
-# .NET Core
+# NuGet and .NET restore artifacts
 project.lock.json
 project.fragment.lock.json
-artifacts/
+*.nupkg
+.nuget/
+**/packages/*
+!**/packages/build/
 
-# Files built by Visual Studio
+# Generated Visual Studio and C/C++ files
 *_i.c
 *_p.c
 *_v.h
+*.vcxproj
+*.vcxproj.filters
+*.vsidx
+*.vspscc
+*.vssscc
 
-# Visual Studio cache/options directory
-.vs/
-
-# ReSharper
+# Tooling reports
+ScaffoldingReadMe.txt
+StyleCopReport.xml
 _ReSharper*/
 *.ReSharper*
-				*.DotSettings.user
 
-# TIA Portal specific
+# TIA Portal temporary and archive files
 *.ap19_*
 *.ap19.backup
 *.als19_*
@@ -117,63 +63,6 @@ _ReSharper*/
 *.zdtp
 *.zdt1*
 *.zdt2*
-
-# Test outputs
-TestResults/
-coverage/
-*.coverage
-*.trx
-
-# NuGet Packages
-*.nupkg
-.nuget/
-**/packages/*
-!**/packages/build/
-
-# Visual Studio cache/options directory
-.vs/
-
-# ReSharper
-_ReSharper*/
-*.ReSharper*
-*_i.c
-*_p.c
-*_v.h
-*.suo
-*.vcxproj
-*.vcxproj.filters
-*.sln.docstates
-*.user
-*.userosscache
-*.sln.docstates
-
-# Test Results
-[Tt]estResults/
-*.trx
-*.coverage
-*.coveragexml
-
-# ReSharper
-_ReSharper*/
-*.ReSharper*
-*_i.c
-*_p.c
-*_v.h
-*.vsidx
-*.vspscc
-*.vssscc
-*.vspscc
-
-# NuGet Packages
-*.nupkg
-**/packages/*
-!**/packages/build/
-
-# TIA Portal temp files
-*.ap19_*
-*.ap19.backup
-*.als19_*
-*.als19.backup
 
 # Logs
 logs/
@@ -183,7 +72,6 @@ logs/
 .DS_Store
 .DS_Store?
 ._*
-.Spotlight-V100
 .Spotlight-V100
 .Trashes
 ehthumbs.db

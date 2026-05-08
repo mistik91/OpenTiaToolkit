@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "servers": {
+      "opentia": {
+        "type": "stdio",
+        "command": "C:\\Program Files\\OpenTiaToolkit\\OpenTiaToolkit.MCP.exe",
+        "args": [],
+        "env": {
+          "OPEN_TIA_MCP_LOG_LEVEL": "Error"
+        }
+      }
+    }
+  }
+}

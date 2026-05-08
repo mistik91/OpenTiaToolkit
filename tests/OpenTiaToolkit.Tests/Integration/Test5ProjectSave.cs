@@ -14,6 +14,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Tests the SaveProjectCommand and SaveAsProjectCommand.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test5ProjectSave
     {

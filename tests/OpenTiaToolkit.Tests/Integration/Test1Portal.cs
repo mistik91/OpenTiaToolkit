@@ -13,6 +13,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Tests the ConnectPortalCommand, DisconnectPortalCommand, and PortalStatusCommand.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test1Portal
     {

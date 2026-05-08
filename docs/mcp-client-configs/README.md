@@ -2,21 +2,28 @@
 
 This folder contains ready-to-adapt MCP client configuration snippets for the OpenTiaToolkit MCP server.
 
+There are two config families:
+
+- Development checkout snippets point at a built executable inside this repository.
+- Product-install snippets point at the stable installed executable:
+
+```text
+C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
+```
+
+For end users, an installer or first-run setup helper should register that stable executable with Siemens Openness once. Developers who rebuild the MCP executable must refresh the Siemens Openness allow-list because the entry is tied to the executable hash and path.
+
 The MCP executable is produced by the `OpenTiaToolkit.MCP` project:
 
 ```text
 <OpenTiaToolkitRoot>\src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
 ```
 
-For the development checkout used during validation, that path was:
-
-```text
-E:\Documents\Codex\OpenTiaToolkit\src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
-```
-
 If you switch to a Release build, replace `Debug` with `Release` in the snippets.
 
 ## Files
+
+### Development Checkout
 
 - `codex.config.toml`: OpenAI Codex `config.toml` server block.
 - `claude-code-add.ps1`: Claude Code CLI registration command for PowerShell.
@@ -24,6 +31,26 @@ If you switch to a Release build, replace `Debug` with `Release` in the snippets
 - `antigravity.mcp_config.json`: Google Antigravity raw MCP config snippet.
 - `vscode.mcp.json`: VS Code / GitHub Copilot workspace `.vscode/mcp.json` snippet.
 - `vscode-user-settings.json`: VS Code user settings snippet.
+
+### Product Install
+
+- `codex.installed.config.toml`: OpenAI Codex `config.toml` server block for the installed product.
+- `claude-desktop.installed.json`: Claude Desktop config snippet.
+- `claude-code-installed-add.ps1`: Claude Code CLI registration command for PowerShell.
+- `claude-code.installed.mcp.json`: Claude Code project `.mcp.json` snippet.
+- `antigravity.installed.mcp_config.json`: Google Antigravity raw MCP config snippet.
+- `vscode.installed.mcp.json`: VS Code / GitHub Copilot workspace `.vscode/mcp.json` snippet.
+- `vscode-user-settings.installed.json`: VS Code user settings snippet.
+
+## Codex Plugin
+
+The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit`](../../plugins/opentia-toolkit). It bundles:
+
+- the `opentia` MCP server configuration for the installed product path
+- the `hmi-unified-agent-editing` skill and references
+- a helper script for manually registering the installed MCP executable during development or manual installs
+
+The marketplace entry lives at [`../../.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json).
 
 ## Required TIA Portal Sequence
 
@@ -39,7 +66,7 @@ Calling `open-project` before `connect-portal` can fail because the MCP server h
 
 ## Siemens Openness Allow-List
 
-Siemens Openness allow-list entries are hash-based. After building a new CLI or MCP executable, refresh the registry entry for the exact `.exe` you will launch:
+Siemens Openness allow-list entries are hash-based and path-based. For shipped product builds, registration should happen once for the installed executable path. After building a new CLI or MCP executable during development, refresh the registry entry for the exact `.exe` you will launch:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe

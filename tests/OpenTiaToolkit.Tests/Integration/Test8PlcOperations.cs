@@ -16,6 +16,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Tests the OpenPlcCommand, GetSoftwareTreeCommand, CompileSoftwareCommand, ExportPlcCommand, and GetBlocksCommand.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test8PlcOperations
     {
@@ -193,6 +194,7 @@ namespace OpenTiaToolkit.Tests.Integration
 
             var exportPlcCommand = new ExportPlcCommand(_plcService!);
             var exportPath = Settings.TestExportPath;
+            CleanExportXmlFiles(exportPath);
             var args = new CommandArgs(new System.Collections.Generic.Dictionary<string, object?>
             {
                 { "plc-name", "PLC_1" },
@@ -331,6 +333,7 @@ namespace OpenTiaToolkit.Tests.Integration
             var getBlocksCommand = new GetBlocksCommand(_plcService!);
             var compileCommand = new CompileSoftwareCommand(_plcService!);
             var exportPath = Settings.TestExportPath;
+            CleanExportXmlFiles(exportPath);
             var exportCommand = new ExportPlcCommand(_plcService!);
 
             // Act - Open PLC
@@ -381,6 +384,19 @@ namespace OpenTiaToolkit.Tests.Integration
                 }
             }
             catch { }
+        }
+
+        private static void CleanExportXmlFiles(string exportPath)
+        {
+            if (!Directory.Exists(exportPath))
+            {
+                return;
+            }
+
+            foreach (var file in Directory.GetFiles(exportPath, "*.xml"))
+            {
+                File.Delete(file);
+            }
         }
     }
 }

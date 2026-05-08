@@ -1,0 +1,20 @@
+{
+  "name": "opentia-toolkit-local",
+  "interface": {
+    "displayName": "OpenTiaToolkit Local"
+  },
+  "plugins": [
+    {
+      "name": "opentia-toolkit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/opentia-toolkit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

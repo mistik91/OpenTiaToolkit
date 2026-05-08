@@ -13,6 +13,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Tests the GetProjectTreeCommand.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test6ProjectTree
     {

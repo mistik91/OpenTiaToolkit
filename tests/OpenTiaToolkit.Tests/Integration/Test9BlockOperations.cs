@@ -14,6 +14,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// These tests require TIA Portal V21 and a test project to be available.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     public class Test9BlockOperations : IDisposable
     {
         private readonly IPortalService _portalService;

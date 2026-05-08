@@ -17,6 +17,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Integration tests for Unified HMI operations against a real TIA Portal project.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test10HmiUnified
     {

@@ -13,6 +13,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Tests the OpenProjectCommand, CloseProjectCommand, ListProjectsCommand, and GetProjectInfoCommand.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test2Project
     {

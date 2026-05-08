@@ -15,6 +15,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Tests the GetDeviceInfoCommand and GetDeviceItemInfoCommand.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test7PlcSoftware
     {

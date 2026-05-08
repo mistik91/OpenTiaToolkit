@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Default TIA Portal V21 PublicAPI path. Override with /p:TiaPortalPublicApiPath=... for non-standard installs. -->
+    <TiaPortalPublicApiPath Condition="'$(TiaPortalPublicApiPath)' == ''">C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48</TiaPortalPublicApiPath>
+  </PropertyGroup>
+</Project>

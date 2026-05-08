@@ -28,7 +28,7 @@ Guide for developers contributing to OpenTiaToolkit.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/OpenTiaToolkit.git
+git clone https://github.com/mistik91/OpenTiaToolkit.git
 cd OpenTiaToolkit
 
 # Open in Visual Studio
@@ -213,7 +213,7 @@ Typical local verification:
 
 ```bash
 dotnet build OpenTiaToolkit.sln
-dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName!~Integration"
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
 ```
 
 ## Testing Strategy
@@ -240,6 +240,7 @@ They assume:
 - TIA Portal V21 is installed
 - a real test project is available
 - the executable or `testhost` is authorized for Openness access
+- test classes marked with `[TestCategory("Integration")]` are selected explicitly
 
 Configurable environment variables:
 
@@ -251,13 +252,13 @@ Configurable environment variables:
 
 ```bash
 # Fast tests only
-dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName!~Integration"
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
 
 # All tests
 dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
 
 # Integration tests only
-dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "FullyQualifiedName~Integration"
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory=Integration"
 ```
 
 ### CLI Automation

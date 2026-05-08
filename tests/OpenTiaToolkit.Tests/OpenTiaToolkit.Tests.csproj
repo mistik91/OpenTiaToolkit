@@ -20,17 +20,17 @@
     <!-- TIA Openness API references for integration tests - V21 installation (primary) -->
     <!-- In V21+, the API is modular: Base.dll, Step7.dll, WinCC.dll, WinCC.Extension.dll -->
     <Reference Include="Siemens.Engineering.Base">
-      <HintPath>C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48\Siemens.Engineering.Base.dll</HintPath>
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Base.dll</HintPath>
       <Private>False</Private>
       <CopyLocal>false</CopyLocal>
     </Reference>
     <Reference Include="Siemens.Engineering.Step7">
-      <HintPath>C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48\Siemens.Engineering.Step7.dll</HintPath>
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Step7.dll</HintPath>
       <Private>False</Private>
       <CopyLocal>false</CopyLocal>
     </Reference>
     <Reference Include="Siemens.Engineering.WinCCUnified">
-      <HintPath>C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48\Siemens.Engineering.WinCCUnified.dll</HintPath>
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.WinCCUnified.dll</HintPath>
       <Private>False</Private>
       <CopyLocal>false</CopyLocal>
     </Reference>

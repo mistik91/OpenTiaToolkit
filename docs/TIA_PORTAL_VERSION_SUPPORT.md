@@ -7,7 +7,7 @@ OpenTiaToolkit is primarily developed and validated against **TIA Portal V21**.
 That is the version assumed by:
 
 - the project references in `src/`
-- the bundled Openness API PDF references in `docs/`
+- the default V21 Openness API reference path used during build
 - the default integration-test paths
 - the current assembly resolver preference order
 
@@ -38,7 +38,7 @@ Common V21 PLC surfaces used by the toolkit include:
 - `PlcSoftware.ExternalSourceGroup`
 - `GetService<ICompilable>()` for software compilation
 
-These surfaces are also reflected in the bundled V21 reference manuals under `docs/`.
+Refer to the official Siemens Openness documentation for the detailed V21 API surface.
 
 ## Feature Notes
 
@@ -72,6 +72,22 @@ During V21 validation on the current test project, the loaded `PlcBlockCompositi
 ### SIMATIC SD document import/export
 
 Document-based block import/export requires **V20 or newer**. In practice, this repo is mainly validated on V21.
+
+## Build Reference Path
+
+The project files use the `TiaPortalPublicApiPath` MSBuild property for Siemens Openness references.
+
+The default is the standard TIA Portal V21 installation path:
+
+```text
+C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48
+```
+
+Most users do not need to configure anything. For non-standard installations, override it at build time:
+
+```powershell
+dotnet build OpenTiaToolkit.sln /p:TiaPortalPublicApiPath="D:\Siemens\Portal V21\PublicAPI\V21\net48"
+```
 
 ## Assembly Loading
 

@@ -13,6 +13,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Tests the OpenTiaPortalCommand, CloseTiaPortalCommand, ListInstancesCommand, and ConnectInstanceCommand.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test4PortalInstances
     {

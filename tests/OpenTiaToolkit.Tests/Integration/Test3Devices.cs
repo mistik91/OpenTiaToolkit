@@ -13,6 +13,7 @@ namespace OpenTiaToolkit.Tests.Integration
     /// Tests the ListDevicesCommand.
     /// </summary>
     [TestClass]
+    [TestCategory("Integration")]
     [DoNotParallelize]
     public sealed class Test3Devices
     {

@@ -9,12 +9,12 @@ description: Use when editing Siemens TIA Portal Unified HMI screens with OpenTi
 
 This skill guides safe, agent-oriented editing of TIA Portal Unified HMI screens through OpenTiaToolkit. Prefer compact screen JSON patch workflows over manual live edits when the target is a single screen or a bounded set of items.
 
-Use this skill when a task mentions Unified HMI screen edits, screen items, `get-hmi-screen-json`, `apply-hmi-screen-json-edit`, `apply-hmi-screen-json-patch`, `inspect-hmi-screen-json-capabilities`, or agent-safe import/export editing.
+Use this skill when a task mentions Unified HMI screen edits, screen items, `get-hmi-screen-json`, `get-hmi-screen-summary`, `apply-hmi-screen-json-edit`, `apply-hmi-screen-json-patch`, `inspect-hmi-screen-json-capabilities`, `probe-hmi-faceplate-interface`, `hmi-status`, `audit-hmi-label-proximity`, or agent-safe import/export editing.
 
 ## Standard Workflow
 
 1. Establish the exact target: project, HMI name, screen path, item names, and whether TIA Portal is already open.
-2. Use `inspect-hmi-screen-json-capabilities` first when the screen, item type, writable properties, event types, or dynamization shape is unfamiliar.
+2. Use `get-hmi-screen-summary` first for large or unfamiliar screens, then use `inspect-hmi-screen-json-capabilities` when the item type, writable properties, event types, faceplate interface, or dynamization shape is unfamiliar.
 3. Use `get-hmi-screen-json` when you only need a focused snapshot and already know the supported operations.
 4. Reuse the returned `RecommendedPatchArgs` for `baseHash`, `itemNames`, and `properties` instead of inventing filters.
 5. Prefer `apply-hmi-screen-json-patch` for targeted changes; run with `dry-run=true` first unless the user explicitly requested otherwise.
@@ -36,7 +36,7 @@ Use the OpenTiaToolkit command schema exactly. For CLI-shaped payloads, prefer k
 
 Do not invent parameters such as `project`, `hmiName`, `screenPath`, `itemNames`, or `includeBaseHash` unless the active MCP bridge explicitly documents those aliases. The project is opened or connected outside these HMI screen JSON commands, and `baseHash` is returned automatically by `get-hmi-screen-json` and capability inspection.
 
-Do not use generic JSON Patch operations or shapes. Never emit `replace`, `add`, `remove`, `target`, `path`, or nested `value` patches for `apply-hmi-screen-json-patch`. Use only the supported OpenTiaToolkit operation names, with fields such as `op`, `item`/`itemName`, `source`, `targetName`, `property`, `value`, `left`, `top`, `eventType`, `scriptCode`, `dynamizationType`, and `tag`.
+Do not use generic JSON Patch operations or shapes. Never emit `replace`, `add`, `remove`, `target`, `path`, or nested `value` patches for `apply-hmi-screen-json-patch`. Use only the supported OpenTiaToolkit operation names, with fields such as `op`, `item`/`itemName`, `source`, `targetName`, `property`, `propertyName`, `value`, `left`, `top`, `eventType`, `scriptCode`, `dynamizationType`, and `tag`.
 
 For new operation objects, prefer canonical model field names such as `op`, `item`, `itemName`, `itemType`, `targetName`, `eventType`, `scriptCode`, and `dynamizationType`. Kebab-case belongs to command arguments (`hmi-name`, `screen-path`, `item-names`, `base-hash`) and compatibility aliases; do not emit aliases like `item-type` when producing fresh canonical operation payloads.
 
@@ -114,11 +114,17 @@ The matching create operation should keep operation fields canonical:
 
 ## Tool Choice
 
-Use `apply-hmi-screen-json-patch` for small, auditable changes: scalar properties, layouts, item create/delete/duplicate/rename, event handlers, property event handlers, and dynamizations.
+Use `apply-hmi-screen-json-patch` for small, auditable changes: scalar properties, layouts, item create/delete/duplicate/rename, event handlers, property event handlers, dynamizations, and faceplate interface bindings.
 
 Use `apply-hmi-screen-json-edit` when the intended change is broad, structural, or easier to express by transforming a screen JSON file. Keep the JSON focused with item/property filters first; avoid full-screen monolith edits unless necessary.
 
 Use lower-level `export-hmi-json` / edit / `diff-hmi-json` / `import-hmi-json` when the user explicitly wants a human-reviewable file diff, especially across multiple screens. In that case, do not recommend patch first; recommend file export, focused edits, diff generation, dry-run import, human review, then import apply.
+
+Use `probe-hmi-faceplate-interface` when a faceplate `Interface` apply fails or when you need CLR metadata/writeability for a specific interface entry. Prefer a read-only probe first; if a write probe is needed, use `restore=true`.
+
+Use `hmi-status` after an Openness failure, suspected stale TIA/HMI session, or before long HMI workflows. A healthy result should show the expected HMI, project, running instance, and optional screen probe success.
+
+Use `audit-hmi-label-proximity` before bulk nearest-label edits. Review duplicate-label flags, distances, skipped candidates, and unmatched targets before generating or applying patch operations.
 
 For one screen, snapshot/edit/import can be efficient, but patch remains safer for agents because each intent is explicit and preflight can point to exact missing filters or stale hashes. For multiple screens without a file-review requirement, prefer one focused patch workflow per screen rather than one broad monolith.
 
@@ -130,7 +136,7 @@ Always treat `BaseHash` as binding to the exact snapshot shape. If the command r
 
 Keep filters intentionally narrow. Include every item the operation reads or writes in `itemNames`, and include every touched property in `properties`.
 
-Composite operations touch the root composite property. Use `EventHandlers`, `PropertyEventHandlers`, or `Dynamizations` in `properties`; do not filter only to nested entry names.
+Composite operations touch the root composite property. Use `EventHandlers`, `PropertyEventHandlers`, `Dynamizations`, or `Interface` in `properties`; do not filter only to nested entry names.
 
 For `duplicate-item`, include both the source item and the target item name in `itemNames`. For `create-item` with a base hash, include the new item name so validation can prove the filter was intentional.
 

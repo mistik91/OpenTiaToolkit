@@ -258,8 +258,6 @@ namespace OpenTiaToolkit.CLI
             services.AddOpenTiaToolkitCoreServices();
             services.AddOpenTiaToolkitCommands();
 
-            // Register test command (for testing)
-            services.AddSingleton<ICommand, TestFindReplaceCommand>();
             services.AddSingleton<ICommand, ListDbMembersCommand>();
 
             // Register router
