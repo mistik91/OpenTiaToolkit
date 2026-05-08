@@ -503,6 +503,11 @@ OpenTiaToolkit.CLI.exe inspect-hmi-screen-json-capabilities --hmi-name="HMI_1" -
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip it under `artifacts\skills`.
 - Add `-Install` to refresh `$CODEX_HOME\skills\hmi-unified-agent-editing`.
 
+**Claude Desktop MCPB packaging**:
+- The MCPB source package is versioned in `plugins/opentia-toolkit-claude-desktop`.
+- Run `powershell -ExecutionPolicy Bypass -File .\scripts\Pack-ClaudeDesktopMcpb.ps1` to stage the MCP build output and create `artifacts\claude-desktop-mcpb\opentia-toolkit.mcpb` with `mcpb` or `npx -y @anthropic-ai/mcpb`.
+- Add `-RegisterOpenness` from an elevated PowerShell session to register the exact staged MCP executable path and hash with Siemens Openness.
+
 ### PLC Operations
 
 #### open-plc

@@ -70,6 +70,14 @@ C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
 
 The Codex plugin package lives in `plugins/opentia-toolkit` and uses the installed-product MCP path.
 
+The Claude Code plugin package lives in `plugins/opentia-toolkit-claude-code` and uses the installed-product MCP path. The repo root also has a local Claude Code marketplace at `.claude-plugin/marketplace.json`.
+
+The Claude Desktop MCPB source package lives in `plugins/opentia-toolkit-claude-desktop`. Build a `.mcpb` extension from a local MCP build with:
+
+```powershell
+.\scripts\Pack-ClaudeDesktopMcpb.ps1
+```
+
 The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its contents into an OpenCode project root to get the installed-product MCP config, `.opencode` plugin, HMI Unified skill, and `AGENTS.md` rules. For a development checkout, use `docs/mcp-client-configs/opencode.jsonc` and replace the placeholder path with your local build output.
 
 ## Run Tests

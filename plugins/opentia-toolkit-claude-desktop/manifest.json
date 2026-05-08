@@ -1,0 +1,59 @@
+{
+  "manifest_version": "0.3",
+  "name": "opentia-toolkit",
+  "display_name": "OpenTiaToolkit",
+  "version": "0.1.0",
+  "description": "Claude Desktop extension for Siemens TIA Portal automation with OpenTiaToolkit.",
+  "long_description": "Provides the OpenTiaToolkit local MCP server for Claude Desktop. The server runs on the user's Windows machine and exposes TIA Portal, PLC, and Unified HMI automation tools over stdio.",
+  "author": {
+    "name": "OpenTiaToolkit Contributors",
+    "email": "maintainers@opentiatoolkit.local",
+    "url": "https://github.com/mistik91/OpenTiaToolkit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mistik91/OpenTiaToolkit.git"
+  },
+  "homepage": "https://github.com/mistik91/OpenTiaToolkit",
+  "documentation": "https://github.com/mistik91/OpenTiaToolkit/tree/main/docs",
+  "support": "https://github.com/mistik91/OpenTiaToolkit/issues",
+  "license": "MIT",
+  "keywords": ["tia-portal", "siemens", "mcp", "hmi", "openness"],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/OpenTiaToolkit.MCP.exe",
+    "mcp_config": {
+      "command": "${__dirname}/server/OpenTiaToolkit.MCP.exe",
+      "args": [],
+      "env": {
+        "OPEN_TIA_MCP_LOG_LEVEL": "Error"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "connect_portal",
+      "description": "Connect to a running TIA Portal instance or start a new one."
+    },
+    {
+      "name": "open_project",
+      "description": "Open a TIA Portal project file."
+    },
+    {
+      "name": "open_unified_hmi",
+      "description": "Open a Unified HMI by device or device item name."
+    },
+    {
+      "name": "get_hmi_screen_json",
+      "description": "Read one Unified HMI screen as canonical JSON for agent editing."
+    },
+    {
+      "name": "apply_hmi_screen_json_patch",
+      "description": "Dry-run or apply compact Unified HMI screen patch operations with safety checks."
+    }
+  ],
+  "tools_generated": true,
+  "compatibility": {
+    "platforms": ["win32"]
+  }
+}

@@ -54,6 +54,47 @@ The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit
 
 The marketplace entry lives at [`../../.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json).
 
+## Claude Code Plugin
+
+The repo includes a Claude Code plugin package at [`plugins/opentia-toolkit-claude-code`](../../plugins/opentia-toolkit-claude-code). It bundles:
+
+- the installed-product `opentia` MCP server configuration in `.mcp.json`
+- the `hmi-unified-agent-editing` skill and references under `skills/`
+- plugin metadata in `.claude-plugin/plugin.json`
+
+The local Claude Code marketplace entry lives at [`../../.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json). From the repo root, add and install it in Claude Code with:
+
+```text
+/plugin marketplace add .
+/plugin install opentia-toolkit@opentia-toolkit-local
+```
+
+For development, you can also launch Claude Code with:
+
+```powershell
+claude --plugin-dir .\plugins\opentia-toolkit-claude-code
+```
+
+Claude Code does not load a plugin-root `CLAUDE.md` as project context. Plugin-specific operational guidance should live in skills, agents, hooks, or MCP configuration.
+
+## Claude Desktop MCPB Package
+
+The repo includes Claude Desktop MCPB source at [`plugins/opentia-toolkit-claude-desktop`](../../plugins/opentia-toolkit-claude-desktop). MCPB packages are installable Claude Desktop extensions that bundle a local MCP server and `manifest.json`.
+
+Because build outputs are not committed, generate the `.mcpb` package from a local build:
+
+```powershell
+.\scripts\Pack-ClaudeDesktopMcpb.ps1
+```
+
+Install the MCPB CLI first if needed:
+
+```powershell
+npm install -g @anthropic-ai/mcpb
+```
+
+The pack script stages the MCP executable under `artifacts\claude-desktop-mcpb\opentia-toolkit`, validates the manifest with `mcpb` or `npx -y @anthropic-ai/mcpb`, and writes `artifacts\claude-desktop-mcpb\opentia-toolkit.mcpb`.
+
 ## OpenCode Plugin Bundle
 
 The repo also includes a copyable OpenCode bundle at [`plugins/opentia-toolkit-opencode`](../../plugins/opentia-toolkit-opencode). It bundles:
