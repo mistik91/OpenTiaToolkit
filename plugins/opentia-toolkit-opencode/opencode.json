@@ -15,6 +15,7 @@
   },
   "permission": {
     "skill": {
+      "basic-tia-interaction": "allow",
       "hmi-unified-agent-editing": "allow"
     }
   }

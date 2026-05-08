@@ -1,7 +1,7 @@
 {
   "name": "opentia-toolkit",
   "version": "0.1.0",
-  "description": "Codex workflows and MCP configuration for Siemens TIA Portal automation with OpenTiaToolkit.",
+  "description": "Codex workflows, skills, and MCP configuration for Siemens TIA Portal automation with OpenTiaToolkit.",
   "author": {
     "name": "OpenTiaToolkit Contributors",
     "email": "maintainers@opentiatoolkit.local",
@@ -16,7 +16,7 @@
   "interface": {
     "displayName": "OpenTiaToolkit",
     "shortDescription": "TIA Portal MCP tools and HMI editing workflows.",
-    "longDescription": "Provides MCP server configuration and HMI Unified editing skills for OpenTiaToolkit. The MCP executable should be installed and registered with Siemens Openness by the product installer or setup script before use.",
+    "longDescription": "Provides MCP server configuration, TIA Portal session guidance, and HMI Unified editing skills for OpenTiaToolkit. The MCP executable should be installed and registered with Siemens Openness by the product installer or setup script before use.",
     "developerName": "OpenTiaToolkit Contributors",
     "category": "Developer Tools",
     "capabilities": ["MCP", "TIA Portal", "HMI Editing"],

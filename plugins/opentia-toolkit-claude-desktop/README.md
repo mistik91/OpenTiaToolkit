@@ -4,6 +4,8 @@ This folder is the source for a Claude Desktop MCPB extension package.
 
 MCPB packages are zip archives containing a local MCP server and a `manifest.json`. Because OpenTiaToolkit build outputs are not committed to this repository, use the repository pack script to stage the built MCP executable and its dependencies before creating the `.mcpb` file.
 
+Claude Desktop MCPB packages expose the `opentia` MCP server, but they do not currently bundle Codex/Claude Code/OpenCode-style skill folders. For agent guidance equivalent to the packaged skills, keep the relevant prompt or project instructions available to Claude Desktop, especially the `basic-tia-interaction` rule: discover running TIA instances, verify the open project after connecting, and select the matching instance automatically when the project was specified.
+
 ## Build
 
 From the repository root:

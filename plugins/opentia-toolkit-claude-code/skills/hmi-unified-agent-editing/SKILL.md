@@ -13,7 +13,7 @@ Use this skill when a task mentions Unified HMI screen edits, screen items, `get
 
 ## Standard Workflow
 
-1. Establish the exact target: project, HMI name, screen path, item names, and whether TIA Portal is already open.
+1. Establish the exact target: project, HMI name, screen path, item names, and whether TIA Portal is already open. If the correct TIA instance/project context is not already proven in this turn, use `basic-tia-interaction` first.
 2. Use `get-hmi-screen-summary` first for large or unfamiliar screens, then use `inspect-hmi-screen-json-capabilities` when the item type, writable properties, event types, faceplate interface, or dynamization shape is unfamiliar.
 3. Use `get-hmi-screen-json` when you only need a focused snapshot and already know the supported operations.
 4. Reuse the returned `RecommendedPatchArgs` for `baseHash`, `itemNames`, and `properties` instead of inventing filters.

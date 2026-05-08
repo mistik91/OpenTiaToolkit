@@ -49,6 +49,7 @@ If you switch to a Release build, replace `Debug` with `Release` in the snippets
 The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit`](../../plugins/opentia-toolkit). It bundles:
 
 - the `opentia` MCP server configuration for the installed product path
+- the `basic-tia-interaction` skill for TIA Portal instance/project selection
 - the `hmi-unified-agent-editing` skill and references
 - a helper script for manually registering the installed MCP executable during development or manual installs
 
@@ -59,6 +60,7 @@ The marketplace entry lives at [`../../.agents/plugins/marketplace.json`](../../
 The repo includes a Claude Code plugin package at [`plugins/opentia-toolkit-claude-code`](../../plugins/opentia-toolkit-claude-code). It bundles:
 
 - the installed-product `opentia` MCP server configuration in `.mcp.json`
+- the `basic-tia-interaction` skill and references under `skills/`
 - the `hmi-unified-agent-editing` skill and references under `skills/`
 - plugin metadata in `.claude-plugin/plugin.json`
 
@@ -81,6 +83,8 @@ Claude Code does not load a plugin-root `CLAUDE.md` as project context. Plugin-s
 
 The repo includes Claude Desktop MCPB source at [`plugins/opentia-toolkit-claude-desktop`](../../plugins/opentia-toolkit-claude-desktop). MCPB packages are installable Claude Desktop extensions that bundle a local MCP server and `manifest.json`.
 
+Claude Desktop MCPB does not currently bundle Codex/Claude Code/OpenCode-style skill folders. For equivalent behavior, keep project or prompt guidance available that tells the agent to discover TIA instances first, verify the open project after connecting, and select the instance matching a specified project automatically.
+
 Because build outputs are not committed, generate the `.mcpb` package from a local build:
 
 ```powershell
@@ -100,23 +104,31 @@ The pack script stages the MCP executable under `artifacts\claude-desktop-mcpb\o
 The repo also includes a copyable OpenCode bundle at [`plugins/opentia-toolkit-opencode`](../../plugins/opentia-toolkit-opencode). It bundles:
 
 - the installed-product `opentia` MCP server configuration in `opencode.json`
-- an `AGENTS.md` rule file with the required TIA Portal connection sequence
+- an `AGENTS.md` rule file with the required TIA Portal connection and project-discovery sequence
 - a local `.opencode/plugins/opentia-toolkit.js` plugin that sets the default OpenTiaToolkit shell log level
+- the `basic-tia-interaction` skill and references under `.opencode/skills`
 - the `hmi-unified-agent-editing` skill and references under `.opencode/skills`
 
 OpenCode uses `opencode.json` for project or user config, `.opencode/plugins/` for local plugins, and `.opencode/skills/<name>/SKILL.md` for reusable skills. Use `opencode.jsonc` from this folder for development checkouts, or `opencode.installed.jsonc` / the bundle for installed-product paths.
 
+## MCP-Only Client Snippets
+
+The Antigravity and VS Code snippets in this folder configure only the `opentia` MCP server. They do not currently package reusable skill folders. For equivalent behavior in those clients, add project instructions that mirror `basic-tia-interaction`: discover running TIA instances first, verify the open project after connecting, and choose the instance matching a specified project automatically.
+
 ## Required TIA Portal Sequence
 
-Agents should call the tools in this order for a fresh MCP session:
+Agents should use the `basic-tia-interaction` skill for a fresh MCP session. When the user says an instance or project is already open, start with `list-instances`; if one instance exists, use `connect-instance`, then verify the project with `list-projects` or `get-project-info`. If multiple instances exist, probe each instance and choose the one matching the specified project, or ask if no project was specified.
+
+When opening a project from scratch, the important sequence is:
 
 ```text
 connect-portal
-open-project
+list-projects or get-project-info
+open-project only if discovery proves no project is open or the user requested a different project
 open-unified-hmi
 ```
 
-Calling `open-project` before `connect-portal` can fail because the MCP server has not attached to TIA Portal yet.
+Calling `open-project` before `connect-portal` can fail because the MCP server has not attached to TIA Portal yet. Do not report "no project open" from a connect response alone; verify the project after connecting. When multiple TIA instances are running, probe each instance and choose the one whose open project matches the prompt, or ask the user if no project was specified and multiple instances are plausible.
 
 ## Siemens Openness Allow-List
 

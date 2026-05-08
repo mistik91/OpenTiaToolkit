@@ -68,17 +68,17 @@ Use the development checkout snippets when running from this repository. Use the
 C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
 ```
 
-The Codex plugin package lives in `plugins/opentia-toolkit` and uses the installed-product MCP path.
+The Codex plugin package lives in `plugins/opentia-toolkit` and uses the installed-product MCP path. It includes the `basic-tia-interaction` and `hmi-unified-agent-editing` skills.
 
-The Claude Code plugin package lives in `plugins/opentia-toolkit-claude-code` and uses the installed-product MCP path. The repo root also has a local Claude Code marketplace at `.claude-plugin/marketplace.json`.
+The Claude Code plugin package lives in `plugins/opentia-toolkit-claude-code` and uses the installed-product MCP path. It includes the same two skills. The repo root also has a local Claude Code marketplace at `.claude-plugin/marketplace.json`.
 
-The Claude Desktop MCPB source package lives in `plugins/opentia-toolkit-claude-desktop`. Build a `.mcpb` extension from a local MCP build with:
+The Claude Desktop MCPB source package lives in `plugins/opentia-toolkit-claude-desktop`. Claude Desktop MCPB packages expose the MCP server but do not currently bundle skill folders, so keep equivalent project/prompt guidance available when using Claude Desktop. Build a `.mcpb` extension from a local MCP build with:
 
 ```powershell
 .\scripts\Pack-ClaudeDesktopMcpb.ps1
 ```
 
-The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its contents into an OpenCode project root to get the installed-product MCP config, `.opencode` plugin, HMI Unified skill, and `AGENTS.md` rules. For a development checkout, use `docs/mcp-client-configs/opencode.jsonc` and replace the placeholder path with your local build output.
+The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its contents into an OpenCode project root to get the installed-product MCP config, `.opencode` plugin, `basic-tia-interaction` and HMI Unified skills, and `AGENTS.md` rules. For a development checkout, use `docs/mcp-client-configs/opencode.jsonc` and replace the placeholder path with your local build output.
 
 ## Run Tests
 

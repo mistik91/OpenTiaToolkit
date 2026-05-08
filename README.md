@@ -708,16 +708,22 @@ Returns compact agent-oriented guidance: supported patch operations, current ite
 OpenTiaToolkit.CLI.exe inspect-hmi-screen-json-capabilities --hmi-name="HMI_1" --screen-path="Codex/Main" --item-names="Button_1" --properties="Text,Left,Top,Width,Height,EventHandlers,Dynamizations"
 ```
 
-#### Codex HMI Unified Skill
+#### Agent Skills
 
-The repo includes a packaged Codex skill at `skills/hmi-unified-agent-editing` for agent-safe Unified HMI screen editing. Package it as a zip, or install it into a Codex home, with:
+The repo includes agent skills under `skills/`:
+
+- `basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance.
+- `hmi-unified-agent-editing`: agent-safe Unified HMI screen editing guidance.
+
+Package a skill as a zip, or install it into a Codex home, with:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1 -Install
+powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1 -SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip -Install
 ```
 
-The packaging script validates the skill when `quick_validate.py` is available, writes the package under `artifacts\skills`, and can refresh `$CODEX_HOME\skills\hmi-unified-agent-editing`.
+The packaging script validates the selected skill when `quick_validate.py` is available, writes the package under `artifacts\skills`, and can refresh `$CODEX_HOME\skills\<skill-name>`.
 
 ### PLC Operations
 

@@ -499,9 +499,10 @@ OpenTiaToolkit.CLI.exe inspect-hmi-screen-json-capabilities --hmi-name="HMI_1" -
 - `working-path`: Optional root for generated snapshot artifacts.
 
 **Codex skill packaging**:
-- The agent workflow skill is versioned in `skills/hmi-unified-agent-editing`.
-- Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip it under `artifacts\skills`.
-- Add `-Install` to refresh `$CODEX_HOME\skills\hmi-unified-agent-editing`.
+- Agent workflow skills are versioned in `skills/basic-tia-interaction` and `skills/hmi-unified-agent-editing`.
+- Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip the default HMI skill under `artifacts\skills`.
+- Pass `-SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip` to package the TIA session-selection skill.
+- Add `-Install` to refresh `$CODEX_HOME\skills\<skill-name>`.
 
 **Claude Desktop MCPB packaging**:
 - The MCPB source package is versioned in `plugins/opentia-toolkit-claude-desktop`.

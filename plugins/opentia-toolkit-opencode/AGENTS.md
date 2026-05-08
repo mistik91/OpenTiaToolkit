@@ -2,14 +2,19 @@
 
 OpenTiaToolkit exposes Siemens TIA Portal automation through the `opentia` MCP server.
 
-For a fresh MCP session, call tools in this order:
+For a fresh MCP session, load and follow the `basic-tia-interaction` skill. In particular, discover running instances first, verify the open project after connecting, and do not report that no project is open from a connect response alone.
+
+When no TIA instance or project is already selected, the usual tool order is:
 
 1. `connect-portal`
-2. `open-project`
-3. `open-unified-hmi`
+2. `list-projects` or `get-project-info`
+3. `open-project` only if discovery proves no project is open or the user requested a different project
+4. `open-unified-hmi`
+
+When the user says an instance/project is already open, start with `list-instances`; if one instance exists, use `connect-instance`, then verify the project with `list-projects` or `get-project-info`. If multiple instances exist, probe each instance and choose the one matching the specified project, or ask if no project was specified.
 
 Do not call `open-project` before `connect-portal`; the MCP server may not have attached to TIA Portal yet.
 
-For Unified HMI screen edits, load and follow the `hmi-unified-agent-editing` skill. Prefer focused JSON screen snapshots, targeted patch operations, a dry run, then an apply with backup enabled unless the user explicitly asks otherwise.
+For Unified HMI screen edits, load and follow the `basic-tia-interaction` skill first when the TIA context is not proven, then the `hmi-unified-agent-editing` skill. Prefer focused JSON screen snapshots, targeted patch operations, a dry run, then an apply with backup enabled unless the user explicitly asks otherwise.
 
 Keep OpenTiaToolkit MCP calls serial. TIA Portal sessions are stateful, and parallel tool calls can race the same engineering session.
