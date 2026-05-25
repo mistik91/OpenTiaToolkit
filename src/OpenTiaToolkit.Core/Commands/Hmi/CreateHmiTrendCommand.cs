@@ -30,7 +30,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("datalog-name", CommandParameterType.String, "The target data log name", required: true),
                 new CommandParameter("cyclic", CommandParameterType.Boolean, "Whether cyclic logging should be used", required: false, defaultValue: false),
                 new CommandParameter("cycle", CommandParameterType.String, "Optional cycle value, such as T5s", required: false),
-                new CommandParameter("storage-folder", CommandParameterType.String, "Optional data log storage folder", required: false, defaultValue: "/Trends"),
+                new CommandParameter("storage-folder", CommandParameterType.String, "Compatibility option; Unified HMI storage folder is read-only and is not changed", required: false, defaultValue: "/Trends"),
                 new CommandParameter("log-max-size", CommandParameterType.Integer, "Optional data log max size", required: false, defaultValue: 2000),
                 new CommandParameter("duration-days", CommandParameterType.Integer, "Optional log duration in days", required: false, defaultValue: 365),
                 new CommandParameter("segment-max-size", CommandParameterType.Integer, "Optional segment max size", required: false, defaultValue: 500)

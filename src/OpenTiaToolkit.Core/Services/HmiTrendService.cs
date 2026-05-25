@@ -52,10 +52,17 @@ namespace OpenTiaToolkit.Core.Services
                 HmiDataLog dataLog = _adapter.EnsureDataLog(software, dataLogName, out var dataLogCreated);
                 _adapter.ConfigureDataLog(
                     dataLog,
-                    storageFolder,
                     Math.Max(1, logMaxSize),
                     Math.Max(1, durationDays),
                     Math.Max(1, segmentMaxSize));
+
+                if (!string.IsNullOrWhiteSpace(storageFolder) &&
+                    !string.Equals(storageFolder.Trim(), "/Trends", StringComparison.Ordinal))
+                {
+                    _logger?.LogWarning(
+                        "Unified HMI storage folder is read-only; requested folder '{StorageFolder}' was not applied.",
+                        storageFolder.Trim());
+                }
 
                 var loggingTagName = _adapter.GetLoggingTagName(normalizedTagPath);
                 HmiLoggingTag loggingTag = _adapter.EnsureLoggingTag(tag, loggingTagName, out var loggingTagCreated);

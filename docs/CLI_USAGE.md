@@ -336,6 +336,8 @@ Creates or updates data logging infrastructure for a Unified HMI tag.
 OpenTiaToolkit.CLI.exe create-hmi-trend --hmi-name="HMI_1" --tag-path="HMI_Tags/MotorSpeed" --datalog-name="MotorSpeedLog" --cyclic=true --cycle="T2s"
 ```
 
+`--storage-folder` is retained for compatibility, but Unified HMI exposes the data log storage folder as read-only through Openness. The command reports the folder configured by TIA and does not attempt to change it.
+
 ### Unified HMI JSON Import/Export
 
 The JSON flow is the repeatable import/export path for Unified HMI screens. It supports screens, items, scalar properties, faceplate interface bindings, event handlers, property event handlers, dynamizations, and value-converter mapping tables.

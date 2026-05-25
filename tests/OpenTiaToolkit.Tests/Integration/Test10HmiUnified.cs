@@ -346,7 +346,7 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.AreEqual(dataLogName, firstTrend.DataLogName);
             Assert.AreEqual("Cyclic", firstTrend.LoggingMode);
             Assert.AreEqual("T2s", firstTrend.Cycle);
-            Assert.AreEqual("/Trends", firstTrend.StorageFolder);
+            Assert.IsNotNull(firstTrend.StorageFolder, "Expected the storage folder reported by TIA.");
             Assert.AreEqual(2000, firstTrend.LogMaxSize);
             Assert.AreEqual(365, firstTrend.DurationDays);
             Assert.AreEqual(500, firstTrend.SegmentMaxSize);

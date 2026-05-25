@@ -243,7 +243,7 @@ public interface IHmiService
     /// <param name="dataLogName">The target data log name.</param>
     /// <param name="cyclic">Whether cyclic logging should be used.</param>
     /// <param name="cycle">Optional cycle value. Defaults to T5s for cyclic logging.</param>
-    /// <param name="storageFolder">Optional storage folder. Defaults to /Trends.</param>
+    /// <param name="storageFolder">Compatibility option. Unified HMI exposes the storage folder as read-only, so this value is not applied.</param>
     /// <param name="logMaxSize">Optional log max size. Defaults to 2000.</param>
     /// <param name="durationDays">Optional log duration in days. Defaults to 365.</param>
     /// <param name="segmentMaxSize">Optional segment max size. Defaults to 500.</param>

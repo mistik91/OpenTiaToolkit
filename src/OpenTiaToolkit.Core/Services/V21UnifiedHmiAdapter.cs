@@ -356,9 +356,8 @@ namespace OpenTiaToolkit.Core.Services
             return software.DataLogs.Create(dataLogName);
         }
 
-        public void ConfigureDataLog(HmiDataLog dataLog, string storageFolder, int logMaxSize, int durationDays, int segmentMaxSize)
+        public void ConfigureDataLog(HmiDataLog dataLog, int logMaxSize, int durationDays, int segmentMaxSize)
         {
-            dataLog.Settings.StorageFolder = string.IsNullOrWhiteSpace(storageFolder) ? "/Trends" : storageFolder.Trim();
             dataLog.Settings.LogMaxSize = (uint)Math.Max(1, logMaxSize);
             dataLog.Settings.LogTimePeriod.Days = (uint)Math.Max(0, durationDays);
             dataLog.Settings.LogTimePeriod.Hours = 0;
