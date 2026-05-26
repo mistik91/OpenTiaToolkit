@@ -497,12 +497,15 @@ Patch/edit results include `guidance`, which tells agents whether to apply, re-r
 
 #### get-hmi-screen-summary
 
-Returns compact screen counts without exporting a large payload. Use this before broad HMI edits to understand item counts and faceplate contained types.
+Returns compact screen counts without exporting a large payload. Use this before broad HMI edits to understand item counts and faceplate contained types. Set `include-faceplates=true` to return faceplate-only discovery details: contained type, `GEN`, normalized `NAME` display text, and `FORMAT`, plus configured and placeholder counts.
 
 ```bash
 OpenTiaToolkit.CLI.exe get-hmi-screen-summary --hmi-name="HMI_1" --screen-path="Codex/Main"
 OpenTiaToolkit.CLI.exe get-hmi-screen-summary --hmi-name="HMI_1" --screen-path="Codex/Main" --include-items=true
+OpenTiaToolkit.CLI.exe get-hmi-screen-summary --hmi-name="HMI_1" --screen-path="Codex/Main" --include-faceplates=true
 ```
+
+`include-items` returns all screen items, whereas `include-faceplates` returns only faceplate containers with key interface bindings. Missing interface properties are returned as `null`.
 
 #### hmi-status
 
