@@ -22,6 +22,8 @@ For a global install, merge `opencode.json` into `~/.config/opencode/opencode.js
 
 For development checkouts, use `docs/mcp-client-configs/opencode.jsonc` instead of this installed-product `opencode.json`.
 
+The supplied `opencode.json` sets a 600-second MCP timeout because broad TIA Portal Openness reads, such as Unified HMI tag enumeration, can exceed one minute on real projects.
+
 ## Expected First Use
 
 1. Install OpenTiaToolkit into the stable product path.

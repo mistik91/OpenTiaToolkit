@@ -26,7 +26,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             new[]
             {
                 new CommandParameter("hmi-name", CommandParameterType.String, "The Unified HMI name", required: true),
-                new CommandParameter("filter", CommandParameterType.String, "Optional text filter", required: false)
+                new CommandParameter("filter", CommandParameterType.String, "Optional text filter", required: false),
+                new CommandParameter("root-path", CommandParameterType.String, "Optional tag path to enumerate only that subtree", required: false)
             });
 
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
@@ -46,7 +47,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
-            var tags = await _hmiService.GetTagsAsync(args.Has("filter") ? args.GetString("filter") : null);
+            var tags = await _hmiService.GetTagsAsync(
+                args.Has("filter") ? args.GetString("filter") : null,
+                args.Has("root-path") ? args.GetString("root-path") : null);
             return CommandResult.CreateSuccess(tags, $"Found {tags.Count} Unified HMI tag(s)");
         }
     }

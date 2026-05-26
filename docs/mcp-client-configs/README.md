@@ -111,6 +111,8 @@ The repo also includes a copyable OpenCode bundle at [`plugins/opentia-toolkit-o
 
 OpenCode uses `opencode.json` for project or user config, `.opencode/plugins/` for local plugins, and `.opencode/skills/<name>/SKILL.md` for reusable skills. Use `opencode.jsonc` from this folder for development checkouts, or `opencode.installed.jsonc` / the bundle for installed-product paths.
 
+The supplied OpenCode configurations use a 600-second MCP timeout because some TIA Portal Openness reads on real projects can take longer than one minute, especially broad HMI tag enumeration.
+
 ## MCP-Only Client Snippets
 
 The Antigravity and VS Code snippets in this folder configure only the `opentia` MCP server. They do not currently package reusable skill folders. For equivalent behavior in those clients, add project instructions that mirror `basic-tia-interaction`: discover running TIA instances first, verify the open project after connecting, and choose the instance matching a specified project automatically.

@@ -288,14 +288,21 @@ namespace OpenTiaToolkit.Core.Services
                 .ToList();
         }
 
-        public IReadOnlyList<HmiTagInfo> ListTags(HmiSoftware software, string? filter)
+        public IReadOnlyList<HmiTagInfo> ListTags(HmiSoftware software, string? filter, string? rootPath = null)
         {
             var normalizedFilter = string.IsNullOrWhiteSpace(filter)
                 ? null
                 : filter!.Trim();
             var results = new List<HmiTagInfo>();
 
-            CollectTags(software.Tags, string.Empty, normalizedFilter, results);
+            if (string.IsNullOrWhiteSpace(rootPath))
+            {
+                CollectTags(software.Tags, string.Empty, normalizedFilter, results);
+            }
+            else if (TryGetTag(software, rootPath!, out var rootTag, out var normalizedRootPath) && rootTag != null)
+            {
+                CollectTag(rootTag, normalizedRootPath, normalizedFilter, results);
+            }
 
             return results
                 .OrderBy(tag => tag.Path, StringComparer.OrdinalIgnoreCase)
@@ -604,33 +611,38 @@ namespace OpenTiaToolkit.Core.Services
             foreach (var tag in tags)
             {
                 var path = string.IsNullOrWhiteSpace(prefix) ? tag.Name : prefix + "." + tag.Name;
-                var info = new HmiTagInfo
-                {
-                    Path = path,
-                    Name = tag.Name,
-                    DisplayName = FormatValue(tag.DisplayName),
-                    DataType = tag.DataType?.ToString(),
-                    HmiDataType = tag.HmiDataType?.ToString(),
-                    TagTableName = tag.TagTableName,
-                    HasMembers = tag.Members.Count > 0,
-                    MemberCount = tag.Members.Count,
-                    LoggingTagCount = tag.LoggingTags.Count
-                };
+                CollectTag(tag, path, filter, results);
+            }
+        }
 
-                if (filter == null ||
-                    path.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    (info.DisplayName?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                    (info.DataType?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                    (info.HmiDataType?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                    (info.TagTableName?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0))
-                {
-                    results.Add(info);
-                }
+        private void CollectTag(HmiTag tag, string path, string? filter, List<HmiTagInfo> results)
+        {
+            var info = new HmiTagInfo
+            {
+                Path = path,
+                Name = tag.Name,
+                DisplayName = FormatValue(tag.DisplayName),
+                DataType = tag.DataType?.ToString(),
+                HmiDataType = tag.HmiDataType?.ToString(),
+                TagTableName = tag.TagTableName,
+                HasMembers = tag.Members.Count > 0,
+                MemberCount = tag.Members.Count,
+                LoggingTagCount = tag.LoggingTags.Count
+            };
 
-                if (tag.Members.Count > 0)
-                {
-                    CollectTags(tag.Members, path, filter, results);
-                }
+            if (filter == null ||
+                path.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                (info.DisplayName?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (info.DataType?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (info.HmiDataType?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (info.TagTableName?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                results.Add(info);
+            }
+
+            if (tag.Members.Count > 0)
+            {
+                CollectTags(tag.Members, path, filter, results);
             }
         }
 

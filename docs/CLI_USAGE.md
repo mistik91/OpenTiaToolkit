@@ -326,7 +326,10 @@ Lists Unified HMI tags, optionally filtered by text.
 ```bash
 OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1"
 OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --filter="Motor"
+OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --root-path="Analog_FT235_GEN"
 ```
+
+Use `--root-path` when the tag subtree is known. It resolves that tag directly instead of scanning the complete Unified HMI tag collection before filtering.
 
 #### create-hmi-trend
 

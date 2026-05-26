@@ -67,8 +67,9 @@ public interface IHmiService
     /// Lists tags in the active Unified HMI.
     /// </summary>
     /// <param name="filter">Optional text filter.</param>
+    /// <param name="rootPath">Optional tag path whose subtree should be enumerated.</param>
     /// <returns>The matching tags.</returns>
-    Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(string? filter = null);
+    Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(string? filter = null, string? rootPath = null);
 
     /// <summary>
     /// Creates a screen item if it does not already exist.

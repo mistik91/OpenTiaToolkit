@@ -17,7 +17,7 @@
         "OPEN_TIA_MCP_LOG_LEVEL": "Error"
       },
       "enabled": true,
-      "timeout": 60000
+      "timeout": 600000
     }
   },
   "permission": {

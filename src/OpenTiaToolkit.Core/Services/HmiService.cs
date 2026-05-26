@@ -137,9 +137,9 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(string? filter = null)
+        public async Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(string? filter = null, string? rootPath = null)
         {
-            return await _browseService.GetTagsAsync(filter);
+            return await _browseService.GetTagsAsync(filter, rootPath);
         }
 
         /// <inheritdoc/>
