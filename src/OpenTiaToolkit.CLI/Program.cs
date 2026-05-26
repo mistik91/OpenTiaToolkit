@@ -215,8 +215,16 @@ namespace OpenTiaToolkit.CLI
             bool inQuotes = false;
             System.Text.StringBuilder currentArg = new System.Text.StringBuilder();
 
-            foreach (char c in input)
+            for (int index = 0; index < input.Length; index++)
             {
+                char c = input[index];
+                if (c == '\\' && index + 1 < input.Length && input[index + 1] == '"')
+                {
+                    currentArg.Append('"');
+                    index++;
+                    continue;
+                }
+
                 if (c == '"')
                 {
                     inQuotes = !inQuotes;

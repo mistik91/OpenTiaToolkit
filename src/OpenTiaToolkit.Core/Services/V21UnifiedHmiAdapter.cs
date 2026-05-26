@@ -415,8 +415,17 @@ namespace OpenTiaToolkit.Core.Services
 
         public IReadOnlyList<HmiLoggingTagReferenceInfo> ListLoggingTagReferences(HmiSoftware software, string dataLogName)
         {
+            return ListLoggingTagReferences(
+                software,
+                new HashSet<string>(new[] { dataLogName }, StringComparer.OrdinalIgnoreCase));
+        }
+
+        public IReadOnlyList<HmiLoggingTagReferenceInfo> ListLoggingTagReferences(
+            HmiSoftware software,
+            ISet<string> dataLogNames)
+        {
             var results = new List<HmiLoggingTagReferenceInfo>();
-            CollectLoggingTagReferences(software.Tags, string.Empty, dataLogName, results);
+            CollectLoggingTagReferences(software.Tags, string.Empty, dataLogNames, results);
             return results
                 .OrderBy(reference => reference.TagPath, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(reference => reference.LoggingTagName, StringComparer.OrdinalIgnoreCase)
@@ -679,7 +688,7 @@ namespace OpenTiaToolkit.Core.Services
         private static void CollectLoggingTagReferences(
             HmiTagComposition tags,
             string prefix,
-            string dataLogName,
+            ISet<string> dataLogNames,
             List<HmiLoggingTagReferenceInfo> results)
         {
             foreach (var tag in tags)
@@ -687,7 +696,7 @@ namespace OpenTiaToolkit.Core.Services
                 var path = string.IsNullOrWhiteSpace(prefix) ? tag.Name : prefix + "." + tag.Name;
                 foreach (var loggingTag in tag.LoggingTags)
                 {
-                    if (string.Equals(loggingTag.DataLog, dataLogName, StringComparison.OrdinalIgnoreCase))
+                    if (dataLogNames.Contains(loggingTag.DataLog))
                     {
                         results.Add(new HmiLoggingTagReferenceInfo
                         {
@@ -700,7 +709,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 if (tag.Members.Count > 0)
                 {
-                    CollectLoggingTagReferences(tag.Members, path, dataLogName, results);
+                    CollectLoggingTagReferences(tag.Members, path, dataLogNames, results);
                 }
             }
         }

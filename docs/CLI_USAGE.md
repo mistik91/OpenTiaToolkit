@@ -359,6 +359,30 @@ Deletes a named data log archive only after its logging tag references have been
 OpenTiaToolkit.CLI.exe delete-hmi-data-log --hmi-name="HMI_1" --datalog-name="MotorSpeedLog" --confirm=true
 ```
 
+#### create-hmi-trends
+
+Plans or applies several logging configurations in one operation. The default is `--dry-run=true`; use `--dry-run=false` after reviewing planned entries.
+
+```bash
+OpenTiaToolkit.CLI.exe create-hmi-trends --hmi-name="HMI_1" --configs="[{\"tagPath\":\"Motor.PV\",\"dataLogName\":\"MotorLog\",\"cyclic\":true,\"cycle\":\"T5s\"},{\"tagPath\":\"Motor.SP\",\"dataLogName\":\"MotorLog\"}]" --dry-run=false
+```
+
+#### remove-hmi-logging-tags
+
+Plans or removes multiple verified logging tag associations. Applied deletion requires both `--dry-run=false` and `--confirm=true`.
+
+```bash
+OpenTiaToolkit.CLI.exe remove-hmi-logging-tags --hmi-name="HMI_1" --configs="[{\"tagPath\":\"Motor.PV\",\"dataLogName\":\"MotorLog\"},{\"tagPath\":\"Motor.SP\",\"dataLogName\":\"MotorLog\"}]" --dry-run=false --confirm=true
+```
+
+#### delete-hmi-data-logs
+
+Plans or deletes multiple unreferenced archives in one request. Archives with active references are reported as blocked without preventing unrelated eligible archives from being processed.
+
+```bash
+OpenTiaToolkit.CLI.exe delete-hmi-data-logs --hmi-name="HMI_1" --configs="[{\"dataLogName\":\"MotorLog\"},{\"dataLogName\":\"OldMotorLog\"}]" --dry-run=false --confirm=true
+```
+
 ### Unified HMI JSON Import/Export
 
 The JSON flow is the repeatable import/export path for Unified HMI screens. It supports screens, items, scalar properties, faceplate interface bindings, event handlers, property event handlers, dynamizations, and value-converter mapping tables.

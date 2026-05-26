@@ -116,4 +116,54 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         public System.Collections.Generic.List<HmiLoggingTagReferenceInfo> References { get; set; } =
             new System.Collections.Generic.List<HmiLoggingTagReferenceInfo>();
     }
+
+    public sealed class HmiTrendCreateRequest
+    {
+        public string TagPath { get; set; } = string.Empty;
+        public string DataLogName { get; set; } = string.Empty;
+        public bool Cyclic { get; set; }
+        public string? Cycle { get; set; }
+        public string StorageFolder { get; set; } = "/Trends";
+        public int LogMaxSize { get; set; } = 2000;
+        public int DurationDays { get; set; } = 365;
+        public int SegmentMaxSize { get; set; } = 500;
+    }
+
+    public sealed class HmiLoggingTagRemoveRequest
+    {
+        public string TagPath { get; set; } = string.Empty;
+        public string DataLogName { get; set; } = string.Empty;
+        public string? LoggingTagName { get; set; }
+    }
+
+    public sealed class HmiDataLogDeleteRequest
+    {
+        public string DataLogName { get; set; } = string.Empty;
+    }
+
+    public sealed class HmiTrendBulkItemResult
+    {
+        public string? TagPath { get; set; }
+        public string DataLogName { get; set; } = string.Empty;
+        public string? LoggingTagName { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? Message { get; set; }
+        public HmiTrendInfo? Trend { get; set; }
+        public System.Collections.Generic.List<HmiLoggingTagReferenceInfo> References { get; set; } =
+            new System.Collections.Generic.List<HmiLoggingTagReferenceInfo>();
+    }
+
+    public sealed class HmiTrendBulkResult
+    {
+        public string Operation { get; set; } = string.Empty;
+        public bool DryRun { get; set; }
+        public int RequestedCount { get; set; }
+        public int AppliedCount { get; set; }
+        public int PlannedCount { get; set; }
+        public int BlockedCount { get; set; }
+        public int NotFoundCount { get; set; }
+        public int FailedCount { get; set; }
+        public System.Collections.Generic.List<HmiTrendBulkItemResult> Results { get; set; } =
+            new System.Collections.Generic.List<HmiTrendBulkItemResult>();
+    }
 }

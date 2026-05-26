@@ -341,6 +341,32 @@ namespace OpenTiaToolkit.Core.Services
             return await _trendService.DeleteDataLogAsync(dataLogName, confirm);
         }
 
+        /// <inheritdoc/>
+        public async Task<HmiTrendBulkResult?> CreateTrendsAsync(
+            IReadOnlyList<HmiTrendCreateRequest> configs,
+            bool dryRun = true)
+        {
+            return await _trendService.CreateTrendsAsync(configs, dryRun);
+        }
+
+        /// <inheritdoc/>
+        public async Task<HmiTrendBulkResult?> RemoveLoggingTagsAsync(
+            IReadOnlyList<HmiLoggingTagRemoveRequest> configs,
+            bool confirm = false,
+            bool dryRun = true)
+        {
+            return await _trendService.RemoveLoggingTagsAsync(configs, confirm, dryRun);
+        }
+
+        /// <inheritdoc/>
+        public async Task<HmiTrendBulkResult?> DeleteDataLogsAsync(
+            IReadOnlyList<HmiDataLogDeleteRequest> configs,
+            bool confirm = false,
+            bool dryRun = true)
+        {
+            return await _trendService.DeleteDataLogsAsync(configs, confirm, dryRun);
+        }
+
         private static EngineeringSessionContext ResolveSessionContext(IPortalService portalService)
         {
             if (portalService is IEngineeringSessionContextAccessor accessor)

@@ -4,6 +4,7 @@ using Siemens.Engineering.HmiUnified.HmiLogging;
 using Siemens.Engineering.HmiUnified.HmiTags;
 using Siemens.Engineering.HmiUnified.LoggingTags;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -186,6 +187,322 @@ namespace OpenTiaToolkit.Core.Services
                 _adapter.DeleteDataLog(dataLog);
                 result.Deleted = true;
                 return result;
+            });
+        }
+
+        public async Task<HmiTrendBulkResult?> CreateTrendsAsync(
+            IReadOnlyList<HmiTrendCreateRequest> configs,
+            bool dryRun)
+        {
+            var software = _sessionContext.HmiSoftware;
+            if (software == null)
+            {
+                _logger?.LogWarning("No Unified HMI is currently open");
+                return null;
+            }
+
+            var result = NewBulkResult("create-hmi-trends", dryRun, configs.Count);
+            foreach (var config in configs)
+            {
+                if (string.IsNullOrWhiteSpace(config.TagPath) || string.IsNullOrWhiteSpace(config.DataLogName))
+                {
+                    AddFailure(result, config.TagPath, config.DataLogName, "tagPath and dataLogName are required.");
+                    continue;
+                }
+
+                if (!_adapter.TryGetTag(software, config.TagPath, out var tag, out var normalizedTagPath) || tag == null)
+                {
+                    AddNotFound(result, config.TagPath, config.DataLogName, $"Unified HMI tag was not found: {config.TagPath}");
+                    continue;
+                }
+
+                if (dryRun)
+                {
+                    result.PlannedCount++;
+                    result.Results.Add(new HmiTrendBulkItemResult
+                    {
+                        TagPath = normalizedTagPath,
+                        DataLogName = config.DataLogName,
+                        LoggingTagName = _adapter.GetLoggingTagName(normalizedTagPath),
+                        Status = "Planned",
+                        Message = "Trend configuration would be created or updated."
+                    });
+                    continue;
+                }
+
+                try
+                {
+                    var configured = await CreateTrendAsync(
+                        config.TagPath,
+                        config.DataLogName,
+                        config.Cyclic,
+                        config.Cycle,
+                        config.StorageFolder,
+                        config.LogMaxSize,
+                        config.DurationDays,
+                        config.SegmentMaxSize);
+                    if (configured == null)
+                    {
+                        AddFailure(result, normalizedTagPath, config.DataLogName, "Failed to configure trend.");
+                        continue;
+                    }
+
+                    result.AppliedCount++;
+                    result.Results.Add(new HmiTrendBulkItemResult
+                    {
+                        TagPath = configured.TagPath,
+                        DataLogName = configured.DataLogName,
+                        LoggingTagName = configured.LoggingTagName,
+                        Status = "Applied",
+                        Trend = configured
+                    });
+                }
+                catch (Exception ex)
+                {
+                    AddFailure(result, normalizedTagPath, config.DataLogName, ex.Message);
+                }
+            }
+
+            return result;
+        }
+
+        public async Task<HmiTrendBulkResult?> RemoveLoggingTagsAsync(
+            IReadOnlyList<HmiLoggingTagRemoveRequest> configs,
+            bool confirm,
+            bool dryRun)
+        {
+            var software = _sessionContext.HmiSoftware;
+            if (software == null)
+            {
+                _logger?.LogWarning("No Unified HMI is currently open");
+                return null;
+            }
+
+            var result = NewBulkResult("remove-hmi-logging-tags", dryRun, configs.Count);
+            if (!dryRun && !confirm)
+            {
+                result.BlockedCount = configs.Count;
+                result.Results.AddRange(configs.Select(config => new HmiTrendBulkItemResult
+                {
+                    TagPath = config.TagPath,
+                    DataLogName = config.DataLogName,
+                    LoggingTagName = config.LoggingTagName,
+                    Status = "Blocked",
+                    Message = "Deletion requires confirm=true."
+                }));
+                return result;
+            }
+
+            foreach (var config in configs)
+            {
+                if (string.IsNullOrWhiteSpace(config.TagPath) || string.IsNullOrWhiteSpace(config.DataLogName))
+                {
+                    AddFailure(result, config.TagPath, config.DataLogName, "tagPath and dataLogName are required.");
+                    continue;
+                }
+
+                if (!_adapter.TryGetTag(software, config.TagPath, out var tag, out var normalizedTagPath) || tag == null)
+                {
+                    AddNotFound(result, config.TagPath, config.DataLogName, $"Unified HMI tag was not found: {config.TagPath}");
+                    continue;
+                }
+
+                var loggingTagName = string.IsNullOrWhiteSpace(config.LoggingTagName)
+                    ? _adapter.GetLoggingTagName(normalizedTagPath)
+                    : config.LoggingTagName!.Trim();
+                var loggingTag = _adapter.FindLoggingTag(tag, loggingTagName);
+                if (loggingTag == null)
+                {
+                    AddNotFound(result, normalizedTagPath, config.DataLogName, $"Logging tag was not found: {loggingTagName}", loggingTagName);
+                    continue;
+                }
+
+                if (!string.Equals(loggingTag.DataLog, config.DataLogName, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddBlocked(
+                        result,
+                        normalizedTagPath,
+                        config.DataLogName,
+                        $"Logging tag '{loggingTag.Name}' references data log '{loggingTag.DataLog}', not '{config.DataLogName}'.",
+                        loggingTag.Name);
+                    continue;
+                }
+
+                if (dryRun)
+                {
+                    result.PlannedCount++;
+                    result.Results.Add(new HmiTrendBulkItemResult
+                    {
+                        TagPath = normalizedTagPath,
+                        DataLogName = config.DataLogName,
+                        LoggingTagName = loggingTag.Name,
+                        Status = "Planned",
+                        Message = "Logging tag would be removed."
+                    });
+                    continue;
+                }
+
+                try
+                {
+                    _adapter.DeleteLoggingTag(loggingTag);
+                    result.AppliedCount++;
+                    result.Results.Add(new HmiTrendBulkItemResult
+                    {
+                        TagPath = normalizedTagPath,
+                        DataLogName = config.DataLogName,
+                        LoggingTagName = loggingTagName,
+                        Status = "Applied"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    AddFailure(result, normalizedTagPath, config.DataLogName, ex.Message, loggingTagName);
+                }
+            }
+
+            return await Task.FromResult(result);
+        }
+
+        public async Task<HmiTrendBulkResult?> DeleteDataLogsAsync(
+            IReadOnlyList<HmiDataLogDeleteRequest> configs,
+            bool confirm,
+            bool dryRun)
+        {
+            return await Task.Run(() =>
+            {
+                var software = _sessionContext.HmiSoftware;
+                if (software == null)
+                {
+                    _logger?.LogWarning("No Unified HMI is currently open");
+                    return null;
+                }
+
+                var result = NewBulkResult("delete-hmi-data-logs", dryRun, configs.Count);
+                if (!dryRun && !confirm)
+                {
+                    result.BlockedCount = configs.Count;
+                    result.Results.AddRange(configs.Select(config => new HmiTrendBulkItemResult
+                    {
+                        DataLogName = config.DataLogName,
+                        Status = "Blocked",
+                        Message = "Deletion requires confirm=true."
+                    }));
+                    return result;
+                }
+
+                var requestedNames = new HashSet<string>(
+                    configs.Where(config => !string.IsNullOrWhiteSpace(config.DataLogName)).Select(config => config.DataLogName),
+                    StringComparer.OrdinalIgnoreCase);
+                var references = _adapter.ListLoggingTagReferences(software, requestedNames)
+                    .GroupBy(reference => reference.DataLogName, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
+
+                foreach (var config in configs)
+                {
+                    if (string.IsNullOrWhiteSpace(config.DataLogName))
+                    {
+                        AddFailure(result, null, config.DataLogName, "dataLogName is required.");
+                        continue;
+                    }
+
+                    var dataLog = _adapter.FindDataLog(software, config.DataLogName);
+                    if (dataLog == null)
+                    {
+                        AddNotFound(result, null, config.DataLogName, $"Data log was not found: {config.DataLogName}");
+                        continue;
+                    }
+
+                    if (references.TryGetValue(config.DataLogName, out var activeReferences) && activeReferences.Count > 0)
+                    {
+                        result.BlockedCount++;
+                        result.Results.Add(new HmiTrendBulkItemResult
+                        {
+                            DataLogName = config.DataLogName,
+                            Status = "Blocked",
+                            Message = $"Data log '{config.DataLogName}' is still referenced by {activeReferences.Count} logging tag(s).",
+                            References = activeReferences
+                        });
+                        continue;
+                    }
+
+                    if (dryRun)
+                    {
+                        result.PlannedCount++;
+                        result.Results.Add(new HmiTrendBulkItemResult
+                        {
+                            DataLogName = config.DataLogName,
+                            Status = "Planned",
+                            Message = "Data log would be deleted."
+                        });
+                        continue;
+                    }
+
+                    try
+                    {
+                        _adapter.DeleteDataLog(dataLog);
+                        result.AppliedCount++;
+                        result.Results.Add(new HmiTrendBulkItemResult
+                        {
+                            DataLogName = config.DataLogName,
+                            Status = "Applied"
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        AddFailure(result, null, config.DataLogName, ex.Message);
+                    }
+                }
+
+                return result;
+            });
+        }
+
+        private static HmiTrendBulkResult NewBulkResult(string operation, bool dryRun, int requestedCount)
+        {
+            return new HmiTrendBulkResult
+            {
+                Operation = operation,
+                DryRun = dryRun,
+                RequestedCount = requestedCount
+            };
+        }
+
+        private static void AddFailure(HmiTrendBulkResult result, string? tagPath, string dataLogName, string message, string? loggingTagName = null)
+        {
+            result.FailedCount++;
+            result.Results.Add(new HmiTrendBulkItemResult
+            {
+                TagPath = tagPath,
+                DataLogName = dataLogName,
+                LoggingTagName = loggingTagName,
+                Status = "Failed",
+                Message = message
+            });
+        }
+
+        private static void AddNotFound(HmiTrendBulkResult result, string? tagPath, string dataLogName, string message, string? loggingTagName = null)
+        {
+            result.NotFoundCount++;
+            result.Results.Add(new HmiTrendBulkItemResult
+            {
+                TagPath = tagPath,
+                DataLogName = dataLogName,
+                LoggingTagName = loggingTagName,
+                Status = "NotFound",
+                Message = message
+            });
+        }
+
+        private static void AddBlocked(HmiTrendBulkResult result, string? tagPath, string dataLogName, string message, string? loggingTagName = null)
+        {
+            result.BlockedCount++;
+            result.Results.Add(new HmiTrendBulkItemResult
+            {
+                TagPath = tagPath,
+                DataLogName = dataLogName,
+                LoggingTagName = loggingTagName,
+                Status = "Blocked",
+                Message = message
             });
         }
     }

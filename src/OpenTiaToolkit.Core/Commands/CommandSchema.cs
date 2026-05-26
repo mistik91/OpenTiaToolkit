@@ -96,6 +96,8 @@ public enum CommandParameterType
     Boolean,
     /// <summary>Array of strings</summary>
     StringArray,
+    /// <summary>Array of JSON objects</summary>
+    ObjectArray,
     /// <summary>Path to a file or directory</summary>
     Path,
     /// <summary>Object value (JSON object or Dictionary)</summary>

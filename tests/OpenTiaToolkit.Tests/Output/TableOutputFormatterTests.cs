@@ -403,5 +403,36 @@ namespace OpenTiaToolkit.Tests.Output
             StringAssert.Contains(formatted, "Motor.Speed");
             StringAssert.Contains(formatted, "Motor_Speed");
         }
+
+        [TestMethod]
+        public void FormatHmiTrendBulkResult_ReturnsSummaryAndBlockingReferences()
+        {
+            var bulk = new HmiTrendBulkResult
+            {
+                Operation = "delete-hmi-data-logs",
+                DryRun = true,
+                RequestedCount = 1,
+                BlockedCount = 1,
+                Results = new List<HmiTrendBulkItemResult>
+                {
+                    new HmiTrendBulkItemResult
+                    {
+                        DataLogName = "TrendLog01",
+                        Status = "Blocked",
+                        Message = "Still referenced.",
+                        References = new List<HmiLoggingTagReferenceInfo>
+                        {
+                            new HmiLoggingTagReferenceInfo { TagPath = "Motor.Speed", LoggingTagName = "Motor_Speed" }
+                        }
+                    }
+                }
+            };
+
+            var formatted = TableOutputFormatter.Format(CommandResult.CreateFailure("Blocked", bulk));
+
+            StringAssert.Contains(formatted, "Unified HMI Trend Batch:");
+            StringAssert.Contains(formatted, "delete-hmi-data-logs");
+            StringAssert.Contains(formatted, "Referenced by: Motor.Speed / Motor_Speed");
+        }
     }
 }

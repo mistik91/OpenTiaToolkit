@@ -29,6 +29,7 @@ namespace OpenTiaToolkit.Tests.Server
                     new[]
                     {
                         new CommandParameter("rename-map", CommandParameterType.Object, "Rename mappings", required: true),
+                        new CommandParameter("configs", CommandParameterType.ObjectArray, "Batch configs"),
                         new CommandParameter("target-blocks", CommandParameterType.StringArray, "Target blocks"),
                         new CommandParameter("instance-id", CommandParameterType.Integer, "Instance id"),
                         new CommandParameter("with-ui", CommandParameterType.Boolean, "With UI", defaultValue: true)
@@ -43,6 +44,8 @@ namespace OpenTiaToolkit.Tests.Server
             var properties = schema.GetProperty("properties");
             Assert.AreEqual("object", properties.GetProperty("rename-map").GetProperty("type").GetString());
             Assert.IsTrue(properties.GetProperty("rename-map").GetProperty("additionalProperties").GetBoolean());
+            Assert.AreEqual("array", properties.GetProperty("configs").GetProperty("type").GetString());
+            Assert.AreEqual("object", properties.GetProperty("configs").GetProperty("items").GetProperty("type").GetString());
             Assert.AreEqual("array", properties.GetProperty("target-blocks").GetProperty("type").GetString());
             Assert.AreEqual("string", properties.GetProperty("target-blocks").GetProperty("items").GetProperty("type").GetString());
             Assert.AreEqual("integer", properties.GetProperty("instance-id").GetProperty("type").GetString());

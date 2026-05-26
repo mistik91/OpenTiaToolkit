@@ -280,4 +280,18 @@ public interface IHmiService
     /// <param name="confirm">Whether destructive deletion has been explicitly confirmed.</param>
     /// <returns>The deletion result, including blocking references, or null if no Unified HMI is selected.</returns>
     Task<HmiDataLogDeleteResult?> DeleteDataLogAsync(string dataLogName, bool confirm = false);
+
+    Task<HmiTrendBulkResult?> CreateTrendsAsync(
+        IReadOnlyList<HmiTrendCreateRequest> configs,
+        bool dryRun = true);
+
+    Task<HmiTrendBulkResult?> RemoveLoggingTagsAsync(
+        IReadOnlyList<HmiLoggingTagRemoveRequest> configs,
+        bool confirm = false,
+        bool dryRun = true);
+
+    Task<HmiTrendBulkResult?> DeleteDataLogsAsync(
+        IReadOnlyList<HmiDataLogDeleteRequest> configs,
+        bool confirm = false,
+        bool dryRun = true);
 }

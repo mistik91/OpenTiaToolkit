@@ -164,6 +164,15 @@ namespace OpenTiaToolkit.MCP.Server
                     };
                     break;
 
+                case CommandParameterType.ObjectArray:
+                    schema["type"] = "array";
+                    schema["items"] = new Dictionary<string, object?>
+                    {
+                        ["type"] = "object",
+                        ["additionalProperties"] = true
+                    };
+                    break;
+
                 case CommandParameterType.Object:
                     schema["type"] = "object";
                     schema["additionalProperties"] = true;

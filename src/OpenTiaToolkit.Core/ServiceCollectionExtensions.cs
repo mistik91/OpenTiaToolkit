@@ -90,6 +90,9 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ICommand, CreateHmiTrendCommand>();
             services.AddSingleton<ICommand, RemoveHmiLoggingTagCommand>();
             services.AddSingleton<ICommand, DeleteHmiDataLogCommand>();
+            services.AddSingleton<ICommand, CreateHmiTrendsCommand>();
+            services.AddSingleton<ICommand, RemoveHmiLoggingTagsCommand>();
+            services.AddSingleton<ICommand, DeleteHmiDataLogsCommand>();
             services.AddSingleton<ICommand, ExportHmiJsonCommand>();
             services.AddSingleton<ICommand, DiffHmiJsonCommand>();
             services.AddSingleton<ICommand, ImportHmiJsonCommand>();

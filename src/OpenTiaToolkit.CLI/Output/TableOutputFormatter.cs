@@ -33,6 +33,7 @@ namespace OpenTiaToolkit.CLI.Output
                 {
                     HmiDataLogDeleteResult dataLogDelete => FormatHmiDataLogDeleteResult(dataLogDelete),
                     HmiLoggingTagDeleteResult loggingTagDelete => FormatHmiLoggingTagDeleteResult(loggingTagDelete),
+                    HmiTrendBulkResult trendBulk => FormatHmiTrendBulkResult(trendBulk),
                     _ when IsTagUpdateResult(result.Data) => FormatTagUpdateResult(result.Data),
                     _ => string.Empty
                 };
@@ -69,6 +70,7 @@ namespace OpenTiaToolkit.CLI.Output
                 HmiTrendInfo trendInfo => FormatHmiTrendInfo(trendInfo),
                 HmiLoggingTagDeleteResult loggingTagDelete => FormatHmiLoggingTagDeleteResult(loggingTagDelete),
                 HmiDataLogDeleteResult dataLogDelete => FormatHmiDataLogDeleteResult(dataLogDelete),
+                HmiTrendBulkResult trendBulk => FormatHmiTrendBulkResult(trendBulk),
                 HmiJsonExportResult jsonExport => FormatHmiJsonExportResult(jsonExport),
                 HmiJsonDiffResult jsonDiff => FormatHmiJsonDiffResult(jsonDiff),
                 HmiJsonImportResult jsonImport => FormatHmiJsonImportResult(jsonImport),
@@ -564,6 +566,43 @@ namespace OpenTiaToolkit.CLI.Output
             foreach (var reference in result.References)
             {
                 lines.Add($"- {reference.TagPath} / {reference.LoggingTagName}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiTrendBulkResult(HmiTrendBulkResult result)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI Trend Batch:",
+                "",
+                $"Operation: {result.Operation}",
+                $"Dry Run:   {(result.DryRun ? "Yes" : "No")}",
+                $"Requested: {result.RequestedCount}",
+                $"Applied:   {result.AppliedCount}",
+                $"Planned:   {result.PlannedCount}",
+                $"Blocked:   {result.BlockedCount}",
+                $"Not Found: {result.NotFoundCount}",
+                $"Failed:    {result.FailedCount}",
+                ""
+            };
+
+            foreach (var item in result.Results)
+            {
+                var target = string.IsNullOrWhiteSpace(item.TagPath)
+                    ? item.DataLogName
+                    : $"{item.TagPath} -> {item.DataLogName}";
+                lines.Add($"[{item.Status}] {target}");
+                if (!string.IsNullOrWhiteSpace(item.Message))
+                {
+                    lines.Add($"  {item.Message}");
+                }
+
+                foreach (var reference in item.References)
+                {
+                    lines.Add($"  Referenced by: {reference.TagPath} / {reference.LoggingTagName}");
+                }
             }
 
             return string.Join(Environment.NewLine, lines);

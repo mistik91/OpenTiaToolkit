@@ -93,6 +93,9 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "create-hmi-trend");
             CollectionAssert.Contains(commands, "remove-hmi-logging-tag");
             CollectionAssert.Contains(commands, "delete-hmi-data-log");
+            CollectionAssert.Contains(commands, "create-hmi-trends");
+            CollectionAssert.Contains(commands, "remove-hmi-logging-tags");
+            CollectionAssert.Contains(commands, "delete-hmi-data-logs");
             CollectionAssert.Contains(commands, "export-hmi-json");
             CollectionAssert.Contains(commands, "diff-hmi-json");
             CollectionAssert.Contains(commands, "import-hmi-json");
