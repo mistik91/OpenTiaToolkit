@@ -31,17 +31,21 @@ namespace OpenTiaToolkit.Tests.Composition
             var portalService = serviceProvider.GetRequiredService<IPortalService>();
             var plcService = serviceProvider.GetRequiredService<IPlcService>();
             var hmiService = serviceProvider.GetRequiredService<IHmiService>();
+            var vciService = serviceProvider.GetRequiredService<IVciService>();
 
             // Assert
             var portalContext = GetPrivateFieldValue(portalService, "_sessionContext");
             var plcContext = GetPrivateFieldValue(plcService, "_sessionContext");
             var hmiContext = GetPrivateFieldValue(hmiService, "_sessionContext");
+            var vciContext = GetPrivateFieldValue(vciService, "_sessionContext");
 
             Assert.IsNotNull(portalContext);
             Assert.IsNotNull(plcContext);
             Assert.IsNotNull(hmiContext);
+            Assert.IsNotNull(vciContext);
             Assert.AreSame(portalContext, plcContext);
             Assert.AreSame(portalContext, hmiContext);
+            Assert.AreSame(portalContext, vciContext);
         }
 
         [TestMethod]
@@ -102,6 +106,14 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "find-replace-db-members");
             CollectionAssert.Contains(commands, "find-replace-udt-members");
             CollectionAssert.Contains(commands, "update-tags-from-csv");
+            CollectionAssert.Contains(commands, "list-vci-workspaces");
+            CollectionAssert.Contains(commands, "create-vci-workspace");
+            CollectionAssert.Contains(commands, "export-vci-block");
+            CollectionAssert.Contains(commands, "connect-vci-block");
+            CollectionAssert.Contains(commands, "get-vci-block-status");
+            CollectionAssert.Contains(commands, "sync-vci-block");
+            CollectionAssert.Contains(commands, "sync-vci-blocks");
+            CollectionAssert.Contains(commands, "sync-vci-plc");
         }
 
         private static object? GetPrivateFieldValue(object target, string fieldName)

@@ -800,6 +800,51 @@ Failed:
 Format: SIMATIC SD (.s7dcl + .s7res)
 ```
 
+### Version Control Interface (VCI)
+
+VCI maintains a workspace and persistent mappings between PLC objects and version-controlled files. Unlike one-off import/export, synchronization compares mapped content and updates only in the selected direction.
+
+```bash
+# Create a new workspace repository
+OpenTiaToolkit.CLI.exe create-vci-workspace --workspace-name="PLC_Repo" --root-path="C:\Repo\PLC_1" --workspace-language="en-US"
+
+# Inspect workspaces and supported block formats
+OpenTiaToolkit.CLI.exe list-vci-workspaces
+OpenTiaToolkit.CLI.exe get-vci-block-formats --plc-name="PLC_1" --block-name="FC_Control" --block-type="FC"
+
+# Create a surgical S7DCL mapping and synchronize project to workspace
+OpenTiaToolkit.CLI.exe export-vci-block --workspace-name="PLC_Repo" --plc-name="PLC_1" --block-name="FC_Control" --block-type="FC" --relative-directory="." --file-format="SimaticSD"
+OpenTiaToolkit.CLI.exe sync-vci-block --workspace-name="PLC_Repo" --plc-name="PLC_1" --block-name="FC_Control" --block-type="FC" --direction="project-to-workspace"
+
+# Bulk operation limited by regex, optionally creating mappings
+OpenTiaToolkit.CLI.exe sync-vci-blocks --workspace-name="PLC_Repo" --plc-name="PLC_1" --direction="project-to-workspace" --filter-regex="^FC_Control$" --create-mappings=true --relative-directory="." --file-format="SimaticSD"
+
+# Traverse the PLC without automatically mapping new objects
+OpenTiaToolkit.CLI.exe sync-vci-plc --workspace-name="PLC_Repo" --plc-name="PLC_1" --direction="project-to-workspace" --scope="all-supported"
+
+# Include individual skipped unmapped items when an audit needs full detail
+OpenTiaToolkit.CLI.exe sync-vci-plc --workspace-name="PLC_Repo" --plc-name="PLC_1" --direction="project-to-workspace" --scope="all-supported" --include-skipped=true
+```
+
+**Commands**:
+- `list-vci-workspaces`, `get-vci-workspace`, `create-vci-workspace`, `delete-vci-workspace`
+- `list-vci-mappings`, `get-vci-block-formats`, `get-vci-block-status`
+- `export-vci-block`, `connect-vci-block`, `sync-vci-block`
+- `sync-vci-blocks`, `sync-vci-plc`
+
+**Synchronization options**:
+- `direction`: `project-to-workspace` or `workspace-to-project`
+- `scope` for `sync-vci-plc`: `blocks`, `blocks-and-types`, or `all-supported`
+- `all-supported` covers blocks, PLC types, tag tables, and technological instance DBs exposed by the V21 API.
+- `create-mappings=true` is supported for project-to-workspace synchronization. Workspace-to-project synchronization requires an existing mapping created with `connect-vci-block`.
+- `include-skipped=true` adds per-object entries for skipped unmapped items. It defaults to `false`; counts and failures are always returned.
+
+**Repository notes**:
+- For a new repository, provide `workspace-language` when creating the workspace.
+- To reconnect a repository that already contains `.vci` metadata, omit `workspace-language`; Siemens reports an error if the repository language is configured again.
+- The flat workspace root (`--relative-directory="."`) is validated for S7DCL mappings on V21. Siemens may reject nested mapping directories depending on workspace configuration.
+- A mapping with compare state `Equal` is already synchronized; the toolkit treats it as a successful no-op because Siemens rejects invoking synchronization on equal content.
+
 ### Type Export (UDT)
 
 #### export-type
