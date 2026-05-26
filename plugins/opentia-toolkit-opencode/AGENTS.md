@@ -17,4 +17,6 @@ Do not call `open-project` before `connect-portal`; the MCP server may not have 
 
 For Unified HMI screen edits, load and follow the `basic-tia-interaction` skill first when the TIA context is not proven, then the `hmi-unified-agent-editing` skill. Prefer focused JSON screen snapshots, targeted patch operations, a dry run, then an apply with backup enabled unless the user explicitly asks otherwise.
 
+For hardware configuration, establish the TIA project with `basic-tia-interaction`, discover catalog identifiers and hardware target paths, and use `apply-hardware-patch` with `dry-run=true` before applying. Keep vendor/device-specific type identifiers and GSD parameter byte meanings outside the generic toolkit layer.
+
 Keep OpenTiaToolkit MCP calls serial. TIA Portal sessions are stateful, and parallel tool calls can race the same engineering session.

@@ -242,6 +242,77 @@ Name                            Type                            Parent Device   
 HMI_1                           TP1200                          Controller_1                    Yes
 ```
 
+### Generic Hardware Automation
+
+These commands expose vendor-neutral TIA Portal hardware primitives for GSD/GSDML devices, modules, PROFINET interfaces, and parameter records. Keep manufacturer-specific catalog identifiers and parameter encodings in a device workflow or skill; see [HARDWARE_AUTOMATION.md](HARDWARE_AUTOMATION.md) for the full safety model.
+
+#### find-hardware-catalog-items
+
+Searches the installed TIA Portal hardware catalog for usable type identifiers.
+
+```bash
+OpenTiaToolkit.CLI.exe find-hardware-catalog-items --search-text="AL1403"
+```
+
+#### get-hardware-tree
+
+Returns hierarchical devices and items with target paths reusable by the remaining hardware commands.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hardware-tree --device-name="IO_Master_01"
+```
+
+#### get-hardware-item-capabilities
+
+Reports feature services and optional attribute values for a specific item.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hardware-item-capabilities --device-name="IO_Master_01" --item-path="DAP/PN-IO" --attributes="Name"
+```
+
+#### find-hardware-module-types
+
+Resolves complete module identifiers using the project-level Siemens `ModuleInformationProvider`.
+
+```bash
+OpenTiaToolkit.CLI.exe find-hardware-module-types --partial-type-identifier="GSD:GSDML-V2.35-IFM-AL1X0X-20230127-075900.XML/M"
+```
+
+#### can-plug-hardware-item
+
+Checks a proposed module or submodule location without changing the project.
+
+```bash
+OpenTiaToolkit.CLI.exe can-plug-hardware-item --device-name="IO_Master_01" --item-path="8 Ports_1" --type-identifier="GSD:..." --item-name="Port_1" --position-number=2
+```
+
+#### get-hardware-networks
+
+Lists discovered network interfaces, nodes, IO controllers, IO connectors, and current connections.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hardware-networks --device-name="IO_Master_01"
+```
+
+#### get-gsd-parameter-data
+
+Reads raw parameter data exposed by a GSD/GSDML item.
+
+```bash
+OpenTiaToolkit.CLI.exe get-gsd-parameter-data --device-name="IO_Master_01" --item-path="8 Ports_1/Port_1" --dataset-number=47360 --byte-offset=0 --length=16
+```
+
+#### apply-hardware-patch
+
+Performs a transactional sequence of generic hardware operations. It defaults to `--dry-run=true`, rolling back all mutations after validating them. Use `expectedTypeIdentifier`, `expectedAttributes`, and `expectedDataHex` as guards before applying writes.
+
+```bash
+OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=true
+OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=false
+```
+
+Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, attribute updates, subnet connection, IO-system connection, and explicitly confirmed disconnect/delete operations.
+
 ### Unified HMI Operations
 
 #### open-unified-hmi

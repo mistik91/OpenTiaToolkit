@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands.Devices;
+using OpenTiaToolkit.Core.Commands.Hardware;
 using OpenTiaToolkit.Core.Commands.Hmi;
 using OpenTiaToolkit.Core.Commands.Plc;
 using OpenTiaToolkit.Core.Commands.Portal;
@@ -42,6 +43,12 @@ namespace OpenTiaToolkit.Core
                     serviceProvider.GetRequiredService<IPlcService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                     serviceProvider.GetService<ILogger<VciService>>()));
+
+            services.AddSingleton<IHardwareService>(serviceProvider =>
+                new HardwareService(
+                    serviceProvider.GetRequiredService<IPortalService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>(),
+                    serviceProvider.GetService<ILogger<HardwareService>>()));
 
             return services;
         }
@@ -146,6 +153,16 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ICommand, SyncVciBlockCommand>();
             services.AddSingleton<ICommand, SyncVciBlocksCommand>();
             services.AddSingleton<ICommand, SyncVciPlcCommand>();
+
+            // Phase 7 commands - Generic hardware engineering
+            services.AddSingleton<ICommand, FindHardwareCatalogItemsCommand>();
+            services.AddSingleton<ICommand, GetHardwareTreeCommand>();
+            services.AddSingleton<ICommand, GetHardwareItemCapabilitiesCommand>();
+            services.AddSingleton<ICommand, FindHardwareModuleTypesCommand>();
+            services.AddSingleton<ICommand, CanPlugHardwareItemCommand>();
+            services.AddSingleton<ICommand, GetHardwareNetworksCommand>();
+            services.AddSingleton<ICommand, GetGsdParameterDataCommand>();
+            services.AddSingleton<ICommand, ApplyHardwarePatchCommand>();
 
             return services;
         }

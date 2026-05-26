@@ -1,0 +1,708 @@
+using Microsoft.Extensions.Logging;
+using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Models;
+using Siemens.Engineering;
+using Siemens.Engineering.HW;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+namespace OpenTiaToolkit.Core.Services
+{
+    /// <summary>
+    /// Implements vendor-neutral hardware operations against the currently selected TIA project.
+    /// </summary>
+    public sealed class HardwareService : IHardwareService
+    {
+        private readonly IPortalService _portalService;
+        private readonly EngineeringSessionContext _sessionContext;
+        private readonly V21HardwareAdapter _adapter;
+        private readonly ILogger<HardwareService>? _logger;
+
+        internal HardwareService(
+            IPortalService portalService,
+            EngineeringSessionContext sessionContext,
+            ILogger<HardwareService>? logger = null,
+            V21HardwareAdapter? adapter = null)
+        {
+            _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
+            _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
+            _logger = logger;
+            _adapter = adapter ?? new V21HardwareAdapter();
+        }
+
+        public Task<IReadOnlyList<HardwareCatalogItemInfo>> FindCatalogItemsAsync(string searchText, string? culture = null)
+        {
+            return Task.Run<IReadOnlyList<HardwareCatalogItemInfo>>(() =>
+                _adapter.FindCatalogItems(RequirePortal(), searchText ?? string.Empty, culture));
+        }
+
+        public Task<IReadOnlyList<HardwareDeviceTreeInfo>> GetHardwareTreeAsync(string? deviceName = null)
+        {
+            return Task.Run<IReadOnlyList<HardwareDeviceTreeInfo>>(() =>
+            {
+                var project = RequireProject();
+                var devices = project.Devices
+                    .Where(device => string.IsNullOrWhiteSpace(deviceName) ||
+                        string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase))
+                    .Select(ToDeviceTree)
+                    .ToList();
+                return devices;
+            });
+        }
+
+        public Task<HardwareCapabilityInfo?> GetCapabilitiesAsync(HardwareObjectRef target, string[]? attributes = null)
+        {
+            return Task.Run<HardwareCapabilityInfo?>(() =>
+            {
+                var resolved = Resolve(target);
+                var services = new[] { "GsdDevice", "GsdDeviceItem", "NetworkInterface" }
+                    .Where(name => _adapter.GetFeatureService(resolved, name) != null)
+                    .ToList();
+                return new HardwareCapabilityInfo
+                {
+                    Target = CloneRef(target),
+                    TypeIdentifier = resolved.TypeIdentifier,
+                    IsDevice = resolved is Device,
+                    SupportsPlugging = true,
+                    SupportsGsdParameters = services.Contains("GsdDeviceItem"),
+                    SupportsNetworkInterface = services.Contains("NetworkInterface"),
+                    AvailableServices = services,
+                    Attributes = _adapter.GetAttributeInfos(resolved, attributes).ToList()
+                };
+            });
+        }
+
+        public Task<HardwarePlugCheckInfo> CanPlugAsync(HardwareObjectRef target, string typeIdentifier, string itemName, int positionNumber)
+        {
+            return Task.Run(() =>
+            {
+                var parent = Resolve(target);
+                return new HardwarePlugCheckInfo
+                {
+                    Target = CloneRef(target),
+                    TypeIdentifier = typeIdentifier,
+                    ItemName = itemName,
+                    PositionNumber = positionNumber,
+                    CanPlug = parent.CanPlugNew(typeIdentifier, itemName, positionNumber)
+                };
+            });
+        }
+
+        public Task<IReadOnlyList<string>> FindModuleTypesAsync(string partialTypeIdentifier)
+        {
+            return Task.Run<IReadOnlyList<string>>(() =>
+                _adapter.FindModuleTypes(RequireProject(), partialTypeIdentifier ?? string.Empty));
+        }
+
+        public Task<IReadOnlyList<HardwareNetworkInfo>> GetNetworksAsync(string? deviceName = null)
+        {
+            return Task.Run<IReadOnlyList<HardwareNetworkInfo>>(() =>
+            {
+                var result = new List<HardwareNetworkInfo>();
+                foreach (var device in RequireProject().Devices)
+                {
+                    if (!string.IsNullOrWhiteSpace(deviceName) &&
+                        !string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    AddNetworkInfoRecursive(device, new HardwareObjectRef { DeviceName = device.Name }, result);
+                }
+
+                return result;
+            });
+        }
+
+        public Task<HardwareGsdParameterData?> GetGsdParameterDataAsync(HardwareObjectRef target, int datasetNumber, int byteOffset, int length)
+        {
+            return Task.Run<HardwareGsdParameterData?>(() =>
+            {
+                var resolved = Resolve(target);
+                var bytes = _adapter.GetGsdParameterData(resolved, datasetNumber, byteOffset, length);
+                return bytes == null ? null : new HardwareGsdParameterData
+                {
+                    Target = CloneRef(target),
+                    DatasetNumber = datasetNumber,
+                    ByteOffset = byteOffset,
+                    Length = bytes.Length,
+                    DataHex = ToHex(bytes)
+                };
+            });
+        }
+
+        public Task<HardwarePatchResult> ApplyPatchAsync(
+            IReadOnlyList<HardwarePatchOperation> operations,
+            bool dryRun = true,
+            bool confirmDestructive = false,
+            string? transactionDescription = null)
+        {
+            return Task.Run(() =>
+            {
+                if (operations == null || operations.Count == 0)
+                {
+                    throw new ArgumentException("At least one hardware operation is required.", nameof(operations));
+                }
+
+                var result = new HardwarePatchResult
+                {
+                    DryRun = dryRun,
+                    TransactionDescription = string.IsNullOrWhiteSpace(transactionDescription)
+                        ? "OpenTiaToolkit hardware patch"
+                        : transactionDescription
+                };
+                var references = new Dictionary<string, ResolvedTarget>(StringComparer.OrdinalIgnoreCase);
+
+                try
+                {
+                    var project = RequireProject();
+                    using (var access = RequirePortal().ExclusiveAccess(result.TransactionDescription))
+                    using (var transaction = access.Transaction(project, result.TransactionDescription))
+                    {
+                        for (int index = 0; index < operations.Count; index++)
+                        {
+                            ExecuteOperation(index, operations[index], confirmDestructive, references, result);
+                        }
+
+                        if (!dryRun)
+                        {
+                            transaction.CommitOnDispose();
+                            result.Applied = true;
+                        }
+                        else
+                        {
+                            result.RolledBack = true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Hardware patch failed");
+                    result.Applied = false;
+                    result.RolledBack = true;
+                    result.SafetyBlocked = true;
+                    result.SafetyMessage = ex.Message;
+                }
+
+                return result;
+            });
+        }
+
+        private void ExecuteOperation(
+            int index,
+            HardwarePatchOperation operation,
+            bool confirmDestructive,
+            IDictionary<string, ResolvedTarget> references,
+            HardwarePatchResult result)
+        {
+            if (operation == null || string.IsNullOrWhiteSpace(operation.Op))
+            {
+                throw new InvalidOperationException($"Operation {index} has no op value.");
+            }
+
+            var op = NormalizeOperation(operation.Op);
+            HardwareOperationResult item;
+            switch (op)
+            {
+                case "create-device":
+                    item = CreateDevice(index, operation, references);
+                    break;
+                case "create-device-with-item":
+                    item = CreateDeviceWithItem(index, operation, references);
+                    break;
+                case "plug-item":
+                    item = PlugItem(index, operation, references);
+                    break;
+                case "set-attributes":
+                    item = SetAttributes(index, operation, references);
+                    break;
+                case "set-gsd-parameter-data":
+                    item = SetGsdParameterData(index, operation, references);
+                    break;
+                case "get-gsd-parameter-data":
+                    item = ReadGsdParameterData(index, operation, references);
+                    break;
+                case "create-subnet":
+                    item = CreateSubnet(index, operation);
+                    break;
+                case "connect-node-to-subnet":
+                    item = ConnectNodeToSubnet(index, operation, references);
+                    break;
+                case "disconnect-node":
+                    RequireDestructiveConfirmation(confirmDestructive, op);
+                    item = DisconnectNode(index, operation, references);
+                    break;
+                case "create-io-system":
+                    item = CreateIoSystem(index, operation, references);
+                    break;
+                case "connect-io-connector":
+                    item = ConnectIoConnector(index, operation, references);
+                    break;
+                case "disconnect-io-connector":
+                    RequireDestructiveConfirmation(confirmDestructive, op);
+                    item = DisconnectIoConnector(index, operation, references);
+                    break;
+                case "delete-device":
+                    RequireDestructiveConfirmation(confirmDestructive, op);
+                    item = DeleteDevice(index, operation, references);
+                    break;
+                case "delete-item":
+                    RequireDestructiveConfirmation(confirmDestructive, op);
+                    item = DeleteItem(index, operation, references);
+                    break;
+                default:
+                    throw new InvalidOperationException($"Unsupported hardware patch operation: {operation.Op}");
+            }
+
+            result.Operations.Add(item);
+        }
+
+        private HardwareOperationResult CreateDevice(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TypeIdentifier, "typeIdentifier");
+            RequireText(op.DeviceName, "deviceName");
+            var created = RequireProject().Devices.Create(op.TypeIdentifier!, op.DeviceName!);
+            var target = new HardwareObjectRef { DeviceName = created.Name, ExpectedTypeIdentifier = created.TypeIdentifier };
+            AddResultReference(op.ResultId, new ResolvedTarget(created, target), refs);
+            return Success(index, op, target, $"Created device: {created.Name}", ToDeviceTree(created));
+        }
+
+        private HardwareOperationResult CreateDeviceWithItem(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TypeIdentifier, "typeIdentifier");
+            RequireText(op.DeviceName, "deviceName");
+            RequireText(op.ItemName, "itemName");
+            var created = RequireProject().Devices.CreateWithItem(op.TypeIdentifier!, op.ItemName!, op.DeviceName!);
+            var target = new HardwareObjectRef { DeviceName = created.Name, ExpectedTypeIdentifier = created.TypeIdentifier };
+            AddResultReference(op.ResultId, new ResolvedTarget(created, target), refs);
+            return Success(index, op, target, $"Created device with item: {created.Name}", ToDeviceTree(created));
+        }
+
+        private HardwareOperationResult PlugItem(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TypeIdentifier, "typeIdentifier");
+            RequireText(op.ItemName, "itemName");
+            if (!op.PositionNumber.HasValue) throw new InvalidOperationException("positionNumber is required for plug-item.");
+            var parent = ResolveOperationTarget(op, refs);
+            if (!parent.Object.CanPlugNew(op.TypeIdentifier!, op.ItemName!, op.PositionNumber.Value))
+            {
+                throw new InvalidOperationException($"Cannot plug '{op.ItemName}' at position {op.PositionNumber.Value}.");
+            }
+
+            var created = parent.Object.PlugNew(op.TypeIdentifier!, op.ItemName!, op.PositionNumber.Value);
+            var reference = ChildRef(parent.Reference, created.Name, created.TypeIdentifier);
+            AddResultReference(op.ResultId, new ResolvedTarget(created, reference), refs);
+            return Success(index, op, reference, $"Plugged hardware item: {created.Name}");
+        }
+
+        private HardwareOperationResult SetAttributes(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            if (op.Attributes == null || op.Attributes.Count == 0)
+            {
+                throw new InvalidOperationException("attributes is required for set-attributes.");
+            }
+
+            var target = ResolveOperationTarget(op, refs);
+            EnsureExpectedAttributes(target.Object, op.ExpectedAttributes);
+            var before = op.Attributes.Keys.ToDictionary(
+                name => name,
+                name => TryGetAttribute(target.Object, name),
+                StringComparer.OrdinalIgnoreCase);
+            var values = op.Attributes.Select(pair =>
+                new KeyValuePair<string, object>(pair.Key, ConvertJsonValue(pair.Value))).ToList();
+            target.Object.SetAttributes(values);
+            return Success(index, op, target.Reference, $"Set {values.Count} hardware attribute(s).", new HardwareAttributeChangeInfo
+            {
+                Before = before,
+                Written = values.ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase)
+            });
+        }
+
+        private HardwareOperationResult SetGsdParameterData(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            if (!op.DatasetNumber.HasValue) throw new InvalidOperationException("datasetNumber is required for set-gsd-parameter-data.");
+            RequireText(op.DataHex, "dataHex");
+            var target = ResolveOperationTarget(op, refs);
+            var bytes = ParseHex(op.DataHex!);
+            var before = _adapter.GetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, bytes.Length);
+            if (!string.IsNullOrWhiteSpace(op.ExpectedDataHex))
+            {
+                var expected = ParseHex(op.ExpectedDataHex!);
+                if (before == null || !before.SequenceEqual(expected))
+                {
+                    throw new InvalidOperationException(
+                        $"GSD parameter data differs from expectedDataHex at dataset {op.DatasetNumber.Value}, offset {op.ByteOffset}.");
+                }
+            }
+            _adapter.SetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, bytes);
+            return Success(index, op, target.Reference, $"Wrote {bytes.Length} GSD parameter byte(s).", new HardwareGsdParameterChangeInfo
+            {
+                DatasetNumber = op.DatasetNumber.Value,
+                ByteOffset = op.ByteOffset,
+                BeforeHex = before == null ? null : ToHex(before),
+                WrittenHex = ToHex(bytes)
+            });
+        }
+
+        private HardwareOperationResult ReadGsdParameterData(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            if (!op.DatasetNumber.HasValue) throw new InvalidOperationException("datasetNumber is required for get-gsd-parameter-data.");
+            if (!op.Length.HasValue || op.Length.Value <= 0) throw new InvalidOperationException("length is required for get-gsd-parameter-data.");
+            var target = ResolveOperationTarget(op, refs);
+            var bytes = _adapter.GetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, op.Length.Value)
+                ?? throw new InvalidOperationException("GSD parameter data could not be read.");
+            return Success(index, op, target.Reference, $"Read {bytes.Length} GSD parameter byte(s).", new HardwareGsdParameterData
+            {
+                Target = target.Reference,
+                DatasetNumber = op.DatasetNumber.Value,
+                ByteOffset = op.ByteOffset,
+                Length = bytes.Length,
+                DataHex = ToHex(bytes)
+            });
+        }
+
+        private HardwareOperationResult CreateSubnet(int index, HardwarePatchOperation op)
+        {
+            RequireText(op.TypeIdentifier, "typeIdentifier");
+            RequireText(op.SubnetName, "subnetName");
+            var subnet = RequireProject().Subnets.Create(op.TypeIdentifier!, op.SubnetName!);
+            return Success(index, op, null, $"Created subnet: {subnet.Name}");
+        }
+
+        private HardwareOperationResult ConnectNodeToSubnet(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.SubnetName, "subnetName");
+            var target = ResolveOperationTarget(op, refs);
+            var node = _adapter.RequireNetworkItem(target.Object, "Nodes", op.NodeIndex ?? 0);
+            var subnet = RequireProject().Subnets.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, op.SubnetName, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException($"Subnet not found: {op.SubnetName}");
+            _adapter.ConnectNodeToSubnet(node, subnet);
+            return Success(index, op, target.Reference, $"Connected node to subnet: {subnet.Name}");
+        }
+
+        private HardwareOperationResult DisconnectNode(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            var target = ResolveOperationTarget(op, refs);
+            var node = _adapter.RequireNetworkItem(target.Object, "Nodes", op.NodeIndex ?? 0);
+            _adapter.DisconnectNode(node);
+            return Success(index, op, target.Reference, "Disconnected node from subnet.");
+        }
+
+        private HardwareOperationResult CreateIoSystem(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.IoSystemName, "ioSystemName");
+            var target = ResolveOperationTarget(op, refs);
+            var controller = _adapter.RequireNetworkItem(target.Object, "IoControllers", op.ControllerIndex ?? 0);
+            _adapter.CreateIoSystem(controller, op.IoSystemName!);
+            return Success(index, op, target.Reference, $"Created IO system: {op.IoSystemName}");
+        }
+
+        private HardwareOperationResult ConnectIoConnector(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.IoSystemName, "ioSystemName");
+            var target = ResolveOperationTarget(op, refs);
+            var connector = _adapter.RequireNetworkItem(target.Object, "IoConnectors", op.ConnectorIndex ?? 0);
+            var ioSystem = FindIoSystem(op.IoSystemName!);
+            _adapter.ConnectIoConnector(connector, ioSystem);
+            return Success(index, op, target.Reference, $"Connected IO connector to IO system: {op.IoSystemName}");
+        }
+
+        private HardwareOperationResult DisconnectIoConnector(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            var target = ResolveOperationTarget(op, refs);
+            var connector = _adapter.RequireNetworkItem(target.Object, "IoConnectors", op.ConnectorIndex ?? 0);
+            _adapter.DisconnectIoConnector(connector);
+            return Success(index, op, target.Reference, "Disconnected IO connector.");
+        }
+
+        private HardwareOperationResult DeleteDevice(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            var target = ResolveOperationTarget(op, refs);
+            if (!(target.Object is Device device))
+            {
+                throw new InvalidOperationException("delete-device target must be a device root.");
+            }
+            device.Delete();
+            return Success(index, op, target.Reference, $"Deleted device: {target.Reference.DeviceName}");
+        }
+
+        private HardwareOperationResult DeleteItem(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            var target = ResolveOperationTarget(op, refs);
+            if (!(target.Object is DeviceItem item))
+            {
+                throw new InvalidOperationException("delete-item target must be a nested device item.");
+            }
+            item.Delete();
+            return Success(index, op, target.Reference, "Deleted hardware item.");
+        }
+
+        private object FindIoSystem(string name)
+        {
+            foreach (var network in GetNetworksAsync().GetAwaiter().GetResult())
+            {
+                var target = Resolve(network.Target);
+                var feature = _adapter.GetFeatureService(target, "NetworkInterface");
+                if (feature == null) continue;
+                foreach (var controller in TiaReflectionHelper.GetEnumerableProperty(feature, "IoControllers") ?? Enumerable.Empty<object>())
+                {
+                    var ioSystem = TiaReflectionHelper.GetProperty(controller, "IoSystem");
+                    if (string.Equals(TiaReflectionHelper.GetProperty(ioSystem, "Name")?.ToString(), name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return ioSystem!;
+                    }
+                }
+            }
+
+            throw new InvalidOperationException($"IO system not found: {name}");
+        }
+
+        private HardwareDeviceTreeInfo ToDeviceTree(Device device)
+        {
+            var reference = new HardwareObjectRef { DeviceName = device.Name, ExpectedTypeIdentifier = device.TypeIdentifier };
+            return new HardwareDeviceTreeInfo
+            {
+                DeviceName = device.Name,
+                TypeIdentifier = device.TypeIdentifier,
+                Target = reference,
+                Items = device.DeviceItems.Select(item => ToItemInfo(item, reference)).ToList()
+            };
+        }
+
+        private HardwareItemInfo ToItemInfo(DeviceItem item, HardwareObjectRef parent)
+        {
+            var reference = ChildRef(parent, item.Name, item.TypeIdentifier);
+            return new HardwareItemInfo
+            {
+                Target = reference,
+                Name = item.Name,
+                TypeIdentifier = item.TypeIdentifier,
+                PositionNumber = item.PositionNumber,
+                Items = item.DeviceItems.Select(child => ToItemInfo(child, reference)).ToList()
+            };
+        }
+
+        private void AddNetworkInfoRecursive(HardwareObject target, HardwareObjectRef reference, ICollection<HardwareNetworkInfo> result)
+        {
+            var info = _adapter.GetNetworkInfo(target, reference);
+            if (info != null)
+            {
+                result.Add(info);
+            }
+
+            foreach (var child in target.DeviceItems)
+            {
+                AddNetworkInfoRecursive(child, ChildRef(reference, child.Name, child.TypeIdentifier), result);
+            }
+        }
+
+        private ResolvedTarget ResolveOperationTarget(HardwarePatchOperation operation, IDictionary<string, ResolvedTarget> refs)
+        {
+            if (!string.IsNullOrWhiteSpace(operation.TargetRef))
+            {
+                if (!refs.TryGetValue(operation.TargetRef!, out var existing))
+                {
+                    throw new InvalidOperationException($"Unknown targetRef: {operation.TargetRef}");
+                }
+                return existing;
+            }
+
+            if (operation.Target == null)
+            {
+                throw new InvalidOperationException($"Operation '{operation.Op}' requires target or targetRef.");
+            }
+
+            return new ResolvedTarget(Resolve(operation.Target), CloneRef(operation.Target));
+        }
+
+        private HardwareObject Resolve(HardwareObjectRef reference)
+        {
+            if (reference == null || string.IsNullOrWhiteSpace(reference.DeviceName))
+            {
+                throw new ArgumentException("Hardware target deviceName is required.");
+            }
+
+            var device = RequireProject().Devices.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, reference.DeviceName, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException($"Device not found: {reference.DeviceName}");
+
+            HardwareObject current = device;
+            foreach (var name in reference.ItemPath ?? Array.Empty<string>())
+            {
+                var matches = current.DeviceItems.Where(candidate =>
+                    string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (matches.Count == 0)
+                {
+                    throw new InvalidOperationException($"Hardware item path was not found: {reference.DeviceName}/{string.Join("/", reference.ItemPath)}");
+                }
+                if (matches.Count > 1)
+                {
+                    throw new InvalidOperationException($"Hardware item path is ambiguous at: {name}");
+                }
+                current = matches[0];
+            }
+
+            if (!string.IsNullOrWhiteSpace(reference.ExpectedTypeIdentifier) &&
+                !string.Equals(current.TypeIdentifier, reference.ExpectedTypeIdentifier, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Hardware target type does not match expected type identifier: {reference.ExpectedTypeIdentifier}");
+            }
+
+            return current;
+        }
+
+        private ProjectBase RequireProject()
+        {
+            return _sessionContext.Project ?? throw new InvalidOperationException("No TIA Portal project is open.");
+        }
+
+        private TiaPortal RequirePortal()
+        {
+            return _sessionContext.Portal ?? throw new InvalidOperationException("Not connected to TIA Portal.");
+        }
+
+        private static string NormalizeOperation(string op)
+        {
+            return op.Trim().Replace("_", "-").ToLowerInvariant();
+        }
+
+        private static void RequireText(string? value, string property)
+        {
+            if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException($"{property} is required.");
+        }
+
+        private static void RequireDestructiveConfirmation(bool confirmed, string operation)
+        {
+            if (!confirmed) throw new InvalidOperationException($"{operation} requires confirmDestructive=true.");
+        }
+
+        private void EnsureExpectedAttributes(HardwareObject target, IDictionary<string, object?>? expectedAttributes)
+        {
+            if (expectedAttributes == null) return;
+            foreach (var expected in expectedAttributes)
+            {
+                var actual = _adapter.GetAttribute(target, expected.Key);
+                if (!AttributeValuesEqual(actual, ConvertJsonValue(expected.Value)))
+                {
+                    throw new InvalidOperationException($"Hardware attribute '{expected.Key}' differs from expectedAttributes.");
+                }
+            }
+        }
+
+        private object? TryGetAttribute(HardwareObject target, string name)
+        {
+            try
+            {
+                return _adapter.GetAttribute(target, name);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool AttributeValuesEqual(object? actual, object? expected)
+        {
+            return string.Equals(
+                Convert.ToString(actual, CultureInfo.InvariantCulture),
+                Convert.ToString(expected, CultureInfo.InvariantCulture),
+                StringComparison.Ordinal);
+        }
+
+        private static void AddResultReference(string? id, ResolvedTarget value, IDictionary<string, ResolvedTarget> references)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return;
+            if (references.ContainsKey(id!)) throw new InvalidOperationException($"Duplicate resultId: {id}");
+            references[id!] = value;
+        }
+
+        private static HardwareOperationResult Success(int index, HardwarePatchOperation operation, HardwareObjectRef? target, string message, object? data = null)
+        {
+            return new HardwareOperationResult
+            {
+                Index = index,
+                Op = operation.Op,
+                Success = true,
+                Message = message,
+                Target = target,
+                ResultId = operation.ResultId,
+                Data = data
+            };
+        }
+
+        private static HardwareObjectRef ChildRef(HardwareObjectRef parent, string name, string? typeIdentifier)
+        {
+            return new HardwareObjectRef
+            {
+                DeviceName = parent.DeviceName,
+                ItemPath = (parent.ItemPath ?? Array.Empty<string>()).Concat(new[] { name }).ToArray(),
+                ExpectedTypeIdentifier = typeIdentifier
+            };
+        }
+
+        private static HardwareObjectRef CloneRef(HardwareObjectRef source)
+        {
+            return new HardwareObjectRef
+            {
+                DeviceName = source.DeviceName,
+                ItemPath = source.ItemPath?.ToArray() ?? Array.Empty<string>(),
+                ExpectedTypeIdentifier = source.ExpectedTypeIdentifier
+            };
+        }
+
+        internal static byte[] ParseHex(string text)
+        {
+            var compact = new string((text ?? string.Empty).Where(character => !char.IsWhiteSpace(character) && character != '-' && character != ',').ToArray());
+            if (compact.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) compact = compact.Substring(2);
+            if (compact.Length == 0 || compact.Length % 2 != 0)
+            {
+                throw new FormatException("dataHex must contain an even number of hexadecimal digits.");
+            }
+
+            var bytes = new byte[compact.Length / 2];
+            for (var index = 0; index < bytes.Length; index++)
+            {
+                bytes[index] = byte.Parse(compact.Substring(index * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            }
+            return bytes;
+        }
+
+        internal static string ToHex(IEnumerable<byte> data)
+        {
+            return string.Join(" ", data.Select(value => value.ToString("X2", CultureInfo.InvariantCulture)));
+        }
+
+        private static object ConvertJsonValue(object? value)
+        {
+            if (!(value is JsonElement element)) return value ?? string.Empty;
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.True: return true;
+                case JsonValueKind.False: return false;
+                case JsonValueKind.Number:
+                    if (element.TryGetInt32(out var intValue)) return intValue;
+                    if (element.TryGetInt64(out var longValue)) return longValue;
+                    return element.GetDouble();
+                case JsonValueKind.String: return element.GetString() ?? string.Empty;
+                default: return element.ToString();
+            }
+        }
+
+        private sealed class ResolvedTarget
+        {
+            public ResolvedTarget(HardwareObject obj, HardwareObjectRef reference)
+            {
+                Object = obj;
+                Reference = reference;
+            }
+
+            public HardwareObject Object { get; }
+            public HardwareObjectRef Reference { get; }
+        }
+    }
+}

@@ -32,20 +32,24 @@ namespace OpenTiaToolkit.Tests.Composition
             var plcService = serviceProvider.GetRequiredService<IPlcService>();
             var hmiService = serviceProvider.GetRequiredService<IHmiService>();
             var vciService = serviceProvider.GetRequiredService<IVciService>();
+            var hardwareService = serviceProvider.GetRequiredService<IHardwareService>();
 
             // Assert
             var portalContext = GetPrivateFieldValue(portalService, "_sessionContext");
             var plcContext = GetPrivateFieldValue(plcService, "_sessionContext");
             var hmiContext = GetPrivateFieldValue(hmiService, "_sessionContext");
             var vciContext = GetPrivateFieldValue(vciService, "_sessionContext");
+            var hardwareContext = GetPrivateFieldValue(hardwareService, "_sessionContext");
 
             Assert.IsNotNull(portalContext);
             Assert.IsNotNull(plcContext);
             Assert.IsNotNull(hmiContext);
             Assert.IsNotNull(vciContext);
+            Assert.IsNotNull(hardwareContext);
             Assert.AreSame(portalContext, plcContext);
             Assert.AreSame(portalContext, hmiContext);
             Assert.AreSame(portalContext, vciContext);
+            Assert.AreSame(portalContext, hardwareContext);
         }
 
         [TestMethod]
@@ -119,6 +123,14 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "sync-vci-block");
             CollectionAssert.Contains(commands, "sync-vci-blocks");
             CollectionAssert.Contains(commands, "sync-vci-plc");
+            CollectionAssert.Contains(commands, "find-hardware-catalog-items");
+            CollectionAssert.Contains(commands, "get-hardware-tree");
+            CollectionAssert.Contains(commands, "get-hardware-item-capabilities");
+            CollectionAssert.Contains(commands, "find-hardware-module-types");
+            CollectionAssert.Contains(commands, "can-plug-hardware-item");
+            CollectionAssert.Contains(commands, "get-hardware-networks");
+            CollectionAssert.Contains(commands, "get-gsd-parameter-data");
+            CollectionAssert.Contains(commands, "apply-hardware-patch");
         }
 
         private static object? GetPrivateFieldValue(object target, string fieldName)

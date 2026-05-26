@@ -113,6 +113,12 @@ OpenCode uses `opencode.json` for project or user config, `.opencode/plugins/` f
 
 The supplied OpenCode configurations use a 600-second MCP timeout because some TIA Portal Openness reads on real projects can take longer than one minute, especially broad HMI tag enumeration.
 
+## Generic Hardware Tools
+
+The MCP server also exposes vendor-neutral hardware tools for catalog discovery, hierarchical targets, module plugging, PROFINET network attachment, and transactional GSD/GSDML parameter operations. The generic interface and dry-run safety guidance are documented in [`../HARDWARE_AUTOMATION.md`](../HARDWARE_AUTOMATION.md).
+
+Device-specific workflows should keep their catalog identifiers and parameter-byte encodings in skills or project instructions while invoking the generic MCP operations.
+
 ## MCP-Only Client Snippets
 
 The Antigravity and VS Code snippets in this folder configure only the `opentia` MCP server. They do not currently package reusable skill folders. For equivalent behavior in those clients, add project instructions that mirror `basic-tia-interaction`: discover running TIA instances first, verify the open project after connecting, and choose the instance matching a specified project automatically.

@@ -8,6 +8,8 @@ This bundle packages OpenTiaToolkit guidance for OpenCode:
 - `.opencode/skills/basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance
 - `.opencode/skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance
 
+The configured MCP server also exposes generic hardware operations for catalog discovery, module/submodule composition, PROFINET wiring, and guarded GSD/GSDML parameter changes.
+
 The bundle assumes the product installer has placed the MCP executable at:
 
 ```text

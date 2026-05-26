@@ -10,20 +10,21 @@
   "homepage": "https://github.com/mistik91/OpenTiaToolkit",
   "repository": "https://github.com/mistik91/OpenTiaToolkit",
   "license": "MIT",
-  "keywords": ["tia-portal", "siemens", "mcp", "hmi", "openness"],
+  "keywords": ["tia-portal", "siemens", "mcp", "hmi", "hardware", "openness"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "OpenTiaToolkit",
-    "shortDescription": "TIA Portal MCP tools and HMI editing workflows.",
-    "longDescription": "Provides MCP server configuration, TIA Portal session guidance, and HMI Unified editing skills for OpenTiaToolkit. The MCP executable should be installed and registered with Siemens Openness by the product installer or setup script before use.",
+    "shortDescription": "TIA Portal MCP tools for HMI and hardware workflows.",
+    "longDescription": "Provides MCP server configuration, TIA Portal session guidance, HMI Unified editing skills, and generic hardware engineering operations for OpenTiaToolkit. The MCP executable should be installed and registered with Siemens Openness by the product installer or setup script before use.",
     "developerName": "OpenTiaToolkit Contributors",
     "category": "Developer Tools",
-    "capabilities": ["MCP", "TIA Portal", "HMI Editing"],
+    "capabilities": ["MCP", "TIA Portal", "HMI Editing", "Hardware Engineering"],
     "defaultPrompt": [
       "Connect to TIA Portal and check HMI status.",
       "Inspect a Unified HMI screen safely.",
-      "Patch a faceplate interface with dry-run."
+      "Patch a faceplate interface with dry-run.",
+      "Preflight a PROFINET IO device configuration with dry-run."
     ],
     "brandColor": "#2563EB"
   }

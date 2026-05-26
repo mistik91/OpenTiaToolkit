@@ -1,6 +1,6 @@
 # OpenTiaToolkit Codex Plugin
 
-This plugin packages the OpenTiaToolkit MCP server configuration together with TIA Portal and HMI Unified agent-editing skills.
+This plugin packages the OpenTiaToolkit MCP server configuration together with TIA Portal and HMI Unified agent-editing skills. The MCP server also provides generic catalog, topology, PROFINET, and GSD/GSDML parameter operations for device-specific hardware workflows.
 
 The plugin assumes the product installer has placed the MCP executable at:
 

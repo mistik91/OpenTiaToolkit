@@ -40,6 +40,14 @@ Common V21 PLC surfaces used by the toolkit include:
 - `GetService<ICompilable>()` for software compilation
 - `Project.GetService<VersionControlInterface>()` for VCI workspaces and synchronization
 
+Common V21 hardware surfaces used by the toolkit include:
+
+- `Project.Devices.CreateWithItem(...)` for catalog device and GSDML DAP instantiation
+- `HardwareObject.CanPlugNew(...)` and `HardwareObject.PlugNew(...)` for module/submodule composition
+- `Project.HwUtilities.Find("ModuleInformationProvider")` for module identifier discovery
+- `DeviceItem.GetService<GsdDeviceItem>()` for raw GSD/GSDML parameter records
+- `DeviceItem.GetService<NetworkInterface>()` for subnet and IO-system connectivity
+
 Refer to the official Siemens Openness documentation for the detailed V21 API surface.
 
 ## Feature Notes
@@ -87,6 +95,20 @@ Validated V21 behavior includes:
 - compact bulk results by default, with skipped unmapped object details available through `include-skipped=true`
 - comparison state handling: Siemens rejects `Synchronize(...)` for an `Equal` mapped object, so equal content is treated as an already synchronized success
 - repository reopening: omit the workspace language when attaching an existing repository whose `.vci` metadata already defines it
+
+### Generic hardware engineering
+
+The hardware command surface is validated on V21 with an IFM AL1403 PROFINET IO-Link master GSDML. The generic toolkit is not tied to that product: it discovers installed catalog identifiers, resolves hierarchical hardware targets, handles transactional topology/network edits, and reads or writes guarded GSD parameter records.
+
+Validated V21 behavior includes:
+
+- creating a GSDML device/DAP in a transaction
+- addressing catalog-created child modules and plugging an IO-Link submodule
+- reading and guarded-writing a GSD parameter dataset
+- connecting the discovered PROFINET `NetworkInterface` item to an existing subnet and IO system
+- dry-run rollback with no remaining temporary hardware item
+
+See [HARDWARE_AUTOMATION.md](HARDWARE_AUTOMATION.md) for the generic contract and device-skill boundary.
 
 ## Build Reference Path
 

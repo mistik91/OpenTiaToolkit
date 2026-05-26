@@ -105,6 +105,7 @@ The public service interfaces stay stable, but the implementation is now split i
 - [PlcMemberRenameService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcMemberRenameService.cs): DB/UDT member rename flows
 - [PlcImportExportService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): XML and document import/export flows
 - [VciService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/VciService.cs): VCI workspaces, mappings, comparison state, and surgical/bulk synchronization
+- [HardwareService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/HardwareService.cs): generic hardware catalog, topology, network, GSD record, and transactional patch operations
 
 ### Builders
 

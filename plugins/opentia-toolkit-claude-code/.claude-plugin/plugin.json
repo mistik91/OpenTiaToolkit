@@ -10,7 +10,7 @@
   "homepage": "https://github.com/mistik91/OpenTiaToolkit",
   "repository": "https://github.com/mistik91/OpenTiaToolkit",
   "license": "MIT",
-  "keywords": ["tia-portal", "siemens", "mcp", "hmi", "openness"],
+  "keywords": ["tia-portal", "siemens", "mcp", "hmi", "hardware", "openness"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json"
 }

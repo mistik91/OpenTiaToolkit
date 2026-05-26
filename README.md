@@ -14,6 +14,7 @@ The project targets **TIA Portal V21** first, with selected best-effort compatib
 - Opens, inspects, saves, and closes TIA Portal projects.
 - Lists devices, PLCs, HMI devices, project trees, and PLC software trees.
 - Runs PLC workflows such as compile, block browse, import/export, VCI workspace synchronization, search, delete, tag creation, CSV tag updates, and rename operations.
+- Supports generic hardware catalog discovery, module/submodule composition, PROFINET IO wiring, and transactional GSD/GSDML parameter changes.
 - Supports Unified HMI browse, screen/item mutation, tag/trend setup, JSON export/diff/import, focused screen patches, faceplate interface probes, and safety preflights.
 - Exposes the same capabilities through both CLI and MCP, so scripts and agents use the same implementation.
 - Ships agent-ready workflow guidance for common TIA/HMI interaction patterns.
@@ -139,6 +140,7 @@ For development checkouts and client-specific snippets, use [docs/mcp-client-con
 | MCP client/plugin setup | [docs/mcp-client-configs/README.md](docs/mcp-client-configs/README.md) |
 | TIA Portal version support | [docs/TIA_PORTAL_VERSION_SUPPORT.md](docs/TIA_PORTAL_VERSION_SUPPORT.md) |
 | Development notes | [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md) |
+| Generic hardware automation | [docs/HARDWARE_AUTOMATION.md](docs/HARDWARE_AUTOMATION.md) |
 | Examples | [examples/README.md](examples/README.md) |
 | Third-party notices | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 
