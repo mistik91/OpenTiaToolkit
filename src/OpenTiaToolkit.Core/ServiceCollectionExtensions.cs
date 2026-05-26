@@ -5,6 +5,7 @@ using OpenTiaToolkit.Core.Commands.Devices;
 using OpenTiaToolkit.Core.Commands.Hmi;
 using OpenTiaToolkit.Core.Commands.Plc;
 using OpenTiaToolkit.Core.Commands.Portal;
+using OpenTiaToolkit.Core.Commands.Vci;
 using OpenTiaToolkit.Core.Services;
 
 namespace OpenTiaToolkit.Core
@@ -34,6 +35,13 @@ namespace OpenTiaToolkit.Core
                     serviceProvider.GetRequiredService<IPortalService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                     serviceProvider.GetService<ILogger<HmiService>>()));
+
+            services.AddSingleton<IVciService>(serviceProvider =>
+                new VciService(
+                    serviceProvider.GetRequiredService<IPortalService>(),
+                    serviceProvider.GetRequiredService<IPlcService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>(),
+                    serviceProvider.GetService<ILogger<VciService>>()));
 
             return services;
         }
@@ -119,6 +127,20 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ICommand, FindAndReplaceTagsCommand>();
             services.AddSingleton<ICommand, CreateTagCommand>();
             services.AddSingleton<ICommand, UpdateTagsFromCsvCommand>();
+
+            // Phase 6 commands - Version Control Interface
+            services.AddSingleton<ICommand, ListVciWorkspacesCommand>();
+            services.AddSingleton<ICommand, GetVciWorkspaceCommand>();
+            services.AddSingleton<ICommand, CreateVciWorkspaceCommand>();
+            services.AddSingleton<ICommand, DeleteVciWorkspaceCommand>();
+            services.AddSingleton<ICommand, ListVciMappingsCommand>();
+            services.AddSingleton<ICommand, GetVciBlockFormatsCommand>();
+            services.AddSingleton<ICommand, ExportVciBlockCommand>();
+            services.AddSingleton<ICommand, ConnectVciBlockCommand>();
+            services.AddSingleton<ICommand, GetVciBlockStatusCommand>();
+            services.AddSingleton<ICommand, SyncVciBlockCommand>();
+            services.AddSingleton<ICommand, SyncVciBlocksCommand>();
+            services.AddSingleton<ICommand, SyncVciPlcCommand>();
 
             return services;
         }

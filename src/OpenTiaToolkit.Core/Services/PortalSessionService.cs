@@ -69,6 +69,7 @@ namespace OpenTiaToolkit.Core.Services
                     if (processes.Any())
                     {
                         _portal = processes.First().Attach();
+                        TrySelectSingleOpenProjectInCurrentPortal();
                         _logger?.LogInformation("Attached to existing TIA Portal instance.");
                         return true;
                     }
@@ -180,6 +181,7 @@ namespace OpenTiaToolkit.Core.Services
                     }
 
                     _portal = process.Attach();
+                    TrySelectSingleOpenProjectInCurrentPortal();
                     _logger?.LogInformation("Attached to TIA Portal instance {InstanceId}.", instanceId);
                     return true;
                 }
@@ -534,6 +536,54 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return false;
+        }
+
+        private bool TrySelectSingleOpenProjectInCurrentPortal()
+        {
+            if (_portal == null)
+            {
+                return false;
+            }
+
+            LocalSession? selectedSession = null;
+            ProjectBase? selectedProject = null;
+            var count = 0;
+
+            if (_portal.LocalSessions != null)
+            {
+                foreach (var session in _portal.LocalSessions)
+                {
+                    if (session.Project != null)
+                    {
+                        count++;
+                        selectedSession = session;
+                        selectedProject = session.Project;
+                    }
+                }
+            }
+
+            if (_portal.Projects != null)
+            {
+                foreach (var project in _portal.Projects)
+                {
+                    count++;
+                    selectedSession = null;
+                    selectedProject = project;
+                }
+            }
+
+            if (count != 1 || selectedProject == null)
+            {
+                return false;
+            }
+
+            _sessionContext.ClearProjectSelection();
+            _session = selectedSession;
+            _project = selectedProject;
+            _ownsCurrentProject = false;
+            _ownsCurrentSession = false;
+            _logger?.LogInformation("Selected the only open project after attaching: {ProjectName}", selectedProject.Name);
+            return true;
         }
 
         private bool TryAttachToExistingPortalWithProject(string normalizedProjectPath, string projectName)

@@ -13,7 +13,7 @@ The project targets **TIA Portal V21** first, with selected best-effort compatib
 - Connects to running TIA Portal instances or opens a new one.
 - Opens, inspects, saves, and closes TIA Portal projects.
 - Lists devices, PLCs, HMI devices, project trees, and PLC software trees.
-- Runs PLC workflows such as compile, block browse, import/export, search, delete, tag creation, CSV tag updates, and rename operations.
+- Runs PLC workflows such as compile, block browse, import/export, VCI workspace synchronization, search, delete, tag creation, CSV tag updates, and rename operations.
 - Supports Unified HMI browse, screen/item mutation, tag/trend setup, JSON export/diff/import, focused screen patches, faceplate interface probes, and safety preflights.
 - Exposes the same capabilities through both CLI and MCP, so scripts and agents use the same implementation.
 - Ships agent-ready workflow guidance for common TIA/HMI interaction patterns.
@@ -149,6 +149,7 @@ The [examples](examples/README.md) folder contains:
 - read-only CLI project inspection
 - PLC export through the CLI
 - MCP project/device discovery
+- VCI workspace creation and bidirectional S7DCL synchronization through MCP
 - safe Unified HMI screen patch flow
 
 Use disposable project copies for mutation workflows until you are comfortable with the behavior.

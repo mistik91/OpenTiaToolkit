@@ -36,7 +36,9 @@ Common V21 PLC surfaces used by the toolkit include:
 - `PlcSoftware.TypeGroup`
 - `PlcSoftware.TagTableGroup`
 - `PlcSoftware.ExternalSourceGroup`
+- `PlcSoftware.TechnologicalObjectGroup`
 - `GetService<ICompilable>()` for software compilation
+- `Project.GetService<VersionControlInterface>()` for VCI workspaces and synchronization
 
 Refer to the official Siemens Openness documentation for the detailed V21 API surface.
 
@@ -72,6 +74,19 @@ During V21 validation on the current test project, the loaded `PlcBlockCompositi
 ### SIMATIC SD document import/export
 
 Document-based block import/export requires **V20 or newer**. In practice, this repo is mainly validated on V21.
+
+### Version Control Interface (VCI)
+
+The VCI command surface is validated against TIA Portal V21 and uses `Siemens.Engineering.VersionControl` from `Siemens.Engineering.Base.dll`.
+
+Validated V21 behavior includes:
+
+- workspace creation, listing, deletion, and reconnecting an existing `.vci` repository
+- S7DCL (`SimaticSD`) mapping for individual FC and GlobalDB objects
+- filtered block synchronization and PLC traversal across blocks, PLC types, tag tables, and technological instance DBs
+- compact bulk results by default, with skipped unmapped object details available through `include-skipped=true`
+- comparison state handling: Siemens rejects `Synchronize(...)` for an `Equal` mapped object, so equal content is treated as an already synchronized success
+- repository reopening: omit the workspace language when attaching an existing repository whose `.vci` metadata already defines it
 
 ## Build Reference Path
 
