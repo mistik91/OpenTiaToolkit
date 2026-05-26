@@ -14,6 +14,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Fixed attachment to a running TIA instance with one already-open project so downstream PLC and VCI operations share the selected project context.
 - Added `list-hmi-tags --root-path` for fast enumeration of a known Unified HMI tag subtree.
 - Raised supplied OpenCode MCP timeout defaults to 600 seconds for long-running TIA Portal reads.
+- Added confirmed `remove-hmi-logging-tag` and `delete-hmi-data-log` tools, with reference checks that prevent deletion of an in-use Unified HMI data log.
 
 ## [0.1.0] - 2026-05-07
 

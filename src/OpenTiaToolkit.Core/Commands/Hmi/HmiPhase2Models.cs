@@ -73,4 +73,47 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
         public bool LoggingTagCreated { get; set; }
     }
+
+    /// <summary>
+    /// One logging tag that references a Unified HMI data log.
+    /// </summary>
+    public sealed class HmiLoggingTagReferenceInfo
+    {
+        public string TagPath { get; set; } = string.Empty;
+
+        public string LoggingTagName { get; set; } = string.Empty;
+
+        public string DataLogName { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Result of removing one logging tag from a Unified HMI tag.
+    /// </summary>
+    public sealed class HmiLoggingTagDeleteResult
+    {
+        public string TagPath { get; set; } = string.Empty;
+
+        public string LoggingTagName { get; set; } = string.Empty;
+
+        public string DataLogName { get; set; } = string.Empty;
+
+        public bool Deleted { get; set; }
+
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Result of deleting one Unified HMI data log archive.
+    /// </summary>
+    public sealed class HmiDataLogDeleteResult
+    {
+        public string DataLogName { get; set; } = string.Empty;
+
+        public bool Deleted { get; set; }
+
+        public string? Error { get; set; }
+
+        public System.Collections.Generic.List<HmiLoggingTagReferenceInfo> References { get; set; } =
+            new System.Collections.Generic.List<HmiLoggingTagReferenceInfo>();
+    }
 }

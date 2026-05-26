@@ -377,5 +377,31 @@ namespace OpenTiaToolkit.Tests.Output
             StringAssert.Contains(formatted, "TrendLog01");
             StringAssert.Contains(formatted, "Cyclic");
         }
+
+        [TestMethod]
+        public void FormatHmiDataLogDeleteResult_ReturnsBlockingReferencesOnFailure()
+        {
+            var deletion = new HmiDataLogDeleteResult
+            {
+                DataLogName = "TrendLog01",
+                Error = "Data log is still referenced.",
+                References = new List<HmiLoggingTagReferenceInfo>
+                {
+                    new HmiLoggingTagReferenceInfo
+                    {
+                        TagPath = "Motor.Speed",
+                        LoggingTagName = "Motor_Speed",
+                        DataLogName = "TrendLog01"
+                    }
+                }
+            };
+            var result = CommandResult.CreateFailure(deletion.Error, deletion);
+
+            var formatted = TableOutputFormatter.Format(result);
+
+            StringAssert.Contains(formatted, "Unified HMI Data Log Deletion:");
+            StringAssert.Contains(formatted, "Motor.Speed");
+            StringAssert.Contains(formatted, "Motor_Speed");
+        }
     }
 }

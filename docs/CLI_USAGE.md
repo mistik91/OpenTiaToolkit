@@ -341,6 +341,24 @@ OpenTiaToolkit.CLI.exe create-hmi-trend --hmi-name="HMI_1" --tag-path="HMI_Tags/
 
 `--storage-folder` is retained for compatibility, but Unified HMI exposes the data log storage folder as read-only through Openness. The command reports the folder configured by TIA and does not attempt to change it.
 
+#### remove-hmi-logging-tag
+
+Removes one logging tag after checking that it references the expected data log. Deletion always requires explicit confirmation.
+
+```bash
+OpenTiaToolkit.CLI.exe remove-hmi-logging-tag --hmi-name="HMI_1" --tag-path="HMI_Tags/MotorSpeed" --datalog-name="MotorSpeedLog" --confirm=true
+```
+
+For logging tags not created with the toolkit-derived name, provide `--logging-tag-name="ExistingLoggingTag"`.
+
+#### delete-hmi-data-log
+
+Deletes a named data log archive only after its logging tag references have been removed. Deletion always requires explicit confirmation; active references are returned as a blocking result.
+
+```bash
+OpenTiaToolkit.CLI.exe delete-hmi-data-log --hmi-name="HMI_1" --datalog-name="MotorSpeedLog" --confirm=true
+```
+
 ### Unified HMI JSON Import/Export
 
 The JSON flow is the repeatable import/export path for Unified HMI screens. It supports screens, items, scalar properties, faceplate interface bindings, event handlers, property event handlers, dynamizations, and value-converter mapping tables.

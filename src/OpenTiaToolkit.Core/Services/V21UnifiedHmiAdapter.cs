@@ -363,6 +363,16 @@ namespace OpenTiaToolkit.Core.Services
             return software.DataLogs.Create(dataLogName);
         }
 
+        public HmiDataLog? FindDataLog(HmiSoftware software, string dataLogName)
+        {
+            return software.DataLogs.Find(dataLogName);
+        }
+
+        public void DeleteDataLog(HmiDataLog dataLog)
+        {
+            dataLog.Delete();
+        }
+
         public void ConfigureDataLog(HmiDataLog dataLog, int logMaxSize, int durationDays, int segmentMaxSize)
         {
             dataLog.Settings.LogMaxSize = (uint)Math.Max(1, logMaxSize);
@@ -391,6 +401,26 @@ namespace OpenTiaToolkit.Core.Services
 
             created = true;
             return tag.LoggingTags.Create(loggingTagName);
+        }
+
+        public HmiLoggingTag? FindLoggingTag(HmiTag tag, string loggingTagName)
+        {
+            return tag.LoggingTags.Find(loggingTagName);
+        }
+
+        public void DeleteLoggingTag(HmiLoggingTag loggingTag)
+        {
+            loggingTag.Delete();
+        }
+
+        public IReadOnlyList<HmiLoggingTagReferenceInfo> ListLoggingTagReferences(HmiSoftware software, string dataLogName)
+        {
+            var results = new List<HmiLoggingTagReferenceInfo>();
+            CollectLoggingTagReferences(software.Tags, string.Empty, dataLogName, results);
+            return results
+                .OrderBy(reference => reference.TagPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(reference => reference.LoggingTagName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         public void ConfigureLoggingTag(HmiLoggingTag loggingTag, string dataLogName, HmiLoggingMode loggingMode, string? cycle)
@@ -643,6 +673,35 @@ namespace OpenTiaToolkit.Core.Services
             if (tag.Members.Count > 0)
             {
                 CollectTags(tag.Members, path, filter, results);
+            }
+        }
+
+        private static void CollectLoggingTagReferences(
+            HmiTagComposition tags,
+            string prefix,
+            string dataLogName,
+            List<HmiLoggingTagReferenceInfo> results)
+        {
+            foreach (var tag in tags)
+            {
+                var path = string.IsNullOrWhiteSpace(prefix) ? tag.Name : prefix + "." + tag.Name;
+                foreach (var loggingTag in tag.LoggingTags)
+                {
+                    if (string.Equals(loggingTag.DataLog, dataLogName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        results.Add(new HmiLoggingTagReferenceInfo
+                        {
+                            TagPath = path,
+                            LoggingTagName = loggingTag.Name,
+                            DataLogName = loggingTag.DataLog
+                        });
+                    }
+                }
+
+                if (tag.Members.Count > 0)
+                {
+                    CollectLoggingTagReferences(tag.Members, path, dataLogName, results);
+                }
             }
         }
 

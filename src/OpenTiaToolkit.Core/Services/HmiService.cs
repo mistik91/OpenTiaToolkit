@@ -325,6 +325,22 @@ namespace OpenTiaToolkit.Core.Services
             return await _trendService.CreateTrendAsync(tagPath, dataLogName, cyclic, cycle, storageFolder, logMaxSize, durationDays, segmentMaxSize);
         }
 
+        /// <inheritdoc/>
+        public async Task<HmiLoggingTagDeleteResult?> RemoveLoggingTagAsync(
+            string tagPath,
+            string dataLogName,
+            bool confirm = false,
+            string? loggingTagName = null)
+        {
+            return await _trendService.RemoveLoggingTagAsync(tagPath, dataLogName, confirm, loggingTagName);
+        }
+
+        /// <inheritdoc/>
+        public async Task<HmiDataLogDeleteResult?> DeleteDataLogAsync(string dataLogName, bool confirm = false)
+        {
+            return await _trendService.DeleteDataLogAsync(dataLogName, confirm);
+        }
+
         private static EngineeringSessionContext ResolveSessionContext(IPortalService portalService)
         {
             if (portalService is IEngineeringSessionContextAccessor accessor)

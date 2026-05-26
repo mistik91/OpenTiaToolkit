@@ -258,4 +258,26 @@ public interface IHmiService
         int logMaxSize = 2000,
         int durationDays = 365,
         int segmentMaxSize = 500);
+
+    /// <summary>
+    /// Removes one logging tag after verifying that it belongs to the expected data log.
+    /// </summary>
+    /// <param name="tagPath">The HMI tag path.</param>
+    /// <param name="dataLogName">The expected data log name.</param>
+    /// <param name="confirm">Whether destructive deletion has been explicitly confirmed.</param>
+    /// <param name="loggingTagName">Optional explicit logging tag name; defaults to the toolkit-derived name.</param>
+    /// <returns>The deletion result, or null if no Unified HMI is selected.</returns>
+    Task<HmiLoggingTagDeleteResult?> RemoveLoggingTagAsync(
+        string tagPath,
+        string dataLogName,
+        bool confirm = false,
+        string? loggingTagName = null);
+
+    /// <summary>
+    /// Deletes one data log only when no logging tags still reference it.
+    /// </summary>
+    /// <param name="dataLogName">The data log archive name.</param>
+    /// <param name="confirm">Whether destructive deletion has been explicitly confirmed.</param>
+    /// <returns>The deletion result, including blocking references, or null if no Unified HMI is selected.</returns>
+    Task<HmiDataLogDeleteResult?> DeleteDataLogAsync(string dataLogName, bool confirm = false);
 }

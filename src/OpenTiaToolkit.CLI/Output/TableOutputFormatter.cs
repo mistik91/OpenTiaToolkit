@@ -29,9 +29,13 @@ namespace OpenTiaToolkit.CLI.Output
                     return errorText;
                 }
 
-                var detailText = IsTagUpdateResult(result.Data)
-                    ? FormatTagUpdateResult(result.Data)
-                    : string.Empty;
+                var detailText = result.Data switch
+                {
+                    HmiDataLogDeleteResult dataLogDelete => FormatHmiDataLogDeleteResult(dataLogDelete),
+                    HmiLoggingTagDeleteResult loggingTagDelete => FormatHmiLoggingTagDeleteResult(loggingTagDelete),
+                    _ when IsTagUpdateResult(result.Data) => FormatTagUpdateResult(result.Data),
+                    _ => string.Empty
+                };
 
                 return string.IsNullOrWhiteSpace(detailText)
                     ? errorText
@@ -63,6 +67,8 @@ namespace OpenTiaToolkit.CLI.Output
                 IEnumerable<HmiItemTypeInfo> itemTypes => FormatHmiItemTypes(itemTypes),
                 IEnumerable<HmiItemPropertyInfo> itemProperties => FormatHmiItemProperties(itemProperties),
                 HmiTrendInfo trendInfo => FormatHmiTrendInfo(trendInfo),
+                HmiLoggingTagDeleteResult loggingTagDelete => FormatHmiLoggingTagDeleteResult(loggingTagDelete),
+                HmiDataLogDeleteResult dataLogDelete => FormatHmiDataLogDeleteResult(dataLogDelete),
                 HmiJsonExportResult jsonExport => FormatHmiJsonExportResult(jsonExport),
                 HmiJsonDiffResult jsonDiff => FormatHmiJsonDiffResult(jsonDiff),
                 HmiJsonImportResult jsonImport => FormatHmiJsonImportResult(jsonImport),
@@ -515,6 +521,50 @@ namespace OpenTiaToolkit.CLI.Output
                 $"Data Log Created: {(trendInfo.DataLogCreated ? "Yes" : "No")}",
                 $"Logging Tag Created: {(trendInfo.LoggingTagCreated ? "Yes" : "No")}"
             };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiLoggingTagDeleteResult(HmiLoggingTagDeleteResult result)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI Logging Tag Removal:",
+                "",
+                $"Tag Path:    {result.TagPath}",
+                $"Logging Tag: {result.LoggingTagName}",
+                $"Data Log:    {result.DataLogName}",
+                $"Deleted:     {(result.Deleted ? "Yes" : "No")}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(result.Error))
+            {
+                lines.Add($"Reason:      {result.Error}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatHmiDataLogDeleteResult(HmiDataLogDeleteResult result)
+        {
+            var lines = new List<string>
+            {
+                "Unified HMI Data Log Deletion:",
+                "",
+                $"Data Log:   {result.DataLogName}",
+                $"Deleted:    {(result.Deleted ? "Yes" : "No")}",
+                $"References: {result.References.Count}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(result.Error))
+            {
+                lines.Add($"Reason:     {result.Error}");
+            }
+
+            foreach (var reference in result.References)
+            {
+                lines.Add($"- {reference.TagPath} / {reference.LoggingTagName}");
+            }
 
             return string.Join(Environment.NewLine, lines);
         }
