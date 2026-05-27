@@ -1083,6 +1083,10 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.AreEqual(0, applySummary.PatchOperationFailedCount);
             Assert.IsFalse(string.IsNullOrWhiteSpace(applySummary.BackupPath), "Expected backup path from safe patch apply.");
             Assert.IsFalse(string.IsNullOrWhiteSpace(applySummary.VerifyExportPath), "Expected verify export path after patch apply.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(applySummary.NewBaseHash), "Expected verified base hash after patch apply.");
+            Assert.IsNotNull(applySummary.Import, "Expected applied import details after patch apply.");
+            Assert.IsTrue(applySummary.Import!.TransactionUsed, "Expected safe patch apply to use a Siemens transaction.");
+            Assert.IsFalse(applySummary.Import.RolledBack, "Expected successful patch apply to commit its transaction.");
 
             var getPropertiesCommand = new GetHmiItemPropertiesCommand(_hmiService!);
             var getPropertiesResult = await getPropertiesCommand.ExecuteAsync(
@@ -1668,6 +1672,9 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.IsTrue(applySummary!.Applied, applySummary.SafetyMessage);
             Assert.AreEqual("verify-result", applySummary.Guidance!.RecommendedNextAction);
             Assert.IsNotNull(applySummary.VerifiedScreen, "Expected verified screen after composite patch.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(applySummary.NewBaseHash), "Expected verified base hash after composite patch.");
+            Assert.IsTrue(applySummary.Import!.TransactionUsed, "Expected composite patch apply to use a Siemens transaction.");
+            Assert.IsFalse(applySummary.Import.RolledBack, "Expected composite patch apply to commit its transaction.");
 
             var verifiedItem = applySummary.VerifiedScreen!.Items.Single();
             Assert.IsNotNull(verifiedItem.EventHandlers, "Expected event handler after composite patch.");
@@ -1736,6 +1743,9 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.IsNotNull(removeSummary, "Expected composite removal result.");
             Assert.IsTrue(removeSummary!.Applied, removeSummary.SafetyMessage);
             Assert.IsNotNull(removeSummary.VerifiedScreen, "Expected verified screen after composite removals.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(removeSummary.NewBaseHash), "Expected verified base hash after composite removals.");
+            Assert.IsTrue(removeSummary.Import!.TransactionUsed, "Expected composite removal apply to use a Siemens transaction.");
+            Assert.IsFalse(removeSummary.Import.RolledBack, "Expected composite removal apply to commit its transaction.");
 
             var removedItem = removeSummary.VerifiedScreen!.Items.Single();
             Assert.IsTrue(removedItem.EventHandlers == null || removedItem.EventHandlers.Count == 0, "Expected event handlers to be removed.");

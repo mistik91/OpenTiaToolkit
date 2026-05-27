@@ -525,7 +525,7 @@ OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Expor
 - `dry-run` (import): Validate without applying
 - `fail-on-warning` (import): Treat warnings as blocking
 - `require-clean-preflight` (import): Re-run a clean preflight before applying
-- `backup` and `backup-path` (import): Export a backup before mutation
+- `backup` and `backup-path` (import): Export a backup before mutation; when screen/item/property filters are supplied, the backup uses the same scope.
 - `screens`, `item-names`, `properties`: Optional filters for export, diff, and import
 
 #### get-hmi-screen-json
@@ -543,7 +543,7 @@ OpenTiaToolkit.CLI.exe get-hmi-screen-json --hmi-name="HMI_1" --screen-path="Cod
 
 #### apply-hmi-screen-json-edit
 
-Dry-runs or applies one edited screen JSON object through the same export, diff, preflight, import, backup, and verify pipeline used by the lower-level JSON commands. `dry-run` defaults to `true`; `backup` defaults to `true` when applying.
+Dry-runs or applies one edited screen JSON object through the same export, diff, preflight, transactional import, backup, and verify pipeline used by the lower-level JSON commands. `dry-run` defaults to `true`; `backup` defaults to `true` when applying. For filtered screen edits, backup uses the same screen/item/property filters rather than exporting the whole HMI.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-path="Codex/Main" --edited-screen="{...}" --base-hash="..." --dry-run=true
@@ -555,12 +555,12 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-pa
 - `base-hash`: Optional hash returned by `get-hmi-screen-json`; mismatches block the edit by default.
 - `allow-stale-base`: Allows edits when the current screen hash differs from `base-hash`.
 - `dry-run`: Validate and return patch/preflight details without applying.
-- `backup` and `backup-path`: Export a backup before mutation.
+- `backup` and `backup-path`: Export a filtered backup before mutation; omit filters only when a full-HMI backup is intended.
 - `working-path`: Optional root for generated base, edited, patch, backup, and verify artifacts.
 
 #### apply-hmi-screen-json-patch
 
-Dry-runs or applies compact agent operations by first transforming the current single-screen JSON snapshot, then running the same safe edit pipeline as `apply-hmi-screen-json-edit`. `dry-run` defaults to `true`; `backup` defaults to `true` when applying.
+Dry-runs or applies compact agent operations by first transforming the current single-screen JSON snapshot, then running the same safe edit pipeline as `apply-hmi-screen-json-edit`. `dry-run` defaults to `true`; `backup` defaults to `true` when applying. Applied imports run inside a Siemens undo transaction: successful imports commit, while safety-blocked or failed property updates roll back.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-property\",\"item\":\"Button_1\",\"property\":\"Text\",\"value\":\"Start\"}]}" --base-hash="..." --dry-run=true
@@ -594,10 +594,14 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - Circle geometry: For `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in the operation `properties` object and include those names in the filter. Do not use `Left`, `Top`, `Width`, or `Height` for circles in JSON patch/edit payloads.
 - `allow-stale-base`: Allows patches when the current screen hash differs from `base-hash`.
 - `dry-run`: Validate and return operation, diff, and preflight details without applying.
-- `backup` and `backup-path`: Export a backup before mutation.
+- `backup` and `backup-path`: Export a backup before mutation using the same targeted screen/item/property filters.
 - `working-path`: Optional root for generated base, edited, patch, backup, and verify artifacts.
 
-Patch/edit results include `guidance`, which tells agents whether to apply, re-read, fix filters, inspect preflight, or verify. When the next call can be made safely, `guidance.recommendedNextArgs` echoes the base hash and filters to reuse; `guidance.suggestedFixes` contains short recovery actions.
+Patch/edit results include `guidance`, which tells agents whether to apply, re-read, fix filters, inspect preflight, or verify. Successful apply results include `newBaseHash`, computed from the verified filtered screen export, for the next patch batch. The nested import result reports `transactionUsed` and `rolledBack`. If a client times out or loses a response, do not issue another mutation immediately: reconnect or run `hmi-status` after the in-flight request completes, then re-read the same filtered target before deciding what to retry.
+
+`get-hmi-screen-json` requires canonical grouped screen paths. If a leaf name uniquely matches a nested screen, a failed lookup now suggests the canonical path; `list-hmi-screens --recursive=true` remains the discovery command for ambiguous names.
+
+Large `set-interface` batches remain sensitive to TIA Openness latency because each changed interface binding is applied through its underlying engineering write. Targeted backups, verified hash chaining, and transaction safety reduce overhead and recovery risk, but callers should still keep batch sizes practical for the project being edited.
 
 #### get-hmi-screen-summary
 

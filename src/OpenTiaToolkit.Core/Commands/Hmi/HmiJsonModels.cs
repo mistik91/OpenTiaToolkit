@@ -433,6 +433,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
         public string EditedHash { get; set; } = string.Empty;
 
+        public string? NewBaseHash { get; set; }
+
         public string? BaseExportPath { get; set; }
 
         public string? EditedExportPath { get; set; }
@@ -701,6 +703,10 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         public bool SafetyBlocked { get; set; }
 
         public string? SafetyMessage { get; set; }
+
+        public bool TransactionUsed { get; set; }
+
+        public bool RolledBack { get; set; }
 
         public string? BackupPath { get; set; }
 

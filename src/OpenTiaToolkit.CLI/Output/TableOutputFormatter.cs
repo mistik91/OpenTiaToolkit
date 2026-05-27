@@ -654,6 +654,8 @@ namespace OpenTiaToolkit.CLI.Output
                 $"Report Path:           {importResult.ReportPath ?? "(not written)"}",
                 $"Safety Blocked:        {(importResult.SafetyBlocked ? "Yes" : "No")}",
                 $"Safety Message:        {importResult.SafetyMessage ?? "(none)"}",
+                $"Transaction Used:      {(importResult.TransactionUsed ? "Yes" : "No")}",
+                $"Rolled Back:           {(importResult.RolledBack ? "Yes" : "No")}",
                 $"Backup Path:           {importResult.BackupPath ?? "(none)"}",
                 $"Screens Processed:     {importResult.ScreenCount}",
                 $"Screens Created:       {importResult.ScreenCreated}",

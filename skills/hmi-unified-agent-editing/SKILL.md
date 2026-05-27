@@ -18,8 +18,8 @@ Use this skill when a task mentions Unified HMI screen edits, screen items, `get
 3. Use `get-hmi-screen-json` when you only need a focused snapshot and already know the supported operations.
 4. Reuse the returned `RecommendedPatchArgs` for `baseHash`, `itemNames`, and `properties` instead of inventing filters.
 5. Prefer `apply-hmi-screen-json-patch` for targeted changes; run with `dry-run=true` first unless the user explicitly requested otherwise.
-6. Apply only when the dry-run result is safe, then rerun with `dry-run=false` and backup enabled unless the user has asked for no backup.
-7. Verify the result through `VerifiedScreen`, `VerifyExportPath`, a fresh screen snapshot, or specific property reads.
+6. Apply only when the dry-run result is safe, then rerun with `dry-run=false` and backup enabled unless the user has asked for no backup. Targeted patch backups use the same filters rather than exporting the whole HMI.
+7. Verify the result through `VerifiedScreen`, `VerifyExportPath`, a fresh screen snapshot, or specific property reads. Use `NewBaseHash` from a verified apply when chaining the next batch.
 8. If the result includes `Guidance`, follow `RecommendedNextAction` before guessing. It is designed for agents.
 
 ## Filter Invariant
@@ -155,6 +155,8 @@ Use lower-level `export-hmi-json` / edit / `diff-hmi-json` / `import-hmi-json` w
 Use `probe-hmi-faceplate-interface` when a faceplate `Interface` apply fails or when you need CLR metadata/writeability for a specific interface entry. Prefer a read-only probe first; if a write probe is needed, use `restore=true`.
 
 Use `hmi-status` after an Openness failure, suspected stale TIA/HMI session, or before long HMI workflows. A healthy result should show the expected HMI, project, running instance, and optional screen probe success.
+
+Applied HMI JSON imports run in a Siemens undo transaction. If an operation fails or is safety-blocked during apply, inspect `Import.RolledBack`; if a client timeout hides the result, wait for the in-flight MCP operation to finish and re-read the same filtered target before retrying.
 
 Use `audit-hmi-label-proximity` before bulk nearest-label edits. Review duplicate-label flags, distances, skipped candidates, and unmatched targets before generating or applying patch operations.
 

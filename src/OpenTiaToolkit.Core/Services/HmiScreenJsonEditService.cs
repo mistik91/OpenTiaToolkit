@@ -100,11 +100,35 @@ namespace OpenTiaToolkit.Core.Services
             string? workingPath,
             bool allowStaleBase)
         {
+            return await ApplyScreenJsonEditCoreAsync(
+                screenPath,
+                editedScreen,
+                baseHash,
+                filters,
+                dryRun,
+                executionOptions,
+                workingPath,
+                allowStaleBase,
+                initialSnapshot: null);
+        }
+
+        private async Task<HmiScreenJsonEditResult?> ApplyScreenJsonEditCoreAsync(
+            string screenPath,
+            HmiJsonScreen editedScreen,
+            string? baseHash,
+            HmiJsonFilterOptions? filters,
+            bool dryRun,
+            HmiJsonImportExecutionOptions? executionOptions,
+            string? workingPath,
+            bool allowStaleBase,
+            HmiScreenJsonSnapshotResult? initialSnapshot)
+        {
             var workingDirectory = ResolveWorkingDirectory(workingPath, screenPath, dryRun ? "plan" : "apply");
             var basePath = Path.Combine(workingDirectory, "base");
             var editedPath = Path.Combine(workingDirectory, "edited");
             var patchPath = Path.Combine(workingDirectory, "patch");
             var verifyPath = Path.Combine(workingDirectory, "verify");
+            var diffBasePath = basePath;
             var effectiveFilters = BuildSingleScreenFilters(screenPath, filters);
             var options = executionOptions ?? new HmiJsonImportExecutionOptions();
 
@@ -118,30 +142,43 @@ namespace OpenTiaToolkit.Core.Services
                 ExpectedBaseHash = NormalizeOptionalString(baseHash)
             };
 
-            var baseExport = await _exportService.ExportAsync(basePath, effectiveFilters);
-            if (baseExport == null)
+            HmiJsonScreen? baseScreen;
+            if (initialSnapshot?.Screen != null)
             {
-                result.SafetyBlocked = true;
-                result.SafetyMessage = "Current screen export could not be created.";
-                result.Warnings.Add(result.SafetyMessage);
-                result.Guidance = HmiScreenJsonAgentSupport.CreateGuidance(result);
-                return result;
+                result.BaseExportPath = initialSnapshot.ExportPath;
+                result.HmiName = initialSnapshot.HmiName ?? result.HmiName;
+                result.ScreenPath = initialSnapshot.ScreenPath;
+                baseScreen = initialSnapshot.Screen;
+                diffBasePath = initialSnapshot.ExportPath;
+            }
+            else
+            {
+                var baseExport = await _exportService.ExportAsync(basePath, effectiveFilters);
+                if (baseExport == null)
+                {
+                    result.SafetyBlocked = true;
+                    result.SafetyMessage = "Current screen export could not be created.";
+                    result.Warnings.Add(result.SafetyMessage);
+                    result.Guidance = HmiScreenJsonAgentSupport.CreateGuidance(result);
+                    return result;
+                }
+
+                result.BaseExportPath = baseExport.OutputPath;
+                var baseDocument = HmiJsonDocumentStore.LoadDocument(baseExport.OutputPath);
+                baseScreen = baseDocument.Screens.SingleOrDefault();
+                if (baseScreen == null)
+                {
+                    result.SafetyBlocked = true;
+                    result.SafetyMessage = "Current screen export did not contain the requested screen.";
+                    result.Warnings.Add(result.SafetyMessage);
+                    result.Guidance = HmiScreenJsonAgentSupport.CreateGuidance(result);
+                    return result;
+                }
+
+                result.HmiName = baseDocument.HmiName ?? result.HmiName;
+                result.ScreenPath = baseScreen.Path;
             }
 
-            result.BaseExportPath = baseExport.OutputPath;
-            var baseDocument = HmiJsonDocumentStore.LoadDocument(baseExport.OutputPath);
-            var baseScreen = baseDocument.Screens.SingleOrDefault();
-            if (baseScreen == null)
-            {
-                result.SafetyBlocked = true;
-                result.SafetyMessage = "Current screen export did not contain the requested screen.";
-                result.Warnings.Add(result.SafetyMessage);
-                result.Guidance = HmiScreenJsonAgentSupport.CreateGuidance(result);
-                return result;
-            }
-
-            result.HmiName = baseDocument.HmiName ?? result.HmiName;
-            result.ScreenPath = baseScreen.Path;
             result.CurrentHash = ComputeScreenHash(baseScreen);
 
             if (!string.IsNullOrWhiteSpace(baseHash) &&
@@ -162,7 +199,7 @@ namespace OpenTiaToolkit.Core.Services
             {
                 DocumentKind = "Export",
                 ExportedAtUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
-                HmiName = baseDocument.HmiName ?? _sessionContext.CurrentHmiName,
+                HmiName = result.HmiName ?? _sessionContext.CurrentHmiName,
                 Filters = effectiveFilters
             };
             editedDocument.Screens.Add(normalizedEditedScreen);
@@ -171,7 +208,7 @@ namespace OpenTiaToolkit.Core.Services
             HmiJsonDocumentStore.SaveDocument(editedDocument, editedFilePath);
             result.EditedExportPath = editedFilePath;
 
-            result.Diff = await _diffService.CreatePatchAsync(basePath, editedPath, patchPath, effectiveFilters);
+            result.Diff = await _diffService.CreatePatchAsync(diffBasePath!, editedPath, patchPath, effectiveFilters);
             if (result.Diff == null)
             {
                 result.SafetyBlocked = true;
@@ -235,6 +272,7 @@ namespace OpenTiaToolkit.Core.Services
                 result.VerifyExport = await _exportService.ExportAsync(verifyPath, effectiveFilters);
                 result.VerifyExportPath = result.VerifyExport?.OutputPath;
                 result.VerifiedScreen = result.VerifyExportPath == null ? null : TryLoadSingleScreen(result.VerifyExportPath);
+                result.NewBaseHash = result.VerifiedScreen == null ? null : ComputeScreenHash(result.VerifiedScreen);
             }
 
             result.Guidance = HmiScreenJsonAgentSupport.CreateGuidance(result);
@@ -302,7 +340,7 @@ namespace OpenTiaToolkit.Core.Services
                 return result;
             }
 
-            var editResult = await ApplyScreenJsonEditAsync(
+            var editResult = await ApplyScreenJsonEditCoreAsync(
                 screenPath,
                 patchApply.Screen,
                 baseHash,
@@ -310,7 +348,8 @@ namespace OpenTiaToolkit.Core.Services
                 dryRun,
                 executionOptions,
                 workingPath,
-                allowStaleBase);
+                allowStaleBase,
+                snapshot);
 
             if (editResult == null)
             {

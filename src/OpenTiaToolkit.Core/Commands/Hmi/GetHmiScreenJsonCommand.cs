@@ -63,14 +63,51 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 HasAgentFilters(filters) ? filters : null,
                 args.Has("working-path") ? args.GetString("working-path") : null);
 
-            return result != null
-                ? CommandResult.CreateSuccess(result, $"Unified HMI screen JSON exported: {result.ScreenPath}")
-                : CommandResult.CreateFailure($"Failed to get Unified HMI screen JSON: {screenPath}");
+            if (result != null)
+            {
+                return CommandResult.CreateSuccess(result, $"Unified HMI screen JSON exported: {result.ScreenPath}");
+            }
+
+            var failureMessage = await CreateScreenNotFoundMessageAsync(screenPath);
+            return CommandResult.CreateFailure(failureMessage);
         }
 
         private static bool HasAgentFilters(HmiJsonFilterOptions filters)
         {
             return filters.ItemNames.Any() || filters.Properties.Any();
+        }
+
+        private async Task<string> CreateScreenNotFoundMessageAsync(string screenPath)
+        {
+            var message = $"Failed to get Unified HMI screen JSON: {screenPath}";
+            try
+            {
+                var leafName = screenPath
+                    .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries)
+                    .LastOrDefault() ?? screenPath;
+                var candidates = (await _hmiService.GetScreensAsync(groupPath: null, recursive: true))
+                    .Where(screen => string.Equals(screen.Name, leafName, StringComparison.OrdinalIgnoreCase))
+                    .Select(screen => screen.Path)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (candidates.Count == 1)
+                {
+                    return $"{message}. Did you mean '{candidates[0]}'?";
+                }
+
+                if (candidates.Count > 1)
+                {
+                    return $"{message}. Matching canonical paths: {string.Join(", ", candidates.Select(path => $"'{path}'"))}.";
+                }
+            }
+            catch
+            {
+                // Preserve the original lookup failure if suggestion discovery is unavailable.
+            }
+
+            return message;
         }
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Commands.Hmi;
+using Siemens.Engineering;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.HmiUnified.UI.Base;
 using Siemens.Engineering.HmiUnified.UI.Screens;
@@ -77,7 +78,7 @@ namespace OpenTiaToolkit.Core.Services
             if (options.BackupBeforeImport)
             {
                 var backupTargetPath = HmiJsonDocumentStore.ResolveBackupExportPath(inputPath, options.BackupPath);
-                var backupResult = await _exportService.ExportAsync(backupTargetPath, filters: null);
+                var backupResult = await _exportService.ExportAsync(backupTargetPath, filters);
                 if (backupResult == null || string.IsNullOrWhiteSpace(backupResult.OutputPath))
                 {
                     return gatePreflightResult ?? CreateSafetyBlockedResult(
@@ -89,15 +90,66 @@ namespace OpenTiaToolkit.Core.Services
                 backupOutputPath = backupResult.OutputPath;
             }
 
-            var result = await ImportCoreAsync(inputPath, filters, dryRun: false);
-            if (result != null)
+            if (_sessionContext.Portal == null || _sessionContext.Project == null)
             {
-                result.BackupPath = backupOutputPath;
-                ApplySafetyPolicy(result, options, backupOutputPath);
-                TryWriteReport(result, inputPath, dryRun: false);
+                return CreateSafetyBlockedResult(
+                    inputPath,
+                    dryRun: false,
+                    "Import was blocked because no TIA Portal project is selected.");
             }
 
-            return result;
+            const string transactionDescription = "OpenTiaToolkit Unified HMI JSON import";
+            try
+            {
+                using (var access = _sessionContext.Portal.ExclusiveAccess(transactionDescription))
+                using (var transaction = access.Transaction(_sessionContext.Project, transactionDescription))
+                {
+                    var result = await ImportCoreAsync(inputPath, filters, dryRun: false);
+                    if (result == null)
+                    {
+                        var missingResult = CreateSafetyBlockedResult(
+                            inputPath,
+                            dryRun: false,
+                            "Import was rolled back because it did not return a result.");
+                        missingResult.BackupPath = backupOutputPath;
+                        missingResult.TransactionUsed = true;
+                        missingResult.RolledBack = true;
+                        return missingResult;
+                    }
+
+                    result.BackupPath = backupOutputPath;
+                    result.TransactionUsed = true;
+                    ApplySafetyPolicy(result, options, backupOutputPath);
+                    if (result.PropertyFailedCount > 0)
+                    {
+                        MarkSafetyBlocked(result, "Import was rolled back because one or more property changes failed.", backupOutputPath);
+                    }
+
+                    if (!result.SafetyBlocked)
+                    {
+                        transaction.CommitOnDispose();
+                    }
+                    else
+                    {
+                        result.RolledBack = true;
+                    }
+
+                    TryWriteReport(result, inputPath, dryRun: false);
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Unified HMI JSON import transaction failed");
+                var result = CreateSafetyBlockedResult(
+                    inputPath,
+                    dryRun: false,
+                    $"Import was rolled back because the transaction failed: {ex.Message}");
+                result.BackupPath = backupOutputPath;
+                result.TransactionUsed = true;
+                result.RolledBack = true;
+                return result;
+            }
         }
 
         private async Task<HmiJsonImportResult?> ImportCoreAsync(string inputPath, HmiJsonFilterOptions? filters, bool dryRun)

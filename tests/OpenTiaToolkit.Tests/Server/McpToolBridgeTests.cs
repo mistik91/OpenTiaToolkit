@@ -157,6 +157,37 @@ namespace OpenTiaToolkit.Tests.Server
                 async () => await registry.CallToolAsync("missing-tool", CreateArguments(new { })));
         }
 
+        [TestMethod]
+        public async Task ToolRegistry_CallToolAsync_RejectsOverlappingTiaOperationsWithActiveOperationDetails()
+        {
+            var started = new TaskCompletionSource<bool>();
+            var release = new TaskCompletionSource<bool>();
+            var commandMock = CreateCommandMock("long-tool", new CommandSchema("Long operation"));
+            commandMock
+                .Setup(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()))
+                .Returns(async () =>
+                {
+                    started.SetResult(true);
+                    await release.Task;
+                    return CommandResult.CreateSuccess(message: "Complete");
+                });
+
+            var registry = new ToolRegistry(new[] { commandMock.Object }, Mock.Of<ILogger<ToolRegistry>>());
+            var firstCall = registry.CallToolAsync("long-tool", CreateArguments(new { })).AsTask();
+            await started.Task;
+
+            var overlapping = await registry.CallToolAsync("long-tool", CreateArguments(new { }));
+
+            Assert.IsTrue(overlapping.IsError.GetValueOrDefault());
+            Assert.IsTrue(overlapping.StructuredContent?["data"]?["busy"]?.GetValue<bool>() ?? false);
+            Assert.AreEqual("long-tool", overlapping.StructuredContent?["data"]?["activeToolName"]?.GetValue<string>());
+            Assert.IsFalse(string.IsNullOrWhiteSpace(overlapping.StructuredContent?["data"]?["activeOperationId"]?.GetValue<string>()));
+
+            release.SetResult(true);
+            var completed = await firstCall;
+            Assert.IsFalse(completed.IsError.GetValueOrDefault());
+        }
+
         private static Mock<ICommand> CreateCommandMock(string name, CommandSchema schema)
         {
             var commandMock = new Mock<ICommand>();
