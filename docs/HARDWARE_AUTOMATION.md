@@ -28,13 +28,14 @@ This surface follows the hardware API model documented in the installed Siemens 
 | Instantiate a catalog device or GSDML DAP | `project.Devices.CreateWithItem(typeIdentifier, itemName, deviceName)` |
 | Test and plug modules or submodules | `HardwareObject.CanPlugNew(...)` and `HardwareObject.PlugNew(...)` |
 | Resolve available module type identifiers | `project.HwUtilities.Find("ModuleInformationProvider")` and `FindModuleTypes(...)` |
-| Inspect process-image IO assignment | `DeviceItem.Addresses` and address attributes such as `StartAddress` and `IoType` |
-| Inspect native SINAMICS telegram IO | `DeviceItem.GetService<DriveObjectContainer>()`, `DriveObjects`, `Telegrams` and telegram `Addresses` |
+| Inspect or relocate process-image IO assignment | `DeviceItem.Addresses` and writable `Address.StartAddress` |
+| Inspect or configure native SINAMICS telegram IO | `DeviceItem.GetService<DriveObjectContainer>()`, `DriveObjects`, `Telegrams`, telegram `Addresses`, and Startdrive telegram mutation methods |
 | Read or write GSD/GSDML record data | `DeviceItem.GetService<GsdDeviceItem>()`, `GetPrmData(...)` and `SetPrmData(...)` |
 | Join a PROFINET subnet and IO system | `DeviceItem.GetService<NetworkInterface>()`, `Node.ConnectToSubnet(...)` and `IoConnector.ConnectToIoSystem(...)` |
-| Configure PROFINET IP addressing | `DeviceItem.GetService<NetworkInterface>().Nodes[...]` and node `GetAttribute(...)` / `SetAttributes(...)` methods |
+| Configure PROFINET IP address and station name | `DeviceItem.GetService<NetworkInterface>().Nodes[...]` and node `GetAttribute(...)` / `SetAttributes(...)` methods |
+| Configure PROFINET IO device number | `DeviceItem.GetService<NetworkInterface>().IoConnectors[...]` and connector `PnDeviceNumber` |
 
-The item exposing `NetworkInterface` is catalog-defined and must be discovered from the hardware topology or capabilities; it cannot be assumed from a display name. In V21, IP settings such as `Address`, `SubnetMask`, and `IpProtocolSelection` are read or written on a node obtained from `NetworkInterface.Nodes`, rather than ordinary hardware-item attributes or the interface service object itself. (`NetworkAddress` is used in some CAx/export representations, but is not the live `Node` attribute name.) Native Startdrive devices may also decline optional metadata reads such as `DriveObjectNumber`; telegram number, type, and IO addresses remain the reliable report fields. Likewise, record byte meaning is supplied by the GSDML/device documentation and belongs in a device skill, not this generic layer.
+The item exposing `NetworkInterface` is catalog-defined and must be discovered from the hardware topology or capabilities; it cannot be assumed from a display name. In V21, IP settings and PROFINET station names (`Address`, `SubnetMask`, `PnDeviceName`) are owned by `NetworkInterface.Nodes`, while `PnDeviceNumber` is owned by `NetworkInterface.IoConnectors`. The `configure-profinet-device` operation updates these together and disables automatic station-name generation when `pnDeviceName` is provided. The TIA engineering display attribute `Name` remains a generic guarded `set-attributes` edit and is distinct from the PROFINET station name. Native Startdrive devices may decline optional metadata reads such as `DriveObjectNumber`; telegram number, type, and IO addresses remain the reliable report fields. Startdrive telegram insertion and erasure remain device- and project-capability dependent: the adapter checks `CanInsertTelegram(...)`, and TIA may reject deletion or require safety-program authorization. Likewise, record byte meaning is supplied by the GSDML/device documentation and belongs in a device skill, not this generic layer.
 
 ## Hardware Targets
 
@@ -65,7 +66,7 @@ get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="D
 
 - A dry run performs validation and mutations in TIA, then disposes the transaction without committing it.
 - An apply run commits only if every operation succeeds.
-- `delete-device`, `delete-item`, `disconnect-node` and `disconnect-io-connector` require `confirm-destructive=true`.
+- `delete-device`, `delete-item`, `disconnect-node`, `disconnect-io-connector`, and `erase-drive-telegram` require `confirm-destructive=true`.
 - Saving the project remains a separate explicit action.
 
 Supported operations:
@@ -80,6 +81,13 @@ Supported operations:
 | `set-feature-attributes` | `target` or `targetRef`, `featureService`, `attributes` |
 | `get-network-item-attributes` | `target` or `targetRef`, `networkCollection`, `networkItemIndex`, `attributeNames` |
 | `set-network-item-attributes` | `target` or `targetRef`, `networkCollection`, `networkItemIndex`, `attributes` |
+| `configure-profinet-device` | `target` or `targetRef`; one or more of `ipAddress`, `subnetMask`, `pnDeviceName`, `pnDeviceNumber` |
+| `set-io-address-start` | device-item `target` or `targetRef`, `addressIndex`, `startAddress` |
+| `change-drive-telegram` | Startdrive device-item `target` or `targetRef`, `telegramType`, `telegramNumber` |
+| `set-drive-telegram-address` | Startdrive device-item `target` or `targetRef`, `telegramType`, `ioType`, `startAddress` |
+| `change-drive-telegram-size` | Startdrive device-item `target` or `targetRef`, `telegramType`, `ioType`, `sizeInWords` |
+| `insert-drive-telegram` | Startdrive device-item `target` or `targetRef`, `telegramType`, `telegramNumber` |
+| `erase-drive-telegram` | Startdrive device-item `target` or `targetRef`, `telegramType` |
 | `get-gsd-parameter-data` | `target` or `targetRef`, `datasetNumber`, `byteOffset`, `length` |
 | `set-gsd-parameter-data` | `target` or `targetRef`, `datasetNumber`, `byteOffset`, `dataHex` |
 | `create-subnet` | `typeIdentifier`, `subnetName` |
@@ -92,7 +100,7 @@ Supported operations:
 | `delete-device` | `target` or `targetRef` |
 
 `resultId` can name a created device or plugged item so later operations in the same transaction can use `targetRef`.
-For guarded writes, `set-attributes`, `set-feature-attributes`, and `set-network-item-attributes` accept `expectedAttributes`, and `set-gsd-parameter-data` accepts `expectedDataHex`; the patch fails before writing if the current values do not match. Successful write operation results include the prior and written values. Use patch-level `get-network-item-attributes` to verify IP settings and `get-gsd-parameter-data` to inspect initial record data within the same dry-run transaction.
+For guarded writes, `set-attributes`, `set-feature-attributes`, and `set-network-item-attributes` accept `expectedAttributes`, and `set-gsd-parameter-data` accepts `expectedDataHex`. `configure-profinet-device` accepts `expectedIpAddress`, `expectedSubnetMask`, `expectedPnDeviceName`, and `expectedPnDeviceNumber`; IO-address operations accept `expectedStartAddress`; Startdrive telegram number and size changes accept `expectedTelegramNumber` and `expectedSizeInWords`. The patch fails before writing if a current value does not match. Startdrive size values are in words, matching the Siemens API. Successful write operation results include prior and written values.
 The CLI also accepts `--operations-path=<file.json>` for patches; MCP callers normally send `operations` directly as structured JSON.
 
 Example:
@@ -112,6 +120,31 @@ Example:
       "typeIdentifier": "GSD:...",
       "itemName": "Port module",
       "positionNumber": 1
+    }
+  ],
+  "dry-run": true
+}
+```
+
+Example PROFINET and GSDML process-image edit:
+
+```json
+{
+  "operations": [
+    {
+      "op": "configure-profinet-device",
+      "target": { "deviceName": "AL1403_231", "itemPath": ["AL1403_231_DAP", "PN-IO"] },
+      "ipAddress": "192.168.101.231",
+      "expectedIpAddress": "192.168.101.231",
+      "pnDeviceName": "al1403-231",
+      "pnDeviceNumber": 2
+    },
+    {
+      "op": "set-io-address-start",
+      "target": { "deviceName": "AL1403_231", "itemPath": ["IO-Link Master Proxy 8P EnMo"] },
+      "addressIndex": 0,
+      "startAddress": 79,
+      "expectedStartAddress": 79
     }
   ],
   "dry-run": true

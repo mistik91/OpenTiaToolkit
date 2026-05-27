@@ -115,7 +115,7 @@ The supplied OpenCode configurations use a 600-second MCP timeout because some T
 
 ## Generic Hardware Tools
 
-The MCP server also exposes vendor-neutral hardware tools for catalog discovery, hierarchical targets, module plugging, PROFINET network attachment, and transactional GSD/GSDML parameter operations. The generic interface and dry-run safety guidance are documented in [`../HARDWARE_AUTOMATION.md`](../HARDWARE_AUTOMATION.md).
+The MCP server also exposes vendor-neutral hardware tools for catalog discovery, hierarchical targets, module plugging, PROFINET identity/network attachment, process-image assignment, Startdrive telegram edits, and transactional GSD/GSDML parameter operations. The generic interface and dry-run safety guidance are documented in [`../HARDWARE_AUTOMATION.md`](../HARDWARE_AUTOMATION.md).
 
 Device-specific workflows should keep their catalog identifiers and parameter-byte encodings in skills or project instructions while invoking the generic MCP operations.
 

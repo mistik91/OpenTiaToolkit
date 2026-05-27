@@ -168,6 +168,25 @@ namespace OpenTiaToolkit.Core.Models
         public int? Length { get; set; }
         public string? DataHex { get; set; }
         public string? ExpectedDataHex { get; set; }
+        public string? IpAddress { get; set; }
+        public string? ExpectedIpAddress { get; set; }
+        public string? SubnetMask { get; set; }
+        public string? ExpectedSubnetMask { get; set; }
+        public string? PnDeviceName { get; set; }
+        public string? ExpectedPnDeviceName { get; set; }
+        public int? PnDeviceNumber { get; set; }
+        public int? ExpectedPnDeviceNumber { get; set; }
+        public int? AddressIndex { get; set; }
+        public int? StartAddress { get; set; }
+        public int? ExpectedStartAddress { get; set; }
+        public int? DriveObjectIndex { get; set; }
+        public string? TelegramType { get; set; }
+        public int? TelegramNumber { get; set; }
+        public int? ExpectedTelegramNumber { get; set; }
+        public string? IoType { get; set; }
+        public int? SizeInWords { get; set; }
+        public int? ExpectedSizeInWords { get; set; }
+        public bool KeepOriginalAddress { get; set; } = true;
     }
 
     public sealed class HardwareAttributeChangeInfo
@@ -182,6 +201,35 @@ namespace OpenTiaToolkit.Core.Models
         public int ByteOffset { get; set; }
         public string? BeforeHex { get; set; }
         public string WrittenHex { get; set; } = string.Empty;
+    }
+
+    public sealed class HardwareProfinetConfigurationChangeInfo
+    {
+        public HardwareAttributeChangeInfo Node { get; set; } = new HardwareAttributeChangeInfo();
+        public HardwareAttributeChangeInfo Connector { get; set; } = new HardwareAttributeChangeInfo();
+    }
+
+    public sealed class HardwareIoAddressChangeInfo
+    {
+        public int AddressIndex { get; set; }
+        public string? IoType { get; set; }
+        public int BeforeStartAddress { get; set; }
+        public int WrittenStartAddress { get; set; }
+    }
+
+    public sealed class HardwareDriveTelegramChangeInfo
+    {
+        public int DriveObjectIndex { get; set; }
+        public string? TelegramType { get; set; }
+        public int? BeforeTelegramNumber { get; set; }
+        public int? WrittenTelegramNumber { get; set; }
+        public string? IoType { get; set; }
+        public int? BeforeStartAddress { get; set; }
+        public int? WrittenStartAddress { get; set; }
+        public int? BeforeSizeInWords { get; set; }
+        public int? WrittenSizeInWords { get; set; }
+        public int? BeforeSizeInBytes { get; set; }
+        public int? WrittenSizeInBytes { get; set; }
     }
 
     public sealed class HardwarePatchResult

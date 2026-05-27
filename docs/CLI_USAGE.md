@@ -337,14 +337,14 @@ OpenTiaToolkit.CLI.exe get-gsd-parameter-data --device-name="IO_Master_01" --ite
 
 #### apply-hardware-patch
 
-Performs a transactional sequence of generic hardware operations. It defaults to `--dry-run=true`, rolling back all mutations after validating them. Use `expectedTypeIdentifier`, `expectedAttributes`, and `expectedDataHex` as guards before applying writes.
+Performs a transactional sequence of generic hardware operations. It defaults to `--dry-run=true`, rolling back all mutations after validating them. Use expected-value guards before applying writes.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=true
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=false
 ```
 
-Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, item, feature, and network-child attribute updates (`get-network-item-attributes` / `set-network-item-attributes` for node addressing), subnet connection, IO-system connection, and explicitly confirmed disconnect/delete operations.
+Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, PROFINET identity configuration (`configure-profinet-device` for IP address, station name, and device number), process-image relocation (`set-io-address-start`), Startdrive telegram number/address/size/insert/erase changes, subnet and IO-system connection, and explicitly confirmed disconnect/delete/telegram-erase operations. PROFINET station name (`pnDeviceName`) is separate from TIA's display `Name`, which can be written with guarded `set-attributes`.
 
 ### Unified HMI Operations
 

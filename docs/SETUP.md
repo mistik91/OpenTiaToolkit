@@ -80,7 +80,7 @@ The Claude Desktop MCPB source package lives in `plugins/opentia-toolkit-claude-
 
 The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its contents into an OpenCode project root to get the installed-product MCP config, `.opencode` plugin, `basic-tia-interaction` and HMI Unified skills, and `AGENTS.md` rules. For a development checkout, use `docs/mcp-client-configs/opencode.jsonc` and replace the placeholder path with your local build output.
 
-Generic hardware configuration, including GSD/GSDML instantiation, PROFINET wiring, and guarded parameter-record changes, is available through both CLI and MCP. See [HARDWARE_AUTOMATION.md](HARDWARE_AUTOMATION.md) before building device-specific workflows.
+Generic hardware configuration, including GSD/GSDML instantiation, PROFINET identity/wiring, process-image address assignment, Startdrive telegram edits, and guarded parameter-record changes, is available through both CLI and MCP. See [HARDWARE_AUTOMATION.md](HARDWARE_AUTOMATION.md) before building device-specific workflows.
 
 ## Run Tests
 

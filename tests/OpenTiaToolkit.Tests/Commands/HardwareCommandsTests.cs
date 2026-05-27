@@ -94,6 +94,40 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesProfinetIoAndDriveMutationFields()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"configure-profinet-device\",\"target\":{\"deviceName\":\"AL1403\",\"itemPath\":[\"DAP\",\"PN-IO\"]},\"ipAddress\":\"192.168.101.231\",\"expectedIpAddress\":\"192.168.101.230\",\"pnDeviceName\":\"al1403-231\",\"pnDeviceNumber\":2,\"expectedPnDeviceNumber\":1},{\"op\":\"set-io-address-start\",\"target\":{\"deviceName\":\"AL1403\",\"itemPath\":[\"Proxy\"]},\"addressIndex\":1,\"startAddress\":80,\"expectedStartAddress\":79},{\"op\":\"change-drive-telegram-size\",\"target\":{\"deviceName\":\"G_1\",\"itemPath\":[\"CU\"]},\"driveObjectIndex\":0,\"telegramType\":\"MainTelegram\",\"ioType\":\"Input\",\"sizeInWords\":7,\"expectedSizeInWords\":6,\"keepOriginalAddress\":false}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 3 &&
+                    values[0].PnDeviceName == "al1403-231" &&
+                    values[0].PnDeviceNumber == 2 &&
+                    values[0].ExpectedIpAddress == "192.168.101.230" &&
+                    values[1].AddressIndex == 1 &&
+                    values[1].ExpectedStartAddress == 79 &&
+                    values[2].TelegramType == "MainTelegram" &&
+                    values[2].SizeInWords == 7 &&
+                    values[2].ExpectedSizeInWords == 6 &&
+                    !values[2].KeepOriginalAddress),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
         public async Task FindHardwareModuleTypes_UsesProjectProviderWithoutTarget()
         {
             var service = new Mock<IHardwareService>();

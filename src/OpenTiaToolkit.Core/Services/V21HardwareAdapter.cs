@@ -2,6 +2,7 @@ using OpenTiaToolkit.Core.Models;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
 using Siemens.Engineering.MC.Drives;
+using Siemens.Engineering.MC.Drives.Enums;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -107,6 +108,31 @@ namespace OpenTiaToolkit.Core.Services
             return result;
         }
 
+        public HardwareIoAddressChangeInfo SetIoAddressStart(DeviceItem target, int addressIndex, int startAddress, int? expectedStartAddress)
+        {
+            var addresses = target.Addresses.Cast<Address>().ToList();
+            if (addressIndex < 0 || addressIndex >= addresses.Count)
+            {
+                throw new InvalidOperationException($"Hardware item has no IO address at index {addressIndex}.");
+            }
+
+            var address = addresses[addressIndex];
+            var before = address.StartAddress;
+            if (expectedStartAddress.HasValue && before != expectedStartAddress.Value)
+            {
+                throw new InvalidOperationException($"IO address start differs from expectedStartAddress at index {addressIndex}.");
+            }
+
+            address.StartAddress = startAddress;
+            return new HardwareIoAddressChangeInfo
+            {
+                AddressIndex = addressIndex,
+                IoType = Convert.ToString(address.IoType, CultureInfo.InvariantCulture),
+                BeforeStartAddress = before,
+                WrittenStartAddress = startAddress
+            };
+        }
+
         public IReadOnlyList<HardwareDriveTelegramInfo> GetDriveTelegrams(DeviceItem target, HardwareObjectRef reference, IEnumerable<string>? addressAttributeNames)
         {
             var container = GetFeatureService(target, "DriveObjectContainer") as DriveObjectContainer;
@@ -139,6 +165,123 @@ namespace OpenTiaToolkit.Core.Services
                 driveIndex++;
             }
             return result;
+        }
+
+        public HardwareDriveTelegramChangeInfo ChangeDriveTelegramNumber(DeviceItem target, int driveObjectIndex, string telegramType, int telegramNumber, int? expectedTelegramNumber)
+        {
+            var telegram = RequireTelegram(target, driveObjectIndex, telegramType);
+            var before = telegram.TelegramNumber;
+            if (expectedTelegramNumber.HasValue && before != expectedTelegramNumber.Value)
+            {
+                throw new InvalidOperationException($"{telegramType} number differs from expectedTelegramNumber.");
+            }
+            if (!telegram.CanChangeTelegram(telegramNumber))
+            {
+                throw new InvalidOperationException($"{telegramType} cannot be changed to telegram number {telegramNumber}.");
+            }
+
+            telegram.TelegramNumber = telegramNumber;
+            return new HardwareDriveTelegramChangeInfo
+            {
+                DriveObjectIndex = driveObjectIndex,
+                TelegramType = telegramType,
+                BeforeTelegramNumber = before,
+                WrittenTelegramNumber = telegramNumber
+            };
+        }
+
+        public HardwareDriveTelegramChangeInfo SetDriveTelegramAddress(DeviceItem target, int driveObjectIndex, string telegramType, string ioType, int startAddress, int? expectedStartAddress)
+        {
+            var telegram = RequireTelegram(target, driveObjectIndex, telegramType);
+            var direction = ParseAddressIoType(ioType);
+            var address = telegram.Addresses.FirstOrDefault(candidate => candidate.IoType == direction)
+                ?? throw new InvalidOperationException($"{telegramType} has no {ioType} address.");
+            var before = address.StartAddress;
+            if (expectedStartAddress.HasValue && before != expectedStartAddress.Value)
+            {
+                throw new InvalidOperationException($"{telegramType} {ioType} address differs from expectedStartAddress.");
+            }
+
+            address.StartAddress = startAddress;
+            return new HardwareDriveTelegramChangeInfo
+            {
+                DriveObjectIndex = driveObjectIndex,
+                TelegramType = telegramType,
+                BeforeTelegramNumber = telegram.TelegramNumber,
+                WrittenTelegramNumber = telegram.TelegramNumber,
+                IoType = ioType,
+                BeforeStartAddress = before,
+                WrittenStartAddress = startAddress
+            };
+        }
+
+        public HardwareDriveTelegramChangeInfo ChangeDriveTelegramSize(DeviceItem target, int driveObjectIndex, string telegramType, string ioType, int sizeInWords, int? expectedSizeInWords, bool keepOriginalAddress)
+        {
+            var telegram = RequireTelegram(target, driveObjectIndex, telegramType);
+            var direction = ParseAddressIoType(ioType);
+            var before = telegram.GetSize(direction);
+            if (expectedSizeInWords.HasValue && before != expectedSizeInWords.Value)
+            {
+                throw new InvalidOperationException($"{telegramType} {ioType} size differs from expectedSizeInWords.");
+            }
+            if (!telegram.CanChangeSize(direction, sizeInWords, keepOriginalAddress))
+            {
+                throw new InvalidOperationException($"{telegramType} {ioType} size cannot be changed to {sizeInWords} word(s).");
+            }
+
+            var beforeBytes = telegram.GetSizeInBytes(direction);
+            telegram.ChangeSize(direction, sizeInWords, keepOriginalAddress);
+            return new HardwareDriveTelegramChangeInfo
+            {
+                DriveObjectIndex = driveObjectIndex,
+                TelegramType = telegramType,
+                BeforeTelegramNumber = telegram.TelegramNumber,
+                WrittenTelegramNumber = telegram.TelegramNumber,
+                IoType = ioType,
+                BeforeSizeInWords = before,
+                WrittenSizeInWords = sizeInWords,
+                BeforeSizeInBytes = beforeBytes,
+                WrittenSizeInBytes = telegram.GetSizeInBytes(direction)
+            };
+        }
+
+        public HardwareDriveTelegramChangeInfo InsertDriveTelegram(DeviceItem target, int driveObjectIndex, string telegramType, int telegramNumber)
+        {
+            var driveObject = RequireDriveObject(target, driveObjectIndex);
+            var type = ParseTelegramType(telegramType);
+            if (!driveObject.Telegrams.CanInsertTelegram(telegramNumber, type))
+            {
+                throw new InvalidOperationException($"{telegramType} telegram number {telegramNumber} cannot be inserted.");
+            }
+
+            driveObject.Telegrams.InsertTelegram(telegramNumber, type);
+            return new HardwareDriveTelegramChangeInfo
+            {
+                DriveObjectIndex = driveObjectIndex,
+                TelegramType = telegramType,
+                WrittenTelegramNumber = telegramNumber
+            };
+        }
+
+        public HardwareDriveTelegramChangeInfo EraseDriveTelegram(DeviceItem target, int driveObjectIndex, string telegramType, int? expectedTelegramNumber)
+        {
+            var driveObject = RequireDriveObject(target, driveObjectIndex);
+            var type = ParseTelegramType(telegramType);
+            var telegram = driveObject.Telegrams.Find(type)
+                ?? throw new InvalidOperationException($"{telegramType} telegram was not found.");
+            var before = telegram.TelegramNumber;
+            if (expectedTelegramNumber.HasValue && before != expectedTelegramNumber.Value)
+            {
+                throw new InvalidOperationException($"{telegramType} number differs from expectedTelegramNumber.");
+            }
+
+            driveObject.Telegrams.EraseTelegram(type);
+            return new HardwareDriveTelegramChangeInfo
+            {
+                DriveObjectIndex = driveObjectIndex,
+                TelegramType = telegramType,
+                BeforeTelegramNumber = before
+            };
         }
 
         public IReadOnlyList<HardwareAttributeInfo> GetFeatureAttributeInfos(HardwareObject target, string featureService, IEnumerable<string>? attributeNames)
@@ -303,6 +446,43 @@ namespace OpenTiaToolkit.Core.Services
         {
             return GetFeatureService(target, serviceType)
                 ?? throw new InvalidOperationException($"Hardware item does not provide the {serviceType} feature service.");
+        }
+
+        private DriveObject RequireDriveObject(DeviceItem target, int index)
+        {
+            var container = GetFeatureService(target, "DriveObjectContainer") as DriveObjectContainer
+                ?? throw new InvalidOperationException("Hardware item does not provide the DriveObjectContainer feature service.");
+            var driveObjects = container.DriveObjects.ToList();
+            if (index < 0 || index >= driveObjects.Count)
+            {
+                throw new InvalidOperationException($"Drive object was not found at index {index}.");
+            }
+            return driveObjects[index];
+        }
+
+        private Telegram RequireTelegram(DeviceItem target, int driveObjectIndex, string telegramType)
+        {
+            var type = ParseTelegramType(telegramType);
+            return RequireDriveObject(target, driveObjectIndex).Telegrams.Find(type)
+                ?? throw new InvalidOperationException($"{telegramType} telegram was not found.");
+        }
+
+        private static TelegramType ParseTelegramType(string value)
+        {
+            if (!Enum.TryParse(value, true, out TelegramType type))
+            {
+                throw new InvalidOperationException($"Unsupported telegramType: {value}");
+            }
+            return type;
+        }
+
+        private static AddressIoType ParseAddressIoType(string value)
+        {
+            if (!Enum.TryParse(value, true, out AddressIoType type))
+            {
+                throw new InvalidOperationException($"Unsupported ioType: {value}");
+            }
+            return type;
         }
 
         private static object? GetFeatureAttribute(object feature, string name)

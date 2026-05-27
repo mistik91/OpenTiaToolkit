@@ -309,6 +309,28 @@ namespace OpenTiaToolkit.Core.Services
                 case "set-network-item-attributes":
                     item = SetNetworkItemAttributes(index, operation, references);
                     break;
+                case "configure-profinet-device":
+                    item = ConfigureProfinetDevice(index, operation, references);
+                    break;
+                case "set-io-address-start":
+                    item = SetIoAddressStart(index, operation, references);
+                    break;
+                case "change-drive-telegram":
+                    item = ChangeDriveTelegram(index, operation, references);
+                    break;
+                case "set-drive-telegram-address":
+                    item = SetDriveTelegramAddress(index, operation, references);
+                    break;
+                case "change-drive-telegram-size":
+                    item = ChangeDriveTelegramSize(index, operation, references);
+                    break;
+                case "insert-drive-telegram":
+                    item = InsertDriveTelegram(index, operation, references);
+                    break;
+                case "erase-drive-telegram":
+                    RequireDestructiveConfirmation(confirmDestructive, op);
+                    item = EraseDriveTelegram(index, operation, references);
+                    break;
                 case "set-gsd-parameter-data":
                     item = SetGsdParameterData(index, operation, references);
                     break;
@@ -496,6 +518,109 @@ namespace OpenTiaToolkit.Core.Services
                 Before = before,
                 Written = values.ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase)
             });
+        }
+
+        private HardwareOperationResult ConfigureProfinetDevice(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            var nodeValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            var nodeExpected = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            var connectorValues = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            var connectorExpected = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(op.IpAddress)) nodeValues["Address"] = op.IpAddress!;
+            if (!string.IsNullOrWhiteSpace(op.ExpectedIpAddress)) nodeExpected["Address"] = op.ExpectedIpAddress;
+            if (!string.IsNullOrWhiteSpace(op.SubnetMask)) nodeValues["SubnetMask"] = op.SubnetMask!;
+            if (!string.IsNullOrWhiteSpace(op.ExpectedSubnetMask)) nodeExpected["SubnetMask"] = op.ExpectedSubnetMask;
+            if (!string.IsNullOrWhiteSpace(op.PnDeviceName))
+            {
+                nodeValues["PnDeviceNameAutoGeneration"] = false;
+                nodeValues["PnDeviceName"] = op.PnDeviceName!;
+            }
+            if (!string.IsNullOrWhiteSpace(op.ExpectedPnDeviceName)) nodeExpected["PnDeviceName"] = op.ExpectedPnDeviceName;
+            if (op.PnDeviceNumber.HasValue) connectorValues["PnDeviceNumber"] = op.PnDeviceNumber.Value;
+            if (op.ExpectedPnDeviceNumber.HasValue) connectorExpected["PnDeviceNumber"] = op.ExpectedPnDeviceNumber.Value;
+            if (nodeValues.Count == 0 && connectorValues.Count == 0)
+            {
+                throw new InvalidOperationException("configure-profinet-device requires ipAddress, subnetMask, pnDeviceName, or pnDeviceNumber.");
+            }
+
+            var target = ResolveOperationTarget(op, refs);
+            var nodeIndex = op.NodeIndex ?? 0;
+            var connectorIndex = op.ConnectorIndex ?? 0;
+            EnsureExpectedNetworkItemAttributes(target.Object, "Nodes", nodeIndex, nodeExpected);
+            EnsureExpectedNetworkItemAttributes(target.Object, "IoConnectors", connectorIndex, connectorExpected);
+            var change = new HardwareProfinetConfigurationChangeInfo();
+            foreach (var value in nodeValues)
+            {
+                change.Node.Before[value.Key] = TryGetNetworkItemAttribute(target.Object, "Nodes", nodeIndex, value.Key);
+                change.Node.Written[value.Key] = value.Value;
+            }
+            foreach (var value in connectorValues)
+            {
+                change.Connector.Before[value.Key] = TryGetNetworkItemAttribute(target.Object, "IoConnectors", connectorIndex, value.Key);
+                change.Connector.Written[value.Key] = value.Value;
+            }
+            if (nodeValues.Count > 0) _adapter.SetNetworkItemAttributes(target.Object, "Nodes", nodeIndex, nodeValues);
+            if (connectorValues.Count > 0) _adapter.SetNetworkItemAttributes(target.Object, "IoConnectors", connectorIndex, connectorValues);
+            return Success(index, op, target.Reference, "Configured PROFINET device identity and addressing.", change);
+        }
+
+        private HardwareOperationResult SetIoAddressStart(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            if (!op.AddressIndex.HasValue) throw new InvalidOperationException("addressIndex is required for set-io-address-start.");
+            if (!op.StartAddress.HasValue) throw new InvalidOperationException("startAddress is required for set-io-address-start.");
+            var target = ResolveOperationTarget(op, refs);
+            if (!(target.Object is DeviceItem item))
+            {
+                throw new InvalidOperationException("set-io-address-start target must be a nested device item.");
+            }
+            var change = _adapter.SetIoAddressStart(item, op.AddressIndex.Value, op.StartAddress.Value, op.ExpectedStartAddress);
+            return Success(index, op, target.Reference, "Set hardware IO start address.", change);
+        }
+
+        private HardwareOperationResult ChangeDriveTelegram(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TelegramType, "telegramType");
+            if (!op.TelegramNumber.HasValue) throw new InvalidOperationException("telegramNumber is required for change-drive-telegram.");
+            var item = ResolveDriveItem(op, refs, "change-drive-telegram", out var target);
+            var change = _adapter.ChangeDriveTelegramNumber(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.TelegramNumber.Value, op.ExpectedTelegramNumber);
+            return Success(index, op, target.Reference, "Changed Startdrive telegram number.", change);
+        }
+
+        private HardwareOperationResult SetDriveTelegramAddress(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TelegramType, "telegramType");
+            RequireText(op.IoType, "ioType");
+            if (!op.StartAddress.HasValue) throw new InvalidOperationException("startAddress is required for set-drive-telegram-address.");
+            var item = ResolveDriveItem(op, refs, "set-drive-telegram-address", out var target);
+            var change = _adapter.SetDriveTelegramAddress(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.IoType!, op.StartAddress.Value, op.ExpectedStartAddress);
+            return Success(index, op, target.Reference, "Set Startdrive telegram IO start address.", change);
+        }
+
+        private HardwareOperationResult ChangeDriveTelegramSize(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TelegramType, "telegramType");
+            RequireText(op.IoType, "ioType");
+            if (!op.SizeInWords.HasValue) throw new InvalidOperationException("sizeInWords is required for change-drive-telegram-size.");
+            var item = ResolveDriveItem(op, refs, "change-drive-telegram-size", out var target);
+            var change = _adapter.ChangeDriveTelegramSize(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.IoType!, op.SizeInWords.Value, op.ExpectedSizeInWords, op.KeepOriginalAddress);
+            return Success(index, op, target.Reference, "Changed Startdrive telegram IO size.", change);
+        }
+
+        private HardwareOperationResult InsertDriveTelegram(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TelegramType, "telegramType");
+            if (!op.TelegramNumber.HasValue) throw new InvalidOperationException("telegramNumber is required for insert-drive-telegram.");
+            var item = ResolveDriveItem(op, refs, "insert-drive-telegram", out var target);
+            var change = _adapter.InsertDriveTelegram(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.TelegramNumber.Value);
+            return Success(index, op, target.Reference, "Inserted Startdrive telegram.", change);
+        }
+
+        private HardwareOperationResult EraseDriveTelegram(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TelegramType, "telegramType");
+            var item = ResolveDriveItem(op, refs, "erase-drive-telegram", out var target);
+            var change = _adapter.EraseDriveTelegram(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.ExpectedTelegramNumber);
+            return Success(index, op, target.Reference, "Erased Startdrive telegram.", change);
         }
 
         private HardwareOperationResult SetGsdParameterData(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
@@ -720,6 +845,16 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return new ResolvedTarget(Resolve(operation.Target), CloneRef(operation.Target));
+        }
+
+        private DeviceItem ResolveDriveItem(HardwarePatchOperation operation, IDictionary<string, ResolvedTarget> refs, string operationName, out ResolvedTarget target)
+        {
+            target = ResolveOperationTarget(operation, refs);
+            if (!(target.Object is DeviceItem item))
+            {
+                throw new InvalidOperationException($"{operationName} target must be a nested drive device item.");
+            }
+            return item;
         }
 
         private HardwareObject Resolve(HardwareObjectRef reference)
