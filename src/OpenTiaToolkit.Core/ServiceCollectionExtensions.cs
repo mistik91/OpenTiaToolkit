@@ -157,6 +157,8 @@ namespace OpenTiaToolkit.Core
             // Phase 7 commands - Generic hardware engineering
             services.AddSingleton<ICommand, FindHardwareCatalogItemsCommand>();
             services.AddSingleton<ICommand, GetHardwareTreeCommand>();
+            services.AddSingleton<ICommand, GetHardwareIoAddressesCommand>();
+            services.AddSingleton<ICommand, GetHardwareDriveTelegramsCommand>();
             services.AddSingleton<ICommand, GetHardwareItemCapabilitiesCommand>();
             services.AddSingleton<ICommand, GetHardwareFeatureAttributesCommand>();
             services.AddSingleton<ICommand, GetHardwareNetworkItemAttributesCommand>();

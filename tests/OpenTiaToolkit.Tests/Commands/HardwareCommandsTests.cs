@@ -108,6 +108,40 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task GetHardwareIoAddresses_PassesDeviceFilterAndAttributes()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetIoAddressesAsync(
+                    "AL1403_231",
+                    It.Is<string[]>(names => names.Length == 2 && names[0] == "StartAddress")))
+                .ReturnsAsync(new[] { new HardwareIoAddressInfo { Index = 0 } });
+            var command = new GetHardwareIoAddressesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "AL1403_231"), ("attributes", new[] { "StartAddress", "IoType" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareDriveTelegrams_PassesDriveFilterAndAddressAttributes()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetDriveTelegramsAsync(
+                    "SINAMICS G_1",
+                    It.Is<string[]>(names => names.Length == 3 && names[0] == "StartAddress")))
+                .ReturnsAsync(new[] { new HardwareDriveTelegramInfo { TelegramNumber = "1" } });
+            var command = new GetHardwareDriveTelegramsCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "SINAMICS G_1"), ("address-attributes", new[] { "StartAddress", "IoType", "Length" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
         public async Task GetGsdParameterData_ParsesTargetAndRange()
         {
             var service = new Mock<IHardwareService>();

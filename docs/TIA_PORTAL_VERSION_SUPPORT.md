@@ -44,6 +44,8 @@ Common V21 hardware surfaces used by the toolkit include:
 
 - `Project.Devices.CreateWithItem(...)` for catalog device and GSDML DAP instantiation
 - `HardwareObject.CanPlugNew(...)` and `HardwareObject.PlugNew(...)` for module/submodule composition
+- `DeviceItem.Addresses` and `Siemens.Engineering.HW.Address` attributes for process-image IO inspection
+- Startdrive `DriveObjectContainer`, `DriveObjects`, `Telegrams`, and telegram `Addresses` for native SINAMICS IO assignment inspection
 - `Project.HwUtilities.Find("ModuleInformationProvider")` for module identifier discovery
 - `DeviceItem.GetService<GsdDeviceItem>()` for raw GSD/GSDML parameter records
 - `DeviceItem.GetService<NetworkInterface>()` for subnet and IO-system connectivity

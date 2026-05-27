@@ -54,6 +54,52 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
+        public Task<IReadOnlyList<HardwareIoAddressInfo>> GetIoAddressesAsync(string? deviceName = null, string[]? attributes = null)
+        {
+            return Task.Run<IReadOnlyList<HardwareIoAddressInfo>>(() =>
+            {
+                var result = new List<HardwareIoAddressInfo>();
+                foreach (var device in RequireProject().Devices)
+                {
+                    if (!string.IsNullOrWhiteSpace(deviceName) &&
+                        !string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var root = new HardwareObjectRef { DeviceName = device.Name, ExpectedTypeIdentifier = device.TypeIdentifier };
+                    foreach (var item in device.DeviceItems)
+                    {
+                        AddIoAddressesRecursive(item, ChildRef(root, item.Name, item.TypeIdentifier), attributes, result);
+                    }
+                }
+                return result;
+            });
+        }
+
+        public Task<IReadOnlyList<HardwareDriveTelegramInfo>> GetDriveTelegramsAsync(string? deviceName = null, string[]? addressAttributes = null)
+        {
+            return Task.Run<IReadOnlyList<HardwareDriveTelegramInfo>>(() =>
+            {
+                var result = new List<HardwareDriveTelegramInfo>();
+                foreach (var device in RequireProject().Devices)
+                {
+                    if (!string.IsNullOrWhiteSpace(deviceName) &&
+                        !string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var root = new HardwareObjectRef { DeviceName = device.Name, ExpectedTypeIdentifier = device.TypeIdentifier };
+                    foreach (var item in device.DeviceItems)
+                    {
+                        AddDriveTelegramsRecursive(item, ChildRef(root, item.Name, item.TypeIdentifier), addressAttributes, result);
+                    }
+                }
+                return result;
+            });
+        }
+
         public Task<HardwareCapabilityInfo?> GetCapabilitiesAsync(HardwareObjectRef target, string[]? attributes = null)
         {
             return Task.Run<HardwareCapabilityInfo?>(() =>
@@ -628,6 +674,32 @@ namespace OpenTiaToolkit.Core.Services
             foreach (var child in target.DeviceItems)
             {
                 AddNetworkInfoRecursive(child, ChildRef(reference, child.Name, child.TypeIdentifier), result);
+            }
+        }
+
+        private void AddIoAddressesRecursive(DeviceItem item, HardwareObjectRef reference, string[]? attributes, ICollection<HardwareIoAddressInfo> result)
+        {
+            foreach (var value in _adapter.GetIoAddresses(item, reference, attributes))
+            {
+                result.Add(value);
+            }
+
+            foreach (var child in item.DeviceItems)
+            {
+                AddIoAddressesRecursive(child, ChildRef(reference, child.Name, child.TypeIdentifier), attributes, result);
+            }
+        }
+
+        private void AddDriveTelegramsRecursive(DeviceItem item, HardwareObjectRef reference, string[]? attributes, ICollection<HardwareDriveTelegramInfo> result)
+        {
+            foreach (var value in _adapter.GetDriveTelegrams(item, reference, attributes))
+            {
+                result.Add(value);
+            }
+
+            foreach (var child in item.DeviceItems)
+            {
+                AddDriveTelegramsRecursive(child, ChildRef(reference, child.Name, child.TypeIdentifier), attributes, result);
             }
         }
 

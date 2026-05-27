@@ -1,6 +1,7 @@
 using OpenTiaToolkit.Core.Models;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
+using Siemens.Engineering.MC.Drives;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -93,6 +94,51 @@ namespace OpenTiaToolkit.Core.Services
         public object? GetAttribute(HardwareObject target, string name)
         {
             return target.GetAttribute(name);
+        }
+
+        public IReadOnlyList<HardwareIoAddressInfo> GetIoAddresses(DeviceItem target, HardwareObjectRef reference, IEnumerable<string>? attributeNames)
+        {
+            var result = new List<HardwareIoAddressInfo>();
+            var index = 0;
+            foreach (Address address in target.Addresses)
+            {
+                result.Add(ToIoAddressInfo(address, reference, index++, attributeNames));
+            }
+            return result;
+        }
+
+        public IReadOnlyList<HardwareDriveTelegramInfo> GetDriveTelegrams(DeviceItem target, HardwareObjectRef reference, IEnumerable<string>? addressAttributeNames)
+        {
+            var container = GetFeatureService(target, "DriveObjectContainer") as DriveObjectContainer;
+            if (container == null) return Array.Empty<HardwareDriveTelegramInfo>();
+
+            var result = new List<HardwareDriveTelegramInfo>();
+            var driveIndex = 0;
+            foreach (var driveObject in container.DriveObjects)
+            {
+                var telegramIndex = 0;
+                foreach (var telegram in driveObject.Telegrams)
+                {
+                    var addresses = new List<HardwareIoAddressInfo>();
+                    var addressIndex = 0;
+                    foreach (var address in telegram.Addresses)
+                    {
+                        addresses.Add(ToIoAddressInfo(address, reference, addressIndex++, addressAttributeNames));
+                    }
+                    result.Add(new HardwareDriveTelegramInfo
+                    {
+                        Target = reference,
+                        DriveObjectIndex = driveIndex,
+                        DriveObjectNumber = TryGetPropertyString(driveObject, "DriveObjectNumber"),
+                        TelegramIndex = telegramIndex++,
+                        TelegramNumber = TryGetPropertyString(telegram, "TelegramNumber"),
+                        TelegramType = TryGetPropertyString(telegram, "Type"),
+                        Addresses = addresses
+                    });
+                }
+                driveIndex++;
+            }
+            return result;
         }
 
         public IReadOnlyList<HardwareAttributeInfo> GetFeatureAttributeInfos(HardwareObject target, string featureService, IEnumerable<string>? attributeNames)
@@ -292,6 +338,57 @@ namespace OpenTiaToolkit.Core.Services
                 }
             }
             return result;
+        }
+
+        private static IEnumerable<string> GetEngineeringAttributeNames(object target)
+        {
+            var infos = Invoke(target, "GetAttributeInfos") as System.Collections.IEnumerable;
+            if (infos == null) yield break;
+            foreach (var info in infos)
+            {
+                var name = TiaReflectionHelper.GetProperty(info, "Name")?.ToString();
+                if (!string.IsNullOrWhiteSpace(name)) yield return name!;
+            }
+        }
+
+        private static HardwareIoAddressInfo ToIoAddressInfo(object address, HardwareObjectRef reference, int index, IEnumerable<string>? attributeNames)
+        {
+            var requested = attributeNames?.Where(name => !string.IsNullOrWhiteSpace(name)).ToArray() ?? Array.Empty<string>();
+            var names = requested.Length > 0 ? requested : GetEngineeringAttributeNames(address).ToArray();
+            return new HardwareIoAddressInfo
+            {
+                Target = reference,
+                Index = index,
+                Attributes = names.Select(name => new HardwareAttributeInfo
+                {
+                    Name = name,
+                    Value = TryGetEngineeringAttribute(address, name)
+                }).ToList()
+            };
+        }
+
+        private static string? TryGetEngineeringAttribute(object target, string name)
+        {
+            try
+            {
+                return Convert.ToString(Invoke(target, "GetAttribute", name), CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string? TryGetPropertyString(object target, string propertyName)
+        {
+            try
+            {
+                return Convert.ToString(TiaReflectionHelper.GetProperty(target, propertyName), CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static IEnumerable<object> Enumerate(object target, string propertyName)

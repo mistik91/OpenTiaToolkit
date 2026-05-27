@@ -147,6 +147,54 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         }
     }
 
+    public sealed class GetHardwareIoAddressesCommand : ICommand
+    {
+        private readonly IHardwareService _service;
+        public GetHardwareIoAddressesCommand(IHardwareService service) => _service = service;
+        public string Name => "get-hardware-io-addresses";
+        public string Description => "Lists process-image address objects exposed by hardware device items";
+        public CommandSchema Schema => new CommandSchema(Description, new[]
+        {
+            new CommandParameter("device-name", CommandParameterType.String, "Optional device name filter", required: false),
+            new CommandParameter("attributes", CommandParameterType.StringArray, "Optional named address attributes to read", required: false)
+        });
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            try
+            {
+                var values = await _service.GetIoAddressesAsync(
+                    args.Has("device-name") ? args.GetString("device-name") : null,
+                    args.Has("attributes") ? args.GetStringArray("attributes") : null);
+                return CommandResult.CreateSuccess(values, $"Found {values.Count} hardware IO address object(s).");
+            }
+            catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware IO addresses", ex, logger); }
+        }
+    }
+
+    public sealed class GetHardwareDriveTelegramsCommand : ICommand
+    {
+        private readonly IHardwareService _service;
+        public GetHardwareDriveTelegramsCommand(IHardwareService service) => _service = service;
+        public string Name => "get-hardware-drive-telegrams";
+        public string Description => "Lists Startdrive telegrams and their IO addresses exposed by hardware drive items";
+        public CommandSchema Schema => new CommandSchema(Description, new[]
+        {
+            new CommandParameter("device-name", CommandParameterType.String, "Optional drive device name filter", required: false),
+            new CommandParameter("address-attributes", CommandParameterType.StringArray, "Optional named telegram address attributes to read", required: false)
+        });
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            try
+            {
+                var values = await _service.GetDriveTelegramsAsync(
+                    args.Has("device-name") ? args.GetString("device-name") : null,
+                    args.Has("address-attributes") ? args.GetStringArray("address-attributes") : null);
+                return CommandResult.CreateSuccess(values, $"Found {values.Count} drive telegram(s).");
+            }
+            catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware drive telegrams", ex, logger); }
+        }
+    }
+
     public sealed class GetHardwareItemCapabilitiesCommand : ICommand
     {
         private readonly IHardwareService _service;

@@ -43,6 +43,24 @@ namespace OpenTiaToolkit.Core.Models
         public List<HardwareItemInfo> Items { get; set; } = new List<HardwareItemInfo>();
     }
 
+    public sealed class HardwareIoAddressInfo
+    {
+        public HardwareObjectRef Target { get; set; } = new HardwareObjectRef();
+        public int Index { get; set; }
+        public List<HardwareAttributeInfo> Attributes { get; set; } = new List<HardwareAttributeInfo>();
+    }
+
+    public sealed class HardwareDriveTelegramInfo
+    {
+        public HardwareObjectRef Target { get; set; } = new HardwareObjectRef();
+        public int DriveObjectIndex { get; set; }
+        public string? DriveObjectNumber { get; set; }
+        public int TelegramIndex { get; set; }
+        public string? TelegramNumber { get; set; }
+        public string? TelegramType { get; set; }
+        public List<HardwareIoAddressInfo> Addresses { get; set; } = new List<HardwareIoAddressInfo>();
+    }
+
     public sealed class HardwareCapabilityInfo
     {
         public HardwareObjectRef Target { get; set; } = new HardwareObjectRef();

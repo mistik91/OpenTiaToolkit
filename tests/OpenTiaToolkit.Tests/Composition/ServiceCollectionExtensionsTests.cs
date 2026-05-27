@@ -125,6 +125,8 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "sync-vci-plc");
             CollectionAssert.Contains(commands, "find-hardware-catalog-items");
             CollectionAssert.Contains(commands, "get-hardware-tree");
+            CollectionAssert.Contains(commands, "get-hardware-io-addresses");
+            CollectionAssert.Contains(commands, "get-hardware-drive-telegrams");
             CollectionAssert.Contains(commands, "get-hardware-item-capabilities");
             CollectionAssert.Contains(commands, "get-hardware-feature-attributes");
             CollectionAssert.Contains(commands, "get-hardware-network-item-attributes");

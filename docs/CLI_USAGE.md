@@ -262,6 +262,23 @@ Returns hierarchical devices and items with target paths reusable by the remaini
 OpenTiaToolkit.CLI.exe get-hardware-tree --device-name="IO_Master_01"
 ```
 
+#### get-hardware-io-addresses
+
+Lists process-image IO address objects assigned directly to hardware items, including GSD/GSDML modules.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hardware-io-addresses --device-name="AL1403_231" --attributes="StartAddress,IoType,Length"
+```
+
+#### get-hardware-drive-telegrams
+
+Lists native Startdrive telegrams and their process-image IO addresses for SINAMICS drives.
+Some Startdrive devices do not expose optional drive-object metadata; telegram and address fields are returned independently.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hardware-drive-telegrams --device-name="SINAMICS G_1" --address-attributes="StartAddress,IoType,Length"
+```
+
 #### get-hardware-item-capabilities
 
 Reports feature services and optional attribute values for a specific item.

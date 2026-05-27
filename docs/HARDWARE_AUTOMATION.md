@@ -8,6 +8,8 @@ OpenTiaToolkit exposes vendor-neutral TIA Portal hardware primitives. A device-s
 |------|---------|
 | `find-hardware-catalog-items` | Searches the installed TIA hardware catalog and returns usable type identifiers. |
 | `get-hardware-tree` | Lists devices and nested device items with stable path-based targets. |
+| `get-hardware-io-addresses` | Lists process-image address objects exposed by device items. |
+| `get-hardware-drive-telegrams` | Lists Startdrive telegrams and their IO address assignments. |
 | `get-hardware-item-capabilities` | Identifies network and GSD capabilities and optionally reads attributes. |
 | `get-hardware-feature-attributes` | Reads attributes exposed by a feature service such as `NetworkInterface`. |
 | `get-hardware-network-item-attributes` | Reads attributes from a network child, such as a PROFINET node. |
@@ -26,11 +28,13 @@ This surface follows the hardware API model documented in the installed Siemens 
 | Instantiate a catalog device or GSDML DAP | `project.Devices.CreateWithItem(typeIdentifier, itemName, deviceName)` |
 | Test and plug modules or submodules | `HardwareObject.CanPlugNew(...)` and `HardwareObject.PlugNew(...)` |
 | Resolve available module type identifiers | `project.HwUtilities.Find("ModuleInformationProvider")` and `FindModuleTypes(...)` |
+| Inspect process-image IO assignment | `DeviceItem.Addresses` and address attributes such as `StartAddress` and `IoType` |
+| Inspect native SINAMICS telegram IO | `DeviceItem.GetService<DriveObjectContainer>()`, `DriveObjects`, `Telegrams` and telegram `Addresses` |
 | Read or write GSD/GSDML record data | `DeviceItem.GetService<GsdDeviceItem>()`, `GetPrmData(...)` and `SetPrmData(...)` |
 | Join a PROFINET subnet and IO system | `DeviceItem.GetService<NetworkInterface>()`, `Node.ConnectToSubnet(...)` and `IoConnector.ConnectToIoSystem(...)` |
 | Configure PROFINET IP addressing | `DeviceItem.GetService<NetworkInterface>().Nodes[...]` and node `GetAttribute(...)` / `SetAttributes(...)` methods |
 
-The item exposing `NetworkInterface` is catalog-defined and must be discovered from the hardware topology or capabilities; it cannot be assumed from a display name. In V21, IP settings such as `Address`, `SubnetMask`, and `IpProtocolSelection` are read or written on a node obtained from `NetworkInterface.Nodes`, rather than ordinary hardware-item attributes or the interface service object itself. (`NetworkAddress` is used in some CAx/export representations, but is not the live `Node` attribute name.) Likewise, record byte meaning is supplied by the GSDML/device documentation and belongs in a device skill, not this generic layer.
+The item exposing `NetworkInterface` is catalog-defined and must be discovered from the hardware topology or capabilities; it cannot be assumed from a display name. In V21, IP settings such as `Address`, `SubnetMask`, and `IpProtocolSelection` are read or written on a node obtained from `NetworkInterface.Nodes`, rather than ordinary hardware-item attributes or the interface service object itself. (`NetworkAddress` is used in some CAx/export representations, but is not the live `Node` attribute name.) Native Startdrive devices may also decline optional metadata reads such as `DriveObjectNumber`; telegram number, type, and IO addresses remain the reliable report fields. Likewise, record byte meaning is supplied by the GSDML/device documentation and belongs in a device skill, not this generic layer.
 
 ## Hardware Targets
 
@@ -50,6 +54,8 @@ For CLI reads, `--device-name` and slash-delimited `--item-path` are convenient 
 
 ```powershell
 get-hardware-item-capabilities --device-name="PLC_1" --item-path="CPU/PROFINET interface_1"
+get-hardware-io-addresses --device-name="AL1403_231" --attributes="StartAddress,IoType,Length"
+get-hardware-drive-telegrams --device-name="SINAMICS G_1" --address-attributes="StartAddress,IoType,Length"
 get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="DAP/PN-IO" --network-collection="Nodes" --network-item-index=0 --attributes="Address,SubnetMask,IpProtocolSelection"
 ```
 

@@ -25,6 +25,10 @@
       <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.WinCCUnified.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Siemens.Engineering.Startdrive">
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Startdrive.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <!-- Delete Siemens Engineering DLLs from output directory after build to comply with Openness API requirements -->
@@ -32,6 +36,7 @@
     <Delete Files="$(OutputPath)Siemens.Engineering.Base.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Base.dll')" />
     <Delete Files="$(OutputPath)Siemens.Engineering.Step7.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Step7.dll')" />
     <Delete Files="$(OutputPath)Siemens.Engineering.WinCCUnified.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.WinCCUnified.dll')" />
+    <Delete Files="$(OutputPath)Siemens.Engineering.Startdrive.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Startdrive.dll')" />
   </Target>
 
   <ItemGroup>
