@@ -270,6 +270,22 @@ Reports feature services and optional attribute values for a specific item.
 OpenTiaToolkit.CLI.exe get-hardware-item-capabilities --device-name="IO_Master_01" --item-path="DAP/PN-IO" --attributes="Name"
 ```
 
+#### get-hardware-feature-attributes
+
+Reads attributes owned by a feature service such as `NetworkInterface`.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hardware-feature-attributes --device-name="IO_Master_01" --item-path="DAP/PN-IO" --feature-service="NetworkInterface" --attributes="InterfaceOperatingMode"
+```
+
+#### get-hardware-network-item-attributes
+
+Reads attributes owned by an item of a network service collection. PROFINET IP address fields are exposed on the node contained by `NetworkInterface`.
+
+```bash
+OpenTiaToolkit.CLI.exe get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="DAP/PN-IO" --network-collection="Nodes" --network-item-index=0 --attributes="Address,SubnetMask,IpProtocolSelection"
+```
+
 #### find-hardware-module-types
 
 Resolves complete module identifiers using the project-level Siemens `ModuleInformationProvider`.
@@ -311,7 +327,7 @@ OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\ha
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=false
 ```
 
-Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, attribute updates, subnet connection, IO-system connection, and explicitly confirmed disconnect/delete operations.
+Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, item, feature, and network-child attribute updates (`get-network-item-attributes` / `set-network-item-attributes` for node addressing), subnet connection, IO-system connection, and explicitly confirmed disconnect/delete operations.
 
 ### Unified HMI Operations
 

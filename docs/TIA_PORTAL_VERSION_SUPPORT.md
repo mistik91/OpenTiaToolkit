@@ -47,6 +47,7 @@ Common V21 hardware surfaces used by the toolkit include:
 - `Project.HwUtilities.Find("ModuleInformationProvider")` for module identifier discovery
 - `DeviceItem.GetService<GsdDeviceItem>()` for raw GSD/GSDML parameter records
 - `DeviceItem.GetService<NetworkInterface>()` for subnet and IO-system connectivity
+- `NetworkInterface` and its `Nodes` composition, with node `GetAttribute(...)` and `SetAttributes(...)` for PROFINET IP addressing
 
 Refer to the official Siemens Openness documentation for the detailed V21 API surface.
 
@@ -98,7 +99,7 @@ Validated V21 behavior includes:
 
 ### Generic hardware engineering
 
-The hardware command surface is validated on V21 with an IFM AL1403 PROFINET IO-Link master GSDML. The generic toolkit is not tied to that product: it discovers installed catalog identifiers, resolves hierarchical hardware targets, handles transactional topology/network edits, and reads or writes guarded GSD parameter records.
+The hardware command surface is validated on V21 with an IFM AL1403 PROFINET IO-Link master GSDML. The generic toolkit is not tied to that product: it discovers installed catalog identifiers, resolves hierarchical hardware targets, handles transactional topology/network edits, reads or writes network feature and network-child attributes such as node IP addressing, and reads or writes guarded GSD parameter records.
 
 Validated V21 behavior includes:
 
@@ -106,6 +107,7 @@ Validated V21 behavior includes:
 - addressing catalog-created child modules and plugging an IO-Link submodule
 - reading and guarded-writing a GSD parameter dataset
 - connecting the discovered PROFINET `NetworkInterface` item to an existing subnet and IO system
+- reading and writing guarded PROFINET address attributes on a node exposed through `NetworkInterface.Nodes`
 - dry-run rollback with no remaining temporary hardware item
 
 See [HARDWARE_AUTOMATION.md](HARDWARE_AUTOMATION.md) for the generic contract and device-skill boundary.

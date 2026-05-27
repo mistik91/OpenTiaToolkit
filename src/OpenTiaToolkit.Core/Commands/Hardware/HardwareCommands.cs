@@ -177,6 +177,58 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         }
     }
 
+    public sealed class GetHardwareFeatureAttributesCommand : ICommand
+    {
+        private readonly IHardwareService _service;
+        public GetHardwareFeatureAttributesCommand(IHardwareService service) => _service = service;
+        public string Name => "get-hardware-feature-attributes";
+        public string Description => "Reads engineering attributes from a hardware feature service such as NetworkInterface";
+        public CommandSchema Schema => new CommandSchema(Description, new List<CommandParameter>(HardwareCommandSupport.TargetParameters("Hardware target"))
+        {
+            new CommandParameter("feature-service", CommandParameterType.String, "Hardware feature service name, such as NetworkInterface", required: true),
+            new CommandParameter("attributes", CommandParameterType.StringArray, "Optional named feature attributes to read", required: false)
+        });
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            try
+            {
+                var info = await _service.GetFeatureAttributesAsync(
+                    HardwareCommandSupport.RequireTarget(args),
+                    HardwareCommandSupport.Required(args, "feature-service"),
+                    args.Has("attributes") ? args.GetStringArray("attributes") : null);
+                return CommandResult.CreateSuccess(info, "Hardware feature attributes retrieved.");
+            }
+            catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware feature attributes", ex, logger); }
+        }
+    }
+
+    public sealed class GetHardwareNetworkItemAttributesCommand : ICommand
+    {
+        private readonly IHardwareService _service;
+        public GetHardwareNetworkItemAttributesCommand(IHardwareService service) => _service = service;
+        public string Name => "get-hardware-network-item-attributes";
+        public string Description => "Reads engineering attributes from a NetworkInterface child such as a node or IO connector";
+        public CommandSchema Schema => new CommandSchema(Description, new List<CommandParameter>(HardwareCommandSupport.TargetParameters("Network interface hardware target"))
+        {
+            new CommandParameter("network-collection", CommandParameterType.String, "NetworkInterface collection name: Nodes, IoControllers, or IoConnectors", required: true),
+            new CommandParameter("network-item-index", CommandParameterType.Integer, "Zero-based item index in the network collection", required: false, defaultValue: 0),
+            new CommandParameter("attributes", CommandParameterType.StringArray, "Optional named network item attributes to read", required: false)
+        });
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            try
+            {
+                var info = await _service.GetNetworkItemAttributesAsync(
+                    HardwareCommandSupport.RequireTarget(args),
+                    HardwareCommandSupport.Required(args, "network-collection"),
+                    args.Has("network-item-index") ? args.GetInt("network-item-index") : 0,
+                    args.Has("attributes") ? args.GetStringArray("attributes") : null);
+                return CommandResult.CreateSuccess(info, "Hardware network item attributes retrieved.");
+            }
+            catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware network item attributes", ex, logger); }
+        }
+    }
+
     public sealed class FindHardwareModuleTypesCommand : ICommand
     {
         private readonly IHardwareService _service;

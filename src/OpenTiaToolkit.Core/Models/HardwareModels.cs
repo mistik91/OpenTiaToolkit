@@ -62,6 +62,21 @@ namespace OpenTiaToolkit.Core.Models
         public bool? IsReadOnly { get; set; }
     }
 
+    public sealed class HardwareFeatureAttributesInfo
+    {
+        public HardwareObjectRef Target { get; set; } = new HardwareObjectRef();
+        public string FeatureService { get; set; } = string.Empty;
+        public List<HardwareAttributeInfo> Attributes { get; set; } = new List<HardwareAttributeInfo>();
+    }
+
+    public sealed class HardwareNetworkItemAttributesInfo
+    {
+        public HardwareObjectRef Target { get; set; } = new HardwareObjectRef();
+        public string CollectionName { get; set; } = string.Empty;
+        public int Index { get; set; }
+        public List<HardwareAttributeInfo> Attributes { get; set; } = new List<HardwareAttributeInfo>();
+    }
+
     public sealed class HardwarePlugCheckInfo
     {
         public HardwareObjectRef Target { get; set; } = new HardwareObjectRef();
@@ -124,6 +139,10 @@ namespace OpenTiaToolkit.Core.Models
         public int? NodeIndex { get; set; }
         public int? ControllerIndex { get; set; }
         public int? ConnectorIndex { get; set; }
+        public string? FeatureService { get; set; }
+        public string? NetworkCollection { get; set; }
+        public int? NetworkItemIndex { get; set; }
+        public string[]? AttributeNames { get; set; }
         public Dictionary<string, object?>? Attributes { get; set; }
         public Dictionary<string, object?>? ExpectedAttributes { get; set; }
         public int? DatasetNumber { get; set; }

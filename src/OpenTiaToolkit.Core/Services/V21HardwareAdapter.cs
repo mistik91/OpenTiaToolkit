@@ -95,6 +95,66 @@ namespace OpenTiaToolkit.Core.Services
             return target.GetAttribute(name);
         }
 
+        public IReadOnlyList<HardwareAttributeInfo> GetFeatureAttributeInfos(HardwareObject target, string featureService, IEnumerable<string>? attributeNames)
+        {
+            var feature = RequireFeatureService(target, featureService);
+            var requested = attributeNames?.Where(name => !string.IsNullOrWhiteSpace(name)).ToArray() ?? Array.Empty<string>();
+            if (requested.Length > 0)
+            {
+                return requested.Select(name => new HardwareAttributeInfo
+                {
+                    Name = name,
+                    Value = Convert.ToString(GetFeatureAttribute(feature, name), CultureInfo.InvariantCulture)
+                }).ToList();
+            }
+
+            var infos = Invoke(feature, "GetAttributeInfos") as System.Collections.IEnumerable;
+            if (infos == null)
+            {
+                return Array.Empty<HardwareAttributeInfo>();
+            }
+
+            var result = new List<HardwareAttributeInfo>();
+            foreach (var info in infos)
+            {
+                var name = TiaReflectionHelper.GetProperty(info, "Name")?.ToString();
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    result.Add(new HardwareAttributeInfo
+                    {
+                        Name = name!,
+                        IsReadOnly = TiaReflectionHelper.GetProperty(info, "IsReadOnly") as bool?
+                    });
+                }
+            }
+            return result;
+        }
+
+        public object? GetFeatureAttribute(HardwareObject target, string featureService, string name)
+        {
+            return GetFeatureAttribute(RequireFeatureService(target, featureService), name);
+        }
+
+        public void SetFeatureAttributes(HardwareObject target, string featureService, IEnumerable<KeyValuePair<string, object>> values)
+        {
+            Invoke(RequireFeatureService(target, featureService), "SetAttributes", values);
+        }
+
+        public IReadOnlyList<HardwareAttributeInfo> GetNetworkItemAttributeInfos(HardwareObject target, string collectionName, int index, IEnumerable<string>? attributeNames)
+        {
+            return GetEngineeringAttributeInfos(RequireNetworkItem(target, collectionName, index), attributeNames);
+        }
+
+        public object? GetNetworkItemAttribute(HardwareObject target, string collectionName, int index, string name)
+        {
+            return Invoke(RequireNetworkItem(target, collectionName, index), "GetAttribute", name);
+        }
+
+        public void SetNetworkItemAttributes(HardwareObject target, string collectionName, int index, IEnumerable<KeyValuePair<string, object>> values)
+        {
+            Invoke(RequireNetworkItem(target, collectionName, index), "SetAttributes", values);
+        }
+
         public byte[]? GetGsdParameterData(HardwareObject target, int datasetNumber, int byteOffset, int length)
         {
             var service = RequireFeatureService(target, "GsdDeviceItem");
@@ -197,6 +257,41 @@ namespace OpenTiaToolkit.Core.Services
         {
             return GetFeatureService(target, serviceType)
                 ?? throw new InvalidOperationException($"Hardware item does not provide the {serviceType} feature service.");
+        }
+
+        private static object? GetFeatureAttribute(object feature, string name)
+        {
+            return Invoke(feature, "GetAttribute", name);
+        }
+
+        private static IReadOnlyList<HardwareAttributeInfo> GetEngineeringAttributeInfos(object target, IEnumerable<string>? attributeNames)
+        {
+            var requested = attributeNames?.Where(name => !string.IsNullOrWhiteSpace(name)).ToArray() ?? Array.Empty<string>();
+            if (requested.Length > 0)
+            {
+                return requested.Select(name => new HardwareAttributeInfo
+                {
+                    Name = name,
+                    Value = Convert.ToString(Invoke(target, "GetAttribute", name), CultureInfo.InvariantCulture)
+                }).ToList();
+            }
+
+            var infos = Invoke(target, "GetAttributeInfos") as System.Collections.IEnumerable;
+            if (infos == null) return Array.Empty<HardwareAttributeInfo>();
+            var result = new List<HardwareAttributeInfo>();
+            foreach (var info in infos)
+            {
+                var name = TiaReflectionHelper.GetProperty(info, "Name")?.ToString();
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    result.Add(new HardwareAttributeInfo
+                    {
+                        Name = name!,
+                        IsReadOnly = TiaReflectionHelper.GetProperty(info, "IsReadOnly") as bool?
+                    });
+                }
+            }
+            return result;
         }
 
         private static IEnumerable<object> Enumerate(object target, string propertyName)

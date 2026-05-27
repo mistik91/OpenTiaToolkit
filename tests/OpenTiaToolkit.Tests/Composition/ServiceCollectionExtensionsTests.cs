@@ -126,6 +126,8 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "find-hardware-catalog-items");
             CollectionAssert.Contains(commands, "get-hardware-tree");
             CollectionAssert.Contains(commands, "get-hardware-item-capabilities");
+            CollectionAssert.Contains(commands, "get-hardware-feature-attributes");
+            CollectionAssert.Contains(commands, "get-hardware-network-item-attributes");
             CollectionAssert.Contains(commands, "find-hardware-module-types");
             CollectionAssert.Contains(commands, "can-plug-hardware-item");
             CollectionAssert.Contains(commands, "get-hardware-networks");

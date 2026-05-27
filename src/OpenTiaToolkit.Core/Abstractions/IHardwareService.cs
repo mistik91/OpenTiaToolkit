@@ -12,6 +12,8 @@ namespace OpenTiaToolkit.Core.Abstractions
         Task<IReadOnlyList<HardwareCatalogItemInfo>> FindCatalogItemsAsync(string searchText, string? culture = null);
         Task<IReadOnlyList<HardwareDeviceTreeInfo>> GetHardwareTreeAsync(string? deviceName = null);
         Task<HardwareCapabilityInfo?> GetCapabilitiesAsync(HardwareObjectRef target, string[]? attributes = null);
+        Task<HardwareFeatureAttributesInfo> GetFeatureAttributesAsync(HardwareObjectRef target, string featureService, string[]? attributes = null);
+        Task<HardwareNetworkItemAttributesInfo> GetNetworkItemAttributesAsync(HardwareObjectRef target, string collectionName, int index, string[]? attributes = null);
         Task<IReadOnlyList<string>> FindModuleTypesAsync(string partialTypeIdentifier);
         Task<HardwarePlugCheckInfo> CanPlugAsync(HardwareObjectRef target, string typeIdentifier, string itemName, int positionNumber);
         Task<IReadOnlyList<HardwareNetworkInfo>> GetNetworksAsync(string? deviceName = null);

@@ -76,6 +76,37 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
+        public Task<HardwareFeatureAttributesInfo> GetFeatureAttributesAsync(HardwareObjectRef target, string featureService, string[]? attributes = null)
+        {
+            return Task.Run(() =>
+            {
+                RequireText(featureService, "featureService");
+                var resolved = Resolve(target);
+                return new HardwareFeatureAttributesInfo
+                {
+                    Target = CloneRef(target),
+                    FeatureService = featureService,
+                    Attributes = _adapter.GetFeatureAttributeInfos(resolved, featureService, attributes).ToList()
+                };
+            });
+        }
+
+        public Task<HardwareNetworkItemAttributesInfo> GetNetworkItemAttributesAsync(HardwareObjectRef target, string collectionName, int index, string[]? attributes = null)
+        {
+            return Task.Run(() =>
+            {
+                RequireText(collectionName, "networkCollection");
+                var resolved = Resolve(target);
+                return new HardwareNetworkItemAttributesInfo
+                {
+                    Target = CloneRef(target),
+                    CollectionName = collectionName,
+                    Index = index,
+                    Attributes = _adapter.GetNetworkItemAttributeInfos(resolved, collectionName, index, attributes).ToList()
+                };
+            });
+        }
+
         public Task<HardwarePlugCheckInfo> CanPlugAsync(HardwareObjectRef target, string typeIdentifier, string itemName, int positionNumber)
         {
             return Task.Run(() =>
@@ -220,6 +251,18 @@ namespace OpenTiaToolkit.Core.Services
                 case "set-attributes":
                     item = SetAttributes(index, operation, references);
                     break;
+                case "get-feature-attributes":
+                    item = ReadFeatureAttributes(index, operation, references);
+                    break;
+                case "set-feature-attributes":
+                    item = SetFeatureAttributes(index, operation, references);
+                    break;
+                case "get-network-item-attributes":
+                    item = ReadNetworkItemAttributes(index, operation, references);
+                    break;
+                case "set-network-item-attributes":
+                    item = SetNetworkItemAttributes(index, operation, references);
+                    break;
                 case "set-gsd-parameter-data":
                     item = SetGsdParameterData(index, operation, references);
                     break;
@@ -316,6 +359,93 @@ namespace OpenTiaToolkit.Core.Services
                 new KeyValuePair<string, object>(pair.Key, ConvertJsonValue(pair.Value))).ToList();
             target.Object.SetAttributes(values);
             return Success(index, op, target.Reference, $"Set {values.Count} hardware attribute(s).", new HardwareAttributeChangeInfo
+            {
+                Before = before,
+                Written = values.ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase)
+            });
+        }
+
+        private HardwareOperationResult ReadFeatureAttributes(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.FeatureService, "featureService");
+            if (op.AttributeNames == null || op.AttributeNames.Length == 0)
+            {
+                throw new InvalidOperationException("attributeNames is required for get-feature-attributes.");
+            }
+
+            var target = ResolveOperationTarget(op, refs);
+            var values = _adapter.GetFeatureAttributeInfos(target.Object, op.FeatureService!, op.AttributeNames).ToList();
+            return Success(index, op, target.Reference, $"Read {values.Count} {op.FeatureService} feature attribute(s).", new HardwareFeatureAttributesInfo
+            {
+                Target = target.Reference,
+                FeatureService = op.FeatureService!,
+                Attributes = values
+            });
+        }
+
+        private HardwareOperationResult SetFeatureAttributes(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.FeatureService, "featureService");
+            if (op.Attributes == null || op.Attributes.Count == 0)
+            {
+                throw new InvalidOperationException("attributes is required for set-feature-attributes.");
+            }
+
+            var target = ResolveOperationTarget(op, refs);
+            EnsureExpectedFeatureAttributes(target.Object, op.FeatureService!, op.ExpectedAttributes);
+            var before = op.Attributes.Keys.ToDictionary(
+                name => name,
+                name => TryGetFeatureAttribute(target.Object, op.FeatureService!, name),
+                StringComparer.OrdinalIgnoreCase);
+            var values = op.Attributes.Select(pair =>
+                new KeyValuePair<string, object>(pair.Key, ConvertJsonValue(pair.Value))).ToList();
+            _adapter.SetFeatureAttributes(target.Object, op.FeatureService!, values);
+            return Success(index, op, target.Reference, $"Set {values.Count} {op.FeatureService} feature attribute(s).", new HardwareAttributeChangeInfo
+            {
+                Before = before,
+                Written = values.ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase)
+            });
+        }
+
+        private HardwareOperationResult ReadNetworkItemAttributes(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.NetworkCollection, "networkCollection");
+            if (op.AttributeNames == null || op.AttributeNames.Length == 0)
+            {
+                throw new InvalidOperationException("attributeNames is required for get-network-item-attributes.");
+            }
+
+            var target = ResolveOperationTarget(op, refs);
+            var itemIndex = op.NetworkItemIndex ?? 0;
+            var values = _adapter.GetNetworkItemAttributeInfos(target.Object, op.NetworkCollection!, itemIndex, op.AttributeNames).ToList();
+            return Success(index, op, target.Reference, $"Read {values.Count} {op.NetworkCollection} item attribute(s).", new HardwareNetworkItemAttributesInfo
+            {
+                Target = target.Reference,
+                CollectionName = op.NetworkCollection!,
+                Index = itemIndex,
+                Attributes = values
+            });
+        }
+
+        private HardwareOperationResult SetNetworkItemAttributes(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.NetworkCollection, "networkCollection");
+            if (op.Attributes == null || op.Attributes.Count == 0)
+            {
+                throw new InvalidOperationException("attributes is required for set-network-item-attributes.");
+            }
+
+            var target = ResolveOperationTarget(op, refs);
+            var itemIndex = op.NetworkItemIndex ?? 0;
+            EnsureExpectedNetworkItemAttributes(target.Object, op.NetworkCollection!, itemIndex, op.ExpectedAttributes);
+            var before = op.Attributes.Keys.ToDictionary(
+                name => name,
+                name => TryGetNetworkItemAttribute(target.Object, op.NetworkCollection!, itemIndex, name),
+                StringComparer.OrdinalIgnoreCase);
+            var values = op.Attributes.Select(pair =>
+                new KeyValuePair<string, object>(pair.Key, ConvertJsonValue(pair.Value))).ToList();
+            _adapter.SetNetworkItemAttributes(target.Object, op.NetworkCollection!, itemIndex, values);
+            return Success(index, op, target.Reference, $"Set {values.Count} {op.NetworkCollection} item attribute(s).", new HardwareAttributeChangeInfo
             {
                 Before = before,
                 Written = values.ToDictionary(pair => pair.Key, pair => (object?)pair.Value, StringComparer.OrdinalIgnoreCase)
@@ -594,11 +724,61 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
+        private void EnsureExpectedFeatureAttributes(HardwareObject target, string featureService, IDictionary<string, object?>? expectedAttributes)
+        {
+            if (expectedAttributes == null) return;
+            foreach (var expected in expectedAttributes)
+            {
+                var actual = _adapter.GetFeatureAttribute(target, featureService, expected.Key);
+                if (!AttributeValuesEqual(actual, ConvertJsonValue(expected.Value)))
+                {
+                    throw new InvalidOperationException($"{featureService} feature attribute '{expected.Key}' differs from expectedAttributes.");
+                }
+            }
+        }
+
+        private void EnsureExpectedNetworkItemAttributes(HardwareObject target, string collectionName, int index, IDictionary<string, object?>? expectedAttributes)
+        {
+            if (expectedAttributes == null) return;
+            foreach (var expected in expectedAttributes)
+            {
+                var actual = _adapter.GetNetworkItemAttribute(target, collectionName, index, expected.Key);
+                if (!AttributeValuesEqual(actual, ConvertJsonValue(expected.Value)))
+                {
+                    throw new InvalidOperationException($"{collectionName} item attribute '{expected.Key}' differs from expectedAttributes.");
+                }
+            }
+        }
+
         private object? TryGetAttribute(HardwareObject target, string name)
         {
             try
             {
                 return _adapter.GetAttribute(target, name);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private object? TryGetFeatureAttribute(HardwareObject target, string featureService, string name)
+        {
+            try
+            {
+                return _adapter.GetFeatureAttribute(target, featureService, name);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private object? TryGetNetworkItemAttribute(HardwareObject target, string collectionName, int index, string name)
+        {
+            try
+            {
+                return _adapter.GetNetworkItemAttribute(target, collectionName, index, name);
             }
             catch
             {

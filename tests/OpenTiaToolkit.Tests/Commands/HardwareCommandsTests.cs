@@ -75,7 +75,7 @@ namespace OpenTiaToolkit.Tests.Commands
             var command = new ApplyHardwarePatchCommand(service.Object);
 
             var operations = JsonDocument.Parse(
-                "[{\"op\":\"set-gsd-parameter-data\",\"target\":{\"deviceName\":\"Master\"},\"datasetNumber\":47360,\"dataHex\":\"01 02\",\"expectedDataHex\":\"00 00\"},{\"op\":\"set-attributes\",\"target\":{\"deviceName\":\"Master\"},\"attributes\":{\"Name\":\"Port_1\"},\"expectedAttributes\":{\"Name\":\"Port\"}}]").RootElement.Clone();
+                "[{\"op\":\"set-gsd-parameter-data\",\"target\":{\"deviceName\":\"Master\"},\"datasetNumber\":47360,\"dataHex\":\"01 02\",\"expectedDataHex\":\"00 00\"},{\"op\":\"set-network-item-attributes\",\"target\":{\"deviceName\":\"Master\"},\"networkCollection\":\"Nodes\",\"networkItemIndex\":0,\"attributes\":{\"Address\":\"192.168.1.20\"},\"expectedAttributes\":{\"Address\":\"192.168.1.10\"}}]").RootElement.Clone();
 
             var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
 
@@ -85,7 +85,9 @@ namespace OpenTiaToolkit.Tests.Commands
                     values.Count == 2 &&
                     values[0].ExpectedDataHex == "00 00" &&
                     values[1].ExpectedAttributes != null &&
-                    values[1].ExpectedAttributes!.ContainsKey("Name")),
+                    values[1].NetworkCollection == "Nodes" &&
+                    values[1].NetworkItemIndex == 0 &&
+                    values[1].ExpectedAttributes!.ContainsKey("Address")),
                 true,
                 false,
                 null), Times.Once);
@@ -120,6 +122,45 @@ namespace OpenTiaToolkit.Tests.Commands
 
             var result = await command.ExecuteAsync(Args(
                 ("target", target), ("dataset-number", 47360), ("length", 16)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareFeatureAttributes_ParsesNetworkInterfaceRequest()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetFeatureAttributesAsync(
+                    It.Is<HardwareObjectRef>(target => target.DeviceName == "Master" && target.ItemPath[0] == "PN-IO"),
+                    "NetworkInterface",
+                    It.Is<string[]>(names => names.Length == 1 && names[0] == "InterfaceOperatingMode")))
+                .ReturnsAsync(new HardwareFeatureAttributesInfo { FeatureService = "NetworkInterface" });
+            var command = new GetHardwareFeatureAttributesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "Master"), ("item-path", "PN-IO"),
+                ("feature-service", "NetworkInterface"), ("attributes", new[] { "InterfaceOperatingMode" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareNetworkItemAttributes_ParsesNodeAddressRequest()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetNetworkItemAttributesAsync(
+                    It.Is<HardwareObjectRef>(target => target.DeviceName == "Master" && target.ItemPath[0] == "PN-IO"),
+                    "Nodes",
+                    0,
+                    It.Is<string[]>(names => names.Length == 1 && names[0] == "Address")))
+                .ReturnsAsync(new HardwareNetworkItemAttributesInfo { CollectionName = "Nodes", Index = 0 });
+            var command = new GetHardwareNetworkItemAttributesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "Master"), ("item-path", "PN-IO"),
+                ("network-collection", "Nodes"), ("attributes", new[] { "Address" })), NullLogger.Instance);
 
             Assert.IsTrue(result.Success);
             service.VerifyAll();

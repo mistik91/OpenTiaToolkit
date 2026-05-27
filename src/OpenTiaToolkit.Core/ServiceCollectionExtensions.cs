@@ -158,6 +158,8 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ICommand, FindHardwareCatalogItemsCommand>();
             services.AddSingleton<ICommand, GetHardwareTreeCommand>();
             services.AddSingleton<ICommand, GetHardwareItemCapabilitiesCommand>();
+            services.AddSingleton<ICommand, GetHardwareFeatureAttributesCommand>();
+            services.AddSingleton<ICommand, GetHardwareNetworkItemAttributesCommand>();
             services.AddSingleton<ICommand, FindHardwareModuleTypesCommand>();
             services.AddSingleton<ICommand, CanPlugHardwareItemCommand>();
             services.AddSingleton<ICommand, GetHardwareNetworksCommand>();
