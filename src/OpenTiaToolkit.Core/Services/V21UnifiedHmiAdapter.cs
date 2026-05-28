@@ -1299,6 +1299,12 @@ namespace OpenTiaToolkit.Core.Services
                         error = $"Interface property '{propertyName}' was not found.";
                         return false;
                     }
+
+                    if (!TryValidateDynamizationDefinitions(binding.Dynamizations ?? new List<HmiJsonDynamization>(), out error))
+                    {
+                        error = $"Interface.{propertyName}.Dynamizations: {error}";
+                        return false;
+                    }
                 }
             }
 
@@ -1375,11 +1381,25 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
+            var rawValue = TryReadPropertyValue(binding, "Value");
             return new HmiJsonInterfaceBinding
             {
                 PropertyName = propertyName!,
-                Value = NormalizeOptionalString(FormatValue(TryReadPropertyValue(binding, "Value")))
+                ValueType = rawValue?.GetType().Name,
+                Value = NormalizeOptionalString(FormatValue(rawValue)),
+                Dynamizations = TryReadDynamizationsFromOwner(binding)
             };
+        }
+
+        private static List<HmiJsonDynamization>? TryReadDynamizationsFromOwner(object? owner)
+        {
+            if (!TryGetNamedComposition(owner, "Dynamizations", out var composition))
+            {
+                return null;
+            }
+
+            var dynamizations = ReadSupportedDynamizationsFromComposition(composition);
+            return dynamizations.Count > 0 ? dynamizations : null;
         }
 
         private static HmiJsonEventHandler? TryReadEventHandlerExport(object? eventHandler)
@@ -2183,6 +2203,12 @@ namespace OpenTiaToolkit.Core.Services
                     error = $"Interface contains a duplicate property '{propertyName}'.";
                     return false;
                 }
+
+                if (!TryValidateDynamizationDefinitions(binding?.Dynamizations ?? new List<HmiJsonDynamization>(), out error))
+                {
+                    error = $"Interface.{propertyName}.Dynamizations: {error}";
+                    return false;
+                }
             }
 
             return true;
@@ -2395,15 +2421,38 @@ namespace OpenTiaToolkit.Core.Services
                         throw new InvalidOperationException($"Interface property '{propertyName}' was not found.");
                     }
 
+                    var valueChanged = !string.Equals(
+                        NormalizeOptionalString(currentEntry.Export?.Value),
+                        NormalizeOptionalString(binding.Value),
+                        StringComparison.Ordinal);
+
                     try
                     {
-                        SetObjectPropertyValueFlexible(currentEntry.Raw, "Value", binding.Value ?? string.Empty);
+                        if (valueChanged)
+                        {
+                            SetObjectPropertyValueFlexible(currentEntry.Raw, "Value", binding.Value ?? string.Empty);
+                        }
                     }
                     catch (Exception ex)
                     {
                         throw new InvalidOperationException(
                             $"Interface property '{propertyName}' could not be written on {currentEntry.Raw.GetType().Name}: {FormatExceptionMessage(ex)}",
                             ex);
+                    }
+
+                    if (!TryGetNamedComposition(currentEntry.Raw, "Dynamizations", out var dynamizationComposition))
+                    {
+                        if ((binding.Dynamizations?.Count ?? 0) > 0)
+                        {
+                            throw new InvalidOperationException($"Interface property '{propertyName}' does not expose Dynamizations.");
+                        }
+
+                        continue;
+                    }
+
+                    if (!TrySynchronizeDynamizations(dynamizationComposition, binding.Dynamizations ?? new List<HmiJsonDynamization>(), out var dynamizationError))
+                    {
+                        throw new InvalidOperationException($"Interface property '{propertyName}' dynamizations could not be written: {dynamizationError}");
                     }
                 }
 

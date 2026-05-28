@@ -431,5 +431,94 @@ namespace OpenTiaToolkit.Tests.Services
                 }
             }
         }
+
+        [TestMethod]
+        public async Task CreatePatchAsync_TracksFaceplateInterfaceDynamizationChanges()
+        {
+            var tempRoot = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "HmiJsonDiff", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempRoot);
+
+            try
+            {
+                var basePath = Path.Combine(tempRoot, "base");
+                var modifiedPath = Path.Combine(tempRoot, "modified");
+                var patchPath = Path.Combine(tempRoot, "patch");
+
+                HmiJsonDocumentStore.SaveDocument(
+                    CreateFaceplateInterfaceDynamizationDocument("Steps[1]"),
+                    HmiJsonDocumentStore.ResolveExportFilePath(basePath));
+
+                HmiJsonDocumentStore.SaveDocument(
+                    CreateFaceplateInterfaceDynamizationDocument("Steps[2]"),
+                    HmiJsonDocumentStore.ResolveExportFilePath(modifiedPath));
+
+                var service = new HmiJsonDiffService();
+
+                var result = await service.CreatePatchAsync(basePath, modifiedPath, patchPath, filters: null);
+
+                Assert.IsNotNull(result);
+                Assert.AreEqual(1, result!.PropertyChangeCount);
+
+                var patchDocument = HmiJsonDocumentStore.LoadDocument(patchPath);
+                var binding = patchDocument.Screens.Single().Items.Single().Interface!.Single();
+                Assert.AreEqual("First_Step_NR", binding.PropertyName);
+                Assert.AreEqual("Step_1", binding.Value);
+                Assert.AreEqual("String", binding.ValueType);
+                Assert.AreEqual("Steps[2]", binding.Dynamizations!.Single().Binding!.DynamicTagName);
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+        }
+
+        private static HmiJsonDocument CreateFaceplateInterfaceDynamizationDocument(string dynamicTagName)
+        {
+            return new HmiJsonDocument
+            {
+                ExportedAtUtc = DateTime.UtcNow.ToString("o"),
+                HmiName = "HMI_1",
+                Screens =
+                {
+                    new HmiJsonScreen
+                    {
+                        Path = "Screens/Main",
+                        Name = "Main",
+                        Items =
+                        {
+                            new HmiJsonItem
+                            {
+                                Name = "V114",
+                                Type = "HmiFaceplateContainer",
+                                Interface = new List<HmiJsonInterfaceBinding>
+                                {
+                                    new HmiJsonInterfaceBinding
+                                    {
+                                        PropertyName = "First_Step_NR",
+                                        ValueType = "String",
+                                        Value = "Step_1",
+                                        Dynamizations = new List<HmiJsonDynamization>
+                                        {
+                                            new HmiJsonDynamization
+                                            {
+                                                Property = "Value",
+                                                Type = "TagParameter",
+                                                Binding = new HmiJsonDynamizationBinding
+                                                {
+                                                    DynamicTagName = dynamicTagName
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+        }
     }
 }

@@ -69,10 +69,11 @@ namespace OpenTiaToolkit.Core.Services
 
             var normalizedPropertyName = propertyName.Trim();
             var normalizedEntryKey = entryKey.Trim();
+            var entryPath = normalizedPropertyName + "." + normalizedEntryKey;
             return filters.Properties.Contains(normalizedPropertyName, StringComparer.OrdinalIgnoreCase) ||
-                   filters.Properties.Contains(
-                       normalizedPropertyName + "." + normalizedEntryKey,
-                       StringComparer.OrdinalIgnoreCase);
+                   filters.Properties.Any(filter =>
+                       filter.Equals(entryPath, StringComparison.OrdinalIgnoreCase) ||
+                       filter.StartsWith(entryPath + ".", StringComparison.OrdinalIgnoreCase));
         }
 
         private static IReadOnlyList<string> NormalizeList(IEnumerable<string> values, Func<string, string> normalizer)

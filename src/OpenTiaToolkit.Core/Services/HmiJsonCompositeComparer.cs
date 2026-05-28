@@ -116,7 +116,9 @@ namespace OpenTiaToolkit.Core.Services
                 .Select(binding => new HmiJsonInterfaceBinding
                 {
                     PropertyName = binding.PropertyName,
-                    Value = binding.Value
+                    ValueType = binding.ValueType,
+                    Value = binding.Value,
+                    Dynamizations = CloneDynamizations(binding.Dynamizations)
                 })
                 .OrderBy(binding => binding.PropertyName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -448,7 +450,9 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return StringsEqual(left.PropertyName, right.PropertyName) &&
-                   StringsEqual(left.Value, right.Value);
+                   StringsEqual(left.ValueType, right.ValueType) &&
+                   StringsEqual(left.Value, right.Value) &&
+                   AreDynamizationCollectionsEquivalent(left.Dynamizations, right.Dynamizations);
         }
 
         private static HmiJsonScriptPayload? CloneScriptPayload(HmiJsonScriptPayload? script)

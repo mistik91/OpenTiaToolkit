@@ -146,7 +146,7 @@ If a circle preflight fails on `Left`, `Top`, `Width`, or `Height`, do not bypas
 
 ## Tool Choice
 
-Use `apply-hmi-screen-json-patch` for small, auditable changes: scalar properties, layouts, item create/delete/duplicate/rename, event handlers, property event handlers, dynamizations, and faceplate interface bindings.
+Use `apply-hmi-screen-json-patch` for small, auditable changes: scalar properties, layouts, item create/delete/duplicate/rename, event handlers, property event handlers, dynamizations, faceplate interface bindings, and faceplate interface entry dynamizations.
 
 Use `apply-hmi-screen-json-edit` when the intended change is broad, structural, or easier to express by transforming a screen JSON file. Keep the JSON focused with item/property filters first; avoid full-screen monolith edits unless necessary.
 
@@ -170,7 +170,7 @@ Always treat `BaseHash` as binding to the exact snapshot shape. If the command r
 
 Keep filters intentionally narrow. Include every item the operation reads or writes in `itemNames`, and include every touched property in `properties`.
 
-Composite operations touch the root composite property. Use `EventHandlers`, `PropertyEventHandlers`, `Dynamizations`, or `Interface` in `properties`; do not filter only to nested entry names.
+Composite operations touch the root composite property. Use `EventHandlers`, `PropertyEventHandlers`, `Dynamizations`, or `Interface` in `properties`; do not filter only to nested entry names. Faceplate interface entries can contain nested `Dynamizations`, so include `Interface` when editing an interface entry's TagParameter binding.
 
 For `duplicate-item`, include both the source item and the target item name in `itemNames`. For `create-item` with a base hash, include the new item name so validation can prove the filter was intentional.
 

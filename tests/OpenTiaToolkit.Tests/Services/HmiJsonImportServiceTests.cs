@@ -182,6 +182,29 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void MergeFilteredInterfaceBindings_NestedEntryFilterPreservesUnfilteredCurrentBindings()
+        {
+            var current = new List<HmiJsonInterfaceBinding>
+            {
+                InterfaceBindingWithTagParameter("First_Step_NR", "Step_1", "Steps[1]"),
+                InterfaceBinding("CMD", "Valve_A.CMD")
+            };
+            var filtered = new List<HmiJsonInterfaceBinding>
+            {
+                InterfaceBindingWithTagParameter("First_Step_NR", "Step_1", "Steps[2]")
+            };
+
+            var merged = HmiJsonImportService.MergeFilteredInterfaceBindings(
+                current,
+                filtered,
+                new HmiJsonFilterOptions { Properties = new[] { "Interface.First_Step_NR.Dynamizations.Value" } });
+
+            Assert.AreEqual(2, merged.Count);
+            Assert.AreEqual("Steps[2]", merged.Single(binding => binding.PropertyName == "First_Step_NR").Dynamizations!.Single().Binding!.DynamicTagName);
+            Assert.AreEqual("Valve_A.CMD", merged.Single(binding => binding.PropertyName == "CMD").Value);
+        }
+
+        [TestMethod]
         public void MergeFilteredInterfaceBindings_RootFilterAllowsUnspecifiedBindingDeletes()
         {
             var current = new List<HmiJsonInterfaceBinding>
@@ -273,6 +296,25 @@ namespace OpenTiaToolkit.Tests.Services
             {
                 PropertyName = propertyName,
                 Value = value
+            };
+        }
+
+        private static HmiJsonInterfaceBinding InterfaceBindingWithTagParameter(string propertyName, string value, string dynamicTagName)
+        {
+            return new HmiJsonInterfaceBinding
+            {
+                PropertyName = propertyName,
+                Value = value,
+                ValueType = "String",
+                Dynamizations = new List<HmiJsonDynamization>
+                {
+                    new HmiJsonDynamization
+                    {
+                        Property = "Value",
+                        Type = "TagParameter",
+                        Binding = new HmiJsonDynamizationBinding { DynamicTagName = dynamicTagName }
+                    }
+                }
             };
         }
     }

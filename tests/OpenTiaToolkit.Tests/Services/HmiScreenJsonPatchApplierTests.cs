@@ -555,6 +555,45 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void Apply_SetsFaceplateInterfaceDynamization()
+        {
+            var screen = CreateScreen();
+            var item = screen.Items.Single();
+            item.Name = "Faceplate container_1";
+            item.Type = "HmiFaceplateContainer";
+            item.Interface = new List<HmiJsonInterfaceBinding>
+            {
+                new HmiJsonInterfaceBinding
+                {
+                    PropertyName = "First_Step_NR",
+                    Value = "Step_1"
+                }
+            };
+
+            var result = HmiScreenJsonPatchApplier.Apply(
+                screen,
+                new[]
+                {
+                    new HmiScreenJsonPatchOperation
+                    {
+                        Op = "set-interface",
+                        ItemName = "Faceplate container_1",
+                        Property = "First_Step_NR",
+                        DynamizationType = "TagParameter",
+                        DynamicTagName = "Steps[1]"
+                    }
+                });
+
+            Assert.AreEqual(0, result.FailedCount);
+            var binding = result.Screen.Items.Single(item => item.Name == "Faceplate container_1").Interface!.Single();
+            Assert.AreEqual("Step_1", binding.Value);
+            Assert.AreEqual("First_Step_NR", binding.Dynamizations!.Single().Property);
+            Assert.AreEqual("TagParameter", binding.Dynamizations.Single().Type);
+            Assert.AreEqual("Steps[1]", binding.Dynamizations.Single().Binding!.DynamicTagName);
+            Assert.AreEqual("Interface.First_Step_NR.Dynamizations.First_Step_NR", result.OperationResults.Single().Property);
+        }
+
+        [TestMethod]
         public void Apply_SetsScriptDynamizationFromCompactFields()
         {
             var result = HmiScreenJsonPatchApplier.Apply(

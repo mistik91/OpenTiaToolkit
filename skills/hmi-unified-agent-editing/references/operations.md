@@ -189,6 +189,22 @@ Set a tag dynamization:
 }
 ```
 
+## Faceplate Interface Dynamizations
+
+Faceplate `Interface` entries may contain their own nested `Dynamizations`. Use the root `Interface` property in filters and keep the exported interface entry name stable.
+
+```json
+{
+  "op": "set-interface",
+  "item": "Faceplate container_1",
+  "property": "First_Step_NR",
+  "dynamizationType": "TagParameter",
+  "dynamicTagName": "Step_'Step_1'"
+}
+```
+
+The compact form defaults the nested dynamization property to the interface entry name. When using a full `dynamization` object, preserve the exported `property` value, such as `First_Step_NR`.
+
 Filter repair after a `Dynamizations` failure means re-reading with the root composite property:
 
 ```json

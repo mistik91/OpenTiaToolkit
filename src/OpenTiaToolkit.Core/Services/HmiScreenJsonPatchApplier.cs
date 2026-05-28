@@ -543,15 +543,24 @@ namespace OpenTiaToolkit.Core.Services
                 return;
             }
 
-            if (!TryConvertValue(operation.Value, out var value, out var error))
+            var hasValue = operation.Value != null;
+            var interfaceDynamization = CloneOrBuildInterfaceDynamization(operation, propertyName!);
+            if (!hasValue && interfaceDynamization == null)
             {
-                results.Add(Failure(index, op, error ?? "The set-interface operation requires a scalar value.", ResolveItemName(operation), "Interface." + propertyName));
+                results.Add(Failure(index, op, "The set-interface operation requires value and/or a dynamization.", ResolveItemName(operation), "Interface." + propertyName));
                 return;
             }
 
             target.Interface ??= new List<HmiJsonInterfaceBinding>();
             var existing = target.Interface.FirstOrDefault(binding => binding.PropertyName.Equals(propertyName!, StringComparison.OrdinalIgnoreCase));
             var previousValue = existing?.Value;
+            string? value = previousValue;
+            if (hasValue && !TryConvertValue(operation.Value, out value, out var error))
+            {
+                results.Add(Failure(index, op, error ?? "The set-interface operation requires a scalar value.", ResolveItemName(operation), "Interface." + propertyName));
+                return;
+            }
+
             if (existing == null)
             {
                 target.Interface.Add(new HmiJsonInterfaceBinding
@@ -565,10 +574,26 @@ namespace OpenTiaToolkit.Core.Services
                 existing.Value = value;
             }
 
+            var binding = target.Interface.First(existingBinding =>
+                existingBinding.PropertyName.Equals(propertyName!, StringComparison.OrdinalIgnoreCase));
+            if (interfaceDynamization != null)
+            {
+                binding.Dynamizations ??= new List<HmiJsonDynamization>();
+                binding.Dynamizations.RemoveAll(existingDynamization =>
+                    existingDynamization.Property.Equals(interfaceDynamization.Property, StringComparison.OrdinalIgnoreCase));
+                binding.Dynamizations.Add(interfaceDynamization);
+                binding.Dynamizations = binding.Dynamizations
+                    .OrderBy(existingDynamization => existingDynamization.Property, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
             target.Interface = target.Interface
                 .OrderBy(binding => binding.PropertyName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            results.Add(Success(index, op, target.Scope, target.ItemName, "Interface." + propertyName, previousValue, value));
+            var resultProperty = interfaceDynamization == null
+                ? "Interface." + propertyName
+                : "Interface." + propertyName + ".Dynamizations." + interfaceDynamization.Property;
+            results.Add(Success(index, op, target.Scope, target.ItemName, resultProperty, previousValue, value));
         }
 
         private static void ApplyProperty(
@@ -1085,6 +1110,11 @@ namespace OpenTiaToolkit.Core.Services
                 dynamizationType = "Tag";
             }
 
+            if (string.IsNullOrWhiteSpace(dynamizationType) && !string.IsNullOrWhiteSpace(operation.DynamicTagName))
+            {
+                dynamizationType = "TagParameter";
+            }
+
             if (string.IsNullOrWhiteSpace(dynamizationType) && !string.IsNullOrWhiteSpace(operation.ScriptCode))
             {
                 dynamizationType = "Script";
@@ -1113,6 +1143,18 @@ namespace OpenTiaToolkit.Core.Services
                     Tag = tag
                 };
             }
+            else if (dynamizationType.Equals("TagParameter", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(operation.DynamicTagName))
+                {
+                    return null;
+                }
+
+                dynamization.Binding = new HmiJsonDynamizationBinding
+                {
+                    DynamicTagName = operation.DynamicTagName
+                };
+            }
             else if (dynamizationType.Equals("Script", StringComparison.OrdinalIgnoreCase))
             {
                 if (string.IsNullOrWhiteSpace(operation.ScriptCode))
@@ -1129,6 +1171,31 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return dynamization;
+        }
+
+        private static HmiJsonDynamization? CloneOrBuildInterfaceDynamization(HmiScreenJsonPatchOperation operation, string interfacePropertyName)
+        {
+            if (operation.Dynamization == null &&
+                string.IsNullOrWhiteSpace(operation.DynamizationType) &&
+                string.IsNullOrWhiteSpace(operation.DynamicTagName) &&
+                string.IsNullOrWhiteSpace(operation.Tag) &&
+                string.IsNullOrWhiteSpace(operation.ScriptCode))
+            {
+                return null;
+            }
+
+            var clone = Clone(operation);
+            if (clone.Dynamization == null)
+            {
+                clone.Property = interfacePropertyName;
+            }
+
+            if (clone.Dynamization != null && string.IsNullOrWhiteSpace(clone.Dynamization.Property))
+            {
+                clone.Dynamization.Property = interfacePropertyName;
+            }
+
+            return CloneOrBuildDynamization(clone);
         }
 
         private static bool TryConvertValue(object? value, out string? converted, out string? error)

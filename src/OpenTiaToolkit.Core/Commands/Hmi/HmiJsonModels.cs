@@ -91,7 +91,11 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     {
         public string PropertyName { get; set; } = string.Empty;
 
+        public string? ValueType { get; set; }
+
         public string? Value { get; set; }
+
+        public List<HmiJsonDynamization>? Dynamizations { get; set; }
     }
 
     /// <summary>
@@ -510,6 +514,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         public string? DynamizationType { get; set; }
 
         public string? Tag { get; set; }
+
+        public string? DynamicTagName { get; set; }
 
         public string? Property { get; set; }
 

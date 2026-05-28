@@ -489,7 +489,7 @@ OpenTiaToolkit.CLI.exe delete-hmi-data-logs --hmi-name="HMI_1" --configs="[{\"da
 
 ### Unified HMI JSON Import/Export
 
-The JSON flow is the repeatable import/export path for Unified HMI screens. It supports screens, items, scalar properties, faceplate interface bindings, event handlers, property event handlers, dynamizations, and value-converter mapping tables.
+The JSON flow is the repeatable import/export path for Unified HMI screens. It supports screens, items, scalar properties, faceplate interface bindings, faceplate interface entry dynamizations, event handlers, property event handlers, dynamizations, and value-converter mapping tables.
 
 #### export-hmi-json
 
@@ -584,7 +584,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - `set-event-handler` / `remove-event-handler`: Create, replace, or remove event handlers. Use `eventHandler` for full JSON or `eventType` plus `scriptCode` for compact script handlers.
 - `set-property-event-handler` / `remove-property-event-handler`: Create, replace, or remove property event handlers. Use `propertyEventHandler` for full JSON or `property`, `eventType`, and `scriptCode`.
 - `set-dynamization` / `remove-dynamization`: Create, replace, or remove property dynamizations. Use `dynamization` for full JSON or compact `property`, `dynamizationType`, and `tag`.
-- `set-interface`: Set one faceplate container interface binding. Use `item`, `property`/`propertyName`, and `value`; filter with the root property `Interface`.
+- `set-interface`: Set one faceplate container interface binding. Use `item`, `property`/`propertyName`, and `value`; filter with the root property `Interface`. Interface entries can also contain nested `Dynamizations`, including `TagParameter` bindings. Compact `set-interface` can set a nested interface dynamization with `dynamizationType` and `dynamicTagName`; when omitted, the nested dynamization property defaults to the interface entry name exported by TIA.
 
 **Parameters**:
 - `operations` (required): JSON array or `{ "operations": [...] }`. MCP clients should pass this as an object/array instead of a CLI string.
@@ -602,6 +602,25 @@ Patch/edit results include `guidance`, which tells agents whether to apply, re-r
 `get-hmi-screen-json` requires canonical grouped screen paths. If a leaf name uniquely matches a nested screen, a failed lookup now suggests the canonical path; `list-hmi-screens --recursive=true` remains the discovery command for ambiguous names.
 
 Large `set-interface` batches remain sensitive to TIA Openness latency because each changed interface binding is applied through its underlying engineering write. Targeted backups, verified hash chaining, and transaction safety reduce overhead and recovery risk, but callers should still keep batch sizes practical for the project being edited.
+
+Faceplate interface entries may export as richer objects when TIA exposes metadata:
+
+```json
+{
+  "propertyName": "First_Step_NR",
+  "valueType": "String",
+  "value": "Step_1",
+  "dynamizations": [
+    {
+      "property": "First_Step_NR",
+      "type": "TagParameter",
+      "binding": {
+        "dynamicTagName": "Step_'Step_1'"
+      }
+    }
+  ]
+}
+```
 
 #### get-hmi-screen-summary
 
