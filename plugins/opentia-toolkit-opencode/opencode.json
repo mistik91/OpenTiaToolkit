@@ -16,7 +16,13 @@
   "permission": {
     "skill": {
       "basic-tia-interaction": "allow",
-      "hmi-unified-agent-editing": "allow"
+      "hmi-unified-agent-editing": "allow",
+      "opentia-toolkit-workflow": "allow",
+      "hardware-configuration-workflow": "allow",
+      "plc-block-and-tag-workflow": "allow",
+      "vci-sync-workflow": "allow",
+      "hmi-trend-logging-workflow": "allow",
+      "opentia-dev-workflow": "allow"
     }
   }
 }

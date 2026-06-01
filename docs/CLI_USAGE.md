@@ -682,7 +682,7 @@ OpenTiaToolkit.CLI.exe inspect-hmi-screen-json-capabilities --hmi-name="HMI_1" -
 - `working-path`: Optional root for generated snapshot artifacts.
 
 **Codex skill packaging**:
-- Agent workflow skills are versioned in `skills/basic-tia-interaction` and `skills/hmi-unified-agent-editing`.
+- Agent workflow skills are versioned in `skills/`, including the top-level `opentia-toolkit-workflow` router, `basic-tia-interaction`, `hmi-unified-agent-editing`, and specialized hardware, PLC, trend logging, VCI, and repo-development workflows.
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip the default HMI skill under `artifacts\skills`.
 - Pass `-SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip` to package the TIA session-selection skill.
 - Add `-Install` to refresh `$CODEX_HOME\skills\<skill-name>`.

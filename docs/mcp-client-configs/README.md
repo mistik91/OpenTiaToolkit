@@ -49,6 +49,7 @@ If you switch to a Release build, replace `Debug` with `Release` in the snippets
 The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit`](../../plugins/opentia-toolkit). It bundles:
 
 - the `opentia` MCP server configuration for the installed product path
+- the `opentia-toolkit-workflow` router skill and specialized workflow skills
 - the `basic-tia-interaction` skill for TIA Portal instance/project selection
 - the `hmi-unified-agent-editing` skill and references
 - a helper script for manually registering the installed MCP executable during development or manual installs
@@ -60,6 +61,7 @@ The marketplace entry lives at [`../../.agents/plugins/marketplace.json`](../../
 The repo includes a Claude Code plugin package at [`plugins/opentia-toolkit-claude-code`](../../plugins/opentia-toolkit-claude-code). It bundles:
 
 - the installed-product `opentia` MCP server configuration in `.mcp.json`
+- the `opentia-toolkit-workflow` router skill and specialized workflow skills under `skills/`
 - the `basic-tia-interaction` skill and references under `skills/`
 - the `hmi-unified-agent-editing` skill and references under `skills/`
 - plugin metadata in `.claude-plugin/plugin.json`
@@ -106,6 +108,7 @@ The repo also includes a copyable OpenCode bundle at [`plugins/opentia-toolkit-o
 - the installed-product `opentia` MCP server configuration in `opencode.json`
 - an `AGENTS.md` rule file with the required TIA Portal connection and project-discovery sequence
 - a local `.opencode/plugins/opentia-toolkit.js` plugin that sets the default OpenTiaToolkit shell log level
+- the `opentia-toolkit-workflow` router skill and specialized workflow skills under `.opencode/skills`
 - the `basic-tia-interaction` skill and references under `.opencode/skills`
 - the `hmi-unified-agent-editing` skill and references under `.opencode/skills`
 
@@ -117,7 +120,7 @@ The supplied OpenCode configurations use a 600-second MCP timeout because some T
 
 The MCP server also exposes vendor-neutral hardware tools for catalog discovery, hierarchical targets, module plugging, PROFINET identity/network attachment, process-image assignment, Startdrive telegram edits, and transactional GSD/GSDML parameter operations. The generic interface and dry-run safety guidance are documented in [`../HARDWARE_AUTOMATION.md`](../HARDWARE_AUTOMATION.md).
 
-Device-specific workflows should keep their catalog identifiers and parameter-byte encodings in skills or project instructions while invoking the generic MCP operations.
+Device-specific workflows should keep their catalog identifiers and parameter-byte encodings in skills or project instructions while invoking the generic MCP operations. Packaged agents should use `hardware-configuration-workflow` for the generic discovery, dry-run, apply, and verification loop.
 
 ## MCP-Only Client Snippets
 
@@ -125,7 +128,7 @@ The Antigravity and VS Code snippets in this folder configure only the `opentia`
 
 ## Required TIA Portal Sequence
 
-Agents should use the `basic-tia-interaction` skill for a fresh MCP session. When the user says an instance or project is already open, start with `list-instances`; if one instance exists, use `connect-instance`, then verify the project with `list-projects` or `get-project-info`. If multiple instances exist, probe each instance and choose the one matching the specified project, or ask if no project was specified.
+Agents should use the `opentia-toolkit-workflow` skill for fresh or ambiguous OpenTiaToolkit requests, then `basic-tia-interaction` for a fresh live MCP session. When the user says an instance or project is already open, start with `list-instances`; if one instance exists, use `connect-instance`, then verify the project with `list-projects` or `get-project-info`. If multiple instances exist, probe each instance and choose the one matching the specified project, or ask if no project was specified.
 
 When opening a project from scratch, the important sequence is:
 

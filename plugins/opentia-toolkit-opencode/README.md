@@ -5,8 +5,14 @@ This bundle packages OpenTiaToolkit guidance for OpenCode:
 - `opencode.json`: installed-product MCP configuration for the `opentia` server
 - `AGENTS.md`: project instructions for safe OpenTiaToolkit/TIA Portal sessions
 - `.opencode/plugins/opentia-toolkit.js`: a lightweight OpenCode plugin that sets the default OpenTiaToolkit shell log level
+- `.opencode/skills/opentia-toolkit-workflow`: top-level router and shared safety workflow
 - `.opencode/skills/basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance
 - `.opencode/skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance
+- `.opencode/skills/hardware-configuration-workflow`: generic hardware discovery, guarded patch, dry-run, and apply guidance
+- `.opencode/skills/plc-block-and-tag-workflow`: PLC blocks, types, tags, CSV updates, rename, and compile guidance
+- `.opencode/skills/hmi-trend-logging-workflow`: Unified HMI trend logging, logging tag, and data log lifecycle guidance
+- `.opencode/skills/vci-sync-workflow`: TIA Version Control Interface workspace, mapping, status, and sync guidance
+- `.opencode/skills/opentia-dev-workflow`: repo development, test, plugin, and skill packaging guidance
 
 The configured MCP server also exposes generic hardware operations for catalog discovery, module/submodule composition, PROFINET wiring, and guarded GSD/GSDML parameter changes.
 

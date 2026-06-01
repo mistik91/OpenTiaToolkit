@@ -1,6 +1,6 @@
 # OpenTiaToolkit Claude Code Plugin
 
-This plugin packages the OpenTiaToolkit MCP server configuration together with TIA Portal and HMI Unified agent-editing skills for Claude Code. The MCP server also provides generic catalog, topology, PROFINET, and GSD/GSDML parameter operations for device-specific hardware workflows.
+This plugin packages the OpenTiaToolkit MCP server configuration together with TIA Portal workflow skills for Claude Code. The MCP server also provides generic catalog, topology, PROFINET, and GSD/GSDML parameter operations for device-specific hardware workflows.
 
 The plugin assumes the product installer has placed the MCP executable at:
 
@@ -13,8 +13,14 @@ For end users, Siemens Openness registration should be handled once by the insta
 ## Included
 
 - `.mcp.json`: Claude Code plugin MCP server entry for `opentia`.
+- `skills/opentia-toolkit-workflow`: top-level router and shared safety workflow.
 - `skills/basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance.
 - `skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance.
+- `skills/hardware-configuration-workflow`: generic hardware discovery, guarded patch, dry-run, and apply guidance.
+- `skills/plc-block-and-tag-workflow`: PLC blocks, types, tags, CSV updates, rename, and compile guidance.
+- `skills/hmi-trend-logging-workflow`: Unified HMI trend logging, logging tag, and data log lifecycle guidance.
+- `skills/vci-sync-workflow`: TIA Version Control Interface workspace, mapping, status, and sync guidance.
+- `skills/opentia-dev-workflow`: repo development, test, plugin, and skill packaging guidance.
 
 Claude Code does not load a plugin-root `CLAUDE.md` as project context. Operational guidance that should travel with the package belongs in skills, agents, hooks, or MCP configuration.
 

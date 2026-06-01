@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenTIA Dev Workflow"
+  short_description: "Develop and validate OpenTiaToolkit repo changes."
+  default_prompt: "Use $opentia-dev-workflow for OpenTiaToolkit code, test, plugin, and skill packaging changes."

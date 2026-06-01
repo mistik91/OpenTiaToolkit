@@ -1,0 +1,4 @@
+interface:
+  display_name: "PLC Block And Tag Workflow"
+  short_description: "Handle PLC blocks, types, tags, and renames safely."
+  default_prompt: "Use $plc-block-and-tag-workflow for PLC block, type, tag, CSV, and rename workflows."

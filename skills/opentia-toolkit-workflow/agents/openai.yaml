@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenTIA Toolkit Workflow"
+  short_description: "Route OpenTiaToolkit requests to the right safe workflow."
+  default_prompt: "Use $opentia-toolkit-workflow to choose the right OpenTiaToolkit workflow and safety checks."
