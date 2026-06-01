@@ -25,6 +25,24 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     }
 
     /// <summary>
+    /// Options for browsing Unified HMI tags without forcing a complete tag-tree scan.
+    /// </summary>
+    public sealed class HmiTagBrowseOptions
+    {
+        public string? Filter { get; set; }
+
+        public string? RootPath { get; set; }
+
+        public int? MaxResults { get; set; }
+
+        public int? MaxDepth { get; set; }
+
+        public bool IncludeDetails { get; set; } = true;
+
+        public bool IncludeLoggingCounts { get; set; } = true;
+    }
+
+    /// <summary>
     /// Result of copying a Unified HMI screen from a template.
     /// </summary>
     public sealed class HmiScreenCopyResult

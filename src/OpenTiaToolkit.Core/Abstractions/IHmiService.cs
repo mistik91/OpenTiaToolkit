@@ -72,6 +72,13 @@ public interface IHmiService
     Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(string? filter = null, string? rootPath = null);
 
     /// <summary>
+    /// Lists tags in the active Unified HMI using bounded browse options.
+    /// </summary>
+    /// <param name="options">Browse options for scoping, limiting, and detail selection.</param>
+    /// <returns>The matching tags.</returns>
+    Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(HmiTagBrowseOptions options);
+
+    /// <summary>
     /// Creates a screen item if it does not already exist.
     /// </summary>
     /// <param name="screenPath">The slash-delimited screen path.</param>

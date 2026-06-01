@@ -27,7 +27,12 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             {
                 new CommandParameter("hmi-name", CommandParameterType.String, "The Unified HMI name", required: true),
                 new CommandParameter("filter", CommandParameterType.String, "Optional text filter", required: false),
-                new CommandParameter("root-path", CommandParameterType.String, "Optional tag path to enumerate only that subtree", required: false)
+                new CommandParameter("root-path", CommandParameterType.String, "Optional tag path to enumerate only that subtree", required: false),
+                new CommandParameter("allow-full-scan", CommandParameterType.Boolean, "Allow scanning the full HMI tag tree when root-path is omitted", required: false, defaultValue: false),
+                new CommandParameter("max-results", CommandParameterType.Integer, "Maximum number of tags to return during enumeration", required: false, defaultValue: 200),
+                new CommandParameter("max-depth", CommandParameterType.Integer, "Maximum member depth to traverse from the selected root", required: false, defaultValue: 4),
+                new CommandParameter("include-details", CommandParameterType.Boolean, "Read detailed tag metadata such as display name and data type", required: false, defaultValue: true),
+                new CommandParameter("include-logging-counts", CommandParameterType.Boolean, "Read logging tag counts for returned tags", required: false, defaultValue: false)
             });
 
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
@@ -47,10 +52,50 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
-            var tags = await _hmiService.GetTagsAsync(
-                args.Has("filter") ? args.GetString("filter") : null,
-                args.Has("root-path") ? args.GetString("root-path") : null);
-            return CommandResult.CreateSuccess(tags, $"Found {tags.Count} Unified HMI tag(s)");
+            var rootPath = args.Has("root-path") ? args.GetString("root-path") : null;
+            var trimmedRootPath = rootPath?.Trim();
+            var hasRootPath = !string.IsNullOrWhiteSpace(trimmedRootPath) &&
+                !string.Equals(trimmedRootPath, "\\", StringComparison.Ordinal) &&
+                !string.Equals(trimmedRootPath, "/", StringComparison.Ordinal);
+            if (!hasRootPath && !args.GetBool("allow-full-scan", false))
+            {
+                return CommandResult.CreateFailure(
+                    "Refusing to scan the complete Unified HMI tag tree without allow-full-scan=true. Provide a concrete root-path for a known tag/subtree, or opt into a bounded full scan with max-results and max-depth.",
+                    new
+                    {
+                        safetyBlocked = true,
+                        blockedReason = "full-hmi-tag-scan",
+                        recommendedNextAction = "retry-with-root-path-or-allow-full-scan"
+                    });
+            }
+
+            var maxResults = args.GetInt("max-results", 200);
+            if (maxResults < 1)
+            {
+                return CommandResult.CreateFailure("Parameter max-results must be greater than zero.");
+            }
+
+            var maxDepth = args.GetInt("max-depth", 4);
+            if (maxDepth < 0)
+            {
+                return CommandResult.CreateFailure("Parameter max-depth cannot be negative.");
+            }
+
+            var options = new HmiTagBrowseOptions
+            {
+                Filter = args.Has("filter") ? args.GetString("filter") : null,
+                RootPath = hasRootPath ? trimmedRootPath : null,
+                MaxResults = maxResults,
+                MaxDepth = maxDepth,
+                IncludeDetails = args.GetBool("include-details", true),
+                IncludeLoggingCounts = args.GetBool("include-logging-counts", false)
+            };
+
+            var tags = await _hmiService.GetTagsAsync(options);
+            var limitNote = tags.Count >= options.MaxResults.GetValueOrDefault(int.MaxValue)
+                ? $" (limited to {options.MaxResults})"
+                : string.Empty;
+            return CommandResult.CreateSuccess(tags, $"Found {tags.Count} Unified HMI tag(s){limitNote}");
         }
     }
 }

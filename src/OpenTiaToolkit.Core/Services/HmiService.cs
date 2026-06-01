@@ -143,6 +143,12 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
+        public async Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(HmiTagBrowseOptions options)
+        {
+            return await _browseService.GetTagsAsync(options);
+        }
+
+        /// <inheritdoc/>
         public async Task<HmiScreenItemInfo?> CreateScreenItemAsync(
             string screenPath,
             string itemType,

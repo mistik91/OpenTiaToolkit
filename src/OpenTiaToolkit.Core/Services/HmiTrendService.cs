@@ -51,32 +51,18 @@ namespace OpenTiaToolkit.Core.Services
                     return null;
                 }
 
-                HmiDataLog dataLog = _adapter.EnsureDataLog(software, dataLogName, out var dataLogCreated);
-                _adapter.ConfigureDataLog(
-                    dataLog,
-                    Math.Max(1, logMaxSize),
-                    Math.Max(1, durationDays),
-                    Math.Max(1, segmentMaxSize));
-
-                if (!string.IsNullOrWhiteSpace(storageFolder) &&
-                    !string.Equals(storageFolder.Trim(), "/Trends", StringComparison.Ordinal))
+                var config = new HmiTrendCreateRequest
                 {
-                    _logger?.LogWarning(
-                        "Unified HMI storage folder is read-only; requested folder '{StorageFolder}' was not applied.",
-                        storageFolder.Trim());
-                }
-
-                var loggingTagName = _adapter.GetLoggingTagName(normalizedTagPath);
-                HmiLoggingTag loggingTag = _adapter.EnsureLoggingTag(tag, loggingTagName, out var loggingTagCreated);
-
-                var loggingMode = cyclic ? HmiLoggingMode.Cyclic : HmiLoggingMode.OnChange;
-                var effectiveCycle = cyclic
-                    ? string.IsNullOrWhiteSpace(cycle) ? "T5s" : cycle!.Trim()
-                    : null;
-
-                _adapter.ConfigureLoggingTag(loggingTag, dataLog.Name, loggingMode, effectiveCycle);
-
-                return _adapter.ToTrendInfo(tag, normalizedTagPath, loggingTag, dataLog, dataLogCreated, loggingTagCreated);
+                    TagPath = normalizedTagPath,
+                    DataLogName = dataLogName,
+                    Cyclic = cyclic,
+                    Cycle = cycle,
+                    StorageFolder = storageFolder,
+                    LogMaxSize = logMaxSize,
+                    DurationDays = durationDays,
+                    SegmentMaxSize = segmentMaxSize
+                };
+                return ConfigureTrend(tag, normalizedTagPath, config, null);
             });
         }
 
@@ -190,7 +176,7 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
-        public async Task<HmiTrendBulkResult?> CreateTrendsAsync(
+        public Task<HmiTrendBulkResult?> CreateTrendsAsync(
             IReadOnlyList<HmiTrendCreateRequest> configs,
             bool dryRun)
         {
@@ -198,10 +184,11 @@ namespace OpenTiaToolkit.Core.Services
             if (software == null)
             {
                 _logger?.LogWarning("No Unified HMI is currently open");
-                return null;
+                return Task.FromResult<HmiTrendBulkResult?>(null);
             }
 
             var result = NewBulkResult("create-hmi-trends", dryRun, configs.Count);
+            var dataLogCache = new Dictionary<string, CachedDataLog>(StringComparer.OrdinalIgnoreCase);
             foreach (var config in configs)
             {
                 if (string.IsNullOrWhiteSpace(config.TagPath) || string.IsNullOrWhiteSpace(config.DataLogName))
@@ -232,20 +219,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    var configured = await CreateTrendAsync(
-                        config.TagPath,
-                        config.DataLogName,
-                        config.Cyclic,
-                        config.Cycle,
-                        config.StorageFolder,
-                        config.LogMaxSize,
-                        config.DurationDays,
-                        config.SegmentMaxSize);
-                    if (configured == null)
-                    {
-                        AddFailure(result, normalizedTagPath, config.DataLogName, "Failed to configure trend.");
-                        continue;
-                    }
+                    var configured = ConfigureTrend(tag, normalizedTagPath, config, dataLogCache);
 
                     result.AppliedCount++;
                     result.Results.Add(new HmiTrendBulkItemResult
@@ -263,7 +237,72 @@ namespace OpenTiaToolkit.Core.Services
                 }
             }
 
-            return result;
+            return Task.FromResult<HmiTrendBulkResult?>(result);
+        }
+
+        private HmiTrendInfo ConfigureTrend(
+            HmiTag tag,
+            string normalizedTagPath,
+            HmiTrendCreateRequest config,
+            IDictionary<string, CachedDataLog>? dataLogCache)
+        {
+            var dataLog = EnsureDataLog(config, dataLogCache, out var dataLogCreated);
+
+            if (!string.IsNullOrWhiteSpace(config.StorageFolder) &&
+                !string.Equals(config.StorageFolder.Trim(), "/Trends", StringComparison.Ordinal))
+            {
+                _logger?.LogWarning(
+                    "Unified HMI storage folder is read-only; requested folder '{StorageFolder}' was not applied.",
+                    config.StorageFolder.Trim());
+            }
+
+            var loggingTagName = _adapter.GetLoggingTagName(normalizedTagPath);
+            HmiLoggingTag loggingTag = _adapter.EnsureLoggingTag(tag, loggingTagName, out var loggingTagCreated);
+
+            var loggingMode = config.Cyclic ? HmiLoggingMode.Cyclic : HmiLoggingMode.OnChange;
+            var effectiveCycle = config.Cyclic
+                ? string.IsNullOrWhiteSpace(config.Cycle) ? "T5s" : config.Cycle!.Trim()
+                : null;
+
+            _adapter.ConfigureLoggingTag(loggingTag, dataLog.Name, loggingMode, effectiveCycle);
+
+            return _adapter.ToTrendInfo(tag, normalizedTagPath, loggingTag, dataLog, dataLogCreated, loggingTagCreated);
+        }
+
+        private HmiDataLog EnsureDataLog(
+            HmiTrendCreateRequest config,
+            IDictionary<string, CachedDataLog>? dataLogCache,
+            out bool dataLogCreated)
+        {
+            if (dataLogCache != null && dataLogCache.TryGetValue(config.DataLogName, out var cached))
+            {
+                dataLogCreated = false;
+                return cached.DataLog;
+            }
+
+            HmiDataLog dataLog = _adapter.EnsureDataLog(_sessionContext.HmiSoftware!, config.DataLogName, out dataLogCreated);
+            _adapter.ConfigureDataLog(
+                dataLog,
+                Math.Max(1, config.LogMaxSize),
+                Math.Max(1, config.DurationDays),
+                Math.Max(1, config.SegmentMaxSize));
+
+            if (dataLogCache != null)
+            {
+                dataLogCache[config.DataLogName] = new CachedDataLog(dataLog);
+            }
+
+            return dataLog;
+        }
+
+        private sealed class CachedDataLog
+        {
+            public CachedDataLog(HmiDataLog dataLog)
+            {
+                DataLog = dataLog;
+            }
+
+            public HmiDataLog DataLog { get; }
         }
 
         public async Task<HmiTrendBulkResult?> RemoveLoggingTagsAsync(

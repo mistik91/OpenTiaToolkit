@@ -425,15 +425,17 @@ OpenTiaToolkit.CLI.exe set-hmi-item-property --hmi-name="HMI_1" --screen-path="C
 
 #### list-hmi-tags
 
-Lists Unified HMI tags, optionally filtered by text.
+Lists Unified HMI tags, optionally filtered by text. To avoid expensive full-project Unified HMI tag enumeration, unscoped scans are blocked by default.
 
 ```bash
-OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1"
-OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --filter="Motor"
 OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --root-path="Analog_FT235_GEN"
+OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --root-path="Analog_FT235_GEN.PV" --include-logging-counts=true
+OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --allow-full-scan=true --filter="Motor" --max-results=100 --max-depth=4 --include-details=false
 ```
 
-Use `--root-path` when the tag subtree is known. It resolves that tag directly instead of scanning the complete Unified HMI tag collection before filtering.
+Use `--root-path` when the tag subtree is known. It resolves that tag directly instead of scanning the complete Unified HMI tag collection before filtering. `--root-path="\"` is treated as an unscoped scan and still requires `--allow-full-scan=true`.
+
+For large Unified HMI projects, prefer a concrete leaf or subtree `--root-path`. Only use `--allow-full-scan=true` when discovery is unavoidable, and keep it bounded with `--max-results` and `--max-depth`. `--include-logging-counts` defaults to `false` because reading logging tag counts can be expensive on large tag trees.
 
 #### create-hmi-trend
 
@@ -470,6 +472,8 @@ Plans or applies several logging configurations in one operation. The default is
 ```bash
 OpenTiaToolkit.CLI.exe create-hmi-trends --hmi-name="HMI_1" --configs="[{\"tagPath\":\"Motor.PV\",\"dataLogName\":\"MotorLog\",\"cyclic\":true,\"cycle\":\"T5s\"},{\"tagPath\":\"Motor.SP\",\"dataLogName\":\"MotorLog\"}]" --dry-run=false
 ```
+
+Multiple `tagPath` entries can intentionally share the same `dataLogName`. Use that pattern to create one combined archive for related values, such as `Motor.PV`, `Motor.SP`, and `Motor.CURR`, instead of creating one archive per tag. Bulk creation resolves each requested tag path directly; it does not require `list-hmi-tags` discovery first.
 
 #### remove-hmi-logging-tags
 

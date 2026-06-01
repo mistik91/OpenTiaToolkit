@@ -67,6 +67,15 @@ namespace OpenTiaToolkit.Core.Services
 
         public async Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(string? filter, string? rootPath = null)
         {
+            return await GetTagsAsync(new HmiTagBrowseOptions
+            {
+                Filter = filter,
+                RootPath = rootPath
+            });
+        }
+
+        public async Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(HmiTagBrowseOptions options)
+        {
             return await Task.Run(() =>
             {
                 var software = _sessionContext.HmiSoftware;
@@ -76,7 +85,7 @@ namespace OpenTiaToolkit.Core.Services
                     return (IReadOnlyList<HmiTagInfo>)Array.Empty<HmiTagInfo>();
                 }
 
-                return _adapter.ListTags(software, filter, rootPath);
+                return _adapter.ListTags(software, options);
             });
         }
 

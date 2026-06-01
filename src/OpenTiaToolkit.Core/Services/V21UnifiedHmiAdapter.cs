@@ -290,18 +290,34 @@ namespace OpenTiaToolkit.Core.Services
 
         public IReadOnlyList<HmiTagInfo> ListTags(HmiSoftware software, string? filter, string? rootPath = null)
         {
-            var normalizedFilter = string.IsNullOrWhiteSpace(filter)
+            return ListTags(software, new HmiTagBrowseOptions
+            {
+                Filter = filter,
+                RootPath = rootPath
+            });
+        }
+
+        public IReadOnlyList<HmiTagInfo> ListTags(HmiSoftware software, HmiTagBrowseOptions? options)
+        {
+            options = options ?? new HmiTagBrowseOptions();
+            var normalizedFilter = string.IsNullOrWhiteSpace(options.Filter)
                 ? null
-                : filter!.Trim();
+                : options.Filter!.Trim();
+            var maxResults = options.MaxResults.GetValueOrDefault(0) > 0
+                ? options.MaxResults!.Value
+                : int.MaxValue;
+            var maxDepth = options.MaxDepth.GetValueOrDefault(-1) >= 0
+                ? options.MaxDepth!.Value
+                : int.MaxValue;
             var results = new List<HmiTagInfo>();
 
-            if (string.IsNullOrWhiteSpace(rootPath))
+            if (string.IsNullOrWhiteSpace(options.RootPath))
             {
-                CollectTags(software.Tags, string.Empty, normalizedFilter, results);
+                CollectTags(software.Tags, string.Empty, normalizedFilter, options, maxResults, maxDepth, 0, results);
             }
-            else if (TryGetTag(software, rootPath!, out var rootTag, out var normalizedRootPath) && rootTag != null)
+            else if (TryGetTag(software, options.RootPath!, out var rootTag, out var normalizedRootPath) && rootTag != null)
             {
-                CollectTag(rootTag, normalizedRootPath, normalizedFilter, results);
+                CollectTag(rootTag, normalizedRootPath, normalizedFilter, options, maxResults, maxDepth, 0, results);
             }
 
             return results
@@ -645,43 +661,82 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        private void CollectTags(HmiTagComposition tags, string prefix, string? filter, List<HmiTagInfo> results)
+        private void CollectTags(
+            HmiTagComposition tags,
+            string prefix,
+            string? filter,
+            HmiTagBrowseOptions options,
+            int maxResults,
+            int maxDepth,
+            int depth,
+            List<HmiTagInfo> results)
         {
             foreach (var tag in tags)
             {
+                if (results.Count >= maxResults)
+                {
+                    return;
+                }
+
                 var path = string.IsNullOrWhiteSpace(prefix) ? tag.Name : prefix + "." + tag.Name;
-                CollectTag(tag, path, filter, results);
+                CollectTag(tag, path, filter, options, maxResults, maxDepth, depth, results);
             }
         }
 
-        private void CollectTag(HmiTag tag, string path, string? filter, List<HmiTagInfo> results)
+        private void CollectTag(
+            HmiTag tag,
+            string path,
+            string? filter,
+            HmiTagBrowseOptions options,
+            int maxResults,
+            int maxDepth,
+            int depth,
+            List<HmiTagInfo> results)
         {
+            if (results.Count >= maxResults)
+            {
+                return;
+            }
+
+            var pathMatches = filter == null ||
+                path.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                tag.Name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
+
             var info = new HmiTagInfo
             {
                 Path = path,
-                Name = tag.Name,
-                DisplayName = FormatValue(tag.DisplayName),
-                DataType = tag.DataType?.ToString(),
-                HmiDataType = tag.HmiDataType?.ToString(),
-                TagTableName = tag.TagTableName,
-                HasMembers = tag.Members.Count > 0,
-                MemberCount = tag.Members.Count,
-                LoggingTagCount = tag.LoggingTags.Count
+                Name = tag.Name
             };
 
-            if (filter == null ||
-                path.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                (info.DisplayName?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                (info.DataType?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                (info.HmiDataType?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                (info.TagTableName?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0))
+            if (options.IncludeDetails)
+            {
+                info.DisplayName = FormatValue(tag.DisplayName);
+                info.DataType = tag.DataType?.ToString();
+                info.HmiDataType = tag.HmiDataType?.ToString();
+                info.TagTableName = tag.TagTableName;
+                info.HasMembers = tag.Members.Count > 0;
+                info.MemberCount = tag.Members.Count;
+            }
+
+            if (options.IncludeLoggingCounts)
+            {
+                info.LoggingTagCount = tag.LoggingTags.Count;
+            }
+
+            var detailMatches = filter != null &&
+                ((info.DisplayName?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                 (info.DataType?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                 (info.HmiDataType?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                 (info.TagTableName?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0));
+
+            if (pathMatches || detailMatches)
             {
                 results.Add(info);
             }
 
-            if (tag.Members.Count > 0)
+            if (depth < maxDepth && tag.Members.Count > 0)
             {
-                CollectTags(tag.Members, path, filter, results);
+                CollectTags(tag.Members, path, filter, options, maxResults, maxDepth, depth + 1, results);
             }
         }
 
