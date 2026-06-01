@@ -261,6 +261,26 @@ namespace OpenTiaToolkit.Tests.Services
             StringAssert.Contains(result.SafetyMessage, "1 warning");
         }
 
+        [TestMethod]
+        public void IsOnlineModeTransactionFailure_DetectsSiemensOnlineModeMessage()
+        {
+            var ex = new System.InvalidOperationException(
+                "Error when calling method 'Transaction' of type 'Siemens.Engineering.ExclusiveAccess'.",
+                new System.InvalidOperationException("The operation is not permitted in online mode."));
+
+            Assert.IsTrue(HmiJsonImportService.IsOnlineModeTransactionFailure(ex));
+        }
+
+        [TestMethod]
+        public void IsOnlineModeTransactionFailure_IgnoresGenericTransactionFailure()
+        {
+            var ex = new System.InvalidOperationException(
+                "Error when calling method 'Transaction' of type 'Siemens.Engineering.ExclusiveAccess'.",
+                new System.InvalidOperationException("The project is locked by another operation."));
+
+            Assert.IsFalse(HmiJsonImportService.IsOnlineModeTransactionFailure(ex));
+        }
+
         private static HmiJsonEventHandler EventHandler(string eventType, string scriptCode)
         {
             return new HmiJsonEventHandler

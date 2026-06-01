@@ -427,6 +427,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
         public string? SafetyMessage { get; set; }
 
+        public string? BlockedReason { get; set; }
+
         public HmiScreenJsonAgentGuidance? Guidance { get; set; }
 
         public HmiJsonFilterOptions? EffectiveFilters { get; set; }
@@ -709,6 +711,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         public bool SafetyBlocked { get; set; }
 
         public string? SafetyMessage { get; set; }
+
+        public string? BlockedReason { get; set; }
 
         public bool TransactionUsed { get; set; }
 

@@ -24,6 +24,7 @@ namespace OpenTiaToolkit.Core.Services
         private const string PropertyEventHandlersPropertyName = "PropertyEventHandlers";
         private const string DynamizationsPropertyName = "Dynamizations";
         private const string InterfacePropertyName = "Interface";
+        internal const string TiaOnlineModeBlockedReason = "tia-online-mode";
         private readonly EngineeringSessionContext _sessionContext;
         private readonly V21UnifiedHmiAdapter _adapter;
         private readonly HmiJsonExportService _exportService;
@@ -74,6 +75,14 @@ namespace OpenTiaToolkit.Core.Services
                 }
             }
 
+            if (_sessionContext.Portal == null || _sessionContext.Project == null)
+            {
+                return CreateSafetyBlockedResult(
+                    inputPath,
+                    dryRun: false,
+                    "Import was blocked because no TIA Portal project is selected.");
+            }
+
             string? backupOutputPath = null;
             if (options.BackupBeforeImport)
             {
@@ -88,14 +97,6 @@ namespace OpenTiaToolkit.Core.Services
                 }
 
                 backupOutputPath = backupResult.OutputPath;
-            }
-
-            if (_sessionContext.Portal == null || _sessionContext.Project == null)
-            {
-                return CreateSafetyBlockedResult(
-                    inputPath,
-                    dryRun: false,
-                    "Import was blocked because no TIA Portal project is selected.");
             }
 
             const string transactionDescription = "OpenTiaToolkit Unified HMI JSON import";
@@ -141,13 +142,19 @@ namespace OpenTiaToolkit.Core.Services
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Unified HMI JSON import transaction failed");
+                var transactionFailureMessage = FormatExceptionMessage(ex);
+                var isOnlineModeFailure = IsOnlineModeTransactionFailure(ex);
                 var result = CreateSafetyBlockedResult(
                     inputPath,
                     dryRun: false,
-                    $"Import was rolled back because the transaction failed: {ex.Message}");
+                    isOnlineModeFailure
+                        ? CreateOnlineModeSafetyMessage(transactionFailureMessage)
+                        : $"Import was rolled back because the transaction failed: {transactionFailureMessage}",
+                    isOnlineModeFailure ? TiaOnlineModeBlockedReason : null);
                 result.BackupPath = backupOutputPath;
                 result.TransactionUsed = true;
                 result.RolledBack = true;
+                TryWriteReport(result, inputPath, dryRun: false);
                 return result;
             }
         }
@@ -1127,7 +1134,27 @@ namespace OpenTiaToolkit.Core.Services
                    !filters.Properties.Contains(propertyName, StringComparer.OrdinalIgnoreCase);
         }
 
-        private static HmiJsonImportResult CreateSafetyBlockedResult(string inputPath, bool dryRun, string safetyMessage)
+        internal static bool IsOnlineModeTransactionFailure(Exception ex)
+        {
+            if (ex == null)
+            {
+                return false;
+            }
+
+            var formattedMessage = FormatExceptionMessage(ex);
+            return formattedMessage.IndexOf("online mode", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   formattedMessage.IndexOf("not permitted in online", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string CreateOnlineModeSafetyMessage(string? detail)
+        {
+            var message = "Import was blocked because TIA Portal is online. HMI JSON apply/import requires the target to be offline before opening the Openness transaction. Take the HMI or project offline in TIA Portal, then retry the same apply command.";
+            return string.IsNullOrWhiteSpace(detail)
+                ? message
+                : message + " Details: " + detail;
+        }
+
+        private static HmiJsonImportResult CreateSafetyBlockedResult(string inputPath, bool dryRun, string safetyMessage, string? blockedReason = null)
         {
             return new HmiJsonImportResult
             {
@@ -1135,14 +1162,16 @@ namespace OpenTiaToolkit.Core.Services
                 DryRun = dryRun,
                 InputPath = HmiJsonDocumentStore.ResolveImportFilePath(inputPath),
                 SafetyBlocked = true,
-                SafetyMessage = safetyMessage
+                SafetyMessage = safetyMessage,
+                BlockedReason = blockedReason
             };
         }
 
-        private static void MarkSafetyBlocked(HmiJsonImportResult result, string safetyMessage, string? backupPath)
+        private static void MarkSafetyBlocked(HmiJsonImportResult result, string safetyMessage, string? backupPath, string? blockedReason = null)
         {
             result.SafetyBlocked = true;
             result.SafetyMessage = safetyMessage;
+            result.BlockedReason = blockedReason;
             if (!string.IsNullOrWhiteSpace(backupPath))
             {
                 result.BackupPath = backupPath;

@@ -158,6 +158,8 @@ Use `hmi-status` after an Openness failure, suspected stale TIA/HMI session, or 
 
 Applied HMI JSON imports run in a Siemens undo transaction. If an operation fails or is safety-blocked during apply, inspect `Import.RolledBack`; if a client timeout hides the result, wait for the in-flight MCP operation to finish and re-read the same filtered target before retrying.
 
+HMI JSON apply/import requires the HMI or project to be offline in TIA Portal. If `BlockedReason` is `tia-online-mode` or `Guidance.RecommendedNextAction` is `take-hmi-offline-and-retry`, do not retry, widen filters, or call `GoOffline()` automatically. Ask the user to take the target offline in TIA Portal, then replay the same apply command with `dry-run=false`, the same `baseHash`, filters, and operations.
+
 Use `audit-hmi-label-proximity` before bulk nearest-label edits. Review duplicate-label flags, distances, skipped candidates, and unmatched targets before generating or applying patch operations.
 
 For one screen, snapshot/edit/import can be efficient, but patch remains safer for agents because each intent is explicit and preflight can point to exact missing filters or stale hashes. For multiple screens without a file-review requirement, prefer one focused patch workflow per screen rather than one broad monolith.
@@ -185,6 +187,8 @@ If `Guidance.RecommendedNextAction` is `re-read-screen`, take a fresh snapshot w
 If it is `fix-patch-operations`, inspect failed operations, missing items, missing properties, and unsupported item/property types. Repair the patch or run `inspect-hmi-screen-json-capabilities`.
 
 If it is `inspect-safety-block`, do not apply. Read preflight failures, skipped properties, and warnings; then narrow or correct the filters.
+
+If it is `take-hmi-offline-and-retry`, stop applying. The Siemens Openness transaction is blocked by online mode, and repeated apply attempts can destabilize TIA Portal. Have the user take the HMI/project offline manually, then replay the exact same apply payload.
 
 If it is `apply-with-dry-run-false`, the dry-run is acceptable. Apply the same patch with the same base hash unless a fresh snapshot changed the screen.
 

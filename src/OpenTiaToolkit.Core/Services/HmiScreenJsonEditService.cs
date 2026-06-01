@@ -245,6 +245,7 @@ namespace OpenTiaToolkit.Core.Services
             {
                 result.SafetyBlocked = true;
                 result.SafetyMessage = result.Preflight?.SafetyMessage ?? "Preflight reported warnings or failed property changes.";
+                result.BlockedReason = result.Preflight?.BlockedReason;
                 result.Warnings.Add(result.SafetyMessage);
                 result.Guidance = HmiScreenJsonAgentSupport.CreateGuidance(result);
                 return result;
@@ -263,6 +264,7 @@ namespace OpenTiaToolkit.Core.Services
                 HmiJsonImportService.ApplySafetyPolicy(result.Import, options, result.Import.BackupPath);
                 result.SafetyBlocked = result.Import.SafetyBlocked;
                 result.SafetyMessage = result.Import.SafetyMessage;
+                result.BlockedReason = result.Import.BlockedReason;
             }
 
             result.Applied = result.Import != null && !result.SafetyBlocked;

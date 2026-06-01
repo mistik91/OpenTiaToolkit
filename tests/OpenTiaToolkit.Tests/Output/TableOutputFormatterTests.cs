@@ -247,6 +247,7 @@ namespace OpenTiaToolkit.Tests.Output
                 ReportPath = @"C:\Temp\unified_hmi_preflight_report.json",
                 SafetyBlocked = true,
                 SafetyMessage = "Warnings found.",
+                BlockedReason = "tia-online-mode",
                 ScreenCount = 1,
                 ItemCount = 1,
                 PropertySetCount = 2,
@@ -261,6 +262,7 @@ namespace OpenTiaToolkit.Tests.Output
 
             StringAssert.Contains(formatted, "Unified HMI JSON Preflight:");
             StringAssert.Contains(formatted, "Safety Blocked:        Yes");
+            StringAssert.Contains(formatted, "Blocked Reason:        tia-online-mode");
             StringAssert.Contains(formatted, "Warnings:");
         }
 

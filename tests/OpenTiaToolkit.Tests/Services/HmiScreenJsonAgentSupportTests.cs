@@ -88,5 +88,25 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.AreEqual("current-hash", guidance.RecommendedNextArgs!.BaseHash);
             CollectionAssert.Contains(guidance.SuggestedFixes, "Run get-hmi-screen-json or inspect-hmi-screen-json-capabilities with the same screen and filters, then retry with the returned baseHash.");
         }
+
+        [TestMethod]
+        public void CreateGuidance_OnlineModeBlockRecommendsOfflineRetry()
+        {
+            var guidance = HmiScreenJsonAgentSupport.CreateGuidance(new HmiScreenJsonEditResult
+            {
+                HmiName = "HMI_1",
+                ScreenPath = "Screens/Main",
+                DryRun = false,
+                SafetyBlocked = true,
+                SafetyMessage = "Import was blocked because TIA Portal is online.",
+                BlockedReason = "tia-online-mode",
+                Preflight = new HmiJsonImportResult()
+            });
+
+            Assert.AreEqual("take-hmi-offline-and-retry", guidance.RecommendedNextAction);
+            Assert.IsFalse(guidance.ShouldApply);
+            Assert.IsFalse(guidance.ShouldInspectPreflight);
+            CollectionAssert.Contains(guidance.SuggestedFixes, "Take the HMI or project offline in TIA Portal, then replay the same apply command with dry-run=false, the same baseHash, the same filters, and the same operations.");
+        }
     }
 }

@@ -528,6 +528,8 @@ OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Expor
 - `backup` and `backup-path` (import): Export a backup before mutation; when screen/item/property filters are supplied, the backup uses the same scope.
 - `screens`, `item-names`, `properties`: Optional filters for export, diff, and import
 
+Applied HMI JSON imports require the target to be offline in TIA Portal before the Siemens Openness transaction is opened. If TIA reports online mode, the import is safety-blocked with `blockedReason: "tia-online-mode"` and agents should take the HMI/project offline manually, then replay the same apply command. The toolkit does not call `GoOffline()` automatically.
+
 #### get-hmi-screen-json
 
 Agent-oriented helper that returns one screen as a canonical `HmiJsonScreen` object with a `baseHash`.
@@ -560,7 +562,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-pa
 
 #### apply-hmi-screen-json-patch
 
-Dry-runs or applies compact agent operations by first transforming the current single-screen JSON snapshot, then running the same safe edit pipeline as `apply-hmi-screen-json-edit`. `dry-run` defaults to `true`; `backup` defaults to `true` when applying. Applied imports run inside a Siemens undo transaction: successful imports commit, while safety-blocked or failed property updates roll back.
+Dry-runs or applies compact agent operations by first transforming the current single-screen JSON snapshot, then running the same safe edit pipeline as `apply-hmi-screen-json-edit`. `dry-run` defaults to `true`; `backup` defaults to `true` when applying. Applied imports run inside a Siemens undo transaction: successful imports commit, while safety-blocked or failed property updates roll back. If the HMI/project is online, apply is blocked with `blockedReason: "tia-online-mode"` and `guidance.recommendedNextAction: "take-hmi-offline-and-retry"`; take the target offline in TIA Portal before replaying the same apply payload.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-property\",\"item\":\"Button_1\",\"property\":\"Text\",\"value\":\"Start\"}]}" --base-hash="..." --dry-run=true

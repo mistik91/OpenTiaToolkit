@@ -8,6 +8,8 @@ Use canonical operation field names in new payloads: `op`, `item`, `itemName`, `
 
 When using `base-hash`, repeat the same `item-names` and `properties` from the snapshot on both dry-run and real apply. Do not rely on the operation list to imply filters.
 
+Applied imports require the HMI or project to be offline in TIA Portal. If a result returns `blockedReason: "tia-online-mode"` or `guidance.recommendedNextAction: "take-hmi-offline-and-retry"`, do not retry or auto-call `GoOffline()`; ask the user to take the target offline, then replay the same apply payload.
+
 ## Scalar and Layout Edits
 
 Most layout examples below use rectangular geometry. Circles are the exception: for `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in `properties`; do not use `Left`, `Top`, `Width`, or `Height` in JSON patch/import payloads for circles.
@@ -272,3 +274,5 @@ If the user asks for changes across multiple screens and a human-reviewable file
 `fix-patch-operations` means at least one operation is invalid or under-filtered. Use `RequiredItemNames`, `RequiredProperties`, failed operations, and capability inspection to repair it.
 
 `inspect-safety-block` means preflight is not safe. Do not apply until failures and warnings are understood.
+
+`take-hmi-offline-and-retry` means the Siemens Openness transaction was blocked by TIA online mode. Stop applying, have the user take the HMI/project offline manually, then replay the same `dry-run=false` payload with the same `baseHash`, filters, and operations.

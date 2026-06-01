@@ -6,6 +6,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 {
     internal static class HmiScreenJsonAgentSupport
     {
+        private const string TiaOnlineModeBlockedReason = "tia-online-mode";
+
         private static readonly string[] SupportedOperations =
         {
             "set-property",
@@ -79,6 +81,20 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 AddDistinct(guidance.Reasons, "The supplied base hash does not match the current screen snapshot.");
                 AddDistinct(guidance.SuggestedFixes, "Run get-hmi-screen-json or inspect-hmi-screen-json-capabilities with the same screen and filters, then retry with the returned baseHash.");
                 guidance.RecommendedNextArgs = CreateRecommendedArgs(result, dryRun: true, backup: true);
+                return FinalizeGuidance(guidance);
+            }
+
+            if (result.SafetyBlocked && IsOnlineModeBlock(result))
+            {
+                guidance.RecommendedNextAction = "take-hmi-offline-and-retry";
+                guidance.ShouldInspectPreflight = false;
+                guidance.ShouldApply = false;
+                if (!string.IsNullOrWhiteSpace(result.SafetyMessage))
+                {
+                    AddDistinct(guidance.Reasons, result.SafetyMessage!);
+                }
+
+                AddDistinct(guidance.SuggestedFixes, "Take the HMI or project offline in TIA Portal, then replay the same apply command with dry-run=false, the same baseHash, the same filters, and the same operations.");
                 return FinalizeGuidance(guidance);
             }
 
@@ -203,6 +219,19 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                     AddDistinct(guidance.Reasons, warning);
                 }
             }
+        }
+
+        private static bool IsOnlineModeBlock(HmiScreenJsonEditResult result)
+        {
+            if (string.Equals(result.BlockedReason, TiaOnlineModeBlockedReason, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var message = result.SafetyMessage ?? string.Empty;
+            return message.IndexOf("online mode", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("TIA Portal is online", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   message.IndexOf("not permitted in online", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static HmiScreenJsonRecommendedPatchArgs? CreateRecommendedArgs(
