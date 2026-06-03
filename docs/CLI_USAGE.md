@@ -433,7 +433,7 @@ OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --root-path="Analog_FT23
 OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --allow-full-scan=true --filter="Motor" --max-results=100 --max-depth=4 --include-details=false
 ```
 
-Use `--root-path` when the tag subtree is known. It resolves that tag directly instead of scanning the complete Unified HMI tag collection before filtering. `--root-path="\"` is treated as an unscoped scan and still requires `--allow-full-scan=true`.
+Use `--root-path` when the tag subtree is known. It resolves that tag directly instead of scanning the complete Unified HMI tag collection before filtering. `--root-path="/"` and `--root-path="\"` are treated as unscoped scans and still require `--allow-full-scan=true`.
 
 For large Unified HMI projects, prefer a concrete leaf or subtree `--root-path`. Only use `--allow-full-scan=true` when discovery is unavoidable, and keep it bounded with `--max-results` and `--max-depth`. `--include-logging-counts` defaults to `false` because reading logging tag counts can be expensive on large tag trees.
 

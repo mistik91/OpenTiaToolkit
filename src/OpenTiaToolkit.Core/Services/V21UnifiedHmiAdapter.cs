@@ -309,15 +309,16 @@ namespace OpenTiaToolkit.Core.Services
             var maxDepth = options.MaxDepth.GetValueOrDefault(-1) >= 0
                 ? options.MaxDepth!.Value
                 : int.MaxValue;
+            var normalizedRootPath = NormalizeTagPath(options.RootPath);
             var results = new List<HmiTagInfo>();
 
-            if (string.IsNullOrWhiteSpace(options.RootPath))
+            if (string.IsNullOrWhiteSpace(normalizedRootPath))
             {
                 CollectTags(software.Tags, string.Empty, normalizedFilter, options, maxResults, maxDepth, 0, results);
             }
-            else if (TryGetTag(software, options.RootPath!, out var rootTag, out var normalizedRootPath) && rootTag != null)
+            else if (TryGetTag(software, normalizedRootPath, out var rootTag, out var resolvedRootPath) && rootTag != null)
             {
-                CollectTag(rootTag, normalizedRootPath, normalizedFilter, options, maxResults, maxDepth, 0, results);
+                CollectTag(rootTag, resolvedRootPath, normalizedFilter, options, maxResults, maxDepth, 0, results);
             }
 
             return results
@@ -671,7 +672,7 @@ namespace OpenTiaToolkit.Core.Services
             int depth,
             List<HmiTagInfo> results)
         {
-            foreach (var tag in tags)
+            foreach (var tag in SnapshotTags(tags))
             {
                 if (results.Count >= maxResults)
                 {
@@ -734,10 +735,21 @@ namespace OpenTiaToolkit.Core.Services
                 results.Add(info);
             }
 
-            if (depth < maxDepth && tag.Members.Count > 0)
+            if (results.Count < maxResults && depth < maxDepth && tag.Members.Count > 0)
             {
                 CollectTags(tag.Members, path, filter, options, maxResults, maxDepth, depth + 1, results);
             }
+        }
+
+        private static List<HmiTag> SnapshotTags(HmiTagComposition tags)
+        {
+            var snapshot = new List<HmiTag>();
+            foreach (var tag in tags)
+            {
+                snapshot.Add(tag);
+            }
+
+            return snapshot;
         }
 
         private static void CollectLoggingTagReferences(
