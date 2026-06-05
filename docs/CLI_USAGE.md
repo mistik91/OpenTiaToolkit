@@ -342,9 +342,10 @@ Performs a transactional sequence of generic hardware operations. It defaults to
 ```bash
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=true
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=false
+OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\drive-patch.json" --dry-run=true --plc-name="PLC_1" --safety-password="secret"
 ```
 
-Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, PROFINET identity configuration (`configure-profinet-device` for IP address, station name, and device number), process-image relocation (`set-io-address-start`), Startdrive telegram number/address/size/insert/erase changes, subnet and IO-system connection, and explicitly confirmed disconnect/delete/telegram-erase operations. PROFINET station name (`pnDeviceName`) is separate from TIA's display `Name`, which can be written with guarded `set-attributes`.
+Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, PROFINET identity configuration (`configure-profinet-device` for IP address, station name, and device number), process-image relocation (`set-io-address-start`), Startdrive telegram number/address/size/insert/erase changes, subnet and IO-system connection, and explicitly confirmed disconnect/delete/telegram-erase operations. `targetRef` may be combined with a relative `target.itemPath` to address children of newly created items in the same transaction. For new PROFINET drives, connect the drive interface to the subnet and IO system before assigning Startdrive telegram addresses. PROFINET station name (`pnDeviceName`) is separate from TIA's display `Name`, which can be written with guarded `set-attributes`. Use `--plc-name` and `--safety-password` when hardware mutations touch fail-safe drive/project data, including dry-runs.
 
 ### Unified HMI Operations
 

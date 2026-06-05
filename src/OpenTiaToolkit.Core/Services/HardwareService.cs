@@ -318,6 +318,9 @@ namespace OpenTiaToolkit.Core.Services
                 case "change-drive-telegram":
                     item = ChangeDriveTelegram(index, operation, references);
                     break;
+                case "configure-drive-telegram":
+                    item = ConfigureDriveTelegram(index, operation, references);
+                    break;
                 case "set-drive-telegram-address":
                     item = SetDriveTelegramAddress(index, operation, references);
                     break;
@@ -407,7 +410,7 @@ namespace OpenTiaToolkit.Core.Services
             var created = parent.Object.PlugNew(op.TypeIdentifier!, op.ItemName!, op.PositionNumber.Value);
             var reference = ChildRef(parent.Reference, created.Name, created.TypeIdentifier);
             AddResultReference(op.ResultId, new ResolvedTarget(created, reference), refs);
-            return Success(index, op, reference, $"Plugged hardware item: {created.Name}");
+            return Success(index, op, reference, $"Plugged hardware item: {created.Name}", ToItemInfo(created, parent.Reference));
         }
 
         private HardwareOperationResult SetAttributes(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
@@ -594,6 +597,32 @@ namespace OpenTiaToolkit.Core.Services
             var item = ResolveDriveItem(op, refs, "set-drive-telegram-address", out var target);
             var change = _adapter.SetDriveTelegramAddress(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.IoType!, op.StartAddress.Value, op.ExpectedStartAddress);
             return Success(index, op, target.Reference, "Set Startdrive telegram IO start address.", change);
+        }
+
+        private HardwareOperationResult ConfigureDriveTelegram(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
+        {
+            RequireText(op.TelegramType, "telegramType");
+            if (!op.TelegramNumber.HasValue) throw new InvalidOperationException("telegramNumber is required for configure-drive-telegram.");
+            if (!op.InputStartAddress.HasValue && !op.OutputStartAddress.HasValue)
+            {
+                throw new InvalidOperationException("configure-drive-telegram requires inputStartAddress or outputStartAddress.");
+            }
+
+            var item = ResolveDriveItem(op, refs, "configure-drive-telegram", out var target);
+            var changes = _adapter.ConfigureDriveTelegram(
+                item,
+                op.DriveObjectIndex ?? 0,
+                op.TelegramType!,
+                op.TelegramNumber.Value,
+                op.ExpectedTelegramNumber,
+                op.InputStartAddress,
+                op.ExpectedInputStartAddress,
+                op.OutputStartAddress,
+                op.ExpectedOutputStartAddress);
+            return Success(index, op, target.Reference, "Configured Startdrive telegram number and IO start address(es).", new HardwareDriveTelegramConfigurationInfo
+            {
+                Changes = changes.ToList()
+            });
         }
 
         private HardwareOperationResult ChangeDriveTelegramSize(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
@@ -836,6 +865,10 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     throw new InvalidOperationException($"Unknown targetRef: {operation.TargetRef}");
                 }
+                if (operation.Target?.ItemPath != null && operation.Target.ItemPath.Length > 0)
+                {
+                    return ResolveRelative(existing, operation.Target);
+                }
                 return existing;
             }
 
@@ -845,6 +878,35 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return new ResolvedTarget(Resolve(operation.Target), CloneRef(operation.Target));
+        }
+
+        private ResolvedTarget ResolveRelative(ResolvedTarget parent, HardwareObjectRef relative)
+        {
+            var current = parent.Object;
+            var reference = CloneRef(parent.Reference);
+            foreach (var name in relative.ItemPath ?? Array.Empty<string>())
+            {
+                var matches = current.DeviceItems.Where(candidate =>
+                    string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (matches.Count == 0)
+                {
+                    throw new InvalidOperationException($"Relative hardware item path was not found: {string.Join("/", relative.ItemPath)}");
+                }
+                if (matches.Count > 1)
+                {
+                    throw new InvalidOperationException($"Relative hardware item path is ambiguous at: {name}");
+                }
+                current = matches[0];
+                reference = ChildRef(reference, current.Name, current.TypeIdentifier);
+            }
+
+            if (!string.IsNullOrWhiteSpace(relative.ExpectedTypeIdentifier) &&
+                !string.Equals(current.TypeIdentifier, relative.ExpectedTypeIdentifier, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Hardware target type does not match expected type identifier: {relative.ExpectedTypeIdentifier}");
+            }
+
+            return new ResolvedTarget(current, reference);
         }
 
         private DeviceItem ResolveDriveItem(HardwarePatchOperation operation, IDictionary<string, ResolvedTarget> refs, string operationName, out ResolvedTarget target)

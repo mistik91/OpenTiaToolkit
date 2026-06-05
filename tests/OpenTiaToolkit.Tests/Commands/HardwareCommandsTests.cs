@@ -128,6 +128,124 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesConfigureDriveTelegramFields()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"configure-drive-telegram\",\"targetRef\":\"drive\",\"driveObjectIndex\":0,\"telegramType\":\"MainTelegram\",\"telegramNumber\":352,\"expectedTelegramNumber\":1,\"inputStartAddress\":1040,\"expectedInputStartAddress\":1000,\"outputStartAddress\":1040,\"expectedOutputStartAddress\":1000}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 1 &&
+                    values[0].Op == "configure-drive-telegram" &&
+                    values[0].TelegramType == "MainTelegram" &&
+                    values[0].TelegramNumber == 352 &&
+                    values[0].ExpectedTelegramNumber == 1 &&
+                    values[0].InputStartAddress == 1040 &&
+                    values[0].ExpectedInputStartAddress == 1000 &&
+                    values[0].OutputStartAddress == 1040 &&
+                    values[0].ExpectedOutputStartAddress == 1000),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesTargetRefWithRelativeItemPath()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"connect-node-to-subnet\",\"targetRef\":\"drive\",\"target\":{\"itemPath\":[\"PROFINET interface\"]},\"subnetName\":\"PN/IE_1\"}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 1 &&
+                    values[0].TargetRef == "drive" &&
+                    HasSingleItemPath(values[0], "PROFINET interface")),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_LogsIntoSafetyProgramWhenPasswordProvided()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var plcService = new Mock<IPlcService>();
+            plcService.SetupGet(candidate => candidate.IsSoftwareOpen).Returns(false);
+            plcService.Setup(candidate => candidate.OpenPlcAsync("PLC_1")).ReturnsAsync(true);
+            plcService.Setup(candidate => candidate.LoginToSafetyOfflineProgramAsync("A1"))
+                .ReturnsAsync(new SafetyLoginResult(
+                    success: true,
+                    serviceAvailable: true,
+                    passwordRequired: true,
+                    alreadyLoggedIn: false,
+                    message: "Logged into the safety offline program."));
+            var command = new ApplyHardwarePatchCommand(service.Object, plcService.Object);
+            var operations = JsonDocument.Parse("[{\"op\":\"create-device\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_3\"}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(
+                ("operations", operations),
+                ("plc-name", "PLC_1"),
+                ("safety-password", "A1")), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            plcService.Verify(candidate => candidate.OpenPlcAsync("PLC_1"), Times.Once);
+            plcService.Verify(candidate => candidate.LoginToSafetyOfflineProgramAsync("A1"), Times.Once);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_RequiresPlcNameWithSafetyPassword()
+        {
+            var service = new Mock<IHardwareService>();
+            var plcService = new Mock<IPlcService>();
+            var command = new ApplyHardwarePatchCommand(service.Object, plcService.Object);
+            var operations = JsonDocument.Parse("[{\"op\":\"create-device\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_3\"}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(
+                ("operations", operations),
+                ("safety-password", "A1")), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>()), Times.Never);
+        }
+
+        [TestMethod]
         public async Task FindHardwareModuleTypes_UsesProjectProviderWithoutTarget()
         {
             var service = new Mock<IHardwareService>();
@@ -285,6 +403,13 @@ namespace OpenTiaToolkit.Tests.Commands
                 values[entry.Name] = entry.Value;
             }
             return new CommandArgs(values);
+        }
+
+        private static bool HasSingleItemPath(HardwarePatchOperation operation, string itemName)
+        {
+            return operation.Target != null &&
+                operation.Target.ItemPath.Length == 1 &&
+                operation.Target.ItemPath[0] == itemName;
         }
     }
 }

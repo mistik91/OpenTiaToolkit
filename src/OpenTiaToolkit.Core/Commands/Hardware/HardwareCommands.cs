@@ -378,7 +378,12 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
     public sealed class ApplyHardwarePatchCommand : ICommand
     {
         private readonly IHardwareService _service;
-        public ApplyHardwarePatchCommand(IHardwareService service) => _service = service;
+        private readonly IPlcService? _plcService;
+        public ApplyHardwarePatchCommand(IHardwareService service, IPlcService? plcService = null)
+        {
+            _service = service;
+            _plcService = plcService;
+        }
         public string Name => "apply-hardware-patch";
         public string Description => "Dry-runs or applies transactional generic TIA hardware operations";
         public CommandSchema Schema => new CommandSchema(Description, new[]
@@ -387,13 +392,47 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
             new CommandParameter("operations-path", CommandParameterType.Path, "JSON file containing operations; CLI-friendly alternative to operations", required: false),
             new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate operations in a rolled-back transaction without applying", required: false, defaultValue: true),
             new CommandParameter("confirm-destructive", CommandParameterType.Boolean, "Permit delete and disconnect operations", required: false, defaultValue: false),
-            new CommandParameter("transaction-description", CommandParameterType.String, "Undo unit description for TIA Portal", required: false)
+            new CommandParameter("transaction-description", CommandParameterType.String, "Undo unit description for TIA Portal", required: false),
+            new CommandParameter("plc-name", CommandParameterType.String, "Optional PLC device name used with safety-password", required: false),
+            new CommandParameter("safety-password", CommandParameterType.String, "Optional safety program password used to log into the offline safety program before hardware mutations", required: false)
         });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             try
             {
                 var dryRun = !args.Has("dry-run") || args.GetBool("dry-run", true);
+                var safetyPassword = args.GetString("safety-password");
+                SafetyLoginResult? safetyLogin = null;
+                if (!string.IsNullOrEmpty(safetyPassword))
+                {
+                    if (_plcService == null)
+                    {
+                        return CommandResult.CreateFailure("Safety login is unavailable because no PLC service is registered.");
+                    }
+
+                    var plcName = args.GetString("plc-name");
+                    if (string.IsNullOrWhiteSpace(plcName))
+                    {
+                        return CommandResult.CreateFailure("plc-name is required when safety-password is provided.");
+                    }
+
+                    if (!_plcService.IsSoftwareOpen ||
+                        !string.Equals(_plcService.CurrentPlcName, plcName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var opened = await _plcService.OpenPlcAsync(plcName);
+                        if (!opened)
+                        {
+                            return CommandResult.CreateFailure($"Failed to open PLC software: {plcName}");
+                        }
+                    }
+
+                    safetyLogin = await _plcService.LoginToSafetyOfflineProgramAsync(safetyPassword);
+                    if (!safetyLogin.Success && safetyLogin.PasswordRequired)
+                    {
+                        return CommandResult.CreateFailure(safetyLogin.Message, new { safetyLogin });
+                    }
+                }
+
                 var result = await _service.ApplyPatchAsync(
                     HardwareCommandSupport.RequireOperations(args),
                     dryRun,
@@ -404,6 +443,10 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                     return CommandResult.CreateFailure(result.SafetyMessage ?? "Hardware patch was blocked.", result);
                 }
                 var action = dryRun ? "preflighted and rolled back" : "applied";
+                if (safetyLogin != null)
+                {
+                    return CommandResult.CreateSuccess(new { safetyLogin, result }, $"Hardware patch {action}.");
+                }
                 return CommandResult.CreateSuccess(result, $"Hardware patch {action}.");
             }
             catch (Exception ex) { return HardwareCommandSupport.Failure("Applying hardware patch", ex, logger); }

@@ -67,6 +67,7 @@ get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="D
 - A dry run performs validation and mutations in TIA, then disposes the transaction without committing it.
 - An apply run commits only if every operation succeeds.
 - `delete-device`, `delete-item`, `disconnect-node`, `disconnect-io-connector`, and `erase-drive-telegram` require `confirm-destructive=true`.
+- Use `plc-name` and `safety-password` on `apply-hardware-patch` when a dry-run or apply mutates fail-safe drive/project data; dry-runs still execute Siemens mutations inside a rolled-back transaction and may require safety authorization.
 - Saving the project remains a separate explicit action.
 
 Supported operations:
@@ -84,6 +85,7 @@ Supported operations:
 | `configure-profinet-device` | `target` or `targetRef`; one or more of `ipAddress`, `subnetMask`, `pnDeviceName`, `pnDeviceNumber` |
 | `set-io-address-start` | device-item `target` or `targetRef`, `addressIndex`, `startAddress` |
 | `change-drive-telegram` | Startdrive device-item `target` or `targetRef`, `telegramType`, `telegramNumber` |
+| `configure-drive-telegram` | Startdrive device-item `target` or `targetRef`, `telegramType`, `telegramNumber`; one or both of `inputStartAddress`, `outputStartAddress` |
 | `set-drive-telegram-address` | Startdrive device-item `target` or `targetRef`, `telegramType`, `ioType`, `startAddress` |
 | `change-drive-telegram-size` | Startdrive device-item `target` or `targetRef`, `telegramType`, `ioType`, `sizeInWords` |
 | `insert-drive-telegram` | Startdrive device-item `target` or `targetRef`, `telegramType`, `telegramNumber` |
@@ -99,8 +101,8 @@ Supported operations:
 | `delete-item` | `target` or `targetRef` |
 | `delete-device` | `target` or `targetRef` |
 
-`resultId` can name a created device or plugged item so later operations in the same transaction can use `targetRef`.
-For guarded writes, `set-attributes`, `set-feature-attributes`, and `set-network-item-attributes` accept `expectedAttributes`, and `set-gsd-parameter-data` accepts `expectedDataHex`. `configure-profinet-device` accepts `expectedIpAddress`, `expectedSubnetMask`, `expectedPnDeviceName`, and `expectedPnDeviceNumber`; IO-address operations accept `expectedStartAddress`; Startdrive telegram number and size changes accept `expectedTelegramNumber` and `expectedSizeInWords`. The patch fails before writing if a current value does not match. Startdrive size values are in words, matching the Siemens API. Successful write operation results include prior and written values.
+`resultId` can name a created device or plugged item so later operations in the same transaction can use `targetRef`. When an operation needs a child of a referenced item, combine `targetRef` with a relative `target.itemPath`, for example `{ "targetRef": "drive", "target": { "itemPath": ["PROFINET interface"] } }`.
+For guarded writes, `set-attributes`, `set-feature-attributes`, and `set-network-item-attributes` accept `expectedAttributes`, and `set-gsd-parameter-data` accepts `expectedDataHex`. `configure-profinet-device` accepts `expectedIpAddress`, `expectedSubnetMask`, `expectedPnDeviceName`, and `expectedPnDeviceNumber`; IO-address operations accept `expectedStartAddress`; Startdrive telegram number and size changes accept `expectedTelegramNumber` and `expectedSizeInWords`. `configure-drive-telegram` also accepts `expectedInputStartAddress` and `expectedOutputStartAddress`; it changes or inserts the requested telegram, verifies that Startdrive exposes the required input/output address objects, then assigns input/output starts. Startdrive telegram addresses are only exposed after the drive is connected to the relevant subnet and IO system; connect new PROFINET drives with `connect-node-to-subnet` and `connect-io-connector` before assigning telegram starts. The patch fails before writing if a current value does not match. Startdrive size values are in words, matching the Siemens API. Successful write operation results include prior and written values.
 The CLI also accepts `--operations-path=<file.json>` for patches; MCP callers normally send `operations` directly as structured JSON.
 
 Example:

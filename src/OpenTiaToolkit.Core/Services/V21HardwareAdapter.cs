@@ -194,25 +194,99 @@ namespace OpenTiaToolkit.Core.Services
         {
             var telegram = RequireTelegram(target, driveObjectIndex, telegramType);
             var direction = ParseAddressIoType(ioType);
-            var address = telegram.Addresses.FirstOrDefault(candidate => candidate.IoType == direction)
-                ?? throw new InvalidOperationException($"{telegramType} has no {ioType} address.");
-            var before = address.StartAddress;
-            if (expectedStartAddress.HasValue && before != expectedStartAddress.Value)
+            return SetDriveTelegramAddress(telegram, driveObjectIndex, telegramType, direction, startAddress, expectedStartAddress);
+        }
+
+        public IReadOnlyList<HardwareDriveTelegramChangeInfo> ConfigureDriveTelegram(
+            DeviceItem target,
+            int driveObjectIndex,
+            string telegramType,
+            int telegramNumber,
+            int? expectedTelegramNumber,
+            int? inputStartAddress,
+            int? expectedInputStartAddress,
+            int? outputStartAddress,
+            int? expectedOutputStartAddress)
+        {
+            var driveObject = RequireDriveObject(target, driveObjectIndex);
+            var type = ParseTelegramType(telegramType);
+            var requiredDirections = RequiredDirections(inputStartAddress, outputStartAddress).ToArray();
+            var changes = new List<HardwareDriveTelegramChangeInfo>();
+            var telegram = driveObject.Telegrams.Find(type);
+            var beforeTelegramNumber = telegram?.TelegramNumber;
+
+            if (telegram == null)
             {
-                throw new InvalidOperationException($"{telegramType} {ioType} address differs from expectedStartAddress.");
+                telegram = InsertTelegram(driveObject, type, telegramType, telegramNumber);
+                changes.Add(new HardwareDriveTelegramChangeInfo
+                {
+                    DriveObjectIndex = driveObjectIndex,
+                    TelegramType = telegramType,
+                    WrittenTelegramNumber = telegramNumber
+                });
+            }
+            else
+            {
+                if (expectedTelegramNumber.HasValue && beforeTelegramNumber != expectedTelegramNumber.Value)
+                {
+                    throw new InvalidOperationException($"{telegramType} number differs from expectedTelegramNumber.");
+                }
+
+                if (beforeTelegramNumber != telegramNumber)
+                {
+                    if (telegram.CanChangeTelegram(telegramNumber))
+                    {
+                        telegram.TelegramNumber = telegramNumber;
+                    }
+                    else
+                    {
+                        telegram = RecreateTelegram(driveObject, type, telegramType, telegramNumber);
+                    }
+
+                    changes.Add(new HardwareDriveTelegramChangeInfo
+                    {
+                        DriveObjectIndex = driveObjectIndex,
+                        TelegramType = telegramType,
+                        BeforeTelegramNumber = beforeTelegramNumber,
+                        WrittenTelegramNumber = telegramNumber
+                    });
+                }
             }
 
-            address.StartAddress = startAddress;
-            return new HardwareDriveTelegramChangeInfo
+            telegram = driveObject.Telegrams.Find(type)
+                ?? throw new InvalidOperationException($"{telegramType} telegram was not found after configuration.");
+            if (!HasRequiredAddresses(telegram, requiredDirections))
             {
-                DriveObjectIndex = driveObjectIndex,
-                TelegramType = telegramType,
-                BeforeTelegramNumber = telegram.TelegramNumber,
-                WrittenTelegramNumber = telegram.TelegramNumber,
-                IoType = ioType,
-                BeforeStartAddress = before,
-                WrittenStartAddress = startAddress
-            };
+                telegram = RecoverTelegramAddresses(driveObject, type, telegramType, telegramNumber, requiredDirections);
+                if (!HasRequiredAddresses(telegram, requiredDirections))
+                {
+                    throw MissingAddressException(telegram, telegramType, requiredDirections);
+                }
+            }
+
+            if (inputStartAddress.HasValue)
+            {
+                changes.Add(SetDriveTelegramAddress(
+                    telegram,
+                    driveObjectIndex,
+                    telegramType,
+                    AddressIoType.Input,
+                    inputStartAddress.Value,
+                    expectedInputStartAddress));
+            }
+
+            if (outputStartAddress.HasValue)
+            {
+                changes.Add(SetDriveTelegramAddress(
+                    telegram,
+                    driveObjectIndex,
+                    telegramType,
+                    AddressIoType.Output,
+                    outputStartAddress.Value,
+                    expectedOutputStartAddress));
+            }
+
+            return changes;
         }
 
         public HardwareDriveTelegramChangeInfo ChangeDriveTelegramSize(DeviceItem target, int driveObjectIndex, string telegramType, string ioType, int sizeInWords, int? expectedSizeInWords, bool keepOriginalAddress)
@@ -465,6 +539,133 @@ namespace OpenTiaToolkit.Core.Services
             var type = ParseTelegramType(telegramType);
             return RequireDriveObject(target, driveObjectIndex).Telegrams.Find(type)
                 ?? throw new InvalidOperationException($"{telegramType} telegram was not found.");
+        }
+
+        private static Telegram InsertTelegram(DriveObject driveObject, TelegramType type, string telegramType, int telegramNumber)
+        {
+            if (!driveObject.Telegrams.CanInsertTelegram(telegramNumber, type))
+            {
+                throw new InvalidOperationException($"{telegramType} telegram number {telegramNumber} cannot be inserted.");
+            }
+
+            driveObject.Telegrams.InsertTelegram(telegramNumber, type);
+            return driveObject.Telegrams.Find(type)
+                ?? throw new InvalidOperationException($"{telegramType} telegram was not found after insertion.");
+        }
+
+        private static Telegram RecreateTelegram(DriveObject driveObject, TelegramType type, string telegramType, int telegramNumber)
+        {
+            try
+            {
+                if (driveObject.Telegrams.Find(type) != null)
+                {
+                    driveObject.Telegrams.EraseTelegram(type);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"{telegramType} telegram number {telegramNumber} did not expose the required IO address object(s), and the telegram could not be recreated: {ex.Message}",
+                    ex);
+            }
+
+            return InsertTelegram(driveObject, type, telegramType, telegramNumber);
+        }
+
+        private static Telegram RecoverTelegramAddresses(
+            DriveObject driveObject,
+            TelegramType type,
+            string telegramType,
+            int telegramNumber,
+            IEnumerable<AddressIoType> directions)
+        {
+            if (type == TelegramType.MainTelegram)
+            {
+                return RefreshMainTelegramSizes(driveObject, type, telegramType, telegramNumber, directions);
+            }
+
+            return RecreateTelegram(driveObject, type, telegramType, telegramNumber);
+        }
+
+        private static Telegram RefreshMainTelegramSizes(
+            DriveObject driveObject,
+            TelegramType type,
+            string telegramType,
+            int telegramNumber,
+            IEnumerable<AddressIoType> directions)
+        {
+            var telegram = driveObject.Telegrams.Find(type)
+                ?? throw new InvalidOperationException($"{telegramType} telegram was not found before size refresh.");
+            try
+            {
+                foreach (var direction in directions)
+                {
+                    var size = telegram.GetSize(direction);
+                    if (telegram.CanChangeSize(direction, size, keepOriginalAddress: false))
+                    {
+                        telegram.ChangeSize(direction, size, keepOriginalAddress: false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"{telegramType} telegram number {telegramNumber} did not expose the required IO address object(s), and the main telegram size-refresh recovery failed: {ex.Message}",
+                    ex);
+            }
+
+            return driveObject.Telegrams.Find(type)
+                ?? throw new InvalidOperationException($"{telegramType} telegram was not found after size refresh.");
+        }
+
+        private static HardwareDriveTelegramChangeInfo SetDriveTelegramAddress(
+            Telegram telegram,
+            int driveObjectIndex,
+            string telegramType,
+            AddressIoType direction,
+            int startAddress,
+            int? expectedStartAddress)
+        {
+            var address = telegram.Addresses.FirstOrDefault(candidate => candidate.IoType == direction)
+                ?? throw MissingAddressException(telegram, telegramType, new[] { direction });
+            var before = address.StartAddress;
+            if (expectedStartAddress.HasValue && before != expectedStartAddress.Value)
+            {
+                throw new InvalidOperationException($"{telegramType} {direction} address differs from expectedStartAddress.");
+            }
+
+            address.StartAddress = startAddress;
+            return new HardwareDriveTelegramChangeInfo
+            {
+                DriveObjectIndex = driveObjectIndex,
+                TelegramType = telegramType,
+                BeforeTelegramNumber = telegram.TelegramNumber,
+                WrittenTelegramNumber = telegram.TelegramNumber,
+                IoType = Convert.ToString(direction, CultureInfo.InvariantCulture),
+                BeforeStartAddress = before,
+                WrittenStartAddress = startAddress
+            };
+        }
+
+        private static IEnumerable<AddressIoType> RequiredDirections(int? inputStartAddress, int? outputStartAddress)
+        {
+            if (inputStartAddress.HasValue) yield return AddressIoType.Input;
+            if (outputStartAddress.HasValue) yield return AddressIoType.Output;
+        }
+
+        private static bool HasRequiredAddresses(Telegram telegram, IEnumerable<AddressIoType> directions)
+        {
+            var addresses = telegram.Addresses.ToList();
+            return directions.All(direction => addresses.Any(address => address.IoType == direction));
+        }
+
+        private static InvalidOperationException MissingAddressException(Telegram telegram, string telegramType, IEnumerable<AddressIoType> directions)
+        {
+            var requested = string.Join(", ", directions.Select(direction => Convert.ToString(direction, CultureInfo.InvariantCulture)));
+            var available = string.Join(", ", telegram.Addresses.Select(address => Convert.ToString(address.IoType, CultureInfo.InvariantCulture)));
+            if (string.IsNullOrWhiteSpace(available)) available = "none";
+            return new InvalidOperationException(
+                $"{telegramType} telegram number {telegram.TelegramNumber} has no required address object(s): {requested}. Available address IoType(s): {available}. configure-drive-telegram could not materialize the missing Startdrive address object(s) for this target.");
         }
 
         private static TelegramType ParseTelegramType(string value)

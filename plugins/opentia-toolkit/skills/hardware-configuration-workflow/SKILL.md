@@ -26,9 +26,11 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
    - `get-hardware-network-item-attributes`
    - `get-gsd-parameter-data`
 7. Build `apply-hardware-patch` operations with expected-value guards wherever the operation supports them.
-8. Run `apply-hardware-patch` with `dry-run=true`.
-9. Apply with `dry-run=false` only after the dry-run validates and the user has confirmed destructive operations when needed.
-10. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, or GSD parameter bytes.
+8. Use `targetRef` for items created earlier in the same patch. When a child item is generated during a plug, combine `targetRef` with a relative `target.itemPath` discovered from the prior dry-run result or from `get-hardware-tree`.
+9. Run `apply-hardware-patch` with `dry-run=true`.
+10. Pass `plc-name` and `safety-password` when the transaction may touch fail-safe hardware or Startdrive safety telegram configuration. Dry-runs still execute Siemens mutations inside a rolled-back transaction and can require safety authorization.
+11. Apply with `dry-run=false` only after the dry-run validates and the user has confirmed destructive operations when needed.
+12. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, or GSD parameter bytes.
 
 ## Patch Safety
 
@@ -52,6 +54,21 @@ PROFINET station name is not the same as the TIA display `Name`. Use the patch o
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
 Before wiring a subnet or IO system, use `get-hardware-networks` to identify nodes, IO controllers, IO connectors, and existing connections.
+
+## Startdrive Drive Notes
+
+For new SINAMICS Startdrive PROFINET drives, the reliable order is:
+
+1. Create the drive device or plug the rack/device items.
+2. Use the created drive `targetRef` plus the discovered relative interface child path for network operations. For G120C drives this child is commonly `PROFINET interface`, but do not hard-code it until the tree or dry-run result proves it.
+3. Connect the interface node to the subnet with `connect-node-to-subnet`.
+4. Connect the IO connector to the controller IO system with `connect-io-connector`.
+5. Configure telegram number and IO starts with `configure-drive-telegram`.
+6. Reread `get-hardware-drive-telegrams` or the filtered hardware tree to verify the result.
+
+Use `configure-drive-telegram` when a drive telegram must be changed and assigned process-image starts in one guarded operation. It changes or inserts the requested telegram, verifies that the requested input/output address objects are exposed, then writes the start addresses. Include `expectedTelegramNumber`, `expectedInputStartAddress`, and `expectedOutputStartAddress` when the current state is known.
+
+A verified G120C pattern is main telegram `352` and safety telegram `30`, with the safety telegram usually requiring `plc-name` and `safety-password` on `apply-hardware-patch`. Catalog type identifiers and concrete addresses remain project-specific; discover them from the target TIA installation and check for address collisions before apply.
 
 ## Failure Recovery
 

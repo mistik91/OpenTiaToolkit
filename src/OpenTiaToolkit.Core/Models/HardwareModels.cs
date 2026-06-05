@@ -184,6 +184,10 @@ namespace OpenTiaToolkit.Core.Models
         public int? TelegramNumber { get; set; }
         public int? ExpectedTelegramNumber { get; set; }
         public string? IoType { get; set; }
+        public int? InputStartAddress { get; set; }
+        public int? ExpectedInputStartAddress { get; set; }
+        public int? OutputStartAddress { get; set; }
+        public int? ExpectedOutputStartAddress { get; set; }
         public int? SizeInWords { get; set; }
         public int? ExpectedSizeInWords { get; set; }
         public bool KeepOriginalAddress { get; set; } = true;
@@ -230,6 +234,11 @@ namespace OpenTiaToolkit.Core.Models
         public int? WrittenSizeInWords { get; set; }
         public int? BeforeSizeInBytes { get; set; }
         public int? WrittenSizeInBytes { get; set; }
+    }
+
+    public sealed class HardwareDriveTelegramConfigurationInfo
+    {
+        public List<HardwareDriveTelegramChangeInfo> Changes { get; set; } = new List<HardwareDriveTelegramChangeInfo>();
     }
 
     public sealed class HardwarePatchResult
