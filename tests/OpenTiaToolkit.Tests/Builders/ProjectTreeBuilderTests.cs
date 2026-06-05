@@ -87,11 +87,61 @@ namespace OpenTiaToolkit.Tests.Builders
             Assert.AreEqual(0, rackNode.Children.Count);
         }
 
+        [TestMethod]
+        public void Build_IncludesDevicesInsideDeviceGroups()
+        {
+            var project = new FakeProject
+            {
+                Name = "FactoryProject",
+                DeviceGroups =
+                {
+                    new FakeDeviceGroup
+                    {
+                        Name = "Field Devices",
+                        Devices =
+                        {
+                            new FakeDevice { Name = "Promag_1" }
+                        },
+                        Groups =
+                        {
+                            new FakeDeviceGroup
+                            {
+                                Name = "Flow",
+                                Devices = { new FakeDevice { Name = "Promag_2" } }
+                            }
+                        }
+                    }
+                }
+            };
+
+            var builder = new ProjectTreeBuilder(typeof(PlcSoftware));
+
+            var tree = builder.Build(project);
+
+            var fieldGroup = tree.Children.Single();
+            Assert.AreEqual("Field Devices", fieldGroup.Name);
+            Assert.AreEqual("DeviceGroup", fieldGroup.Type);
+            Assert.IsTrue(fieldGroup.Children.Any(child => child.Name == "Promag_1" && child.Type == "Device"));
+            var flowGroup = fieldGroup.Children.Single(child => child.Name == "Flow");
+            Assert.IsTrue(flowGroup.Children.Any(child => child.Name == "Promag_2" && child.Type == "Device"));
+        }
+
         private sealed class FakeProject
         {
             public string Name { get; set; } = string.Empty;
 
             public List<FakeDevice> Devices { get; } = new List<FakeDevice>();
+
+            public List<FakeDeviceGroup> DeviceGroups { get; } = new List<FakeDeviceGroup>();
+        }
+
+        private sealed class FakeDeviceGroup
+        {
+            public string Name { get; set; } = string.Empty;
+
+            public List<FakeDevice> Devices { get; } = new List<FakeDevice>();
+
+            public List<FakeDeviceGroup> Groups { get; } = new List<FakeDeviceGroup>();
         }
 
         private sealed class FakeDevice

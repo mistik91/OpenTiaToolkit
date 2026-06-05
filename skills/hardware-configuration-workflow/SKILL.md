@@ -14,7 +14,7 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
 ## Standard Workflow
 
 1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven.
-2. Discover the current hardware shape with `get-hardware-tree`, scoped by `device-name` when possible.
+2. Discover the current hardware shape with `get-hardware-tree`, scoped by `device-name` when possible. For PROFINET work, also inspect `get-hardware-networks`; project IO-system `connectedIoDevices` can contain GSD/GSDML IO devices that are not visible as top-level `Project.Devices`.
 3. Discover catalog and type identifiers with `find-hardware-catalog-items` or `find-hardware-module-types`.
 4. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
 5. Inspect feature services with `get-hardware-item-capabilities` before writing attributes.
@@ -25,12 +25,13 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
    - `get-hardware-feature-attributes`
    - `get-hardware-network-item-attributes`
    - `get-gsd-parameter-data`
+   - `audit-hardware-tag-mappings`
 7. Build `apply-hardware-patch` operations with expected-value guards wherever the operation supports them.
 8. Use `targetRef` for items created earlier in the same patch. When a child item is generated during a plug, combine `targetRef` with a relative `target.itemPath` discovered from the prior dry-run result or from `get-hardware-tree`.
 9. Run `apply-hardware-patch` with `dry-run=true`.
 10. Pass `plc-name` and `safety-password` when the transaction may touch fail-safe hardware or Startdrive safety telegram configuration. Dry-runs still execute Siemens mutations inside a rolled-back transaction and can require safety authorization.
 11. Apply with `dry-run=false` only after the dry-run validates and the user has confirmed destructive operations when needed.
-12. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, or GSD parameter bytes.
+12. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, audit result, or GSD parameter bytes.
 
 ## Patch Safety
 
@@ -54,6 +55,12 @@ PROFINET station name is not the same as the TIA display `Name`. Use the patch o
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
 Before wiring a subnet or IO system, use `get-hardware-networks` to identify nodes, IO controllers, IO connectors, and existing connections.
+
+For PROFINET IO devices that appear in PLC tags or IO-system references but not in `list-devices` or `get-hardware-tree`, do not conclude they are absent. Read `get-hardware-networks` and inspect project IO-system `connectedIoDevices` entries. Their `nodes[].attributes` can expose IP address, subnet mask, and station-name fields; `connector.attributes` can expose `PnDeviceNumber` when TIA provides it.
+
+When PLC `%I` or `%Q` tags suggest a missing field device, run `audit-hardware-tag-mappings` with the relevant `plc-name`, tag-table filter, and optional catalog hint such as a vendor or device name. Treat tag names and process-image ranges as evidence, not authority: prefer actual network attributes from existing `connectedIoDevices` over inferred sequential patterns before creating or configuring new devices.
+
+When adding a new PROFINET IO device that should follow an existing pattern, first discover the old devices through `connectedIoDevices`, record their IP, station name, device number, and IO address progression, then use guarded patch operations and a dry-run before apply.
 
 ## Startdrive Drive Notes
 

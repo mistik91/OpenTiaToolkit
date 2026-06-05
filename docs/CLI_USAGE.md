@@ -279,6 +279,15 @@ Some Startdrive devices do not expose optional drive-object metadata; telegram a
 OpenTiaToolkit.CLI.exe get-hardware-drive-telegrams --device-name="SINAMICS G_1" --address-attributes="StartAddress,IoType,Length"
 ```
 
+#### audit-hardware-tag-mappings
+
+Compares PLC `%I/%Q` tag addresses with discovered hardware IO ranges and optional catalog evidence.
+Use it when tag tables suggest a field device, but `list-devices` or `get-hardware-tree` do not show one.
+
+```bash
+OpenTiaToolkit.CLI.exe audit-hardware-tag-mappings --plc-name="PLC_1" --tag-table-filter="FLOW_METERS" --catalog-search-text="Promag"
+```
+
 #### get-hardware-item-capabilities
 
 Reports feature services and optional attribute values for a specific item.
@@ -321,7 +330,7 @@ OpenTiaToolkit.CLI.exe can-plug-hardware-item --device-name="IO_Master_01" --ite
 
 #### get-hardware-networks
 
-Lists discovered network interfaces, nodes, IO controllers, IO connectors, and current connections.
+Lists discovered network interfaces, nodes, IO controllers, IO connectors, and current connections. Node entries include readable PROFINET attributes such as `Address`, `SubnetMask`, `PnDeviceName`, and `PnDeviceNameAutoGeneration`; IO connector entries include attributes such as `PnDeviceNumber` when TIA exposes them. The result also includes project IO-system `connectedIoDevices` with the same node and connector attribute shape, useful for PROFINET IO devices that are connected to an IO system but are not surfaced as top-level project devices.
 
 ```bash
 OpenTiaToolkit.CLI.exe get-hardware-networks --device-name="IO_Master_01"

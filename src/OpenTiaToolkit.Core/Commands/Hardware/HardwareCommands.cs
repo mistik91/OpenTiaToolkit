@@ -195,6 +195,34 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         }
     }
 
+    public sealed class AuditHardwareTagMappingsCommand : ICommand
+    {
+        private readonly IHardwareService _service;
+        public AuditHardwareTagMappingsCommand(IHardwareService service) => _service = service;
+        public string Name => "audit-hardware-tag-mappings";
+        public string Description => "Audits PLC I/Q tag addresses against discovered hardware IO ranges and optional catalog evidence";
+        public CommandSchema Schema => new CommandSchema(Description, new[]
+        {
+            new CommandParameter("plc-name", CommandParameterType.String, "PLC device name whose tag tables should be scanned", required: true),
+            new CommandParameter("tag-table-filter", CommandParameterType.String, "Optional tag table name/text filter", required: false),
+            new CommandParameter("catalog-search-text", CommandParameterType.String, "Optional hardware catalog search text such as Promag", required: false),
+            new CommandParameter("max-unmatched-tags", CommandParameterType.Integer, "Maximum unmatched tag entries to include; use -1 for all", required: false, defaultValue: 100)
+        });
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            try
+            {
+                var result = await _service.AuditHardwareTagMappingsAsync(
+                    HardwareCommandSupport.Required(args, "plc-name"),
+                    args.Has("tag-table-filter") ? args.GetString("tag-table-filter") : null,
+                    args.Has("catalog-search-text") ? args.GetString("catalog-search-text") : null,
+                    args.Has("max-unmatched-tags") ? args.GetInt("max-unmatched-tags", 100) : 100);
+                return CommandResult.CreateSuccess(result, $"Audited {result.AddressedTagCount} addressed PLC tag(s); {result.UnmatchedTagCount} unmatched.");
+            }
+            catch (Exception ex) { return HardwareCommandSupport.Failure("Auditing hardware tag mappings", ex, logger); }
+        }
+    }
+
     public sealed class GetHardwareItemCapabilitiesCommand : ICommand
     {
         private readonly IHardwareService _service;

@@ -159,6 +159,7 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ICommand, GetHardwareTreeCommand>();
             services.AddSingleton<ICommand, GetHardwareIoAddressesCommand>();
             services.AddSingleton<ICommand, GetHardwareDriveTelegramsCommand>();
+            services.AddSingleton<ICommand, AuditHardwareTagMappingsCommand>();
             services.AddSingleton<ICommand, GetHardwareItemCapabilitiesCommand>();
             services.AddSingleton<ICommand, GetHardwareFeatureAttributesCommand>();
             services.AddSingleton<ICommand, GetHardwareNetworkItemAttributesCommand>();

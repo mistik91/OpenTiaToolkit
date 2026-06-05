@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Services
@@ -17,21 +18,37 @@ namespace OpenTiaToolkit.Core.Services
     /// </summary>
     public sealed class HardwareService : IHardwareService
     {
+        private static readonly string[] DefaultNodeAttributeNames =
+        {
+            "Address",
+            "SubnetMask",
+            "PnDeviceName",
+            "PnDeviceNameAutoGeneration"
+        };
+
+        private static readonly string[] DefaultIoConnectorAttributeNames =
+        {
+            "PnDeviceNumber"
+        };
+
         private readonly IPortalService _portalService;
         private readonly EngineeringSessionContext _sessionContext;
         private readonly V21HardwareAdapter _adapter;
+        private readonly V21OpennessAdapter _opennessAdapter;
         private readonly ILogger<HardwareService>? _logger;
 
         internal HardwareService(
             IPortalService portalService,
             EngineeringSessionContext sessionContext,
             ILogger<HardwareService>? logger = null,
-            V21HardwareAdapter? adapter = null)
+            V21HardwareAdapter? adapter = null,
+            V21OpennessAdapter? opennessAdapter = null)
         {
             _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _logger = logger;
             _adapter = adapter ?? new V21HardwareAdapter();
+            _opennessAdapter = opennessAdapter ?? new V21OpennessAdapter();
         }
 
         public Task<IReadOnlyList<HardwareCatalogItemInfo>> FindCatalogItemsAsync(string searchText, string? culture = null)
@@ -45,7 +62,7 @@ namespace OpenTiaToolkit.Core.Services
             return Task.Run<IReadOnlyList<HardwareDeviceTreeInfo>>(() =>
             {
                 var project = RequireProject();
-                var devices = project.Devices
+                var devices = ProjectDeviceEnumerator.EnumerateDevices(project)
                     .Where(device => string.IsNullOrWhiteSpace(deviceName) ||
                         string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase))
                     .Select(ToDeviceTree)
@@ -59,7 +76,7 @@ namespace OpenTiaToolkit.Core.Services
             return Task.Run<IReadOnlyList<HardwareIoAddressInfo>>(() =>
             {
                 var result = new List<HardwareIoAddressInfo>();
-                foreach (var device in RequireProject().Devices)
+                foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(RequireProject()))
                 {
                     if (!string.IsNullOrWhiteSpace(deviceName) &&
                         !string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase))
@@ -82,7 +99,7 @@ namespace OpenTiaToolkit.Core.Services
             return Task.Run<IReadOnlyList<HardwareDriveTelegramInfo>>(() =>
             {
                 var result = new List<HardwareDriveTelegramInfo>();
-                foreach (var device in RequireProject().Devices)
+                foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(RequireProject()))
                 {
                     if (!string.IsNullOrWhiteSpace(deviceName) &&
                         !string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase))
@@ -96,6 +113,82 @@ namespace OpenTiaToolkit.Core.Services
                         AddDriveTelegramsRecursive(item, ChildRef(root, item.Name, item.TypeIdentifier), addressAttributes, result);
                     }
                 }
+                return result;
+            });
+        }
+
+        public Task<HardwareTagMappingAuditResult> AuditHardwareTagMappingsAsync(
+            string plcName,
+            string? tagTableFilter = null,
+            string? catalogSearchText = null,
+            int maxUnmatchedTags = 100)
+        {
+            return Task.Run(() =>
+            {
+                RequireText(plcName, "plcName");
+                var project = RequireProject();
+                var result = new HardwareTagMappingAuditResult
+                {
+                    PlcName = plcName,
+                    TagTableFilter = string.IsNullOrWhiteSpace(tagTableFilter) ? null : tagTableFilter,
+                    CatalogSearchText = string.IsNullOrWhiteSpace(catalogSearchText) ? null : catalogSearchText
+                };
+
+                var devices = ProjectDeviceEnumerator.EnumerateDevices(project).ToList();
+                result.HardwareDeviceCount = devices.Count;
+                result.HardwareDevices = devices
+                    .Select(device => $"{device.Name} ({device.TypeIdentifier})")
+                    .ToList();
+
+                var plcSoftware = ResolvePlcSoftware(project, plcName);
+                var tags = EnumeratePlcTags(plcSoftware, tagTableFilter).ToList();
+                result.ScannedTagCount = tags.Count;
+
+                var tagAddresses = tags
+                    .Select(tag => TryParseTagAddress(tag.TagTableName, tag.TagName, tag.LogicalAddress))
+                    .Where(tag => tag != null)
+                    .Cast<HardwareTagAddressInfo>()
+                    .ToList();
+                result.AddressedTagCount = tagAddresses.Count;
+
+                var hardwareRanges = CollectHardwareAddressRanges().ToList();
+                result.HardwareIoRangeCount = hardwareRanges.Count;
+                result.HardwareRanges = hardwareRanges;
+
+                foreach (var tag in tagAddresses)
+                {
+                    var match = hardwareRanges.FirstOrDefault(range =>
+                        string.Equals(range.Area, tag.Area, StringComparison.OrdinalIgnoreCase) &&
+                        RangesOverlap(tag.StartAddress, tag.EndAddress, range.StartAddress, range.EndAddress));
+                    if (match == null)
+                    {
+                        result.UnmatchedTags.Add(tag);
+                        continue;
+                    }
+
+                    tag.MatchedHardwareRange = FormatRange(match);
+                    result.MatchedTagCount++;
+                }
+
+                result.UnmatchedTagCount = result.UnmatchedTags.Count;
+                result.UnmatchedRanges = BuildUnmatchedRanges(result.UnmatchedTags).ToList();
+                if (maxUnmatchedTags >= 0 && result.UnmatchedTags.Count > maxUnmatchedTags)
+                {
+                    result.UnmatchedTags = result.UnmatchedTags.Take(maxUnmatchedTags).ToList();
+                }
+
+                if (!string.IsNullOrWhiteSpace(catalogSearchText))
+                {
+                    result.CatalogMatches = _adapter.FindCatalogItems(RequirePortal(), catalogSearchText!, null)
+                        .Take(50)
+                        .ToList();
+                    result.MatchingHardwareTargets = FindHardwareTargets(devices, catalogSearchText!, result.CatalogMatches).ToList();
+                    result.MatchingConnectedIoDevices = FindMatchingConnectedIoDevices(
+                        catalogSearchText!,
+                        result.CatalogMatches).ToList();
+                }
+
+                AddAuditWarnings(result);
                 return result;
             });
         }
@@ -180,7 +273,7 @@ namespace OpenTiaToolkit.Core.Services
             return Task.Run<IReadOnlyList<HardwareNetworkInfo>>(() =>
             {
                 var result = new List<HardwareNetworkInfo>();
-                foreach (var device in RequireProject().Devices)
+                foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(RequireProject()))
                 {
                     if (!string.IsNullOrWhiteSpace(deviceName) &&
                         !string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase))
@@ -189,6 +282,11 @@ namespace OpenTiaToolkit.Core.Services
                     }
 
                     AddNetworkInfoRecursive(device, new HardwareObjectRef { DeviceName = device.Name }, result);
+                }
+
+                if (string.IsNullOrWhiteSpace(deviceName))
+                {
+                    AddProjectIoSystemNetworkInfos(RequireProject(), result);
                 }
 
                 return result;
@@ -831,6 +929,93 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
+        private static void AddProjectIoSystemNetworkInfos(ProjectBase project, ICollection<HardwareNetworkInfo> result)
+        {
+            foreach (var subnet in TiaReflectionHelper.GetEnumerableProperty(project, "Subnets") ?? Enumerable.Empty<object>())
+            {
+                var subnetName = TiaReflectionHelper.GetName(subnet) ?? "Subnet";
+                foreach (var ioSystem in TiaReflectionHelper.GetEnumerableProperty(subnet, "IoSystems") ?? Enumerable.Empty<object>())
+                {
+                    var ioSystemName = TiaReflectionHelper.GetName(ioSystem) ?? "IoSystem";
+                    var info = new HardwareNetworkInfo
+                    {
+                        Target = new HardwareObjectRef
+                        {
+                            DeviceName = $"Subnet:{subnetName}",
+                            ItemPath = new[] { ioSystemName }
+                        }
+                    };
+
+                    var index = 0;
+                    foreach (var connector in TiaReflectionHelper.GetEnumerableProperty(ioSystem, "ConnectedIoDevices") ?? Enumerable.Empty<object>())
+                    {
+                        info.ConnectedIoDevices.Add(ToConnectedIoDeviceInfo(
+                            info.Target,
+                            index++,
+                            ioSystemName,
+                            connector));
+                    }
+
+                    if (info.ConnectedIoDevices.Count > 0)
+                    {
+                        result.Add(info);
+                    }
+                }
+            }
+        }
+
+        private static HardwareConnectedIoDeviceInfo ToConnectedIoDeviceInfo(
+            HardwareObjectRef networkTarget,
+            int connectorIndex,
+            string? connectedIoSystemName,
+            object connector)
+        {
+            var network = TiaReflectionHelper.GetProperty(connector, "Parent");
+            var owner = TiaReflectionHelper.GetProperty(network, "OwnedBy")
+                ?? TiaReflectionHelper.GetProperty(network, "Parent");
+            var nodes = EnumerateNetworkItems(network, "Nodes")
+                .Select((node, index) =>
+                {
+                    var subnet = TiaReflectionHelper.GetProperty(node, "ConnectedSubnet");
+                    return new HardwareNodeInfo
+                    {
+                        Index = index,
+                        Name = TiaReflectionHelper.GetProperty(node, "Name")?.ToString(),
+                        NodeType = TiaReflectionHelper.GetProperty(node, "NodeType")?.ToString(),
+                        ConnectedSubnet = TiaReflectionHelper.GetName(subnet),
+                        Attributes = V21HardwareAdapter.GetSelectedEngineeringAttributeInfos(node, DefaultNodeAttributeNames)
+                    };
+                })
+                .ToList();
+            var networkConnectorIndex = EnumerateNetworkItems(network, "IoConnectors")
+                .Select((candidate, index) => new { Connector = candidate, Index = index })
+                .FirstOrDefault(candidate => ReferenceEquals(candidate.Connector, connector))?.Index ?? connectorIndex;
+            return new HardwareConnectedIoDeviceInfo
+            {
+                NetworkTarget = CloneRef(networkTarget),
+                ConnectorIndex = connectorIndex,
+                ConnectedIoSystemName = connectedIoSystemName,
+                OwnerName = TiaReflectionHelper.GetName(owner),
+                OwnerTypeIdentifier = TiaReflectionHelper.GetProperty(owner, "TypeIdentifier")?.ToString(),
+                InterfaceOperatingMode = TiaReflectionHelper.GetProperty(network, "InterfaceOperatingMode")?.ToString(),
+                Nodes = nodes,
+                Connector = new HardwareIoConnectorInfo
+                {
+                    Index = networkConnectorIndex,
+                    ConnectedIoSystemName = connectedIoSystemName,
+                    OwnerName = TiaReflectionHelper.GetName(owner),
+                    OwnerTypeIdentifier = TiaReflectionHelper.GetProperty(owner, "TypeIdentifier")?.ToString(),
+                    InterfaceOperatingMode = TiaReflectionHelper.GetProperty(network, "InterfaceOperatingMode")?.ToString(),
+                    Attributes = V21HardwareAdapter.GetSelectedEngineeringAttributeInfos(connector, DefaultIoConnectorAttributeNames)
+                }
+            };
+        }
+
+        private static IEnumerable<object> EnumerateNetworkItems(object? network, string collectionName)
+        {
+            return TiaReflectionHelper.GetEnumerableProperty(network, collectionName) ?? Enumerable.Empty<object>();
+        }
+
         private void AddIoAddressesRecursive(DeviceItem item, HardwareObjectRef reference, string[]? attributes, ICollection<HardwareIoAddressInfo> result)
         {
             foreach (var value in _adapter.GetIoAddresses(item, reference, attributes))
@@ -926,8 +1111,7 @@ namespace OpenTiaToolkit.Core.Services
                 throw new ArgumentException("Hardware target deviceName is required.");
             }
 
-            var device = RequireProject().Devices.FirstOrDefault(candidate =>
-                string.Equals(candidate.Name, reference.DeviceName, StringComparison.OrdinalIgnoreCase))
+            var device = ProjectDeviceEnumerator.FindDevice(RequireProject(), reference.DeviceName)
                 ?? throw new InvalidOperationException($"Device not found: {reference.DeviceName}");
 
             HardwareObject current = device;
@@ -1140,6 +1324,368 @@ namespace OpenTiaToolkit.Core.Services
                 case JsonValueKind.String: return element.GetString() ?? string.Empty;
                 default: return element.ToString();
             }
+        }
+
+        private object ResolvePlcSoftware(ProjectBase project, string plcName)
+        {
+            if (_sessionContext.PlcSoftware != null &&
+                string.Equals(_sessionContext.CurrentPlcName, plcName, StringComparison.OrdinalIgnoreCase))
+            {
+                return _sessionContext.PlcSoftware;
+            }
+
+            foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(project))
+            {
+                var searchItems = device.Name.Equals(plcName, StringComparison.OrdinalIgnoreCase)
+                    ? device.DeviceItems.Cast<DeviceItem>()
+                    : device.DeviceItems.Cast<DeviceItem>().Where(item => item.Name.Equals(plcName, StringComparison.OrdinalIgnoreCase));
+
+                foreach (var item in searchItems)
+                {
+                    try
+                    {
+                        var software = _opennessAdapter.GetPlcSoftware(item);
+                        if (software == null)
+                        {
+                            continue;
+                        }
+
+                        _sessionContext.PlcSoftware = software;
+                        _sessionContext.CurrentPlcDevice = device;
+                        _sessionContext.CurrentPlcDeviceItem = item;
+                        _sessionContext.CurrentPlcName = plcName;
+                        return software;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogDebug(ex, "Failed to inspect PLC software for device item {DeviceItemName}", item.Name);
+                    }
+                }
+            }
+
+            throw new InvalidOperationException($"Could not find PLC software for PLC device '{plcName}'.");
+        }
+
+        private IEnumerable<PlcTagSnapshot> EnumeratePlcTags(object plcSoftware, string? tagTableFilter)
+        {
+            var tagTables = _opennessAdapter.GetTagTables(plcSoftware);
+            if (tagTables == null)
+            {
+                yield break;
+            }
+
+            foreach (var tagTable in tagTables)
+            {
+                var tableName = _opennessAdapter.GetName(tagTable) ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(tagTableFilter) &&
+                    tableName.IndexOf(tagTableFilter!, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                var tags = _opennessAdapter.GetTags(tagTable);
+                if (tags == null)
+                {
+                    continue;
+                }
+
+                foreach (var tag in tags)
+                {
+                    yield return new PlcTagSnapshot
+                    {
+                        TagTableName = tableName,
+                        TagName = _opennessAdapter.GetName(tag) ?? string.Empty,
+                        LogicalAddress = _opennessAdapter.GetLogicalAddress(tag) ?? string.Empty
+                    };
+                }
+            }
+        }
+
+        private IEnumerable<HardwareAddressRangeInfo> CollectHardwareAddressRanges()
+        {
+            foreach (var address in GetIoAddressesAsync(null, new[] { "StartAddress", "IoType", "Length" }).GetAwaiter().GetResult())
+            {
+                var range = TryCreateHardwareRange(address.Target, address.Attributes, "HardwareAddress");
+                if (range != null)
+                {
+                    yield return range;
+                }
+            }
+
+            foreach (var telegram in GetDriveTelegramsAsync(null, new[] { "StartAddress", "IoType", "Length" }).GetAwaiter().GetResult())
+            {
+                foreach (var address in telegram.Addresses)
+                {
+                    var range = TryCreateHardwareRange(
+                        address.Target,
+                        address.Attributes,
+                        $"DriveTelegram[{telegram.DriveObjectIndex}:{telegram.TelegramType}:{telegram.TelegramNumber}]");
+                    if (range != null)
+                    {
+                        yield return range;
+                    }
+                }
+            }
+        }
+
+        internal static HardwareTagAddressInfo? TryParseTagAddress(string tagTableName, string tagName, string logicalAddress)
+        {
+            var match = Regex.Match(logicalAddress ?? string.Empty, @"^%([IQ])([BWDL]?)(\d+)(?:\.\d+)?$", RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            var area = match.Groups[1].Value.ToUpperInvariant();
+            var width = match.Groups[2].Value.ToUpperInvariant();
+            var start = int.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture);
+            var length = width switch
+            {
+                "W" => 2,
+                "D" => 4,
+                "L" => 8,
+                _ => 1
+            };
+
+            return new HardwareTagAddressInfo
+            {
+                TagTableName = tagTableName,
+                TagName = tagName,
+                LogicalAddress = logicalAddress ?? string.Empty,
+                Area = area,
+                StartAddress = start,
+                Length = length,
+                EndAddress = start + length - 1
+            };
+        }
+
+        private static HardwareAddressRangeInfo? TryCreateHardwareRange(
+            HardwareObjectRef target,
+            IEnumerable<HardwareAttributeInfo> attributes,
+            string source)
+        {
+            var values = attributes.ToDictionary(attribute => attribute.Name, attribute => attribute.Value, StringComparer.OrdinalIgnoreCase);
+            if (!TryParseInteger(values.TryGetValue("StartAddress", out var startText) ? startText : null, out var start))
+            {
+                return null;
+            }
+
+            var ioType = values.TryGetValue("IoType", out var ioTypeText) ? ioTypeText : null;
+            var area = NormalizeIoArea(ioType);
+            if (area == null)
+            {
+                return null;
+            }
+
+            var length = TryParseInteger(values.TryGetValue("Length", out var lengthText) ? lengthText : null, out var parsedLength)
+                ? Math.Max(1, parsedLength)
+                : 1;
+
+            return new HardwareAddressRangeInfo
+            {
+                Target = CloneRef(target),
+                Source = source,
+                Area = area,
+                StartAddress = start,
+                Length = length,
+                EndAddress = start + length - 1,
+                IoType = ioType
+            };
+        }
+
+        private static IEnumerable<HardwareTagAddressRangeInfo> BuildUnmatchedRanges(IEnumerable<HardwareTagAddressInfo> tags)
+        {
+            return tags
+                .GroupBy(tag => new { tag.TagTableName, tag.Area })
+                .Select(group => new HardwareTagAddressRangeInfo
+                {
+                    TagTableName = group.Key.TagTableName,
+                    Area = group.Key.Area,
+                    StartAddress = group.Min(tag => tag.StartAddress),
+                    EndAddress = group.Max(tag => tag.EndAddress),
+                    TagCount = group.Count(),
+                    ExampleTags = group
+                        .OrderBy(tag => tag.StartAddress)
+                        .ThenBy(tag => tag.TagName, StringComparer.OrdinalIgnoreCase)
+                        .Take(8)
+                        .Select(tag => $"{tag.TagName}={tag.LogicalAddress}")
+                        .ToList()
+                })
+                .OrderBy(range => range.TagTableName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(range => range.Area, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(range => range.StartAddress);
+        }
+
+        private static IEnumerable<HardwareObjectRef> FindHardwareTargets(
+            IEnumerable<Device> devices,
+            string searchText,
+            IEnumerable<HardwareCatalogItemInfo> catalogMatches)
+        {
+            var catalogTokens = new HashSet<string>(
+                catalogMatches
+                    .Select(match => match.TypeIdentifier)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Cast<string>(),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var device in devices)
+            {
+                var root = new HardwareObjectRef { DeviceName = device.Name, ExpectedTypeIdentifier = device.TypeIdentifier };
+                if (MatchesHardwareHint(device.Name, device.TypeIdentifier, searchText, catalogTokens))
+                {
+                    yield return root;
+                }
+
+                foreach (var target in FindHardwareTargetsRecursive(device.DeviceItems.Cast<DeviceItem>(), root, searchText, catalogTokens))
+                {
+                    yield return target;
+                }
+            }
+        }
+
+        private static IEnumerable<HardwareObjectRef> FindHardwareTargetsRecursive(
+            IEnumerable<DeviceItem> items,
+            HardwareObjectRef parent,
+            string searchText,
+            HashSet<string> catalogTypeIdentifiers)
+        {
+            foreach (var item in items)
+            {
+                var child = ChildRef(parent, item.Name, item.TypeIdentifier);
+                if (MatchesHardwareHint(item.Name, item.TypeIdentifier, searchText, catalogTypeIdentifiers))
+                {
+                    yield return child;
+                }
+
+                foreach (var nested in FindHardwareTargetsRecursive(item.DeviceItems.Cast<DeviceItem>(), child, searchText, catalogTypeIdentifiers))
+                {
+                    yield return nested;
+                }
+            }
+        }
+
+        private static bool MatchesHardwareHint(
+            string? name,
+            string? typeIdentifier,
+            string searchText,
+            HashSet<string> catalogTypeIdentifiers)
+        {
+            return (!string.IsNullOrWhiteSpace(name) && name!.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                (!string.IsNullOrWhiteSpace(typeIdentifier) &&
+                    (typeIdentifier!.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    catalogTypeIdentifiers.Contains(typeIdentifier!)));
+        }
+
+        private static void AddAuditWarnings(HardwareTagMappingAuditResult result)
+        {
+            if (result.UnmatchedTagCount > 0)
+            {
+                result.Warnings.Add($"{result.UnmatchedTagCount} PLC tag address(es) do not overlap discovered hardware IO ranges.");
+            }
+
+            if (result.CatalogMatches.Count > 0 &&
+                result.MatchingHardwareTargets.Count == 0 &&
+                result.MatchingConnectedIoDevices.Count == 0)
+            {
+                result.Warnings.Add($"Catalog contains match(es) for '{result.CatalogSearchText}', but no configured hardware device/item matched that hint.");
+            }
+        }
+
+        private IEnumerable<HardwareConnectedIoDeviceInfo> FindMatchingConnectedIoDevices(
+            string searchText,
+            IEnumerable<HardwareCatalogItemInfo> catalogMatches)
+        {
+            var catalogTokens = new HashSet<string>(
+                catalogMatches
+                    .Select(match => match.TypeIdentifier)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Cast<string>(),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var network in GetNetworksAsync().GetAwaiter().GetResult())
+            {
+                foreach (var connected in network.ConnectedIoDevices)
+                {
+                    if (!MatchesHardwareHint(connected.OwnerName, connected.OwnerTypeIdentifier, searchText, catalogTokens))
+                    {
+                        continue;
+                    }
+
+                    yield return connected;
+                }
+
+                foreach (var connector in network.IoConnectors)
+                {
+                    if (!MatchesHardwareHint(connector.OwnerName, connector.OwnerTypeIdentifier, searchText, catalogTokens))
+                    {
+                        continue;
+                    }
+
+                    yield return new HardwareConnectedIoDeviceInfo
+                    {
+                        NetworkTarget = CloneRef(network.Target),
+                        ConnectorIndex = connector.Index,
+                        ConnectedIoSystemName = connector.ConnectedIoSystemName,
+                        OwnerName = connector.OwnerName,
+                        OwnerTypeIdentifier = connector.OwnerTypeIdentifier,
+                        InterfaceOperatingMode = connector.InterfaceOperatingMode,
+                        Nodes = network.Nodes,
+                        Connector = connector
+                    };
+                }
+            }
+        }
+
+        private static string? NormalizeIoArea(string? ioType)
+        {
+            if (string.IsNullOrWhiteSpace(ioType))
+            {
+                return null;
+            }
+
+            if (ioType!.IndexOf("Input", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "I";
+            }
+
+            if (ioType.IndexOf("Output", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "Q";
+            }
+
+            return null;
+        }
+
+        private static bool TryParseInteger(string? value, out int parsed)
+        {
+            parsed = 0;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var match = Regex.Match(value!, @"-?\d+");
+            return match.Success && int.TryParse(match.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed);
+        }
+
+        private static bool RangesOverlap(int leftStart, int leftEnd, int rightStart, int rightEnd)
+        {
+            return leftStart <= rightEnd && rightStart <= leftEnd;
+        }
+
+        private static string FormatRange(HardwareAddressRangeInfo range)
+        {
+            var path = range.Target.ItemPath == null || range.Target.ItemPath.Length == 0
+                ? range.Target.DeviceName
+                : range.Target.DeviceName + "/" + string.Join("/", range.Target.ItemPath);
+            return $"{range.Area}{range.StartAddress}-{range.EndAddress} {path} [{range.Source}]";
+        }
+
+        private sealed class PlcTagSnapshot
+        {
+            public string TagTableName { get; set; } = string.Empty;
+            public string TagName { get; set; } = string.Empty;
+            public string LogicalAddress { get; set; } = string.Empty;
         }
 
         private sealed class ResolvedTarget

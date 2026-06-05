@@ -155,7 +155,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    foreach (var device in project.Devices)
+                    foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(project))
                     {
                         devices.Add(new DeviceInfo(
                             device.Name,
@@ -186,8 +186,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    var device = project.Devices.FirstOrDefault(d =>
-                        d.Name.Equals(deviceName, StringComparison.OrdinalIgnoreCase));
+                    var device = ProjectDeviceEnumerator.FindDevice(project, deviceName);
 
                     if (device == null)
                     {
@@ -221,8 +220,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    var device = project.Devices.FirstOrDefault(d =>
-                        d.Name.Equals(deviceName, StringComparison.OrdinalIgnoreCase));
+                    var device = ProjectDeviceEnumerator.FindDevice(project, deviceName);
 
                     if (device == null)
                     {
@@ -296,7 +294,7 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     var plcs = new List<PlcInfo>();
 
-                    foreach (var device in project.Devices)
+                    foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(project))
                     {
                         SearchDeviceItemsRecursive(device.DeviceItems, device.Name, plcs);
                     }
@@ -329,7 +327,7 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     var hmis = new List<HmiInfo>();
 
-                    foreach (var device in project.Devices)
+                    foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(project))
                     {
                         SearchDeviceItemsForHmisRecursive(device.DeviceItems, device.Name, hmis);
                     }

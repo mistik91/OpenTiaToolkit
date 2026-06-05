@@ -10,12 +10,13 @@ OpenTiaToolkit exposes vendor-neutral TIA Portal hardware primitives. A device-s
 | `get-hardware-tree` | Lists devices and nested device items with stable path-based targets. |
 | `get-hardware-io-addresses` | Lists process-image address objects exposed by device items. |
 | `get-hardware-drive-telegrams` | Lists Startdrive telegrams and their IO address assignments. |
+| `audit-hardware-tag-mappings` | Compares PLC `%I/%Q` tags with discovered hardware IO ranges and optional catalog hints. |
 | `get-hardware-item-capabilities` | Identifies network and GSD capabilities and optionally reads attributes. |
 | `get-hardware-feature-attributes` | Reads attributes exposed by a feature service such as `NetworkInterface`. |
 | `get-hardware-network-item-attributes` | Reads attributes from a network child, such as a PROFINET node. |
 | `find-hardware-module-types` | Queries module identifiers exposed by the project-level `ModuleInformationProvider`. |
 | `can-plug-hardware-item` | Validates a candidate module/submodule placement without changing the project. |
-| `get-hardware-networks` | Lists nodes, IO controllers, IO connectors and connected IO systems. |
+| `get-hardware-networks` | Lists nodes, IO controllers, IO connectors, connected IO systems, and project IO-system connected devices. |
 | `get-gsd-parameter-data` | Reads raw GSD/GSDML parameter record bytes. |
 | `apply-hardware-patch` | Dry-runs or applies a transactional sequence of generic hardware edits. |
 
@@ -35,7 +36,7 @@ This surface follows the hardware API model documented in the installed Siemens 
 | Configure PROFINET IP address and station name | `DeviceItem.GetService<NetworkInterface>().Nodes[...]` and node `GetAttribute(...)` / `SetAttributes(...)` methods |
 | Configure PROFINET IO device number | `DeviceItem.GetService<NetworkInterface>().IoConnectors[...]` and connector `PnDeviceNumber` |
 
-The item exposing `NetworkInterface` is catalog-defined and must be discovered from the hardware topology or capabilities; it cannot be assumed from a display name. In V21, IP settings and PROFINET station names (`Address`, `SubnetMask`, `PnDeviceName`) are owned by `NetworkInterface.Nodes`, while `PnDeviceNumber` is owned by `NetworkInterface.IoConnectors`. The `configure-profinet-device` operation updates these together and disables automatic station-name generation when `pnDeviceName` is provided. The TIA engineering display attribute `Name` remains a generic guarded `set-attributes` edit and is distinct from the PROFINET station name. Native Startdrive devices may decline optional metadata reads such as `DriveObjectNumber`; telegram number, type, and IO addresses remain the reliable report fields. Startdrive telegram insertion and erasure remain device- and project-capability dependent: the adapter checks `CanInsertTelegram(...)`, and TIA may reject deletion or require safety-program authorization. Likewise, record byte meaning is supplied by the GSDML/device documentation and belongs in a device skill, not this generic layer.
+The item exposing `NetworkInterface` is catalog-defined and must be discovered from the hardware topology or capabilities; it cannot be assumed from a display name. In V21, IP settings and PROFINET station names (`Address`, `SubnetMask`, `PnDeviceName`) are owned by `NetworkInterface.Nodes`, while `PnDeviceNumber` is owned by `NetworkInterface.IoConnectors`. `get-hardware-networks` reports these values for normal device-owned interfaces and for project IO-system `connectedIoDevices`, which is the fallback surface for IO devices that are connected to a PROFINET IO system but are not surfaced as top-level `project.Devices`. The `configure-profinet-device` operation updates these together and disables automatic station-name generation when `pnDeviceName` is provided. The TIA engineering display attribute `Name` remains a generic guarded `set-attributes` edit and is distinct from the PROFINET station name. Native Startdrive devices may decline optional metadata reads such as `DriveObjectNumber`; telegram number, type, and IO addresses remain the reliable report fields. Startdrive telegram insertion and erasure remain device- and project-capability dependent: the adapter checks `CanInsertTelegram(...)`, and TIA may reject deletion or require safety-program authorization. Likewise, record byte meaning is supplied by the GSDML/device documentation and belongs in a device skill, not this generic layer.
 
 ## Hardware Targets
 
@@ -57,8 +58,11 @@ For CLI reads, `--device-name` and slash-delimited `--item-path` are convenient 
 get-hardware-item-capabilities --device-name="PLC_1" --item-path="CPU/PROFINET interface_1"
 get-hardware-io-addresses --device-name="AL1403_231" --attributes="StartAddress,IoType,Length"
 get-hardware-drive-telegrams --device-name="SINAMICS G_1" --address-attributes="StartAddress,IoType,Length"
+audit-hardware-tag-mappings --plc-name="PLC_1" --tag-table-filter="FLOW_METERS" --catalog-search-text="Promag"
 get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="DAP/PN-IO" --network-collection="Nodes" --network-item-index=0 --attributes="Address,SubnetMask,IpProtocolSelection"
 ```
+
+`audit-hardware-tag-mappings` is a read-only diagnostic for cases where tag tables contain IO-looking addresses but `list-devices` and `get-hardware-tree` show no corresponding top-level `Project.Devices` entry. It reports hardware devices, discovered IO ranges, addressed PLC tags, unmatched tag ranges, optional hardware catalog matches, and whether either a configured hardware target or a PROFINET IO-system connected device matched the catalog/search hint.
 
 ## Transactional Patches
 

@@ -16,6 +16,19 @@ namespace OpenTiaToolkit.Core.Services
     /// </summary>
     internal sealed class V21HardwareAdapter
     {
+        private static readonly string[] DefaultNodeAttributeNames =
+        {
+            "Address",
+            "SubnetMask",
+            "PnDeviceName",
+            "PnDeviceNameAutoGeneration"
+        };
+
+        private static readonly string[] DefaultIoConnectorAttributeNames =
+        {
+            "PnDeviceNumber"
+        };
+
         private readonly V21OpennessAdapter _adapter;
 
         public V21HardwareAdapter(V21OpennessAdapter? adapter = null)
@@ -446,9 +459,11 @@ namespace OpenTiaToolkit.Core.Services
                 var subnet = TiaReflectionHelper.GetProperty(node, "ConnectedSubnet");
                 info.Nodes.Add(new HardwareNodeInfo
                 {
+                    Index = index,
                     Name = TiaReflectionHelper.GetProperty(node, "Name")?.ToString(),
                     NodeType = TiaReflectionHelper.GetProperty(node, "NodeType")?.ToString(),
-                    ConnectedSubnet = TiaReflectionHelper.GetProperty(subnet, "Name")?.ToString()
+                    ConnectedSubnet = TiaReflectionHelper.GetProperty(subnet, "Name")?.ToString(),
+                    Attributes = GetSelectedEngineeringAttributeInfos(node, DefaultNodeAttributeNames)
                 });
                 index++;
             }
@@ -468,10 +483,17 @@ namespace OpenTiaToolkit.Core.Services
             foreach (var connector in Enumerate(network, "IoConnectors"))
             {
                 var ioSystem = TiaReflectionHelper.GetProperty(connector, "ConnectedToIoSystem");
+                var connectorNetwork = TiaReflectionHelper.GetProperty(connector, "Parent");
+                var owner = TiaReflectionHelper.GetProperty(connectorNetwork, "OwnedBy")
+                    ?? TiaReflectionHelper.GetProperty(connectorNetwork, "Parent");
                 info.IoConnectors.Add(new HardwareIoConnectorInfo
                 {
                     Index = index++,
-                    ConnectedIoSystemName = TiaReflectionHelper.GetProperty(ioSystem, "Name")?.ToString()
+                    ConnectedIoSystemName = TiaReflectionHelper.GetProperty(ioSystem, "Name")?.ToString(),
+                    OwnerName = TiaReflectionHelper.GetName(owner),
+                    OwnerTypeIdentifier = TiaReflectionHelper.GetProperty(owner, "TypeIdentifier")?.ToString(),
+                    InterfaceOperatingMode = TiaReflectionHelper.GetProperty(connectorNetwork, "InterfaceOperatingMode")?.ToString(),
+                    Attributes = GetSelectedEngineeringAttributeInfos(connector, DefaultIoConnectorAttributeNames)
                 });
             }
 
@@ -715,6 +737,25 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         Name = name!,
                         IsReadOnly = TiaReflectionHelper.GetProperty(info, "IsReadOnly") as bool?
+                    });
+                }
+            }
+            return result;
+        }
+
+        internal static List<HardwareAttributeInfo> GetSelectedEngineeringAttributeInfos(object? target, IEnumerable<string> attributeNames)
+        {
+            if (target == null) return new List<HardwareAttributeInfo>();
+            var result = new List<HardwareAttributeInfo>();
+            foreach (var name in attributeNames.Where(name => !string.IsNullOrWhiteSpace(name)))
+            {
+                var value = TryGetEngineeringAttribute(target, name);
+                if (value != null)
+                {
+                    result.Add(new HardwareAttributeInfo
+                    {
+                        Name = name,
+                        Value = value
                     });
                 }
             }

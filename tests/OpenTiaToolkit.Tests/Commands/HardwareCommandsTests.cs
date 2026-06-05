@@ -5,6 +5,7 @@ using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Hardware;
 using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Services;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -291,6 +292,52 @@ namespace OpenTiaToolkit.Tests.Commands
 
             Assert.IsTrue(result.Success);
             service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task AuditHardwareTagMappings_PassesFiltersAndLimit()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.AuditHardwareTagMappingsAsync(
+                    "PLC_1",
+                    "FLOW_METERS",
+                    "Promag",
+                    12))
+                .ReturnsAsync(new HardwareTagMappingAuditResult
+                {
+                    PlcName = "PLC_1",
+                    AddressedTagCount = 14,
+                    UnmatchedTagCount = 14
+                });
+            var command = new AuditHardwareTagMappingsCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("plc-name", "PLC_1"),
+                ("tag-table-filter", "FLOW_METERS"),
+                ("catalog-search-text", "Promag"),
+                ("max-unmatched-tags", 12)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public void HardwareTagAddressParser_ParsesByteWordDwordAndBitAddresses()
+        {
+            var inputDword = HardwareService.TryParseTagAddress("FLOW_METERS", "156FT220_Volume_Flow", "%ID1572");
+            var outputByte = HardwareService.TryParseTagAddress("FLOW_METERS", "156FT220_TOT_1_Ctrl", "%QB1577");
+            var inputBit = HardwareService.TryParseTagAddress("FLOW_METERS", "Ready", "%I1580.1");
+
+            Assert.IsNotNull(inputDword);
+            Assert.AreEqual("I", inputDword!.Area);
+            Assert.AreEqual(1572, inputDword.StartAddress);
+            Assert.AreEqual(1575, inputDword.EndAddress);
+            Assert.IsNotNull(outputByte);
+            Assert.AreEqual("Q", outputByte!.Area);
+            Assert.AreEqual(1577, outputByte.EndAddress);
+            Assert.IsNotNull(inputBit);
+            Assert.AreEqual(1580, inputBit!.StartAddress);
+            Assert.AreEqual(1, inputBit.Length);
         }
 
         [TestMethod]

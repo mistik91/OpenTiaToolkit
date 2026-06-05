@@ -110,13 +110,16 @@ namespace OpenTiaToolkit.Core.Models
         public List<HardwareNodeInfo> Nodes { get; set; } = new List<HardwareNodeInfo>();
         public List<HardwareIoControllerInfo> IoControllers { get; set; } = new List<HardwareIoControllerInfo>();
         public List<HardwareIoConnectorInfo> IoConnectors { get; set; } = new List<HardwareIoConnectorInfo>();
+        public List<HardwareConnectedIoDeviceInfo> ConnectedIoDevices { get; set; } = new List<HardwareConnectedIoDeviceInfo>();
     }
 
     public sealed class HardwareNodeInfo
     {
+        public int Index { get; set; }
         public string? Name { get; set; }
         public string? NodeType { get; set; }
         public string? ConnectedSubnet { get; set; }
+        public List<HardwareAttributeInfo> Attributes { get; set; } = new List<HardwareAttributeInfo>();
     }
 
     public sealed class HardwareIoControllerInfo
@@ -129,6 +132,10 @@ namespace OpenTiaToolkit.Core.Models
     {
         public int Index { get; set; }
         public string? ConnectedIoSystemName { get; set; }
+        public string? OwnerName { get; set; }
+        public string? OwnerTypeIdentifier { get; set; }
+        public string? InterfaceOperatingMode { get; set; }
+        public List<HardwareAttributeInfo> Attributes { get; set; } = new List<HardwareAttributeInfo>();
     }
 
     public sealed class HardwareGsdParameterData
@@ -138,6 +145,72 @@ namespace OpenTiaToolkit.Core.Models
         public int ByteOffset { get; set; }
         public int Length { get; set; }
         public string DataHex { get; set; } = string.Empty;
+    }
+
+    public sealed class HardwareTagMappingAuditResult
+    {
+        public string PlcName { get; set; } = string.Empty;
+        public string? TagTableFilter { get; set; }
+        public string? CatalogSearchText { get; set; }
+        public int HardwareDeviceCount { get; set; }
+        public int HardwareIoRangeCount { get; set; }
+        public int ScannedTagCount { get; set; }
+        public int AddressedTagCount { get; set; }
+        public int MatchedTagCount { get; set; }
+        public int UnmatchedTagCount { get; set; }
+        public List<string> HardwareDevices { get; set; } = new List<string>();
+        public List<HardwareAddressRangeInfo> HardwareRanges { get; set; } = new List<HardwareAddressRangeInfo>();
+        public List<HardwareTagAddressInfo> UnmatchedTags { get; set; } = new List<HardwareTagAddressInfo>();
+        public List<HardwareTagAddressRangeInfo> UnmatchedRanges { get; set; } = new List<HardwareTagAddressRangeInfo>();
+        public List<HardwareCatalogItemInfo> CatalogMatches { get; set; } = new List<HardwareCatalogItemInfo>();
+        public List<HardwareObjectRef> MatchingHardwareTargets { get; set; } = new List<HardwareObjectRef>();
+        public List<HardwareConnectedIoDeviceInfo> MatchingConnectedIoDevices { get; set; } = new List<HardwareConnectedIoDeviceInfo>();
+        public List<string> Warnings { get; set; } = new List<string>();
+    }
+
+    public sealed class HardwareConnectedIoDeviceInfo
+    {
+        public HardwareObjectRef NetworkTarget { get; set; } = new HardwareObjectRef();
+        public int ConnectorIndex { get; set; }
+        public string? ConnectedIoSystemName { get; set; }
+        public string? OwnerName { get; set; }
+        public string? OwnerTypeIdentifier { get; set; }
+        public string? InterfaceOperatingMode { get; set; }
+        public List<HardwareNodeInfo> Nodes { get; set; } = new List<HardwareNodeInfo>();
+        public HardwareIoConnectorInfo? Connector { get; set; }
+    }
+
+    public sealed class HardwareTagAddressInfo
+    {
+        public string TagTableName { get; set; } = string.Empty;
+        public string TagName { get; set; } = string.Empty;
+        public string LogicalAddress { get; set; } = string.Empty;
+        public string Area { get; set; } = string.Empty;
+        public int StartAddress { get; set; }
+        public int Length { get; set; }
+        public int EndAddress { get; set; }
+        public string? MatchedHardwareRange { get; set; }
+    }
+
+    public sealed class HardwareAddressRangeInfo
+    {
+        public HardwareObjectRef Target { get; set; } = new HardwareObjectRef();
+        public string Source { get; set; } = string.Empty;
+        public string Area { get; set; } = string.Empty;
+        public int StartAddress { get; set; }
+        public int Length { get; set; }
+        public int EndAddress { get; set; }
+        public string? IoType { get; set; }
+    }
+
+    public sealed class HardwareTagAddressRangeInfo
+    {
+        public string TagTableName { get; set; } = string.Empty;
+        public string Area { get; set; } = string.Empty;
+        public int StartAddress { get; set; }
+        public int EndAddress { get; set; }
+        public int TagCount { get; set; }
+        public List<string> ExampleTags { get; set; } = new List<string>();
     }
 
     public sealed class HardwarePatchOperation

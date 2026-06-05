@@ -61,7 +61,7 @@ After a mutation, verify through the narrowest available read:
 - Project/session changes: `portal-status`, `list-projects`, or `get-project-info`.
 - PLC changes: `get-blocks`, `get-block-info`, `get-software-tree`, relevant tag/rename result, and compile when appropriate.
 - HMI screen changes: fresh screen snapshot, item properties, `VerifiedScreen`, or `hmi-status`.
-- Hardware changes: `get-hardware-tree`, `get-hardware-io-addresses`, `get-hardware-networks`, or parameter reads.
+- Hardware changes: `get-hardware-tree`, `get-hardware-io-addresses`, `get-hardware-networks`, `audit-hardware-tag-mappings`, or parameter reads.
 - VCI changes: `get-vci-block-status` or `list-vci-mappings`.
 
 Report any safety block exactly enough for the user to act, especially online-mode blocks, stale hashes, ambiguous targets, active references, or destructive-operation confirmation requirements.

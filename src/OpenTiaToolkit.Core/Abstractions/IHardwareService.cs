@@ -13,6 +13,11 @@ namespace OpenTiaToolkit.Core.Abstractions
         Task<IReadOnlyList<HardwareDeviceTreeInfo>> GetHardwareTreeAsync(string? deviceName = null);
         Task<IReadOnlyList<HardwareIoAddressInfo>> GetIoAddressesAsync(string? deviceName = null, string[]? attributes = null);
         Task<IReadOnlyList<HardwareDriveTelegramInfo>> GetDriveTelegramsAsync(string? deviceName = null, string[]? addressAttributes = null);
+        Task<HardwareTagMappingAuditResult> AuditHardwareTagMappingsAsync(
+            string plcName,
+            string? tagTableFilter = null,
+            string? catalogSearchText = null,
+            int maxUnmatchedTags = 100);
         Task<HardwareCapabilityInfo?> GetCapabilitiesAsync(HardwareObjectRef target, string[]? attributes = null);
         Task<HardwareFeatureAttributesInfo> GetFeatureAttributesAsync(HardwareObjectRef target, string featureService, string[]? attributes = null);
         Task<HardwareNetworkItemAttributesInfo> GetNetworkItemAttributesAsync(HardwareObjectRef target, string collectionName, int index, string[]? attributes = null);

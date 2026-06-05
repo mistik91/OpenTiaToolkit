@@ -65,7 +65,11 @@ namespace OpenTiaToolkit.Core.Services
         {
             return nodeKind switch
             {
-                ProjectNodeKind.Project => EnumerateChildren(node, "Devices", ProjectNodeKind.Device),
+                ProjectNodeKind.Project => EnumerateChildren(node, "Devices", ProjectNodeKind.Device)
+                    .Concat(EnumerateChildren(node, "DeviceGroups", ProjectNodeKind.DeviceGroup)),
+                ProjectNodeKind.DeviceGroup => EnumerateChildren(node, "Devices", ProjectNodeKind.Device)
+                    .Concat(EnumerateChildren(node, "Groups", ProjectNodeKind.DeviceGroup))
+                    .Concat(EnumerateChildren(node, "DeviceGroups", ProjectNodeKind.DeviceGroup)),
                 ProjectNodeKind.Device => EnumerateChildren(node, "DeviceItems", ProjectNodeKind.DeviceItem),
                 ProjectNodeKind.DeviceItem => EnumerateChildren(node, "DeviceItems", ProjectNodeKind.DeviceItem),
                 _ => Array.Empty<ProjectNodeChild>()
@@ -122,6 +126,7 @@ namespace OpenTiaToolkit.Core.Services
             return nodeKind switch
             {
                 ProjectNodeKind.Project => "Project",
+                ProjectNodeKind.DeviceGroup => "DeviceGroup",
                 ProjectNodeKind.Device => "Device",
                 ProjectNodeKind.DeviceItem => "DeviceItem",
                 _ => "Unknown"
@@ -144,6 +149,7 @@ namespace OpenTiaToolkit.Core.Services
         private enum ProjectNodeKind
         {
             Project,
+            DeviceGroup,
             Device,
             DeviceItem
         }
