@@ -189,6 +189,33 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesPlugItemDisplacedPlacementOptIn()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"plug-item\",\"targetRef\":\"device\",\"target\":{\"itemPath\":[\"Totalizer_1\"]},\"typeIdentifier\":\"GSD:.../SM/51\",\"itemName\":\"TotalizerControl\",\"positionNumber\":1,\"allowDisplacedPlacement\":true}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 1 &&
+                    values[0].Op == "plug-item" &&
+                    values[0].AllowDisplacedPlacement),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
         public async Task ApplyHardwarePatch_LogsIntoSafetyProgramWhenPasswordProvided()
         {
             var service = new Mock<IHardwareService>();

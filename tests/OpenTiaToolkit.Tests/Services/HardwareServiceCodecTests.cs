@@ -24,6 +24,96 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void HardwarePathsEqual_UsesCaseInsensitiveDeviceAndPath()
+        {
+            var left = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "Promag_1",
+                ItemPath = new[] { "Totalizer_1", "TotalizerControl" }
+            };
+            var right = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "promag_1",
+                ItemPath = new[] { "totalizer_1", "totalizercontrol" }
+            };
+
+            Assert.IsTrue(HardwareService.HardwarePathsEqual(left, right));
+        }
+
+        [TestMethod]
+        public void FormatHardwarePath_JoinsDeviceAndItemPath()
+        {
+            var reference = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "Promag_1",
+                ItemPath = new[] { "Totalizer_1", "TotalizerControl" }
+            };
+
+            Assert.AreEqual("Promag_1/Totalizer_1/TotalizerControl", HardwareService.FormatHardwarePath(reference));
+        }
+
+        [TestMethod]
+        public void ValidatePlugPlacement_AllowsMatchingPathWithoutWarning()
+        {
+            var requested = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "Promag_1",
+                ItemPath = new[] { "Totalizer_1", "TotalizerControl" }
+            };
+            var actual = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "Promag_1",
+                ItemPath = new[] { "Totalizer_1", "TotalizerControl" }
+            };
+
+            var warning = HardwareService.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: false);
+
+            Assert.IsNull(warning);
+        }
+
+        [TestMethod]
+        public void ValidatePlugPlacement_RejectsDisplacedPathByDefault()
+        {
+            var requested = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "Promag_1",
+                ItemPath = new[] { "Totalizer_1", "TotalizerControl" }
+            };
+            var actual = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "Promag_1",
+                ItemPath = new[] { "TotalizerControl" }
+            };
+
+            var ex = Assert.ThrowsException<InvalidOperationException>(() =>
+                HardwareService.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: false));
+
+            StringAssert.Contains(ex.Message, "Set allowDisplacedPlacement=true");
+            StringAssert.Contains(ex.Message, "Promag_1/TotalizerControl");
+        }
+
+        [TestMethod]
+        public void ValidatePlugPlacement_ReturnsWarningWhenDisplacedPathIsAllowed()
+        {
+            var requested = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "Promag_1",
+                ItemPath = new[] { "Totalizer_1", "TotalizerControl" }
+            };
+            var actual = new OpenTiaToolkit.Core.Models.HardwareObjectRef
+            {
+                DeviceName = "Promag_1",
+                ItemPath = new[] { "TotalizerControl" }
+            };
+
+            var warning = HardwareService.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: true);
+
+            Assert.IsNotNull(warning);
+            StringAssert.Contains(warning, "Promag_1/TotalizerControl");
+            StringAssert.Contains(warning, "Promag_1/Totalizer_1/TotalizerControl");
+        }
+
+        [TestMethod]
         public void GetSelectedEngineeringAttributeInfos_ReadsSupportedAttributesAndSkipsUnsupported()
         {
             var target = new FakeEngineeringObject(new Dictionary<string, object>

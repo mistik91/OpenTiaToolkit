@@ -506,9 +506,20 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             var created = parent.Object.PlugNew(op.TypeIdentifier!, op.ItemName!, op.PositionNumber.Value);
-            var reference = ChildRef(parent.Reference, created.Name, created.TypeIdentifier);
-            AddResultReference(op.ResultId, new ResolvedTarget(created, reference), refs);
-            return Success(index, op, reference, $"Plugged hardware item: {created.Name}", ToItemInfo(created, parent.Reference));
+            var requestedReference = ChildRef(parent.Reference, created.Name, created.TypeIdentifier);
+            var actualReference = FindActualReference(created, parent.Reference.DeviceName)
+                ?? throw new InvalidOperationException($"Plugged hardware item '{created.Name}' could not be located after creation.");
+            var placementDisplaced = !HardwarePathsEqual(requestedReference, actualReference);
+            var warning = ValidatePlugPlacement(created.Name, requestedReference, actualReference, op.AllowDisplacedPlacement);
+            AddResultReference(op.ResultId, new ResolvedTarget(created, actualReference), refs);
+            return Success(index, op, actualReference, $"Plugged hardware item: {created.Name}", new HardwarePlugItemInfo
+            {
+                Item = ToItemInfoWithReference(created, actualReference),
+                RequestedTarget = requestedReference,
+                ActualTarget = actualReference,
+                ActualParentMismatch = placementDisplaced,
+                Warning = warning
+            });
         }
 
         private HardwareOperationResult SetAttributes(int index, HardwarePatchOperation op, IDictionary<string, ResolvedTarget> refs)
@@ -905,9 +916,14 @@ namespace OpenTiaToolkit.Core.Services
         private HardwareItemInfo ToItemInfo(DeviceItem item, HardwareObjectRef parent)
         {
             var reference = ChildRef(parent, item.Name, item.TypeIdentifier);
+            return ToItemInfoWithReference(item, reference);
+        }
+
+        private HardwareItemInfo ToItemInfoWithReference(DeviceItem item, HardwareObjectRef reference)
+        {
             return new HardwareItemInfo
             {
-                Target = reference,
+                Target = CloneRef(reference),
                 Name = item.Name,
                 TypeIdentifier = item.TypeIdentifier,
                 PositionNumber = item.PositionNumber,
@@ -1276,6 +1292,94 @@ namespace OpenTiaToolkit.Core.Services
                 ItemPath = (parent.ItemPath ?? Array.Empty<string>()).Concat(new[] { name }).ToArray(),
                 ExpectedTypeIdentifier = typeIdentifier
             };
+        }
+
+        private HardwareObjectRef? FindActualReference(HardwareObject target, string deviceName)
+        {
+            var device = ProjectDeviceEnumerator.FindDevice(RequireProject(), deviceName)
+                ?? throw new InvalidOperationException($"Device not found: {deviceName}");
+            var root = new HardwareObjectRef
+            {
+                DeviceName = device.Name,
+                ExpectedTypeIdentifier = device.TypeIdentifier
+            };
+            if (ReferenceEquals(device, target))
+            {
+                return root;
+            }
+
+            foreach (var item in device.DeviceItems)
+            {
+                var found = FindActualReferenceRecursive(item, target, ChildRef(root, item.Name, item.TypeIdentifier));
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static HardwareObjectRef? FindActualReferenceRecursive(DeviceItem current, HardwareObject target, HardwareObjectRef reference)
+        {
+            if (HardwareObjectsEqual(current, target))
+            {
+                return CloneRef(reference);
+            }
+
+            foreach (var child in current.DeviceItems)
+            {
+                var found = FindActualReferenceRecursive(child, target, ChildRef(reference, child.Name, child.TypeIdentifier));
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool HardwareObjectsEqual(HardwareObject left, HardwareObject right)
+        {
+            return ReferenceEquals(left, right) || left.Equals(right);
+        }
+
+        internal static string? ValidatePlugPlacement(string itemName, HardwareObjectRef requestedReference, HardwareObjectRef actualReference, bool allowDisplacedPlacement)
+        {
+            if (HardwarePathsEqual(requestedReference, actualReference))
+            {
+                return null;
+            }
+
+            if (!allowDisplacedPlacement)
+            {
+                throw new InvalidOperationException(
+                    $"Plugged hardware item '{itemName}' was placed at '{FormatHardwarePath(actualReference)}' instead of requested '{FormatHardwarePath(requestedReference)}'. " +
+                    "Set allowDisplacedPlacement=true to accept the actual placement.");
+            }
+
+            return $"TIA placed the plugged item at '{FormatHardwarePath(actualReference)}' instead of requested '{FormatHardwarePath(requestedReference)}'.";
+        }
+
+        internal static bool HardwarePathsEqual(HardwareObjectRef? left, HardwareObjectRef? right)
+        {
+            if (left == null || right == null)
+            {
+                return left == right;
+            }
+
+            return string.Equals(left.DeviceName, right.DeviceName, StringComparison.OrdinalIgnoreCase)
+                && (left.ItemPath ?? Array.Empty<string>()).SequenceEqual(
+                    right.ItemPath ?? Array.Empty<string>(),
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
+        internal static string FormatHardwarePath(HardwareObjectRef reference)
+        {
+            var parts = new[] { reference.DeviceName }
+                .Concat(reference.ItemPath ?? Array.Empty<string>())
+                .Where(part => !string.IsNullOrWhiteSpace(part));
+            return string.Join("/", parts);
         }
 
         private static HardwareObjectRef CloneRef(HardwareObjectRef source)

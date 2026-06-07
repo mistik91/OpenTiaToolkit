@@ -80,7 +80,7 @@ Supported operations:
 |-----------|-----------------|
 | `create-device` | `typeIdentifier`, `deviceName` |
 | `create-device-with-item` | `typeIdentifier`, `deviceName`, `itemName` |
-| `plug-item` | `target` or `targetRef`, `typeIdentifier`, `itemName`, `positionNumber` |
+| `plug-item` | `target` or `targetRef`, `typeIdentifier`, `itemName`, `positionNumber`; optional `allowDisplacedPlacement` |
 | `set-attributes` | `target` or `targetRef`, `attributes` |
 | `get-feature-attributes` | `target` or `targetRef`, `featureService`, `attributeNames` |
 | `set-feature-attributes` | `target` or `targetRef`, `featureService`, `attributes` |
@@ -106,8 +106,18 @@ Supported operations:
 | `delete-device` | `target` or `targetRef` |
 
 `resultId` can name a created device or plugged item so later operations in the same transaction can use `targetRef`. When an operation needs a child of a referenced item, combine `targetRef` with a relative `target.itemPath`, for example `{ "targetRef": "drive", "target": { "itemPath": ["PROFINET interface"] } }`.
+After `plug-item`, the toolkit verifies where TIA actually placed the created item. If the actual path differs from the requested parent path, the operation fails by default and the transaction rolls back. Set `allowDisplacedPlacement=true` only when you intentionally accept TIA's actual placement; in that case the operation target and `resultId` point at the actual item path, and the result data includes requested and actual targets plus a warning. This is especially important for GSD/GSDML submodules, where TIA may create a subslot at the device root instead of under the requested module.
 For guarded writes, `set-attributes`, `set-feature-attributes`, and `set-network-item-attributes` accept `expectedAttributes`, and `set-gsd-parameter-data` accepts `expectedDataHex`. `configure-profinet-device` accepts `expectedIpAddress`, `expectedSubnetMask`, `expectedPnDeviceName`, and `expectedPnDeviceNumber`; IO-address operations accept `expectedStartAddress`; Startdrive telegram number and size changes accept `expectedTelegramNumber` and `expectedSizeInWords`. `configure-drive-telegram` also accepts `expectedInputStartAddress` and `expectedOutputStartAddress`; it changes or inserts the requested telegram, verifies that Startdrive exposes the required input/output address objects, then assigns input/output starts. Startdrive telegram addresses are only exposed after the drive is connected to the relevant subnet and IO system; connect new PROFINET drives with `connect-node-to-subnet` and `connect-io-connector` before assigning telegram starts. The patch fails before writing if a current value does not match. Startdrive size values are in words, matching the Siemens API. Successful write operation results include prior and written values.
 The CLI also accepts `--operations-path=<file.json>` for patches; MCP callers normally send `operations` directly as structured JSON.
+
+Preferred GSD/GSDML subslot workaround:
+
+1. Try the intended `plug-item` in a dry-run without `allowDisplacedPlacement`.
+2. If TIA reports that it placed the item at a different actual path, decide whether that layout is acceptable for the project.
+3. When acceptable, rerun with `allowDisplacedPlacement=true` and a `resultId` on the `plug-item`.
+4. Use that `resultId` for follow-up operations such as `set-io-address-start`, instead of guessing the displaced path.
+
+This keeps the generic command surface small while still supporting TIA's actual placement behavior. Do not add device-specific GSD subslot operations unless a workflow cannot be represented with `plug-item`, actual-path reporting, and `resultId`.
 
 Example:
 
@@ -126,6 +136,39 @@ Example:
       "typeIdentifier": "GSD:...",
       "itemName": "Port module",
       "positionNumber": 1
+    }
+  ],
+  "dry-run": true
+}
+```
+
+Example GSD/GSDML subslot with accepted displaced placement:
+
+```json
+{
+  "operations": [
+    {
+      "op": "create-device-with-item",
+      "resultId": "flowmeter",
+      "typeIdentifier": "GSD:.../DAP/DAP 1",
+      "deviceName": "FT_260",
+      "itemName": "FT_260"
+    },
+    {
+      "op": "plug-item",
+      "resultId": "totalizer_control",
+      "targetRef": "flowmeter",
+      "target": { "itemPath": ["Totalizer_1"] },
+      "typeIdentifier": "GSD:.../SM/51",
+      "itemName": "TotalizerControl",
+      "positionNumber": 1,
+      "allowDisplacedPlacement": true
+    },
+    {
+      "op": "set-io-address-start",
+      "targetRef": "totalizer_control",
+      "addressIndex": 0,
+      "startAddress": 1657
     }
   ],
   "dry-run": true

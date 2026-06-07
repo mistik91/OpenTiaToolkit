@@ -27,7 +27,7 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
    - `get-gsd-parameter-data`
    - `audit-hardware-tag-mappings`
 7. Build `apply-hardware-patch` operations with expected-value guards wherever the operation supports them.
-8. Use `targetRef` for items created earlier in the same patch. When a child item is generated during a plug, combine `targetRef` with a relative `target.itemPath` discovered from the prior dry-run result or from `get-hardware-tree`.
+8. Use `targetRef` for items created earlier in the same patch. When a child item is generated during a plug, combine `targetRef` with a relative `target.itemPath` discovered from the prior dry-run result or from `get-hardware-tree`. If `plug-item` reports that TIA placed a GSD/GSDML subslot at a different actual path, prefer `allowDisplacedPlacement=true` with a `resultId`, then use that `resultId` for follow-up operations instead of adding a new device-specific command.
 9. Run `apply-hardware-patch` with `dry-run=true`.
 10. Pass `plc-name` and `safety-password` when the transaction may touch fail-safe hardware or Startdrive safety telegram configuration. Dry-runs still execute Siemens mutations inside a rolled-back transaction and can require safety authorization.
 11. Apply with `dry-run=false` only after the dry-run validates and the user has confirmed destructive operations when needed.
@@ -47,6 +47,8 @@ Treat these as destructive and require explicit user confirmation before apply:
 - Overwriting GSD/GSDML parameter bytes without a known before-state.
 
 For GSD/GSDML parameters, read current bytes first and record the dataset number, byte offset, length, and expected old value. Do not infer vendor-specific byte meanings from the generic toolkit.
+
+For GSD/GSDML submodules, TIA may legally place the created item somewhere other than the requested parent path. The generic workaround is to dry-run first without `allowDisplacedPlacement`, inspect the actual path reported by the failure, and only opt in with `allowDisplacedPlacement=true` when that actual layout is acceptable. Put a `resultId` on that `plug-item` and use the `resultId` for subsequent IO address, parameter, delete, or attribute operations. Keep the command surface generic; do not introduce a new command when the workflow can be expressed through actual-path reporting and `resultId`.
 
 ## PROFINET And IO Notes
 

@@ -225,6 +225,7 @@ namespace OpenTiaToolkit.Core.Models
         public string? DeviceName { get; set; }
         public string? ItemName { get; set; }
         public int? PositionNumber { get; set; }
+        public bool AllowDisplacedPlacement { get; set; }
         public string? SubnetName { get; set; }
         public string? IoSystemName { get; set; }
         public int? NodeIndex { get; set; }
@@ -334,5 +335,14 @@ namespace OpenTiaToolkit.Core.Models
         public HardwareObjectRef? Target { get; set; }
         public string? ResultId { get; set; }
         public object? Data { get; set; }
+    }
+
+    public sealed class HardwarePlugItemInfo
+    {
+        public HardwareItemInfo Item { get; set; } = new HardwareItemInfo();
+        public HardwareObjectRef RequestedTarget { get; set; } = new HardwareObjectRef();
+        public HardwareObjectRef ActualTarget { get; set; } = new HardwareObjectRef();
+        public bool ActualParentMismatch { get; set; }
+        public string? Warning { get; set; }
     }
 }
