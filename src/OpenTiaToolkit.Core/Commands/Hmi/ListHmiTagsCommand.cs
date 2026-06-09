@@ -175,32 +175,20 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 {
                     writer.WriteLine(string.Join(",", new[]
                     {
-                        EscapeCsv(tag.Path),
-                        EscapeCsv(tag.Name),
-                        EscapeCsv(tag.DisplayName),
-                        EscapeCsv(tag.DataType),
-                        EscapeCsv(tag.HmiDataType),
-                        EscapeCsv(tag.TagTableName),
-                        EscapeCsv(tag.HasMembers.ToString()),
-                        EscapeCsv(tag.MemberCount.ToString()),
-                        EscapeCsv(tag.LoggingTagCount.ToString())
+                        CommandArtifactSupport.EscapeCsv(tag.Path),
+                        CommandArtifactSupport.EscapeCsv(tag.Name),
+                        CommandArtifactSupport.EscapeCsv(tag.DisplayName),
+                        CommandArtifactSupport.EscapeCsv(tag.DataType),
+                        CommandArtifactSupport.EscapeCsv(tag.HmiDataType),
+                        CommandArtifactSupport.EscapeCsv(tag.TagTableName),
+                        CommandArtifactSupport.EscapeCsv(tag.HasMembers.ToString()),
+                        CommandArtifactSupport.EscapeCsv(tag.MemberCount.ToString()),
+                        CommandArtifactSupport.EscapeCsv(tag.LoggingTagCount.ToString())
                     }));
                 }
             }
 
             return new FileInfo(outputPath).Length;
-        }
-
-        private static string EscapeCsv(string? value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return string.Empty;
-            }
-
-            var mustQuote = value!.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0;
-            var escaped = value.Replace("\"", "\"\"");
-            return mustQuote ? "\"" + escaped + "\"" : escaped;
         }
     }
 }

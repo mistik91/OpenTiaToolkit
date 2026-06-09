@@ -53,6 +53,18 @@ namespace OpenTiaToolkit.Core.Commands
             return new FileInfo(outputPath).Length;
         }
 
+        public static string EscapeCsv(string? value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return string.Empty;
+            }
+
+            var mustQuote = value!.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0;
+            var escaped = value.Replace("\"", "\"\"");
+            return mustQuote ? "\"" + escaped + "\"" : escaped;
+        }
+
         public static void EnsureParentDirectory(string path)
         {
             var directory = Path.GetDirectoryName(Path.GetFullPath(path));

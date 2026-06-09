@@ -6,7 +6,10 @@ using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Hardware;
 using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -322,6 +325,93 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task GetHardwareIoAddresses_WritesCsvWhenOutputPathIsProvided()
+        {
+            var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "io.csv");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.GetIoAddressesAsync(null, null))
+                    .ReturnsAsync(new[]
+                    {
+                        new HardwareIoAddressInfo
+                        {
+                            Target = new HardwareObjectRef
+                            {
+                                DeviceName = "Device_1",
+                                ItemPath = new[] { "Module_1", "Submodule_1" },
+                                ExpectedTypeIdentifier = "Type/1"
+                            },
+                            Index = 2,
+                            Attributes = new List<HardwareAttributeInfo>
+                            {
+                                new HardwareAttributeInfo { Name = "StartAddress", Value = "100", IsReadOnly = false },
+                                new HardwareAttributeInfo { Name = "IoType", Value = "Input", IsReadOnly = true }
+                            }
+                        }
+                    });
+                var command = new GetHardwareIoAddressesCommand(service.Object);
+
+                var result = await command.ExecuteAsync(Args(("output-path", outputPath)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success, result.Error);
+                var artifact = result.Data as CommandArtifactResult;
+                Assert.IsNotNull(artifact);
+                Assert.AreEqual(outputPath, artifact!.OutputPath);
+                Assert.AreEqual("csv", artifact.Format);
+                Assert.AreEqual("hardware-io-addresses", artifact.DataKind);
+                Assert.AreEqual(1, artifact.ItemCount);
+                Assert.IsTrue(File.Exists(outputPath));
+                var csv = File.ReadAllText(outputPath);
+                StringAssert.Contains(csv, "DeviceName,ItemPath,ExpectedTypeIdentifier,AddressIndex,AttributeName,AttributeValue,IsReadOnly");
+                StringAssert.Contains(csv, "Device_1,Module_1/Submodule_1,Type/1,2,StartAddress,100,False");
+                StringAssert.Contains(csv, "Device_1,Module_1/Submodule_1,Type/1,2,IoType,Input,True");
+            }
+            finally
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task GetHardwareIoAddresses_AutoWritesCsvWhenInlineResultExceedsThreshold()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetIoAddressesAsync(null, null))
+                .ReturnsAsync(Enumerable.Range(0, 600)
+                    .Select(index => new HardwareIoAddressInfo
+                    {
+                        Target = new HardwareObjectRef
+                        {
+                            DeviceName = "Device_" + index,
+                            ItemPath = new[] { "Module_" + index }
+                        },
+                        Index = index,
+                        Attributes = new List<HardwareAttributeInfo>
+                        {
+                            new HardwareAttributeInfo { Name = "StartAddress", Value = index.ToString() },
+                            new HardwareAttributeInfo { Name = "Comment", Value = new string('x', 80) }
+                        }
+                    })
+                    .ToList());
+            var command = new GetHardwareIoAddressesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success, result.Error);
+            var artifact = result.Data as CommandArtifactResult;
+            Assert.IsNotNull(artifact);
+            Assert.AreEqual("csv", artifact!.Format);
+            Assert.IsTrue(artifact.InlineOutputSuppressed);
+            Assert.IsTrue(File.Exists(artifact.OutputPath));
+            File.Delete(artifact.OutputPath);
+        }
+
+        [TestMethod]
         public async Task AuditHardwareTagMappings_PassesFiltersAndLimit()
         {
             var service = new Mock<IHardwareService>();
@@ -346,6 +436,64 @@ namespace OpenTiaToolkit.Tests.Commands
 
             Assert.IsTrue(result.Success);
             service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task AuditHardwareTagMappings_WritesUnmatchedTagsCsvWhenOutputPathIsProvided()
+        {
+            var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "unmatched.csv");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.AuditHardwareTagMappingsAsync(
+                        "PLC_1",
+                        null,
+                        null,
+                        100))
+                    .ReturnsAsync(new HardwareTagMappingAuditResult
+                    {
+                        PlcName = "PLC_1",
+                        AddressedTagCount = 2,
+                        UnmatchedTagCount = 1,
+                        UnmatchedTags = new List<HardwareTagAddressInfo>
+                        {
+                            new HardwareTagAddressInfo
+                            {
+                                TagTableName = "FLOW",
+                                TagName = "156FT220",
+                                LogicalAddress = "%ID1572",
+                                Area = "I",
+                                StartAddress = 1572,
+                                Length = 4,
+                                EndAddress = 1575
+                            }
+                        }
+                    });
+                var command = new AuditHardwareTagMappingsCommand(service.Object);
+
+                var result = await command.ExecuteAsync(Args(
+                    ("plc-name", "PLC_1"),
+                    ("output-path", outputPath)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success, result.Error);
+                var artifact = result.Data as CommandArtifactResult;
+                Assert.IsNotNull(artifact);
+                Assert.AreEqual(outputPath, artifact!.OutputPath);
+                Assert.AreEqual("hardware-tag-mapping-unmatched-tags", artifact.DataKind);
+                Assert.AreEqual(1, artifact.ItemCount);
+                Assert.IsTrue(File.Exists(outputPath));
+                var csv = File.ReadAllText(outputPath);
+                StringAssert.Contains(csv, "TagTableName,TagName,LogicalAddress,Area,StartAddress,Length,EndAddress,MatchedHardwareRange");
+                StringAssert.Contains(csv, "FLOW,156FT220,%ID1572,I,1572,4,1575,");
+            }
+            finally
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
         }
 
         [TestMethod]

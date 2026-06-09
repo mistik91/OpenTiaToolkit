@@ -5,6 +5,8 @@ using ModelContextProtocol.Protocol;
 using Moq;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Core.Commands.Hardware;
+using OpenTiaToolkit.Core.Services;
 using OpenTiaToolkit.MCP.Server;
 using System;
 using System.Collections.Generic;
@@ -65,6 +67,17 @@ namespace OpenTiaToolkit.Tests.Server
             }
 
             Assert.IsTrue(hasRenameMap);
+        }
+
+        [TestMethod]
+        public void ToolAdapter_ProtocolTool_ExposesHardwareArtifactOutputPathSchemas()
+        {
+            var hardwareService = Mock.Of<IHardwareService>();
+            var ioAdapter = new ToolAdapter(new GetHardwareIoAddressesCommand(hardwareService), Mock.Of<ILogger>());
+            var auditAdapter = new ToolAdapter(new AuditHardwareTagMappingsCommand(hardwareService), Mock.Of<ILogger>());
+
+            AssertOutputPathSchema(ioAdapter.ProtocolTool.InputSchema);
+            AssertOutputPathSchema(auditAdapter.ProtocolTool.InputSchema);
         }
 
         [TestMethod]
@@ -261,6 +274,16 @@ namespace OpenTiaToolkit.Tests.Server
         private static JsonObject ToJsonObject(object value)
         {
             return JsonNode.Parse(JsonSerializer.Serialize(value))!.AsObject();
+        }
+
+        private static void AssertOutputPathSchema(JsonElement schema)
+        {
+            var outputPath = schema
+                .GetProperty("properties")
+                .GetProperty("output-path");
+
+            Assert.AreEqual("string", outputPath.GetProperty("type").GetString());
+            StringAssert.Contains(outputPath.GetProperty("description").GetString(), "CSV");
         }
     }
 }

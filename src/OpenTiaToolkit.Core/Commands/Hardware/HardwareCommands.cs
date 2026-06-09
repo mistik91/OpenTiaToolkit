@@ -4,6 +4,8 @@ using OpenTiaToolkit.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -102,6 +104,26 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
             logger.LogError(ex, "Hardware command failed: {Action}", action);
             return CommandResult.CreateFailure($"{action} failed: {ex.Message}", ex);
         }
+
+        public static string ResolveCsvOutputPath(string outputPath, string defaultFileName)
+        {
+            var fullPath = Path.GetFullPath(outputPath);
+            return Path.HasExtension(fullPath)
+                ? fullPath
+                : Path.Combine(fullPath, defaultFileName);
+        }
+
+        public static string FormatTargetItemPath(HardwareObjectRef? target)
+        {
+            return target?.ItemPath == null || target.ItemPath.Length == 0
+                ? string.Empty
+                : string.Join("/", target.ItemPath);
+        }
+
+        public static void WriteCsvRow(StreamWriter writer, IEnumerable<string?> values)
+        {
+            writer.WriteLine(string.Join(",", values.Select(CommandArtifactSupport.EscapeCsv)));
+        }
     }
 
     public sealed class FindHardwareCatalogItemsCommand : ICommand
@@ -156,7 +178,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         public CommandSchema Schema => new CommandSchema(Description, new[]
         {
             new CommandParameter("device-name", CommandParameterType.String, "Optional device name filter", required: false),
-            new CommandParameter("attributes", CommandParameterType.StringArray, "Optional named address attributes to read", required: false)
+            new CommandParameter("attributes", CommandParameterType.StringArray, "Optional named address attributes to read", required: false),
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for hardware IO address rows", required: false)
         });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
@@ -165,9 +188,98 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                 var values = await _service.GetIoAddressesAsync(
                     args.Has("device-name") ? args.GetString("device-name") : null,
                     args.Has("attributes") ? args.GetStringArray("attributes") : null);
-                return CommandResult.CreateSuccess(values, $"Found {values.Count} hardware IO address object(s).");
+                var message = $"Found {values.Count} hardware IO address object(s).";
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(values, message))
+                {
+                    var outputPath = HardwareCommandSupport.ResolveCsvOutputPath(
+                        args.Has("output-path")
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
+                        "hardware_io_addresses.csv");
+                    var bytesWritten = WriteIoAddressesCsv(values, outputPath);
+                    var artifact = new CommandArtifactResult
+                    {
+                        OutputPath = outputPath,
+                        Format = "csv",
+                        DataKind = "hardware-io-addresses",
+                        BytesWritten = bytesWritten,
+                        ItemCount = values.Count,
+                        InlineOutputSuppressed = !args.Has("output-path"),
+                        Reason = args.Has("output-path")
+                            ? "output-path was provided"
+                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                        Columns = IoAddressCsvColumns,
+                        Metadata = new
+                        {
+                            deviceName = args.Has("device-name") ? args.GetString("device-name") : null,
+                            attributes = args.Has("attributes") ? args.GetStringArray("attributes") : Array.Empty<string>(),
+                            rowCount = CountIoAddressCsvRows(values)
+                        }
+                    };
+                    return CommandResult.CreateSuccess(artifact, $"{message}. CSV written to: {outputPath}");
+                }
+
+                return CommandResult.CreateSuccess(values, message);
             }
             catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware IO addresses", ex, logger); }
+        }
+
+        private static readonly IReadOnlyList<string> IoAddressCsvColumns = new[]
+        {
+            "DeviceName",
+            "ItemPath",
+            "ExpectedTypeIdentifier",
+            "AddressIndex",
+            "AttributeName",
+            "AttributeValue",
+            "IsReadOnly"
+        };
+
+        private static int CountIoAddressCsvRows(IReadOnlyList<HardwareIoAddressInfo> values)
+        {
+            return values.Sum(value => Math.Max(1, value.Attributes.Count));
+        }
+
+        private static long WriteIoAddressesCsv(IReadOnlyList<HardwareIoAddressInfo> values, string outputPath)
+        {
+            CommandArtifactSupport.EnsureParentDirectory(outputPath);
+            using (var writer = new StreamWriter(outputPath, append: false, encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.WriteLine(string.Join(",", IoAddressCsvColumns));
+                foreach (var address in values)
+                {
+                    if (address.Attributes.Count == 0)
+                    {
+                        HardwareCommandSupport.WriteCsvRow(writer, new[]
+                        {
+                            address.Target.DeviceName,
+                            HardwareCommandSupport.FormatTargetItemPath(address.Target),
+                            address.Target.ExpectedTypeIdentifier,
+                            address.Index.ToString(),
+                            string.Empty,
+                            string.Empty,
+                            string.Empty
+                        });
+                        continue;
+                    }
+
+                    foreach (var attribute in address.Attributes)
+                    {
+                        HardwareCommandSupport.WriteCsvRow(writer, new[]
+                        {
+                            address.Target.DeviceName,
+                            HardwareCommandSupport.FormatTargetItemPath(address.Target),
+                            address.Target.ExpectedTypeIdentifier,
+                            address.Index.ToString(),
+                            attribute.Name,
+                            attribute.Value,
+                            attribute.IsReadOnly?.ToString()
+                        });
+                    }
+                }
+            }
+
+            return new FileInfo(outputPath).Length;
         }
     }
 
@@ -206,7 +318,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
             new CommandParameter("plc-name", CommandParameterType.String, "PLC device name whose tag tables should be scanned", required: true),
             new CommandParameter("tag-table-filter", CommandParameterType.String, "Optional tag table name/text filter", required: false),
             new CommandParameter("catalog-search-text", CommandParameterType.String, "Optional hardware catalog search text such as Promag", required: false),
-            new CommandParameter("max-unmatched-tags", CommandParameterType.Integer, "Maximum unmatched tag entries to include; use -1 for all", required: false, defaultValue: 100)
+            new CommandParameter("max-unmatched-tags", CommandParameterType.Integer, "Maximum unmatched tag entries to include; use -1 for all", required: false, defaultValue: 100),
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for unmatched PLC tag rows", required: false)
         });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
@@ -217,9 +330,79 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                     args.Has("tag-table-filter") ? args.GetString("tag-table-filter") : null,
                     args.Has("catalog-search-text") ? args.GetString("catalog-search-text") : null,
                     args.Has("max-unmatched-tags") ? args.GetInt("max-unmatched-tags", 100) : 100);
-                return CommandResult.CreateSuccess(result, $"Audited {result.AddressedTagCount} addressed PLC tag(s); {result.UnmatchedTagCount} unmatched.");
+                var message = $"Audited {result.AddressedTagCount} addressed PLC tag(s); {result.UnmatchedTagCount} unmatched.";
+                if (args.Has("output-path"))
+                {
+                    var outputPath = HardwareCommandSupport.ResolveCsvOutputPath(args.GetString("output-path"), "hardware_tag_mapping_unmatched_tags.csv");
+                    var bytesWritten = WriteUnmatchedTagsCsv(result, outputPath);
+                    var artifact = new CommandArtifactResult
+                    {
+                        OutputPath = outputPath,
+                        Format = "csv",
+                        DataKind = "hardware-tag-mapping-unmatched-tags",
+                        BytesWritten = bytesWritten,
+                        ItemCount = result.UnmatchedTags.Count,
+                        InlineOutputSuppressed = false,
+                        Reason = "output-path was provided",
+                        Columns = UnmatchedTagsCsvColumns,
+                        Metadata = new
+                        {
+                            result.PlcName,
+                            result.TagTableFilter,
+                            result.CatalogSearchText,
+                            result.HardwareDeviceCount,
+                            result.HardwareIoRangeCount,
+                            result.ScannedTagCount,
+                            result.AddressedTagCount,
+                            result.MatchedTagCount,
+                            result.UnmatchedTagCount,
+                            exportedUnmatchedTagCount = result.UnmatchedTags.Count,
+                            result.Warnings
+                        }
+                    };
+                    return CommandResult.CreateSuccess(artifact, $"{message}. Unmatched tag CSV written to: {outputPath}");
+                }
+
+                return CommandResult.CreateSuccess(result, message);
             }
             catch (Exception ex) { return HardwareCommandSupport.Failure("Auditing hardware tag mappings", ex, logger); }
+        }
+
+        private static readonly IReadOnlyList<string> UnmatchedTagsCsvColumns = new[]
+        {
+            "TagTableName",
+            "TagName",
+            "LogicalAddress",
+            "Area",
+            "StartAddress",
+            "Length",
+            "EndAddress",
+            "MatchedHardwareRange"
+        };
+
+        private static long WriteUnmatchedTagsCsv(HardwareTagMappingAuditResult result, string outputPath)
+        {
+            CommandArtifactSupport.EnsureParentDirectory(outputPath);
+            using (var writer = new StreamWriter(outputPath, append: false, encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.WriteLine(string.Join(",", UnmatchedTagsCsvColumns));
+                foreach (var tag in result.UnmatchedTags)
+                {
+                    HardwareCommandSupport.WriteCsvRow(writer, new[]
+                    {
+                        tag.TagTableName,
+                        tag.TagName,
+                        tag.LogicalAddress,
+                        tag.Area,
+                        tag.StartAddress.ToString(),
+                        tag.Length.ToString(),
+                        tag.EndAddress.ToString(),
+                        tag.MatchedHardwareRange
+                    });
+                }
+            }
+
+            return new FileInfo(outputPath).Length;
         }
     }
 

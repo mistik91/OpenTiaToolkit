@@ -274,7 +274,10 @@ Lists process-image IO address objects assigned directly to hardware items, incl
 
 ```bash
 OpenTiaToolkit.CLI.exe get-hardware-io-addresses --device-name="AL1403_231" --attributes="StartAddress,IoType,Length"
+OpenTiaToolkit.CLI.exe get-hardware-io-addresses --attributes="StartAddress,IoType,Length" --output-path="C:\Exports\hardware_io_addresses.csv"
 ```
+
+When `--output-path` is provided, IO address rows are written as CSV. Without `--output-path`, large IO address results that exceed the 32 KB inline response threshold are automatically written to a temporary CSV artifact.
 
 #### get-hardware-drive-telegrams
 
@@ -292,7 +295,10 @@ Use it when tag tables suggest a field device, but `list-devices` or `get-hardwa
 
 ```bash
 OpenTiaToolkit.CLI.exe audit-hardware-tag-mappings --plc-name="PLC_1" --tag-table-filter="FLOW_METERS" --catalog-search-text="Promag"
+OpenTiaToolkit.CLI.exe audit-hardware-tag-mappings --plc-name="PLC_1" --max-unmatched-tags=-1 --output-path="C:\Exports\unmatched_hardware_tags.csv"
 ```
+
+When `--output-path` is provided, the audit writes the unmatched PLC tag rows as CSV and returns the audit summary in the artifact manifest. For complete large audit objects over MCP, the generic JSON artifact fallback preserves the full structured result.
 
 #### get-hardware-item-capabilities
 
