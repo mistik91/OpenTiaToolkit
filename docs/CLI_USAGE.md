@@ -38,6 +38,12 @@ All commands use **kebab-case** (lowercase with hyphens):
 - ❌ `OpenProject`
 - ❌ `List_Devices`
 
+### Large Output Artifacts
+
+Large command results are kept out of inline MCP/CLI output when they exceed the conservative 32 KB response threshold. The command returns a compact artifact manifest with fields such as `outputPath`, `format`, `dataKind`, `bytesWritten`, `itemCount`, and `reason`; read the file at `outputPath` for the full payload.
+
+Some commands choose a domain-specific artifact format. For example, `list-hmi-tags` writes large tag tables as CSV, while `get-hmi-screen-json` keeps canonical screen snapshots as JSON because patch/edit workflows depend on that shape. MCP also has a generic JSON artifact fallback for oversized structured results from commands that do not have custom artifact handling.
+
 ## Command Reference
 
 ### Portal Management
@@ -441,11 +447,14 @@ Lists Unified HMI tags, optionally filtered by text. To avoid expensive full-pro
 OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --root-path="Analog_FT235_GEN"
 OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --root-path="Analog_FT235_GEN.PV" --include-logging-counts=true
 OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --allow-full-scan=true --filter="Motor" --max-results=100 --max-depth=4 --include-details=false
+OpenTiaToolkit.CLI.exe list-hmi-tags --hmi-name="HMI_1" --root-path="Analog_FT235_GEN" --output-path="C:\Exports\hmi_tags.csv"
 ```
 
 Use `--root-path` when the tag subtree is known. It resolves that tag directly instead of scanning the complete Unified HMI tag collection before filtering. `--root-path="/"` and `--root-path="\"` are treated as unscoped scans and still require `--allow-full-scan=true`.
 
 For large Unified HMI projects, prefer a concrete leaf or subtree `--root-path`. Only use `--allow-full-scan=true` when discovery is unavoidable, and keep it bounded with `--max-results` and `--max-depth`. `--include-logging-counts` defaults to `false` because reading logging tag counts can be expensive on large tag trees.
+
+When `--output-path` is provided, `list-hmi-tags` writes a CSV file and returns a compact artifact manifest. Without `--output-path`, tag results that would exceed the 32 KB inline response threshold are automatically written to a temporary CSV artifact instead of being streamed inline.
 
 #### create-hmi-trend
 
@@ -550,7 +559,10 @@ Agent-oriented helper that returns one screen as a canonical `HmiJsonScreen` obj
 
 ```bash
 OpenTiaToolkit.CLI.exe get-hmi-screen-json --hmi-name="HMI_1" --screen-path="Codex/Main" --properties="Text,Visible,EventHandlers,PropertyEventHandlers,Dynamizations"
+OpenTiaToolkit.CLI.exe get-hmi-screen-json --hmi-name="HMI_1" --screen-path="Codex/Main" --include-screen=false
 ```
+
+Large snapshots are automatically returned as a compact artifact manifest with `outputPath`, `baseHash`, filters, and recommended patch arguments. The full canonical screen JSON remains on disk at the reported export path. Use `--include-screen=false` when you want the file manifest even for smaller snapshots.
 
 **Agent loop**:
 - Read the screen with `get-hmi-screen-json`.

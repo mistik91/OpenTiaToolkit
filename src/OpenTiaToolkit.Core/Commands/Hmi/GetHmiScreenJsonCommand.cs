@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -30,7 +31,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("screen-path", CommandParameterType.String, "The slash-delimited screen path", required: true),
                 new CommandParameter("item-names", CommandParameterType.StringArray, "Optional item names to include", required: false),
                 new CommandParameter("properties", CommandParameterType.StringArray, "Optional property/composite names to include", required: false),
-                new CommandParameter("working-path", CommandParameterType.Path, "Optional artifact root path", required: false)
+                new CommandParameter("working-path", CommandParameterType.Path, "Optional artifact root path", required: false),
+                new CommandParameter("include-screen", CommandParameterType.Boolean, "Include the full screen object inline when it stays below the spill threshold", required: false, defaultValue: true)
             });
 
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
@@ -65,7 +67,13 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (result != null)
             {
-                return CommandResult.CreateSuccess(result, $"Unified HMI screen JSON exported: {result.ScreenPath}");
+                var message = $"Unified HMI screen JSON exported: {result.ScreenPath}";
+                if (ShouldSuppressInlineScreen(args, result, message))
+                {
+                    return CommandResult.CreateSuccess(CreateArtifactResult(result, args), $"{message}. Full JSON written to: {result.ExportPath}");
+                }
+
+                return CommandResult.CreateSuccess(result, message);
             }
 
             var failureMessage = await CreateScreenNotFoundMessageAsync(screenPath);
@@ -75,6 +83,56 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         private static bool HasAgentFilters(HmiJsonFilterOptions filters)
         {
             return filters.ItemNames.Any() || filters.Properties.Any();
+        }
+
+        private static bool ShouldSuppressInlineScreen(
+            CommandArgs args,
+            HmiScreenJsonSnapshotResult result,
+            string message)
+        {
+            if (args.Has("include-screen") && !args.GetBool("include-screen", true))
+            {
+                return true;
+            }
+
+            return CommandArtifactSupport.ExceedsInlineThreshold(result, message);
+        }
+
+        private static CommandArtifactResult CreateArtifactResult(
+            HmiScreenJsonSnapshotResult result,
+            CommandArgs args)
+        {
+            var outputPath = result.ExportPath ?? string.Empty;
+            var bytesWritten = !string.IsNullOrWhiteSpace(outputPath) && File.Exists(outputPath)
+                ? new FileInfo(outputPath).Length
+                : 0;
+
+            return new CommandArtifactResult
+            {
+                OutputPath = outputPath,
+                Format = "json",
+                DataKind = "unified-hmi-screen-json",
+                BytesWritten = bytesWritten,
+                ItemCount = result.Screen?.Items.Count,
+                InlineOutputSuppressed = true,
+                Reason = args.Has("include-screen") && !args.GetBool("include-screen", true)
+                    ? "include-screen=false was provided"
+                    : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                Metadata = new
+                {
+                    result.GeneratedAtUtc,
+                    result.HmiName,
+                    result.ScreenPath,
+                    result.BaseHash,
+                    result.ExportPath,
+                    result.SnapshotFilters,
+                    result.RecommendedPatchArgs,
+                    result.Capabilities,
+                    result.WarningCount,
+                    result.Warnings,
+                    screenItemCount = result.Screen?.Items.Count ?? 0
+                }
+            };
         }
 
         private async Task<string> CreateScreenNotFoundMessageAsync(string screenPath)

@@ -16,11 +16,12 @@ Use this skill when a task mentions Unified HMI screen edits, screen items, `get
 1. Establish the exact target: project, HMI name, screen path, item names, and whether TIA Portal is already open. If the correct TIA instance/project context is not already proven in this turn, use `basic-tia-interaction` first.
 2. Use `get-hmi-screen-summary` first for large or unfamiliar screens, then use `inspect-hmi-screen-json-capabilities` when the item type, writable properties, event types, faceplate interface, or dynamization shape is unfamiliar.
 3. Use `get-hmi-screen-json` when you only need a focused snapshot and already know the supported operations.
-4. Reuse the returned `RecommendedPatchArgs` for `baseHash`, `itemNames`, and `properties` instead of inventing filters.
-5. Prefer `apply-hmi-screen-json-patch` for targeted changes; run with `dry-run=true` first unless the user explicitly requested otherwise.
-6. Apply only when the dry-run result is safe, then rerun with `dry-run=false` and backup enabled unless the user has asked for no backup. Targeted patch backups use the same filters rather than exporting the whole HMI.
-7. Verify the result through `VerifiedScreen`, `VerifyExportPath`, a fresh screen snapshot, or specific property reads. Use `NewBaseHash` from a verified apply when chaining the next batch.
-8. If the result includes `Guidance`, follow `RecommendedNextAction` before guessing. It is designed for agents.
+4. If `get-hmi-screen-json` returns a command artifact instead of inline `screen`, read the JSON from `outputPath` for the full screen object and use the manifest metadata for `baseHash`, filters, and `recommendedPatchArgs`.
+5. Reuse the returned `RecommendedPatchArgs` for `baseHash`, `itemNames`, and `properties` instead of inventing filters.
+6. Prefer `apply-hmi-screen-json-patch` for targeted changes; run with `dry-run=true` first unless the user explicitly requested otherwise.
+7. Apply only when the dry-run result is safe, then rerun with `dry-run=false` and backup enabled unless the user has asked for no backup. Targeted patch backups use the same filters rather than exporting the whole HMI.
+8. Verify the result through `VerifiedScreen`, `VerifyExportPath`, a fresh screen snapshot, or specific property reads. Use `NewBaseHash` from a verified apply when chaining the next batch.
+9. If the result includes `Guidance`, follow `RecommendedNextAction` before guessing. It is designed for agents.
 
 ## Filter Invariant
 
@@ -34,7 +35,7 @@ Circle geometry is different in the HMI JSON patch/import surface. For `HmiCircl
 
 ## Command Schema Rules
 
-Use the OpenTiaToolkit command schema exactly. For CLI-shaped payloads, prefer kebab-case parameter names such as `hmi-name`, `screen-path`, `item-names`, `base-hash`, `dry-run`, and `working-path`.
+Use the OpenTiaToolkit command schema exactly. For CLI-shaped payloads, prefer kebab-case parameter names such as `hmi-name`, `screen-path`, `item-names`, `base-hash`, `dry-run`, `working-path`, and `include-screen`.
 
 Do not invent parameters such as `project`, `hmiName`, `screenPath`, `itemNames`, or `includeBaseHash` unless the active MCP bridge explicitly documents those aliases. The project is opened or connected outside these HMI screen JSON commands, and `baseHash` is returned automatically by `get-hmi-screen-json` and capability inspection.
 

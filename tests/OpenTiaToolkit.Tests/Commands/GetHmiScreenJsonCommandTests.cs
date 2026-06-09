@@ -71,5 +71,59 @@ namespace OpenTiaToolkit.Tests.Commands
             StringAssert.Contains(result.Message, "'Popups/A/Valve'");
             StringAssert.Contains(result.Message, "'Popups/B/Valve'");
         }
+
+        [TestMethod]
+        public async Task Execute_ReturnsArtifactManifestWhenIncludeScreenIsFalse()
+        {
+            var snapshot = new HmiScreenJsonSnapshotResult
+            {
+                GeneratedAtUtc = "2026-06-09T00:00:00Z",
+                HmiName = "HMI_1",
+                ScreenPath = "Screens/Main",
+                BaseHash = "abc",
+                ExportPath = @"C:\Temp\unified_hmi_export.json",
+                RecommendedPatchArgs = new HmiScreenJsonRecommendedPatchArgs
+                {
+                    HmiName = "HMI_1",
+                    ScreenPath = "Screens/Main",
+                    BaseHash = "abc"
+                },
+                Screen = new HmiJsonScreen
+                {
+                    Path = "Screens/Main",
+                    Name = "Main",
+                    Items = new List<HmiJsonItem>
+                    {
+                        new HmiJsonItem { Name = "Text_1", Type = "HmiText" }
+                    }
+                }
+            };
+
+            var hmiService = new Mock<IHmiService>();
+            hmiService.SetupGet(service => service.IsHmiOpen).Returns(true);
+            hmiService.SetupGet(service => service.CurrentHmiName).Returns("HMI_1");
+            hmiService
+                .Setup(service => service.GetScreenJsonAsync("Screens/Main", null, null))
+                .ReturnsAsync(snapshot);
+
+            var command = new GetHmiScreenJsonCommand(hmiService.Object);
+            var result = await command.ExecuteAsync(
+                new CommandArgs(new Dictionary<string, object?>
+                {
+                    ["hmi-name"] = "HMI_1",
+                    ["screen-path"] = "Screens/Main",
+                    ["include-screen"] = false
+                }),
+                NullLogger.Instance);
+
+            Assert.IsTrue(result.Success, result.Error);
+            var artifact = result.Data as CommandArtifactResult;
+            Assert.IsNotNull(artifact);
+            Assert.AreEqual("json", artifact!.Format);
+            Assert.AreEqual("unified-hmi-screen-json", artifact.DataKind);
+            Assert.AreEqual(1, artifact.ItemCount);
+            Assert.IsTrue(artifact.InlineOutputSuppressed);
+            StringAssert.Contains(artifact.Reason, "include-screen=false");
+        }
     }
 }

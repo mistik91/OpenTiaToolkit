@@ -71,6 +71,7 @@ namespace OpenTiaToolkit.CLI.Output
                 HmiLoggingTagDeleteResult loggingTagDelete => FormatHmiLoggingTagDeleteResult(loggingTagDelete),
                 HmiDataLogDeleteResult dataLogDelete => FormatHmiDataLogDeleteResult(dataLogDelete),
                 HmiTrendBulkResult trendBulk => FormatHmiTrendBulkResult(trendBulk),
+                CommandArtifactResult artifact => FormatCommandArtifactResult(artifact),
                 HmiJsonExportResult jsonExport => FormatHmiJsonExportResult(jsonExport),
                 HmiJsonDiffResult jsonDiff => FormatHmiJsonDiffResult(jsonDiff),
                 HmiJsonImportResult jsonImport => FormatHmiJsonImportResult(jsonImport),
@@ -96,6 +97,37 @@ namespace OpenTiaToolkit.CLI.Output
             if (!string.IsNullOrEmpty(error))
             {
                 lines.Add($"Details: {error}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatCommandArtifactResult(CommandArtifactResult artifact)
+        {
+            var lines = new List<string>
+            {
+                "Command Artifact:",
+                "",
+                $"Output Path:   {artifact.OutputPath}",
+                $"Format:        {artifact.Format}",
+                $"Data Kind:     {artifact.DataKind}",
+                $"Bytes Written: {artifact.BytesWritten}",
+                $"Inline Data:   {(artifact.InlineOutputSuppressed ? "Suppressed" : "Included")}"
+            };
+
+            if (artifact.ItemCount.HasValue)
+            {
+                lines.Add($"Item Count:    {artifact.ItemCount.Value}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(artifact.Reason))
+            {
+                lines.Add($"Reason:        {artifact.Reason}");
+            }
+
+            if (artifact.Columns.Count > 0)
+            {
+                lines.Add($"Columns:       {string.Join(", ", artifact.Columns)}");
             }
 
             return string.Join(Environment.NewLine, lines);

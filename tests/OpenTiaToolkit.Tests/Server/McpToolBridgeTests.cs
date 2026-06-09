@@ -6,7 +6,9 @@ using Moq;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.MCP.Server;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
@@ -127,6 +129,35 @@ namespace OpenTiaToolkit.Tests.Server
             Assert.AreEqual(1, result.Content.Count);
             Assert.IsInstanceOfType(result.Content[0], typeof(TextContentBlock));
             StringAssert.Contains(((TextContentBlock)result.Content[0]).Text, "\"success\"");
+        }
+
+        [TestMethod]
+        public async Task ToolRegistry_CallToolAsync_SpillsLargeStructuredDataToArtifact()
+        {
+            var commandMock = CreateCommandMock(
+                "large-tool",
+                new CommandSchema("Returns large data"));
+
+            commandMock
+                .Setup(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()))
+                .ReturnsAsync(CommandResult.CreateSuccess(
+                    new
+                    {
+                        text = new string('x', CommandArtifactSupport.InlineResultThresholdBytes + 1024)
+                    },
+                    "Large result"));
+
+            var registry = new ToolRegistry(new[] { commandMock.Object }, Mock.Of<ILogger<ToolRegistry>>());
+            var result = await registry.CallToolAsync("large-tool", CreateArguments(new { }));
+
+            Assert.IsFalse(result.IsError.GetValueOrDefault());
+            Assert.AreEqual("json", result.StructuredContent?["data"]?["format"]?.GetValue<string>());
+            Assert.AreEqual("large-tool-result", result.StructuredContent?["data"]?["dataKind"]?.GetValue<string>());
+            var outputPath = result.StructuredContent?["data"]?["outputPath"]?.GetValue<string>();
+            Assert.IsFalse(string.IsNullOrWhiteSpace(outputPath));
+            Assert.IsTrue(File.Exists(outputPath));
+            StringAssert.Contains(((TextContentBlock)result.Content[0]).Text, "outputPath");
+            File.Delete(outputPath!);
         }
 
         [TestMethod]

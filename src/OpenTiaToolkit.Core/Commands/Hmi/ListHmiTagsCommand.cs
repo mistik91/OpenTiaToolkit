@@ -1,6 +1,9 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Hmi
@@ -32,7 +35,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("max-results", CommandParameterType.Integer, "Maximum number of tags to return during enumeration", required: false, defaultValue: 200),
                 new CommandParameter("max-depth", CommandParameterType.Integer, "Maximum member depth to traverse from the selected root", required: false, defaultValue: 4),
                 new CommandParameter("include-details", CommandParameterType.Boolean, "Read detailed tag metadata such as display name and data type", required: false, defaultValue: true),
-                new CommandParameter("include-logging-counts", CommandParameterType.Boolean, "Read logging tag counts for returned tags", required: false, defaultValue: false)
+                new CommandParameter("include-logging-counts", CommandParameterType.Boolean, "Read logging tag counts for returned tags", required: false, defaultValue: false),
+                new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for large tag lists", required: false)
             });
 
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
@@ -95,7 +99,108 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             var limitNote = tags.Count >= options.MaxResults.GetValueOrDefault(int.MaxValue)
                 ? $" (limited to {options.MaxResults})"
                 : string.Empty;
+            var message = $"Found {tags.Count} Unified HMI tag(s){limitNote}";
+
+            if (ShouldWriteCsvArtifact(args, tags, message))
+            {
+                var outputPath = ResolveCsvOutputPath(args.Has("output-path")
+                    ? args.GetString("output-path")
+                    : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"));
+                var bytesWritten = WriteTagsCsv(tags, outputPath);
+                var artifact = new CommandArtifactResult
+                {
+                    OutputPath = outputPath,
+                    Format = "csv",
+                    DataKind = "unified-hmi-tags",
+                    BytesWritten = bytesWritten,
+                    ItemCount = tags.Count,
+                    InlineOutputSuppressed = !args.Has("output-path"),
+                    Reason = args.Has("output-path")
+                        ? "output-path was provided"
+                        : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                    Columns = CsvColumns,
+                    Metadata = new
+                    {
+                        hmiName,
+                        options.Filter,
+                        options.RootPath,
+                        options.MaxResults,
+                        options.MaxDepth,
+                        options.IncludeDetails,
+                        options.IncludeLoggingCounts,
+                        limited = tags.Count >= options.MaxResults.GetValueOrDefault(int.MaxValue)
+                    }
+                };
+
+                return CommandResult.CreateSuccess(artifact, $"{message}. CSV written to: {outputPath}");
+            }
+
             return CommandResult.CreateSuccess(tags, $"Found {tags.Count} Unified HMI tag(s){limitNote}");
+        }
+
+        private static readonly IReadOnlyList<string> CsvColumns = new[]
+        {
+            "Path",
+            "Name",
+            "DisplayName",
+            "DataType",
+            "HmiDataType",
+            "TagTableName",
+            "HasMembers",
+            "MemberCount",
+            "LoggingTagCount"
+        };
+
+        private static bool ShouldWriteCsvArtifact(CommandArgs args, object data, string message)
+        {
+            return args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(data, message);
+        }
+
+        private static string ResolveCsvOutputPath(string outputPath)
+        {
+            var fullPath = Path.GetFullPath(outputPath);
+            return Path.HasExtension(fullPath)
+                ? fullPath
+                : Path.Combine(fullPath, "unified_hmi_tags.csv");
+        }
+
+        private static long WriteTagsCsv(IEnumerable<HmiTagInfo> tags, string outputPath)
+        {
+            CommandArtifactSupport.EnsureParentDirectory(outputPath);
+
+            using (var writer = new StreamWriter(outputPath, append: false, encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.WriteLine(string.Join(",", CsvColumns));
+                foreach (var tag in tags)
+                {
+                    writer.WriteLine(string.Join(",", new[]
+                    {
+                        EscapeCsv(tag.Path),
+                        EscapeCsv(tag.Name),
+                        EscapeCsv(tag.DisplayName),
+                        EscapeCsv(tag.DataType),
+                        EscapeCsv(tag.HmiDataType),
+                        EscapeCsv(tag.TagTableName),
+                        EscapeCsv(tag.HasMembers.ToString()),
+                        EscapeCsv(tag.MemberCount.ToString()),
+                        EscapeCsv(tag.LoggingTagCount.ToString())
+                    }));
+                }
+            }
+
+            return new FileInfo(outputPath).Length;
+        }
+
+        private static string EscapeCsv(string? value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return string.Empty;
+            }
+
+            var mustQuote = value!.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0;
+            var escaped = value.Replace("\"", "\"\"");
+            return mustQuote ? "\"" + escaped + "\"" : escaped;
         }
     }
 }

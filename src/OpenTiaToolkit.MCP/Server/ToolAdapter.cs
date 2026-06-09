@@ -3,7 +3,9 @@ using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -100,7 +102,7 @@ namespace OpenTiaToolkit.MCP.Server
             {
                 var args = ParseArguments(arguments);
                 var result = await _command.ExecuteAsync(args, _logger);
-                return ToolExecutionResult.FromCommandResult(result);
+                return ToolExecutionResult.FromCommandResult(result, Name);
             }
             catch (Exception ex)
             {
@@ -111,7 +113,7 @@ namespace OpenTiaToolkit.MCP.Server
                     ex
                 );
 
-                return ToolExecutionResult.FromCommandResult(errorResult);
+                return ToolExecutionResult.FromCommandResult(errorResult, Name);
             }
         }
 
@@ -214,18 +216,76 @@ namespace OpenTiaToolkit.MCP.Server
 
         public static ToolExecutionResult FromCommandResult(CommandResult result)
         {
-            var structuredContent = new
+            return FromCommandResult(result, toolName: null);
+        }
+
+        public static ToolExecutionResult FromCommandResult(CommandResult result, string? toolName)
+        {
+            object? data = result.Data;
+            var message = result.Message;
+            var structuredContent = CreateStructuredContent(result, message, data);
+            var text = SerializeStructuredContent(structuredContent);
+
+            if (ShouldSpillToJsonArtifact(result, data, text))
             {
-                success = result.Success,
-                message = result.Message,
-                error = result.Error,
-                data = result.Data
-            };
+                var artifactPath = CommandArtifactSupport.CreateDefaultArtifactPath(toolName ?? "mcp-tool-result", ".json");
+                var bytesWritten = CommandArtifactSupport.SaveJsonArtifact(data!, artifactPath);
+                data = new CommandArtifactResult
+                {
+                    OutputPath = artifactPath,
+                    Format = "json",
+                    DataKind = string.IsNullOrWhiteSpace(toolName) ? "command-result" : toolName + "-result",
+                    BytesWritten = bytesWritten,
+                    ItemCount = TryGetItemCount(result.Data),
+                    InlineOutputSuppressed = true,
+                    Reason = $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes"
+                };
+                message = string.IsNullOrWhiteSpace(message)
+                    ? "Result data was written to an artifact file."
+                    : message + " Result data was written to an artifact file.";
+                structuredContent = CreateStructuredContent(result, message, data);
+                text = SerializeStructuredContent(structuredContent);
+            }
 
             return new ToolExecutionResult(
                 isError: !result.Success,
                 structuredContent: structuredContent,
-                text: result.ToJson(indented: true));
+                text: text);
+        }
+
+        private static object CreateStructuredContent(CommandResult result, string message, object? data)
+        {
+            return new
+            {
+                success = result.Success,
+                message,
+                error = result.Error,
+                data
+            };
+        }
+
+        private static string SerializeStructuredContent(object structuredContent)
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            return JsonSerializer.Serialize(structuredContent, options);
+        }
+
+        private static bool ShouldSpillToJsonArtifact(CommandResult result, object? data, string text)
+        {
+            return data != null &&
+                   data is not string &&
+                   data is not CommandArtifactResult &&
+                   Encoding.UTF8.GetByteCount(text) > CommandArtifactSupport.InlineResultThresholdBytes;
+        }
+
+        private static int? TryGetItemCount(object? data)
+        {
+            return data is ICollection collection ? collection.Count : null;
         }
     }
 }
