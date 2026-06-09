@@ -56,6 +56,8 @@ PROFINET station name is not the same as the TIA display `Name`. Use the patch o
 
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
+For large topology reads, pass `output-path` to `get-hardware-tree` or `get-hardware-networks`, or use the returned JSON artifact path when the command auto-spills. These nested outputs should stay JSON so they can be reloaded for follow-up target selection and network analysis.
+
 For large IO address reviews, pass `output-path` to `get-hardware-io-addresses` or use the returned CSV artifact path instead of reading a long inline result. For `audit-hardware-tag-mappings`, use `output-path` when the unmatched PLC tag rows should be reviewed in CSV; use the generic JSON artifact returned by MCP when the full audit object is needed.
 
 Before wiring a subnet or IO system, use `get-hardware-networks` to identify nodes, IO controllers, IO connectors, and existing connections.

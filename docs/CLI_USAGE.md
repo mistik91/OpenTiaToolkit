@@ -266,7 +266,10 @@ Returns hierarchical devices and items with target paths reusable by the remaini
 
 ```bash
 OpenTiaToolkit.CLI.exe get-hardware-tree --device-name="IO_Master_01"
+OpenTiaToolkit.CLI.exe get-hardware-tree --output-path="C:\Exports\hardware_tree.json"
 ```
+
+When `--output-path` is provided, the nested hardware tree is written as JSON. Without `--output-path`, large tree results that exceed the 32 KB inline response threshold are automatically written to a temporary JSON artifact.
 
 #### get-hardware-io-addresses
 
@@ -346,7 +349,10 @@ Lists discovered network interfaces, nodes, IO controllers, IO connectors, and c
 
 ```bash
 OpenTiaToolkit.CLI.exe get-hardware-networks --device-name="IO_Master_01"
+OpenTiaToolkit.CLI.exe get-hardware-networks --output-path="C:\Exports\hardware_networks.json"
 ```
+
+When `--output-path` is provided, network interface details are written as JSON. Without `--output-path`, large network results that exceed the 32 KB inline response threshold are automatically written to a temporary JSON artifact.
 
 #### get-gsd-parameter-data
 

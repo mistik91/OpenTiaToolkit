@@ -291,6 +291,115 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task GetHardwareTree_WritesJsonWhenOutputPathIsProvided()
+        {
+            var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "tree.json");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.GetHardwareTreeAsync("Station_1"))
+                    .ReturnsAsync(new[]
+                    {
+                        new HardwareDeviceTreeInfo
+                        {
+                            DeviceName = "Station_1",
+                            Items = new List<HardwareItemInfo>
+                            {
+                                new HardwareItemInfo
+                                {
+                                    Name = "Rack_0",
+                                    Items = new List<HardwareItemInfo>
+                                    {
+                                        new HardwareItemInfo { Name = "CPU_1" }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                var command = new GetHardwareTreeCommand(service.Object);
+
+                var result = await command.ExecuteAsync(Args(
+                    ("device-name", "Station_1"),
+                    ("output-path", outputPath)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success, result.Error);
+                var artifact = result.Data as CommandArtifactResult;
+                Assert.IsNotNull(artifact);
+                Assert.AreEqual(outputPath, artifact!.OutputPath);
+                Assert.AreEqual("json", artifact.Format);
+                Assert.AreEqual("hardware-tree", artifact.DataKind);
+                Assert.AreEqual(1, artifact.ItemCount);
+                Assert.IsFalse(artifact.InlineOutputSuppressed);
+                Assert.IsTrue(File.Exists(outputPath));
+                var json = File.ReadAllText(outputPath);
+                StringAssert.Contains(json, "\"deviceName\": \"Station_1\"");
+                StringAssert.Contains(json, "\"name\": \"CPU_1\"");
+                service.VerifyAll();
+            }
+            finally
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task GetHardwareNetworks_PassesDeviceFilter()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetNetworksAsync("Station_1"))
+                .ReturnsAsync(new[] { new HardwareNetworkInfo() });
+            var command = new GetHardwareNetworksCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(("device-name", "Station_1")), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            Assert.IsInstanceOfType(result.Data, typeof(IReadOnlyList<HardwareNetworkInfo>));
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareNetworks_AutoWritesJsonWhenInlineResultExceedsThreshold()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetNetworksAsync(null))
+                .ReturnsAsync(Enumerable.Range(0, 300)
+                    .Select(index => new HardwareNetworkInfo
+                    {
+                        Target = new HardwareObjectRef { DeviceName = "Device_" + index },
+                        Nodes = new List<HardwareNodeInfo>
+                        {
+                            new HardwareNodeInfo
+                            {
+                                Index = index,
+                                Name = "Node_" + index,
+                                Attributes = new List<HardwareAttributeInfo>
+                                {
+                                    new HardwareAttributeInfo { Name = "Address", Value = "192.168.0." + index },
+                                    new HardwareAttributeInfo { Name = "Comment", Value = new string('x', 100) }
+                                }
+                            }
+                        }
+                    })
+                    .ToList());
+            var command = new GetHardwareNetworksCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success, result.Error);
+            var artifact = result.Data as CommandArtifactResult;
+            Assert.IsNotNull(artifact);
+            Assert.AreEqual("json", artifact!.Format);
+            Assert.AreEqual("hardware-networks", artifact.DataKind);
+            Assert.IsTrue(artifact.InlineOutputSuppressed);
+            Assert.IsTrue(File.Exists(artifact.OutputPath));
+            File.Delete(artifact.OutputPath);
+        }
+
+        [TestMethod]
         public async Task GetHardwareIoAddresses_PassesDeviceFilterAndAttributes()
         {
             var service = new Mock<IHardwareService>();

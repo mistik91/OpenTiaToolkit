@@ -113,6 +113,38 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                 : Path.Combine(fullPath, defaultFileName);
         }
 
+        public static string ResolveJsonOutputPath(string outputPath, string defaultFileName)
+        {
+            var fullPath = Path.GetFullPath(outputPath);
+            return Path.HasExtension(fullPath)
+                ? fullPath
+                : Path.Combine(fullPath, defaultFileName);
+        }
+
+        public static CommandArtifactResult CreateJsonArtifact(
+            object data,
+            string outputPath,
+            string dataKind,
+            int itemCount,
+            bool explicitOutputPath,
+            object? metadata = null)
+        {
+            var bytesWritten = CommandArtifactSupport.SaveJsonArtifact(data, outputPath);
+            return new CommandArtifactResult
+            {
+                OutputPath = outputPath,
+                Format = "json",
+                DataKind = dataKind,
+                BytesWritten = bytesWritten,
+                ItemCount = itemCount,
+                InlineOutputSuppressed = !explicitOutputPath,
+                Reason = explicitOutputPath
+                    ? "output-path was provided"
+                    : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                Metadata = metadata
+            };
+        }
+
         public static string FormatTargetItemPath(HardwareObjectRef? target)
         {
             return target?.ItemPath == null || target.ItemPath.Length == 0
@@ -156,16 +188,50 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         public string Description => "Gets nested hardware devices and device items with reusable hardware target paths";
         public CommandSchema Schema => new CommandSchema(Description, new[]
         {
-            new CommandParameter("device-name", CommandParameterType.String, "Optional device name filter", required: false)
+            new CommandParameter("device-name", CommandParameterType.String, "Optional device name filter", required: false),
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the hardware tree", required: false)
         });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             try
             {
-                var devices = await _service.GetHardwareTreeAsync(args.Has("device-name") ? args.GetString("device-name") : null);
-                return CommandResult.CreateSuccess(devices, $"Found {devices.Count} hardware device tree(s).");
+                var deviceName = args.Has("device-name") ? args.GetString("device-name") : null;
+                var devices = await _service.GetHardwareTreeAsync(deviceName);
+                var message = $"Found {devices.Count} hardware device tree(s).";
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(devices, message))
+                {
+                    var outputPath = HardwareCommandSupport.ResolveJsonOutputPath(
+                        args.Has("output-path")
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".json"),
+                        "hardware_tree.json");
+                    var artifact = HardwareCommandSupport.CreateJsonArtifact(
+                        devices,
+                        outputPath,
+                        "hardware-tree",
+                        devices.Count,
+                        args.Has("output-path"),
+                        new
+                        {
+                            deviceName,
+                            nestedItemCount = CountTreeItems(devices)
+                        });
+                    return CommandResult.CreateSuccess(artifact, $"{message} JSON written to: {outputPath}");
+                }
+
+                return CommandResult.CreateSuccess(devices, message);
             }
             catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware tree", ex, logger); }
+        }
+
+        private static int CountTreeItems(IReadOnlyList<HardwareDeviceTreeInfo> devices)
+        {
+            return devices.Sum(device => device.Items.Sum(CountTreeItem));
+        }
+
+        private static int CountTreeItem(HardwareItemInfo item)
+        {
+            return 1 + item.Items.Sum(CountTreeItem);
         }
     }
 
@@ -544,14 +610,41 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         public string Description => "Lists hardware network interfaces, nodes, IO controllers and IO connectors";
         public CommandSchema Schema => new CommandSchema(Description, new[]
         {
-            new CommandParameter("device-name", CommandParameterType.String, "Optional device name filter", required: false)
+            new CommandParameter("device-name", CommandParameterType.String, "Optional device name filter", required: false),
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for hardware network interfaces", required: false)
         });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             try
             {
-                var values = await _service.GetNetworksAsync(args.Has("device-name") ? args.GetString("device-name") : null);
-                return CommandResult.CreateSuccess(values, $"Found {values.Count} hardware network interface(s).");
+                var deviceName = args.Has("device-name") ? args.GetString("device-name") : null;
+                var values = await _service.GetNetworksAsync(deviceName);
+                var message = $"Found {values.Count} hardware network interface(s).";
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(values, message))
+                {
+                    var outputPath = HardwareCommandSupport.ResolveJsonOutputPath(
+                        args.Has("output-path")
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".json"),
+                        "hardware_networks.json");
+                    var artifact = HardwareCommandSupport.CreateJsonArtifact(
+                        values,
+                        outputPath,
+                        "hardware-networks",
+                        values.Count,
+                        args.Has("output-path"),
+                        new
+                        {
+                            deviceName,
+                            nodeCount = values.Sum(value => value.Nodes.Count),
+                            ioControllerCount = values.Sum(value => value.IoControllers.Count),
+                            ioConnectorCount = values.Sum(value => value.IoConnectors.Count),
+                            connectedIoDeviceCount = values.Sum(value => value.ConnectedIoDevices.Count)
+                        });
+                    return CommandResult.CreateSuccess(artifact, $"{message} JSON written to: {outputPath}");
+                }
+
+                return CommandResult.CreateSuccess(values, message);
             }
             catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware networks", ex, logger); }
         }
