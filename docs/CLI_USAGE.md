@@ -1040,6 +1040,7 @@ OpenTiaToolkit.CLI.exe create-vci-workspace --workspace-name="PLC_Repo" --root-p
 
 # Inspect workspaces and supported block formats
 OpenTiaToolkit.CLI.exe list-vci-workspaces
+OpenTiaToolkit.CLI.exe list-vci-mappings --workspace-name="PLC_Repo" --output-path="C:\Exports\vci_mappings.csv"
 OpenTiaToolkit.CLI.exe get-vci-block-formats --plc-name="PLC_1" --block-name="FC_Control" --block-type="FC"
 
 # Create a surgical S7DCL mapping and synchronize project to workspace
@@ -1048,12 +1049,14 @@ OpenTiaToolkit.CLI.exe sync-vci-block --workspace-name="PLC_Repo" --plc-name="PL
 
 # Bulk operation limited by regex, optionally creating mappings
 OpenTiaToolkit.CLI.exe sync-vci-blocks --workspace-name="PLC_Repo" --plc-name="PLC_1" --direction="project-to-workspace" --filter-regex="^FC_Control$" --create-mappings=true --relative-directory="." --file-format="SimaticSD"
+OpenTiaToolkit.CLI.exe sync-vci-blocks --workspace-name="PLC_Repo" --plc-name="PLC_1" --direction="project-to-workspace" --include-skipped=true --output-path="C:\Exports\vci_block_sync.json"
 
 # Traverse the PLC without automatically mapping new objects
 OpenTiaToolkit.CLI.exe sync-vci-plc --workspace-name="PLC_Repo" --plc-name="PLC_1" --direction="project-to-workspace" --scope="all-supported"
 
 # Include individual skipped unmapped items when an audit needs full detail
 OpenTiaToolkit.CLI.exe sync-vci-plc --workspace-name="PLC_Repo" --plc-name="PLC_1" --direction="project-to-workspace" --scope="all-supported" --include-skipped=true
+OpenTiaToolkit.CLI.exe sync-vci-plc --workspace-name="PLC_Repo" --plc-name="PLC_1" --direction="project-to-workspace" --scope="all-supported" --include-skipped=true --output-path="C:\Exports\vci_plc_sync.json"
 ```
 
 **Commands**:
@@ -1068,6 +1071,7 @@ OpenTiaToolkit.CLI.exe sync-vci-plc --workspace-name="PLC_Repo" --plc-name="PLC_
 - `all-supported` covers blocks, PLC types, tag tables, and technological instance DBs exposed by the V21 API.
 - `create-mappings=true` is supported for project-to-workspace synchronization. Workspace-to-project synchronization requires an existing mapping created with `connect-vci-block`.
 - `include-skipped=true` adds per-object entries for skipped unmapped items. It defaults to `false`; counts and failures are always returned.
+- `output-path` writes large review results directly: `list-vci-mappings` writes CSV, while `sync-vci-blocks` and `sync-vci-plc` write JSON. Without `output-path`, results above the 32 KB inline response threshold automatically spill to a temporary artifact.
 
 **Repository notes**:
 - For a new repository, provide `workspace-language` when creating the workspace.

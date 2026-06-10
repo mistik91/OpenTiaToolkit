@@ -7,6 +7,7 @@ using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Hardware;
 using OpenTiaToolkit.Core.Commands.Plc;
+using OpenTiaToolkit.Core.Commands.Vci;
 using OpenTiaToolkit.Core.Services;
 using OpenTiaToolkit.MCP.Server;
 using System;
@@ -98,6 +99,19 @@ namespace OpenTiaToolkit.Tests.Server
             AssertOutputPathSchema(treeAdapter.ProtocolTool.InputSchema, "JSON");
             AssertOutputPathSchema(blocksAdapter.ProtocolTool.InputSchema, "CSV");
             AssertOutputPathSchema(searchAdapter.ProtocolTool.InputSchema, "CSV");
+        }
+
+        [TestMethod]
+        public void ToolAdapter_ProtocolTool_ExposesVciArtifactOutputPathSchemas()
+        {
+            var vciService = Mock.Of<IVciService>();
+            var mappingsAdapter = new ToolAdapter(new ListVciMappingsCommand(vciService), Mock.Of<ILogger>());
+            var syncBlocksAdapter = new ToolAdapter(new SyncVciBlocksCommand(vciService), Mock.Of<ILogger>());
+            var syncPlcAdapter = new ToolAdapter(new SyncVciPlcCommand(vciService), Mock.Of<ILogger>());
+
+            AssertOutputPathSchema(mappingsAdapter.ProtocolTool.InputSchema, "CSV");
+            AssertOutputPathSchema(syncBlocksAdapter.ProtocolTool.InputSchema, "JSON");
+            AssertOutputPathSchema(syncPlcAdapter.ProtocolTool.InputSchema, "JSON");
         }
 
         [TestMethod]

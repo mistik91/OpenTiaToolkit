@@ -2,6 +2,10 @@ using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Models;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Vci
@@ -51,6 +55,100 @@ namespace OpenTiaToolkit.Core.Commands.Vci
                 ? CommandResult.CreateSuccess(result, message)
                 : CommandResult.CreateFailure(message, result);
         }
+
+        public static CommandResult BulkResult(string operation, VciBulkSyncResult result, CommandArgs args, string commandName, object? metadata = null)
+        {
+            var message = $"{operation}: {result.SynchronizedCount} synchronized, {result.MappedCount} new mapping(s), {result.SkippedCount} skipped, {result.FailedCount} failed.";
+            object data = result;
+
+            if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(result, message))
+            {
+                var outputPath = ResolveOutputPath(
+                    args.Has("output-path")
+                        ? args.GetString("output-path")
+                        : CommandArtifactSupport.CreateDefaultArtifactPath(commandName, ".json"),
+                    commandName + "_result.json");
+                data = CreateJsonArtifact(
+                    result,
+                    outputPath,
+                    commandName + "-result",
+                    result.Items.Count,
+                    args.Has("output-path"),
+                    metadata);
+                message += $" JSON written to: {outputPath}";
+            }
+
+            return result.FailedCount == 0
+                ? CommandResult.CreateSuccess(data, message)
+                : CommandResult.CreateFailure(message, data);
+        }
+
+        public static string ResolveOutputPath(string outputPath, string defaultFileName)
+        {
+            var fullPath = Path.GetFullPath(outputPath);
+            return Path.HasExtension(fullPath)
+                ? fullPath
+                : Path.Combine(fullPath, defaultFileName);
+        }
+
+        public static CommandArtifactResult CreateJsonArtifact(
+            object data,
+            string outputPath,
+            string dataKind,
+            int itemCount,
+            bool explicitOutputPath,
+            object? metadata = null)
+        {
+            var bytesWritten = CommandArtifactSupport.SaveJsonArtifact(data, outputPath);
+            return new CommandArtifactResult
+            {
+                OutputPath = outputPath,
+                Format = "json",
+                DataKind = dataKind,
+                BytesWritten = bytesWritten,
+                ItemCount = itemCount,
+                InlineOutputSuppressed = !explicitOutputPath,
+                Reason = explicitOutputPath
+                    ? "output-path was provided"
+                    : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                Metadata = metadata
+            };
+        }
+
+        public static long WriteMappingsCsv(IReadOnlyList<VciMappingInfo> mappings, string outputPath)
+        {
+            CommandArtifactSupport.EnsureParentDirectory(outputPath);
+            using (var writer = new StreamWriter(outputPath, append: false, encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.WriteLine(string.Join(",", MappingCsvColumns));
+                foreach (var mapping in mappings)
+                {
+                    writer.WriteLine(string.Join(",", new[]
+                    {
+                        mapping.WorkspaceName,
+                        mapping.ObjectName,
+                        mapping.ObjectType,
+                        mapping.DirectoryPath,
+                        mapping.FileNameWithoutExtension,
+                        mapping.FileFormat,
+                        mapping.Status
+                    }.Select(CommandArtifactSupport.EscapeCsv)));
+                }
+            }
+
+            return new FileInfo(outputPath).Length;
+        }
+
+        public static readonly IReadOnlyList<string> MappingCsvColumns = new[]
+        {
+            "WorkspaceName",
+            "ObjectName",
+            "ObjectType",
+            "DirectoryPath",
+            "FileNameWithoutExtension",
+            "FileFormat",
+            "Status"
+        };
     }
 
     public sealed class ListVciWorkspacesCommand : ICommand
@@ -148,13 +246,44 @@ namespace OpenTiaToolkit.Core.Commands.Vci
         public ListVciMappingsCommand(IVciService service) => _service = service;
         public string Name => "list-vci-mappings";
         public string Description => "Lists mapped objects in a Version Control Interface workspace";
-        public CommandSchema Schema => new CommandSchema(Description, new[] { new CommandParameter("workspace-name", CommandParameterType.String, "Workspace name", true) });
+        public CommandSchema Schema => new CommandSchema(Description, new[]
+        {
+            new CommandParameter("workspace-name", CommandParameterType.String, "Workspace name", true),
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for VCI mapping rows")
+        });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             try
             {
-                var mappings = await _service.ListMappingsAsync(VciCommandSupport.Required(args, "workspace-name"));
-                return CommandResult.CreateSuccess(mappings, $"Found {mappings.Count} VCI mapping(s).");
+                var workspaceName = VciCommandSupport.Required(args, "workspace-name");
+                var mappings = await _service.ListMappingsAsync(workspaceName);
+                var message = $"Found {mappings.Count} VCI mapping(s).";
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(mappings, message))
+                {
+                    var outputPath = VciCommandSupport.ResolveOutputPath(
+                        args.Has("output-path")
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
+                        "vci_mappings.csv");
+                    var bytesWritten = VciCommandSupport.WriteMappingsCsv(mappings, outputPath);
+                    var artifact = new CommandArtifactResult
+                    {
+                        OutputPath = outputPath,
+                        Format = "csv",
+                        DataKind = "vci-mappings",
+                        BytesWritten = bytesWritten,
+                        ItemCount = mappings.Count,
+                        InlineOutputSuppressed = !args.Has("output-path"),
+                        Reason = args.Has("output-path")
+                            ? "output-path was provided"
+                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                        Columns = VciCommandSupport.MappingCsvColumns,
+                        Metadata = new { workspaceName }
+                    };
+                    return CommandResult.CreateSuccess(artifact, $"{message} CSV written to: {outputPath}");
+                }
+
+                return CommandResult.CreateSuccess(mappings, message);
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Listing VCI mappings", ex, logger); }
         }
@@ -320,14 +449,29 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("create-mappings", CommandParameterType.Boolean, "Export and map unmapped items for project-to-workspace", false, false),
             new CommandParameter("relative-directory", CommandParameterType.String, "Base path relative to workspace root", false, ""),
             new CommandParameter("file-format", CommandParameterType.String, "Optional supported file format"),
-            new CommandParameter("include-skipped", CommandParameterType.Boolean, "Include per-item results for skipped unmapped objects", false, false)
+            new CommandParameter("include-skipped", CommandParameterType.Boolean, "Include per-item results for skipped unmapped objects", false, false),
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the bulk sync result")
         });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             try
             {
-                var result = await _service.SynchronizeBlocksAsync(VciCommandSupport.Required(args, "workspace-name"), VciCommandSupport.Required(args, "plc-name"), VciCommandSupport.Direction(args), VciCommandSupport.Optional(args, "filter-regex"), args.GetStringArray("block-types"), args.GetBool("create-mappings"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-format"), args.GetBool("include-skipped"));
-                return VciCommandSupport.BulkResult("VCI block synchronization", result);
+                var workspaceName = VciCommandSupport.Required(args, "workspace-name");
+                var plcName = VciCommandSupport.Required(args, "plc-name");
+                var direction = VciCommandSupport.Direction(args);
+                var result = await _service.SynchronizeBlocksAsync(workspaceName, plcName, direction, VciCommandSupport.Optional(args, "filter-regex"), args.GetStringArray("block-types"), args.GetBool("create-mappings"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-format"), args.GetBool("include-skipped"));
+                return VciCommandSupport.BulkResult("VCI block synchronization", result, args, Name, new
+                {
+                    workspaceName,
+                    plcName,
+                    direction = direction.ToString(),
+                    filterRegex = VciCommandSupport.Optional(args, "filter-regex"),
+                    blockTypes = args.GetStringArray("block-types"),
+                    createMappings = args.GetBool("create-mappings"),
+                    relativeDirectory = args.GetString("relative-directory"),
+                    fileFormat = VciCommandSupport.Optional(args, "file-format"),
+                    includeSkipped = args.GetBool("include-skipped")
+                });
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Synchronizing VCI blocks", ex, logger); }
         }
@@ -348,14 +492,29 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("create-mappings", CommandParameterType.Boolean, "Export and map unmapped items for project-to-workspace", false, false),
             new CommandParameter("relative-directory", CommandParameterType.String, "Base path relative to workspace root", false, ""),
             new CommandParameter("file-format", CommandParameterType.String, "Optional supported file format"),
-            new CommandParameter("include-skipped", CommandParameterType.Boolean, "Include per-item results for skipped unmapped objects", false, false)
+            new CommandParameter("include-skipped", CommandParameterType.Boolean, "Include per-item results for skipped unmapped objects", false, false),
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the PLC sync result")
         });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             try
             {
-                var result = await _service.SynchronizePlcAsync(VciCommandSupport.Required(args, "workspace-name"), VciCommandSupport.Required(args, "plc-name"), VciCommandSupport.Direction(args), VciCommandSupport.Scope(args), args.GetBool("create-mappings"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-format"), args.GetBool("include-skipped"));
-                return VciCommandSupport.BulkResult("VCI PLC synchronization", result);
+                var workspaceName = VciCommandSupport.Required(args, "workspace-name");
+                var plcName = VciCommandSupport.Required(args, "plc-name");
+                var direction = VciCommandSupport.Direction(args);
+                var scope = VciCommandSupport.Scope(args);
+                var result = await _service.SynchronizePlcAsync(workspaceName, plcName, direction, scope, args.GetBool("create-mappings"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-format"), args.GetBool("include-skipped"));
+                return VciCommandSupport.BulkResult("VCI PLC synchronization", result, args, Name, new
+                {
+                    workspaceName,
+                    plcName,
+                    direction = direction.ToString(),
+                    scope = scope.ToString(),
+                    createMappings = args.GetBool("create-mappings"),
+                    relativeDirectory = args.GetString("relative-directory"),
+                    fileFormat = VciCommandSupport.Optional(args, "file-format"),
+                    includeSkipped = args.GetBool("include-skipped")
+                });
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Synchronizing VCI PLC", ex, logger); }
         }

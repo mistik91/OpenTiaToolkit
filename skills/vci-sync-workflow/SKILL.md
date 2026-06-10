@@ -17,6 +17,7 @@ Use this skill for TIA Version Control Interface work. Treat sync direction as t
    - `list-vci-workspaces`
    - `get-vci-workspace`
    - `list-vci-mappings`
+   For large mapping reviews, pass `output-path` to `list-vci-mappings` or use the returned CSV artifact path when it auto-spills.
 4. For a block workflow, discover supported formats with `get-vci-block-formats`.
 5. Before synchronization, run `get-vci-block-status` for mapped objects when possible.
 6. Choose the operation:
@@ -43,6 +44,8 @@ Use `create-mapping` or `create-mappings` only when the user wants unmapped obje
 Keep `relative-directory`, `file-name`, `file-format`, `block-type`, and `group-path` explicit when supplied. Avoid changing established workspace layout unless requested.
 
 For broad syncs, use `filter-regex`, `block-types`, `scope`, and `include-skipped` to make the result reviewable.
+
+For broad sync review, pass `output-path` to `sync-vci-blocks` or `sync-vci-plc`, or use the returned JSON artifact path when the result auto-spills. Keep sync results as JSON so per-item failures, skipped objects, and counters stay structured.
 
 ## Destructive Actions
 
