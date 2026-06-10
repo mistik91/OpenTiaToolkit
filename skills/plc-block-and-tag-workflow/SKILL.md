@@ -19,6 +19,7 @@ Use this skill for PLC software work through OpenTiaToolkit. Start with target d
    - `get-software-tree` for hierarchy.
    - `get-blocks` or `search-blocks` for candidate blocks.
    - `get-block-info` for a specific block.
+   For large PLC discovery reads, pass `output-path` to `get-software-tree`, `get-blocks`, or `search-blocks`, or use the returned artifact path when the command auto-spills. Keep software trees as JSON and flat block lists/searches as CSV.
 4. Choose the narrowest operation for the request.
 5. Run dry-run or preview mode first when available.
 6. Apply only after preview results match the user's intent.

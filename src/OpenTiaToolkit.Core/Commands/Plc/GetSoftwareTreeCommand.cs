@@ -44,7 +44,12 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     CommandParameterType.Integer,
                     "Maximum depth to traverse (null for unlimited)",
                     required: false,
-                    defaultValue: null)
+                    defaultValue: null),
+                new CommandParameter(
+                    "output-path",
+                    CommandParameterType.Path,
+                    "Optional JSON file or folder path for the PLC software tree",
+                    required: false)
             }
         );
 
@@ -75,14 +80,41 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 if (tree != null)
                 {
                     var treeData = SerializeSoftwareTreeNode(tree);
+                    var resultData = new
+                    {
+                        plcName,
+                        tree = treeData
+                    };
+                    var message = "Software tree retrieved successfully";
+
+                    if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(resultData, message))
+                    {
+                        var outputPath = PlcCommandSupport.ResolveOutputPath(
+                            args.Has("output-path")
+                                ? args.GetString("output-path")
+                                : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".json"),
+                            "plc_software_tree.json");
+                        var artifact = PlcCommandSupport.CreateJsonArtifact(
+                            resultData,
+                            outputPath,
+                            "plc-software-tree",
+                            CountSoftwareTreeNodes(tree),
+                            args.Has("output-path"),
+                            new
+                            {
+                                plcName,
+                                maxDepth
+                            });
+
+                        return CommandResult.CreateSuccess(
+                            data: artifact,
+                            message: $"{message}. JSON written to: {outputPath}"
+                        );
+                    }
 
                     return CommandResult.CreateSuccess(
-                        data: new
-                        {
-                            plcName,
-                            tree = treeData
-                        },
-                        message: "Software tree retrieved successfully"
+                        data: resultData,
+                        message: message
                     );
                 }
                 else
@@ -114,6 +146,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 path = node.Path,
                 children = node.Children.Select(SerializeSoftwareTreeNode).ToArray()
             };
+        }
+
+        private static int CountSoftwareTreeNodes(SoftwareTreeNode node)
+        {
+            return 1 + node.Children.Sum(CountSoftwareTreeNodes);
         }
     }
 }

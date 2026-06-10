@@ -51,6 +51,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     "filter-type",
                     CommandParameterType.String,
                     "Optional block type filter (e.g., 'FB', 'FC', 'DB', 'OB')",
+                    required: false),
+                new CommandParameter(
+                    "output-path",
+                    CommandParameterType.Path,
+                    "Optional CSV file or folder path for matching PLC block rows",
                     required: false)
             }
         );
@@ -74,8 +79,10 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     return CommandResult.CreateFailure("Missing required parameter: pattern");
                 }
 
-                var searchIn = args.GetString("search-in") ?? "name";
-                var blockType = args.GetString("filter-type");
+                var searchIn = args.Has("search-in") && !string.IsNullOrWhiteSpace(args.GetString("search-in"))
+                    ? args.GetString("search-in")
+                    : "name";
+                var blockType = args.Has("filter-type") ? args.GetString("filter-type") : null;
 
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
@@ -84,11 +91,47 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 var blocks = await _plcService.SearchBlocksAsync(pattern, searchIn, blockType);
+                var message = $"Found {blocks.Count} matching block(s) in {plcName}";
+
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(blocks, message))
+                {
+                    var outputPath = PlcCommandSupport.ResolveOutputPath(
+                        args.Has("output-path")
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
+                        "plc_block_search_results.csv");
+                    var bytesWritten = PlcCommandSupport.WriteBlocksCsv(blocks, outputPath);
+                    var artifact = new CommandArtifactResult
+                    {
+                        OutputPath = outputPath,
+                        Format = "csv",
+                        DataKind = "plc-block-search-results",
+                        BytesWritten = bytesWritten,
+                        ItemCount = blocks.Count,
+                        InlineOutputSuppressed = !args.Has("output-path"),
+                        Reason = args.Has("output-path")
+                            ? "output-path was provided"
+                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                        Columns = PlcCommandSupport.BlockCsvColumns,
+                        Metadata = new
+                        {
+                            plcName,
+                            pattern,
+                            searchIn,
+                            blockType
+                        }
+                    };
+
+                    return CommandResult.CreateSuccess(
+                        data: artifact,
+                        message: $"{message}. CSV written to: {outputPath}"
+                    );
+                }
 
                 // Return blocks directly as data for proper formatting
                 return CommandResult.CreateSuccess(
                     data: blocks,
-                    message: $"Found {blocks.Count} matching block(s) in {plcName}"
+                    message: message
                 );
             }
             catch (System.Exception ex)

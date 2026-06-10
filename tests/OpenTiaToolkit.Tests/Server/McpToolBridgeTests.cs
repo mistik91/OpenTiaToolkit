@@ -6,6 +6,7 @@ using Moq;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Hardware;
+using OpenTiaToolkit.Core.Commands.Plc;
 using OpenTiaToolkit.Core.Services;
 using OpenTiaToolkit.MCP.Server;
 using System;
@@ -84,6 +85,19 @@ namespace OpenTiaToolkit.Tests.Server
             AssertOutputPathSchema(driveTelegramAdapter.ProtocolTool.InputSchema, "CSV");
             AssertOutputPathSchema(auditAdapter.ProtocolTool.InputSchema, "CSV");
             AssertOutputPathSchema(networksAdapter.ProtocolTool.InputSchema, "JSON");
+        }
+
+        [TestMethod]
+        public void ToolAdapter_ProtocolTool_ExposesPlcDiscoveryArtifactOutputPathSchemas()
+        {
+            var plcService = Mock.Of<IPlcService>();
+            var treeAdapter = new ToolAdapter(new GetSoftwareTreeCommand(plcService), Mock.Of<ILogger>());
+            var blocksAdapter = new ToolAdapter(new GetBlocksCommand(plcService), Mock.Of<ILogger>());
+            var searchAdapter = new ToolAdapter(new SearchBlocksCommand(plcService), Mock.Of<ILogger>());
+
+            AssertOutputPathSchema(treeAdapter.ProtocolTool.InputSchema, "JSON");
+            AssertOutputPathSchema(blocksAdapter.ProtocolTool.InputSchema, "CSV");
+            AssertOutputPathSchema(searchAdapter.ProtocolTool.InputSchema, "CSV");
         }
 
         [TestMethod]

@@ -42,6 +42,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     "filter",
                     CommandParameterType.String,
                     "Optional regex filter for block names",
+                    required: false),
+                new CommandParameter(
+                    "output-path",
+                    CommandParameterType.Path,
+                    "Optional CSV file or folder path for PLC block rows",
                     required: false)
             }
         );
@@ -68,11 +73,45 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 var blocks = await _plcService.GetBlocksAsync(filter);
+                var message = $"Found {blocks.Count} block(s) in {plcName}";
+
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(blocks, message))
+                {
+                    var outputPath = PlcCommandSupport.ResolveOutputPath(
+                        args.Has("output-path")
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
+                        "plc_blocks.csv");
+                    var bytesWritten = PlcCommandSupport.WriteBlocksCsv(blocks, outputPath);
+                    var artifact = new CommandArtifactResult
+                    {
+                        OutputPath = outputPath,
+                        Format = "csv",
+                        DataKind = "plc-blocks",
+                        BytesWritten = bytesWritten,
+                        ItemCount = blocks.Count,
+                        InlineOutputSuppressed = !args.Has("output-path"),
+                        Reason = args.Has("output-path")
+                            ? "output-path was provided"
+                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                        Columns = PlcCommandSupport.BlockCsvColumns,
+                        Metadata = new
+                        {
+                            plcName,
+                            filter
+                        }
+                    };
+
+                    return CommandResult.CreateSuccess(
+                        data: artifact,
+                        message: $"{message}. CSV written to: {outputPath}"
+                    );
+                }
 
                 // Return blocks directly as data for proper formatting
                 return CommandResult.CreateSuccess(
                     data: blocks,
-                    message: $"Found {blocks.Count} block(s) in {plcName}"
+                    message: message
                 );
             }
             catch (System.Exception ex)

@@ -754,11 +754,15 @@ Gets the PLC software structure (blocks, types, sources).
 ```bash
 OpenTiaToolkit.CLI.exe get-software-tree --plc-name="PLC_1"
 OpenTiaToolkit.CLI.exe get-software-tree --plc-name="PLC_1" --depth=3
+OpenTiaToolkit.CLI.exe get-software-tree --plc-name="PLC_1" --output-path="C:\Exports\plc_software_tree.json"
 ```
 
 **Parameters**:
 - `plc-name` (required): Name of the PLC device
 - `depth` (optional): Maximum depth to traverse (null for unlimited)
+- `output-path` (optional): JSON file or folder path for the PLC software tree
+
+When `--output-path` is provided, the PLC software tree is written as JSON. Without `--output-path`, large tree results that exceed the 32 KB inline response threshold are automatically written to a temporary JSON artifact.
 
 **Output**:
 ```
@@ -828,11 +832,15 @@ Lists blocks from PLC software.
 ```bash
 OpenTiaToolkit.CLI.exe get-blocks --plc-name="PLC_1"
 OpenTiaToolkit.CLI.exe get-blocks --plc-name="PLC_1" --filter="Motor"
+OpenTiaToolkit.CLI.exe get-blocks --plc-name="PLC_1" --output-path="C:\Exports\plc_blocks.csv"
 ```
 
 **Parameters**:
 - `plc-name` (required): Name of the PLC device
 - `filter` (optional): Regex filter for block names
+- `output-path` (optional): CSV file or folder path for PLC block rows
+
+When `--output-path` is provided, PLC block rows are written as CSV. Without `--output-path`, large block lists that exceed the 32 KB inline response threshold are automatically written to a temporary CSV artifact.
 
 **Output**:
 ```
@@ -931,6 +939,7 @@ Searches PLC blocks by name or comment with optional type filter.
 OpenTiaToolkit.CLI.exe search-blocks --plc-name="PLC_1" --pattern="Motor"
 OpenTiaToolkit.CLI.exe search-blocks --plc-name="PLC_1" --pattern="Test" --search-in="comment"
 OpenTiaToolkit.CLI.exe search-blocks --plc-name="PLC_1" --pattern="FB" --filter-type="FB"
+OpenTiaToolkit.CLI.exe search-blocks --plc-name="PLC_1" --pattern="Motor" --output-path="C:\Exports\motor_blocks.csv"
 ```
 
 **Parameters**:
@@ -938,6 +947,9 @@ OpenTiaToolkit.CLI.exe search-blocks --plc-name="PLC_1" --pattern="FB" --filter-
 - `pattern` (required): Search pattern (supports wildcards)
 - `search-in` (optional): Where to search - "name" or "comment" (default: "name")
 - `filter-type` (optional): Block type filter (FB, FC, DB, OB)
+- `output-path` (optional): CSV file or folder path for matching PLC block rows
+
+When `--output-path` is provided, matching block rows are written as CSV. Without `--output-path`, large search results that exceed the 32 KB inline response threshold are automatically written to a temporary CSV artifact.
 
 **Output**:
 ```
