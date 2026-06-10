@@ -60,6 +60,8 @@ For large topology reads, pass `output-path` to `get-hardware-tree` or `get-hard
 
 For large IO address reviews, pass `output-path` to `get-hardware-io-addresses` or use the returned CSV artifact path instead of reading a long inline result. For `audit-hardware-tag-mappings`, use `output-path` when the unmatched PLC tag rows should be reviewed in CSV; use the generic JSON artifact returned by MCP when the full audit object is needed.
 
+For Startdrive telegram reviews across multiple inverters, pass `output-path` to `get-hardware-drive-telegrams` or use its returned CSV artifact path. Include `address-attributes` such as `StartAddress`, `IoType`, and `Length` when checking address assignments or collisions.
+
 Before wiring a subnet or IO system, use `get-hardware-networks` to identify nodes, IO controllers, IO connectors, and existing connections.
 
 For PROFINET IO devices that appear in PLC tags or IO-system references but not in `list-devices` or `get-hardware-tree`, do not conclude they are absent. Read `get-hardware-networks` and inspect project IO-system `connectedIoDevices` entries. Their `nodes[].attributes` can expose IP address, subnet mask, and station-name fields; `connector.attributes` can expose `PnDeviceNumber` when TIA provides it.

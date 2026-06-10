@@ -289,7 +289,10 @@ Some Startdrive devices do not expose optional drive-object metadata; telegram a
 
 ```bash
 OpenTiaToolkit.CLI.exe get-hardware-drive-telegrams --device-name="SINAMICS G_1" --address-attributes="StartAddress,IoType,Length"
+OpenTiaToolkit.CLI.exe get-hardware-drive-telegrams --address-attributes="StartAddress,IoType,Length" --output-path="C:\Exports\drive_telegrams.csv"
 ```
+
+When `--output-path` is provided, drive telegram and IO address rows are written as CSV. Without `--output-path`, large drive telegram results that exceed the 32 KB inline response threshold are automatically written to a temporary CSV artifact.
 
 #### audit-hardware-tag-mappings
 

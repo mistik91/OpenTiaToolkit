@@ -145,6 +145,23 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public void GetStringArray_SplitsCommaSeparatedString_WhenArgumentIsString()
+        {
+            // Arrange
+            var values = new System.Collections.Generic.Dictionary<string, object?>
+            {
+                { "items", "StartAddress, IoType,Length" }
+            };
+            var args = new CommandArgs(values);
+
+            // Act
+            var result = args.GetStringArray("items");
+
+            // Assert
+            CollectionAssert.AreEqual(new[] { "StartAddress", "IoType", "Length" }, result);
+        }
+
+        [TestMethod]
         public void Has_ReturnsTrue_WhenArgumentExists()
         {
             // Arrange

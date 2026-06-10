@@ -358,18 +358,139 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         public CommandSchema Schema => new CommandSchema(Description, new[]
         {
             new CommandParameter("device-name", CommandParameterType.String, "Optional drive device name filter", required: false),
-            new CommandParameter("address-attributes", CommandParameterType.StringArray, "Optional named telegram address attributes to read", required: false)
+            new CommandParameter("address-attributes", CommandParameterType.StringArray, "Optional named telegram address attributes to read", required: false),
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for drive telegram rows", required: false)
         });
         public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
             try
             {
+                var deviceName = args.Has("device-name") ? args.GetString("device-name") : null;
+                var addressAttributes = args.Has("address-attributes") ? args.GetStringArray("address-attributes") : null;
                 var values = await _service.GetDriveTelegramsAsync(
-                    args.Has("device-name") ? args.GetString("device-name") : null,
-                    args.Has("address-attributes") ? args.GetStringArray("address-attributes") : null);
-                return CommandResult.CreateSuccess(values, $"Found {values.Count} drive telegram(s).");
+                    deviceName,
+                    addressAttributes);
+                var message = $"Found {values.Count} drive telegram(s).";
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(values, message))
+                {
+                    var outputPath = HardwareCommandSupport.ResolveCsvOutputPath(
+                        args.Has("output-path")
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
+                        "hardware_drive_telegrams.csv");
+                    var bytesWritten = WriteDriveTelegramsCsv(values, outputPath);
+                    var artifact = new CommandArtifactResult
+                    {
+                        OutputPath = outputPath,
+                        Format = "csv",
+                        DataKind = "hardware-drive-telegrams",
+                        BytesWritten = bytesWritten,
+                        ItemCount = values.Count,
+                        InlineOutputSuppressed = !args.Has("output-path"),
+                        Reason = args.Has("output-path")
+                            ? "output-path was provided"
+                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                        Columns = DriveTelegramCsvColumns,
+                        Metadata = new
+                        {
+                            deviceName,
+                            addressAttributes = addressAttributes ?? Array.Empty<string>(),
+                            addressCount = values.Sum(value => value.Addresses.Count),
+                            rowCount = CountDriveTelegramCsvRows(values)
+                        }
+                    };
+                    return CommandResult.CreateSuccess(artifact, $"{message} CSV written to: {outputPath}");
+                }
+
+                return CommandResult.CreateSuccess(values, message);
             }
             catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware drive telegrams", ex, logger); }
+        }
+
+        private static readonly IReadOnlyList<string> DriveTelegramCsvColumns = new[]
+        {
+            "TelegramDeviceName",
+            "TelegramItemPath",
+            "TelegramExpectedTypeIdentifier",
+            "DriveObjectIndex",
+            "DriveObjectNumber",
+            "TelegramIndex",
+            "TelegramNumber",
+            "TelegramType",
+            "AddressDeviceName",
+            "AddressItemPath",
+            "AddressExpectedTypeIdentifier",
+            "AddressIndex",
+            "AttributeName",
+            "AttributeValue",
+            "IsReadOnly"
+        };
+
+        private static int CountDriveTelegramCsvRows(IReadOnlyList<HardwareDriveTelegramInfo> values)
+        {
+            return values.Sum(telegram =>
+                telegram.Addresses.Count == 0
+                    ? 1
+                    : telegram.Addresses.Sum(address => Math.Max(1, address.Attributes.Count)));
+        }
+
+        private static long WriteDriveTelegramsCsv(IReadOnlyList<HardwareDriveTelegramInfo> values, string outputPath)
+        {
+            CommandArtifactSupport.EnsureParentDirectory(outputPath);
+            using (var writer = new StreamWriter(outputPath, append: false, encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.WriteLine(string.Join(",", DriveTelegramCsvColumns));
+                foreach (var telegram in values)
+                {
+                    if (telegram.Addresses.Count == 0)
+                    {
+                        WriteDriveTelegramCsvRow(writer, telegram, null, null);
+                        continue;
+                    }
+
+                    foreach (var address in telegram.Addresses)
+                    {
+                        if (address.Attributes.Count == 0)
+                        {
+                            WriteDriveTelegramCsvRow(writer, telegram, address, null);
+                            continue;
+                        }
+
+                        foreach (var attribute in address.Attributes)
+                        {
+                            WriteDriveTelegramCsvRow(writer, telegram, address, attribute);
+                        }
+                    }
+                }
+            }
+
+            return new FileInfo(outputPath).Length;
+        }
+
+        private static void WriteDriveTelegramCsvRow(
+            StreamWriter writer,
+            HardwareDriveTelegramInfo telegram,
+            HardwareIoAddressInfo? address,
+            HardwareAttributeInfo? attribute)
+        {
+            HardwareCommandSupport.WriteCsvRow(writer, new[]
+            {
+                telegram.Target.DeviceName,
+                HardwareCommandSupport.FormatTargetItemPath(telegram.Target),
+                telegram.Target.ExpectedTypeIdentifier,
+                telegram.DriveObjectIndex.ToString(),
+                telegram.DriveObjectNumber,
+                telegram.TelegramIndex.ToString(),
+                telegram.TelegramNumber,
+                telegram.TelegramType,
+                address?.Target.DeviceName,
+                HardwareCommandSupport.FormatTargetItemPath(address?.Target),
+                address?.Target.ExpectedTypeIdentifier,
+                address?.Index.ToString(),
+                attribute?.Name,
+                attribute?.Value,
+                attribute?.IsReadOnly?.ToString()
+            });
         }
     }
 

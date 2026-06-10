@@ -142,17 +142,13 @@ public class CommandArgs
                 if (jsonElement.ValueKind == JsonValueKind.String)
                 {
                     var singleValue = jsonElement.GetString();
-                    return string.IsNullOrWhiteSpace(singleValue)
-                        ? Array.Empty<string>()
-                        : new[] { singleValue! };
+                    return SplitStringArrayValue(singleValue);
                 }
             }
 
             if (value is string stringValue)
             {
-                return string.IsNullOrWhiteSpace(stringValue)
-                    ? Array.Empty<string>()
-                    : new[] { stringValue };
+                return SplitStringArrayValue(stringValue);
             }
         }
         return Array.Empty<string>();
@@ -214,5 +210,16 @@ public class CommandArgs
             .Where(char.IsLetterOrDigit)
             .Select(char.ToLowerInvariant)
             .ToArray());
+    }
+
+    private static string[] SplitStringArrayValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? Array.Empty<string>()
+            : value!
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(static item => item.Trim())
+                .Where(static item => item.Length > 0)
+                .ToArray();
     }
 }

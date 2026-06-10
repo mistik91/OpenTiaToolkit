@@ -434,6 +434,127 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task GetHardwareDriveTelegrams_WritesCsvWhenOutputPathIsProvided()
+        {
+            var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "telegrams.csv");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.GetDriveTelegramsAsync(null, null))
+                    .ReturnsAsync(new[]
+                    {
+                        new HardwareDriveTelegramInfo
+                        {
+                            Target = new HardwareObjectRef
+                            {
+                                DeviceName = "SINAMICS G_1",
+                                ItemPath = new[] { "Drive_1" },
+                                ExpectedTypeIdentifier = "DriveType"
+                            },
+                            DriveObjectIndex = 1,
+                            DriveObjectNumber = "2",
+                            TelegramIndex = 0,
+                            TelegramNumber = "352",
+                            TelegramType = "MainTelegram",
+                            Addresses = new List<HardwareIoAddressInfo>
+                            {
+                                new HardwareIoAddressInfo
+                                {
+                                    Target = new HardwareObjectRef
+                                    {
+                                        DeviceName = "SINAMICS G_1",
+                                        ItemPath = new[] { "Drive_1", "Telegram_1" },
+                                        ExpectedTypeIdentifier = "TelegramType"
+                                    },
+                                    Index = 3,
+                                    Attributes = new List<HardwareAttributeInfo>
+                                    {
+                                        new HardwareAttributeInfo { Name = "StartAddress", Value = "1040", IsReadOnly = false },
+                                        new HardwareAttributeInfo { Name = "IoType", Value = "Input", IsReadOnly = true }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                var command = new GetHardwareDriveTelegramsCommand(service.Object);
+
+                var result = await command.ExecuteAsync(Args(("output-path", outputPath)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success, result.Error);
+                var artifact = result.Data as CommandArtifactResult;
+                Assert.IsNotNull(artifact);
+                Assert.AreEqual(outputPath, artifact!.OutputPath);
+                Assert.AreEqual("csv", artifact.Format);
+                Assert.AreEqual("hardware-drive-telegrams", artifact.DataKind);
+                Assert.AreEqual(1, artifact.ItemCount);
+                Assert.IsFalse(artifact.InlineOutputSuppressed);
+                Assert.IsTrue(File.Exists(outputPath));
+                var csv = File.ReadAllText(outputPath);
+                StringAssert.Contains(csv, "TelegramDeviceName,TelegramItemPath,TelegramExpectedTypeIdentifier,DriveObjectIndex,DriveObjectNumber,TelegramIndex,TelegramNumber,TelegramType,AddressDeviceName,AddressItemPath,AddressExpectedTypeIdentifier,AddressIndex,AttributeName,AttributeValue,IsReadOnly");
+                StringAssert.Contains(csv, "SINAMICS G_1,Drive_1,DriveType,1,2,0,352,MainTelegram,SINAMICS G_1,Drive_1/Telegram_1,TelegramType,3,StartAddress,1040,False");
+                StringAssert.Contains(csv, "SINAMICS G_1,Drive_1,DriveType,1,2,0,352,MainTelegram,SINAMICS G_1,Drive_1/Telegram_1,TelegramType,3,IoType,Input,True");
+            }
+            finally
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task GetHardwareDriveTelegrams_AutoWritesCsvWhenInlineResultExceedsThreshold()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetDriveTelegramsAsync(null, null))
+                .ReturnsAsync(Enumerable.Range(0, 500)
+                    .Select(index => new HardwareDriveTelegramInfo
+                    {
+                        Target = new HardwareObjectRef
+                        {
+                            DeviceName = "Drive_" + index,
+                            ItemPath = new[] { "TelegramContainer_" + index }
+                        },
+                        DriveObjectIndex = index,
+                        TelegramIndex = index,
+                        TelegramNumber = "352",
+                        TelegramType = "MainTelegram",
+                        Addresses = new List<HardwareIoAddressInfo>
+                        {
+                            new HardwareIoAddressInfo
+                            {
+                                Target = new HardwareObjectRef
+                                {
+                                    DeviceName = "Drive_" + index,
+                                    ItemPath = new[] { "Address_" + index }
+                                },
+                                Index = index,
+                                Attributes = new List<HardwareAttributeInfo>
+                                {
+                                    new HardwareAttributeInfo { Name = "StartAddress", Value = index.ToString() },
+                                    new HardwareAttributeInfo { Name = "Comment", Value = new string('x', 100) }
+                                }
+                            }
+                        }
+                    })
+                    .ToList());
+            var command = new GetHardwareDriveTelegramsCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success, result.Error);
+            var artifact = result.Data as CommandArtifactResult;
+            Assert.IsNotNull(artifact);
+            Assert.AreEqual("csv", artifact!.Format);
+            Assert.AreEqual("hardware-drive-telegrams", artifact.DataKind);
+            Assert.IsTrue(artifact.InlineOutputSuppressed);
+            Assert.IsTrue(File.Exists(artifact.OutputPath));
+            File.Delete(artifact.OutputPath);
+        }
+
+        [TestMethod]
         public async Task GetHardwareIoAddresses_WritesCsvWhenOutputPathIsProvided()
         {
             var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "io.csv");

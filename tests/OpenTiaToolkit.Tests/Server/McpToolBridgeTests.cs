@@ -75,11 +75,13 @@ namespace OpenTiaToolkit.Tests.Server
             var hardwareService = Mock.Of<IHardwareService>();
             var treeAdapter = new ToolAdapter(new GetHardwareTreeCommand(hardwareService), Mock.Of<ILogger>());
             var ioAdapter = new ToolAdapter(new GetHardwareIoAddressesCommand(hardwareService), Mock.Of<ILogger>());
+            var driveTelegramAdapter = new ToolAdapter(new GetHardwareDriveTelegramsCommand(hardwareService), Mock.Of<ILogger>());
             var auditAdapter = new ToolAdapter(new AuditHardwareTagMappingsCommand(hardwareService), Mock.Of<ILogger>());
             var networksAdapter = new ToolAdapter(new GetHardwareNetworksCommand(hardwareService), Mock.Of<ILogger>());
 
             AssertOutputPathSchema(treeAdapter.ProtocolTool.InputSchema, "JSON");
             AssertOutputPathSchema(ioAdapter.ProtocolTool.InputSchema, "CSV");
+            AssertOutputPathSchema(driveTelegramAdapter.ProtocolTool.InputSchema, "CSV");
             AssertOutputPathSchema(auditAdapter.ProtocolTool.InputSchema, "CSV");
             AssertOutputPathSchema(networksAdapter.ProtocolTool.InputSchema, "JSON");
         }
