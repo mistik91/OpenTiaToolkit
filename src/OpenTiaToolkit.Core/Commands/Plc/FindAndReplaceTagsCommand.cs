@@ -60,6 +60,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     "substring-match",
                     CommandParameterType.Boolean,
                     "Enable substring matching instead of exact matching (default: false)",
+                    required: false),
+                new CommandParameter(
+                    "output-path",
+                    CommandParameterType.Path,
+                    "Optional CSV file or folder path for find/replace result rows",
                     required: false)
             }
         );
@@ -123,16 +128,57 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                             $"Warnings: {summary.Warnings}, " +
                             $"Errors: {summary.Errors}";
 
+                var data = new
+                {
+                    summary,
+                    changes = result.Changes,
+                    skipped = result.Skipped,
+                    warnings = result.Warnings,
+                    errors = result.Errors
+                };
+
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(data, message))
+                {
+                    var explicitOutputPath = args.Has("output-path");
+                    var outputPath = PlcCommandSupport.ResolveOutputPath(
+                        explicitOutputPath
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
+                        "plc_tag_find_replace_results.csv");
+                    var bytesWritten = PlcCommandSupport.WriteFindReplaceCsv(result, outputPath);
+                    var itemCount = result.Changes.Count + result.Skipped.Count + result.Warnings.Count + result.Errors.Count;
+                    var artifact = new CommandArtifactResult
+                    {
+                        OutputPath = outputPath,
+                        Format = "csv",
+                        DataKind = "plc-tag-find-replace-results",
+                        BytesWritten = bytesWritten,
+                        ItemCount = itemCount,
+                        InlineOutputSuppressed = !explicitOutputPath,
+                        Reason = explicitOutputPath
+                            ? "output-path was provided"
+                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                        Columns = PlcCommandSupport.FindReplaceCsvColumns,
+                        Metadata = new
+                        {
+                            plcName,
+                            dryRun,
+                            caseInsensitive,
+                            substringMatch,
+                            mappings = renameMap.Count,
+                            summary
+                        }
+                    };
+
+                    return CommandResult.CreateSuccess(
+                        data: artifact,
+                        message: $"{message}. CSV written to: {outputPath}"
+                    );
+                }
+
                 // Return result with data
                 return CommandResult.CreateSuccess(
-                    data: new
-                    {
-                        summary,
-                        changes = result.Changes,
-                        skipped = result.Skipped,
-                        warnings = result.Warnings,
-                        errors = result.Errors
-                    },
+                    data: data,
                     message: message
                 );
             }

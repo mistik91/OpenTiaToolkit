@@ -39,7 +39,7 @@ Do not call `open-project` before connecting to TIA Portal. Do not conclude that
 
 Use exact command argument names from the tool schema. For CLI-shaped examples, use kebab-case such as `plc-name`, `hmi-name`, `screen-path`, `dry-run`, and `confirm`.
 
-Large MCP results may return a compact artifact manifest instead of the full payload. When `data.outputPath`, `data.format`, and `inlineOutputSuppressed` are present, read the file at `outputPath` for the full result before continuing. Domain commands may choose specific formats, such as CSV for large HMI tag tables and JSON for HMI screen snapshots.
+Large MCP results may return a compact artifact manifest instead of the full payload. When `data.outputPath`, `data.format`, and `inlineOutputSuppressed` are present, read the file at `outputPath` for the full result before continuing. Domain commands choose task-appropriate formats: CSV for tabular rows such as HMI tags, PLC block lists, hardware addresses, VCI mappings, and PLC rename/update previews; JSON for hierarchical snapshots such as HMI screens, hardware trees, and software trees.
 
 ## Mutation Defaults
 

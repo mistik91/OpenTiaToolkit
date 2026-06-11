@@ -55,6 +55,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     "safety-password",
                     CommandParameterType.String,
                     "Optional safety program password used to log into the offline safety program before applying changes",
+                    required: false),
+                new CommandParameter(
+                    "output-path",
+                    CommandParameterType.Path,
+                    "Optional CSV file or folder path for tag update result rows",
                     required: false)
             }
         );
@@ -123,6 +128,51 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     warnings = result.Warnings,
                     errors = result.Errors
                 };
+
+                if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(data, message))
+                {
+                    var explicitOutputPath = args.Has("output-path");
+                    var outputPath = PlcCommandSupport.ResolveOutputPath(
+                        explicitOutputPath
+                            ? args.GetString("output-path")
+                            : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
+                        "plc_tag_update_results.csv");
+                    var bytesWritten = PlcCommandSupport.WriteTagUpdateCsv(result, outputPath);
+                    var itemCount = result.Updated.Count + result.Created.Count + result.Deleted.Count + result.Warnings.Count + result.Errors.Count;
+                    var artifact = new CommandArtifactResult
+                    {
+                        OutputPath = outputPath,
+                        Format = "csv",
+                        DataKind = "plc-tag-update-results",
+                        BytesWritten = bytesWritten,
+                        ItemCount = itemCount,
+                        InlineOutputSuppressed = !explicitOutputPath,
+                        Reason = explicitOutputPath
+                            ? "output-path was provided"
+                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                        Columns = PlcCommandSupport.TagUpdateCsvColumns,
+                        Metadata = new
+                        {
+                            plcName,
+                            csvPath,
+                            dryRun,
+                            safetyLogin,
+                            summary
+                        }
+                    };
+
+                    if (result.Errors.Count > 0)
+                    {
+                        var firstError = result.Errors[0];
+                        var failureMessage = $"{message}. First error: {firstError.Item}: {firstError.Error}. CSV written to: {outputPath}";
+                        return CommandResult.CreateFailure(failureMessage, artifact);
+                    }
+
+                    return CommandResult.CreateSuccess(
+                        data: artifact,
+                        message: $"{message}. CSV written to: {outputPath}"
+                    );
+                }
 
                 if (result.Errors.Count > 0)
                 {

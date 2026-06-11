@@ -1423,6 +1423,9 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Spee
 
 # Substring matching with case-insensitivity
 OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"speed":"RPM"}' --substring-match=true --case-insensitive=true --dry-run=false
+
+# Write preview rows to CSV
+OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Motor_Speed":"MotorSpeed"}' --dry-run=true --output-path="C:\Reports\tag-renames.csv"
 ```
 
 **Parameters**:
@@ -1431,6 +1434,7 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"spee
 - `case-insensitive` (optional): Enable case-insensitive matching (default: false)
 - `dry-run` (optional): Preview changes without applying (default: true)
 - `substring-match` (optional): Enable substring matching instead of exact matching (default: false)
+- `output-path` (optional): CSV file or folder path for result rows. If omitted, large inline results automatically spill to a temporary CSV artifact.
 
 **Substring Matching**:
 When `substring-match=true`, the command will find and replace substrings within tag names rather than requiring exact matches. This is useful for bulk renaming operations.
@@ -1494,6 +1498,8 @@ Warnings:
 - COLLISION: Name 'MotorSpeed' already exists in tag tables at TagTable.PLC tags
 ```
 
+For CSV artifacts, rows use `Kind,ItemType,Path,Before,After,Name,Reason,Code,Message,Details`. `Kind` is one of `Change`, `Skipped`, `Warning`, or `Error`.
+
 **Substring Matching Output Example**:
 ```
 Tags processed: 150, Matches: 45, Changes: previewed: 42, Skipped: 3, Warnings: 0, Errors: 0
@@ -1530,6 +1536,9 @@ OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Ta
 
 # Apply changes after logging into the offline safety program
 OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false --safety-password="secret"
+
+# Write preview rows to CSV
+OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=true --output-path="C:\Reports\tag-update-results.csv"
 ```
 
 **CSV File Format**:
@@ -1558,6 +1567,13 @@ RESERVE,%E10.7,,Updates existing non-page tag by unique address
 - If a row would match multiple existing tags across tag tables, it is skipped as ambiguous.
 - Duplicate CSV addresses are skipped because they would target the same logical point twice.
 
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `csv-path` (required): Path to the CSV file containing tag updates
+- `dry-run` (optional): Preview changes without applying (default: true)
+- `safety-password` (optional): Safety program password used before applying fail-safe tag edits
+- `output-path` (optional): CSV file or folder path for update result rows. If omitted, large inline results automatically spill to a temporary CSV artifact.
+
 **Output**:
 ```
 CSV rows processed: 2, Existing tags scanned: 45, Tags updated: previewed: 1, Tags created: previewed: 1, Skipped: 0, Warnings: 0, Errors: 0
@@ -1569,6 +1585,8 @@ Summary:
   Tags Created: 1
   Tags Skipped: 0
 ```
+
+For CSV artifacts, rows use `Kind,LineNumber,TagTableName,MatchedBy,OldName,NewName,OldAddress,NewAddress,DataType,Reason,OldComment,NewComment,Item,Error,Details`. `Kind` is one of `Updated`, `Created`, `Deleted`, `Warning`, or `Error`.
 
 **Best Practices**:
 1. Run with `dry-run=true` first.
@@ -1594,6 +1612,9 @@ OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='
 
 # Rename with case-insensitive matching
 OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"speed_rpm":"SpeedRpm"}' --case-insensitive=true --dry-run=false
+
+# Write preview rows to CSV
+OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='{"OldMember":"NewMember"}' --dry-run=true --output-path="C:\Reports\db-member-renames.csv"
 ```
 
 **Parameters**:
@@ -1602,6 +1623,7 @@ OpenTiaToolkit.CLI.exe find-replace-db-members --plc-name="PLC_1" --rename-map='
 - `case-insensitive` (optional): Enable case-insensitive matching (default: false)
 - `dry-run` (optional): Preview changes without applying (default: true)
 - `target-blocks` (optional): List of specific GlobalDB names (default: all)
+- `output-path` (optional): CSV file or folder path for result rows. If omitted, large inline results automatically spill to a temporary CSV artifact.
 
 **Output**:
 ```
@@ -1611,6 +1633,8 @@ Changes:
 - ProcessData.Motor.Speed_RPM -> SpeedRpm
 - Configuration.Valve.Open_Status -> OpenStatus
 ```
+
+For CSV artifacts, rows use `Kind,ItemType,Path,Before,After,Name,Reason,Code,Message,Details`. `Kind` is one of `Change`, `Skipped`, `Warning`, or `Error`.
 
 **Key Features**:
 - Nested structure support (handles UDT instances, structs, arrays)
@@ -1632,6 +1656,9 @@ OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map=
 
 # Rename specific UDT members only
 OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map='{"OldMember":"NewMember"}' --target-types="MotorType" "ValveType"
+
+# Write preview rows to CSV
+OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map='{"Speed_RPM":"SpeedRpm"}' --dry-run=true --output-path="C:\Reports\udt-member-renames.csv"
 ```
 
 **Parameters**:
@@ -1640,6 +1667,7 @@ OpenTiaToolkit.CLI.exe find-replace-udt-members --plc-name="PLC_1" --rename-map=
 - `case-insensitive` (optional): Enable case-insensitive matching (default: false)
 - `dry-run` (optional): Preview changes without applying (default: true)
 - `target-types` (optional): List of specific UDT names (default: all)
+- `output-path` (optional): CSV file or folder path for result rows. If omitted, large inline results automatically spill to a temporary CSV artifact.
 
 **Output**:
 ```
@@ -1649,6 +1677,8 @@ Changes:
 - MotorType.Speed_RPM -> SpeedRpm
 - ValveType.Open_Status -> OpenStatus
 ```
+
+For CSV artifacts, rows use `Kind,ItemType,Path,Before,After,Name,Reason,Code,Message,Details`. `Kind` is one of `Change`, `Skipped`, `Warning`, or `Error`.
 
 **Key Features**:
 - Nested structure support for UDT definitions

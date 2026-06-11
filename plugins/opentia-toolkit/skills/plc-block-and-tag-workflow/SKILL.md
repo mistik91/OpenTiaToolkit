@@ -46,7 +46,7 @@ After imports, run `get-blocks` or `get-block-info`, then compile when reasonabl
 
 For individual tags, use `create-tag` with explicit `plc-name`, `tag-name`, `data-type`, optional `logical-address`, and optional `tag-table`.
 
-For CSV-driven tag updates, use `update-tags-from-csv` with `dry-run=true` first. Review created, renamed, skipped, ambiguous, and failed entries before applying with `dry-run=false`.
+For CSV-driven tag updates, use `update-tags-from-csv` with `dry-run=true` first. Review created, renamed, skipped, ambiguous, and failed entries before applying with `dry-run=false`. Pass `output-path` when the preview should be reviewed as a CSV file, or read the returned artifact path when the command auto-spills a large result.
 
 If safety program access is required, use the provided `safety-password` only when the user supplied it for this task. Do not ask for or persist passwords unless the operation blocks without one.
 
@@ -59,6 +59,8 @@ Always preview broad renames:
 - `find-replace-udt-members` with `dry-run=true`.
 
 Use `target-blocks` or `target-types` when the user intended a limited scope. Use `substring-match=true` only when the user explicitly wants substring replacement, and prefer specific patterns over short generic strings.
+
+For broad rename previews, prefer `output-path` so `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members` write tabular CSV rows. If omitted, large rename results auto-spill to CSV artifacts once inline JSON would exceed the toolkit threshold.
 
 After applying renames, verify candidate objects and compile the PLC. If the preview shows ambiguous matches, stop and ask for a narrower mapping or scope.
 

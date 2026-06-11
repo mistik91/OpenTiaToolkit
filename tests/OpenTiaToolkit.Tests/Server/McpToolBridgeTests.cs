@@ -102,6 +102,21 @@ namespace OpenTiaToolkit.Tests.Server
         }
 
         [TestMethod]
+        public void ToolAdapter_ProtocolTool_ExposesPlcRenameAndUpdateArtifactOutputPathSchemas()
+        {
+            var plcService = Mock.Of<IPlcService>();
+            var tagRenameAdapter = new ToolAdapter(new FindAndReplaceTagsCommand(plcService), Mock.Of<ILogger>());
+            var dbRenameAdapter = new ToolAdapter(new FindAndReplaceDbMembersCommand(plcService), Mock.Of<ILogger>());
+            var udtRenameAdapter = new ToolAdapter(new FindAndReplaceUdtMembersCommand(plcService), Mock.Of<ILogger>());
+            var csvUpdateAdapter = new ToolAdapter(new UpdateTagsFromCsvCommand(plcService), Mock.Of<ILogger>());
+
+            AssertOutputPathSchema(tagRenameAdapter.ProtocolTool.InputSchema, "CSV");
+            AssertOutputPathSchema(dbRenameAdapter.ProtocolTool.InputSchema, "CSV");
+            AssertOutputPathSchema(udtRenameAdapter.ProtocolTool.InputSchema, "CSV");
+            AssertOutputPathSchema(csvUpdateAdapter.ProtocolTool.InputSchema, "CSV");
+        }
+
+        [TestMethod]
         public void ToolAdapter_ProtocolTool_ExposesVciArtifactOutputPathSchemas()
         {
             var vciService = Mock.Of<IVciService>();
