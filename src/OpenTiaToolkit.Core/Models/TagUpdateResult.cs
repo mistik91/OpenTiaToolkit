@@ -27,6 +27,50 @@ namespace OpenTiaToolkit.Core.Models
     }
 
     /// <summary>
+    /// Typed command payload for PLC tag CSV update operations.
+    /// </summary>
+    public class TagUpdateCommandResult
+    {
+        /// <summary>Gets or sets the safety login result, when a safety password was supplied.</summary>
+        public SafetyLoginResult? SafetyLogin { get; set; }
+
+        /// <summary>Gets or sets the summary statistics.</summary>
+        public TagUpdateSummary Summary { get; set; } = new TagUpdateSummary();
+
+        /// <summary>Gets or sets the list of updated tags.</summary>
+        public List<TagUpdateEntry> Updated { get; set; } = new List<TagUpdateEntry>();
+
+        /// <summary>Gets or sets the list of created tags.</summary>
+        public List<TagCreateEntry> Created { get; set; } = new List<TagCreateEntry>();
+
+        /// <summary>Gets or sets the list of deleted tags.</summary>
+        public List<TagDeleteEntry> Deleted { get; set; } = new List<TagDeleteEntry>();
+
+        /// <summary>Gets or sets the list of warnings.</summary>
+        public List<TagUpdateWarning> Warnings { get; set; } = new List<TagUpdateWarning>();
+
+        /// <summary>Gets or sets the list of errors.</summary>
+        public List<TagUpdateError> Errors { get; set; } = new List<TagUpdateError>();
+
+        /// <summary>
+        /// Creates a command payload from the service result without anonymous wrappers.
+        /// </summary>
+        public static TagUpdateCommandResult From(TagUpdateResult result, SafetyLoginResult? safetyLogin = null)
+        {
+            return new TagUpdateCommandResult
+            {
+                SafetyLogin = safetyLogin,
+                Summary = result.Summary,
+                Updated = result.Updated,
+                Created = result.Created,
+                Deleted = result.Deleted,
+                Warnings = result.Warnings,
+                Errors = result.Errors
+            };
+        }
+    }
+
+    /// <summary>
     /// Summary statistics for tag update operations.
     /// </summary>
     public class TagUpdateSummary

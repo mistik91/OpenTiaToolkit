@@ -35,7 +35,8 @@ namespace OpenTiaToolkit.CLI.Output
                     HmiDataLogDeleteResult dataLogDelete => FormatHmiDataLogDeleteResult(dataLogDelete),
                     HmiLoggingTagDeleteResult loggingTagDelete => FormatHmiLoggingTagDeleteResult(loggingTagDelete),
                     HmiTrendBulkResult trendBulk => FormatHmiTrendBulkResult(trendBulk),
-                    _ when IsTagUpdateResult(result.Data) => FormatTagUpdateResult(result.Data),
+                    TagUpdateCommandResult tagUpdate => FormatTagUpdateResult(tagUpdate),
+                    TagUpdateResult tagUpdate => FormatTagUpdateResult(tagUpdate),
                     _ => string.Empty
                 };
 
@@ -79,9 +80,11 @@ namespace OpenTiaToolkit.CLI.Output
                 IEnumerable<BlockInfo> blocks => FormatBlocks(blocks),
                 BlockInfo block => FormatBlockInfo(block),
                 BlockInfoDetail blockDetail => FormatBlockInfoDetail(blockDetail),
+                FindReplaceCommandResult findReplace => FormatFindReplaceResult(findReplace),
+                FindReplaceResult findReplace => FormatFindReplaceResult(findReplace),
+                TagUpdateCommandResult tagUpdate => FormatTagUpdateResult(tagUpdate),
+                TagUpdateResult tagUpdate => FormatTagUpdateResult(tagUpdate),
                 // Anonymous objects (status objects, etc.)
-                _ when IsFindReplaceResult(result.Data) => FormatFindReplaceResult(result.Data),
-                _ when IsTagUpdateResult(result.Data) => FormatTagUpdateResult(result.Data),
                 _ when IsImportResult(result.Data) => FormatImportResult(result.Data),
                 _ when result.Data.GetType().Name.Contains("AnonymousType") => FormatAnonymousObject(result.Data),
                 _ => result.ToTable() // Fallback to default formatting
@@ -939,46 +942,6 @@ namespace OpenTiaToolkit.CLI.Output
         }
 
         /// <summary>
-        /// Detects if the anonymous object is a find-replace result.
-        /// </summary>
-        private static bool IsFindReplaceResult(object data)
-        {
-            if (data == null) return false;
-
-            var type = data.GetType();
-            if (!type.Name.Contains("AnonymousType")) return false;
-
-            // Check for signature properties of find-replace results
-            var hasSummary = type.GetProperty("summary") != null;
-            var hasChanges = type.GetProperty("changes") != null;
-            var hasSkipped = type.GetProperty("skipped") != null;
-            var hasWarnings = type.GetProperty("warnings") != null;
-            var hasErrors = type.GetProperty("errors") != null;
-
-            return hasSummary && hasChanges && hasSkipped && hasWarnings && hasErrors;
-        }
-
-        /// <summary>
-        /// Detects if the anonymous object is a tag update result.
-        /// </summary>
-        private static bool IsTagUpdateResult(object data)
-        {
-            if (data == null) return false;
-
-            var type = data.GetType();
-            if (!type.Name.Contains("AnonymousType")) return false;
-
-            // Check for signature properties of tag update results
-            var hasSummary = type.GetProperty("summary") != null;
-            var hasUpdated = type.GetProperty("updated") != null;
-            var hasCreated = type.GetProperty("created") != null;
-            var hasWarnings = type.GetProperty("warnings") != null;
-            var hasErrors = type.GetProperty("errors") != null;
-
-            return hasSummary && hasUpdated && hasCreated && hasWarnings && hasErrors;
-        }
-
-        /// <summary>
         /// Detects if the anonymous object is an import result.
         /// </summary>
         private static bool IsImportResult(object data)
@@ -1002,133 +965,71 @@ namespace OpenTiaToolkit.CLI.Output
         /// <summary>
         /// Formats a find-replace result object.
         /// </summary>
-        private static string FormatFindReplaceResult(object data)
+        private static string FormatFindReplaceResult(FindReplaceResult result)
+        {
+            return FormatFindReplaceResult(FindReplaceCommandResult.From(result));
+        }
+
+        private static string FormatFindReplaceResult(FindReplaceCommandResult result)
         {
             var lines = new List<string>();
+            var summary = result.Summary;
 
-            var summaryProp = data.GetType().GetProperty("summary");
-            var changesProp = data.GetType().GetProperty("changes");
-            var skippedProp = data.GetType().GetProperty("skipped");
-            var warningsProp = data.GetType().GetProperty("warnings");
-            var errorsProp = data.GetType().GetProperty("errors");
+            lines.Add("Summary:");
+            lines.Add($"  Total Processed: {summary.TotalProcessed}");
+            lines.Add($"  Matches Found: {summary.MatchesFound}");
+            lines.Add($"  Changes Applied: {summary.ChangesApplied}");
+            lines.Add($"  Skipped: {summary.Skipped}");
+            lines.Add($"  Warnings: {summary.Warnings}");
+            lines.Add($"  Errors: {summary.Errors}");
 
-            var summary = summaryProp?.GetValue(data);
-            var changes = changesProp?.GetValue(data);
-            var skipped = skippedProp?.GetValue(data);
-            var warnings = warningsProp?.GetValue(data);
-            var errors = errorsProp?.GetValue(data);
-
-            // Format summary
-            if (summary != null)
+            if (result.Changes.Count > 0)
             {
-                var totalProcessed = summary.GetType().GetProperty("TotalProcessed")?.GetValue(summary);
-                var matchesFound = summary.GetType().GetProperty("MatchesFound")?.GetValue(summary);
-                var changesApplied = summary.GetType().GetProperty("ChangesApplied")?.GetValue(summary);
-                var skippedCount = summary.GetType().GetProperty("Skipped")?.GetValue(summary);
-                var warningsCount = summary.GetType().GetProperty("Warnings")?.GetValue(summary);
-                var errorsCount = summary.GetType().GetProperty("Errors")?.GetValue(summary);
-
-                lines.Add($"Summary:");
-                lines.Add($"  Total Processed: {totalProcessed ?? 0}");
-                lines.Add($"  Matches Found: {matchesFound ?? 0}");
-                lines.Add($"  Changes Applied: {changesApplied ?? 0}");
-                lines.Add($"  Skipped: {skippedCount ?? 0}");
-                lines.Add($"  Warnings: {warningsCount ?? 0}");
-                lines.Add($"  Errors: {errorsCount ?? 0}");
+                lines.Add("");
+                lines.Add("Changes:");
+                foreach (var change in result.Changes)
+                {
+                    lines.Add($"  - {change.Path ?? string.Empty}: {change.Before ?? string.Empty} -> {change.After ?? string.Empty}");
+                }
             }
 
-            // Format changes
-            if (changes != null && changes.GetType().IsGenericType && changes.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            if (result.Skipped.Count > 0)
             {
-                var changeList = (System.Collections.IList)changes;
-                if (changeList.Count > 0)
+                lines.Add("");
+                lines.Add("Skipped:");
+                foreach (var item in result.Skipped)
                 {
-                    lines.Add("");
-                    lines.Add("Changes:");
-                    foreach (var change in changeList)
+                    lines.Add($"  - {item.Path ?? string.Empty}.{item.Name ?? string.Empty}: {item.Reason ?? string.Empty}");
+                }
+            }
+
+            if (result.Warnings.Count > 0)
+            {
+                lines.Add("");
+                lines.Add("Warnings:");
+                foreach (var warning in result.Warnings)
+                {
+                    if (!string.IsNullOrEmpty(warning.Code))
                     {
-                        if (change != null)
-                        {
-                            var path = change.GetType().GetProperty("Path")?.GetValue(change)?.ToString() ?? "";
-                            var before = change.GetType().GetProperty("Before")?.GetValue(change)?.ToString() ?? "";
-                            var after = change.GetType().GetProperty("After")?.GetValue(change)?.ToString() ?? "";
-                            lines.Add($"  - {path}: {before} -> {after}");
-                        }
+                        lines.Add($"  - {warning.Code}: {warning.Message ?? string.Empty} at {warning.Path ?? string.Empty}");
+                    }
+                    else
+                    {
+                        lines.Add($"  - {warning.Message ?? string.Empty}");
                     }
                 }
             }
 
-            // Format skipped items
-            if (skipped != null && skipped.GetType().IsGenericType && skipped.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            if (result.Errors.Count > 0)
             {
-                var skippedList = (System.Collections.IList)skipped;
-                if (skippedList.Count > 0)
+                lines.Add("");
+                lines.Add("Errors:");
+                foreach (var error in result.Errors)
                 {
-                    lines.Add("");
-                    lines.Add("Skipped:");
-                    foreach (var item in skippedList)
+                    lines.Add($"  - {error.Path ?? string.Empty}.{error.Name ?? string.Empty}: {error.Error ?? string.Empty}");
+                    if (!string.IsNullOrEmpty(error.Details))
                     {
-                        if (item != null)
-                        {
-                            var path = item.GetType().GetProperty("Path")?.GetValue(item)?.ToString() ?? "";
-                            var name = item.GetType().GetProperty("Name")?.GetValue(item)?.ToString() ?? "";
-                            var reason = item.GetType().GetProperty("Reason")?.GetValue(item)?.ToString() ?? "";
-                            lines.Add($"  - {path}.{name}: {reason}");
-                        }
-                    }
-                }
-            }
-
-            // Format warnings
-            if (warnings != null && warnings.GetType().IsGenericType && warnings.GetType().GetGenericTypeDefinition() == typeof(List<>))
-            {
-                var warningsList = (System.Collections.IList)warnings;
-                if (warningsList.Count > 0)
-                {
-                    lines.Add("");
-                    lines.Add("Warnings:");
-                    foreach (var warning in warningsList)
-                    {
-                        if (warning != null)
-                        {
-                            var code = warning.GetType().GetProperty("Code")?.GetValue(warning)?.ToString() ?? "";
-                            var message = warning.GetType().GetProperty("Message")?.GetValue(warning)?.ToString() ?? "";
-                            var path = warning.GetType().GetProperty("Path")?.GetValue(warning)?.ToString() ?? "";
-                            if (!string.IsNullOrEmpty(code))
-                            {
-                                lines.Add($"  - {code}: {message} at {path}");
-                            }
-                            else
-                            {
-                                lines.Add($"  - {message}");
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Format errors
-            if (errors != null && errors.GetType().IsGenericType && errors.GetType().GetGenericTypeDefinition() == typeof(List<>))
-            {
-                var errorsList = (System.Collections.IList)errors;
-                if (errorsList.Count > 0)
-                {
-                    lines.Add("");
-                    lines.Add("Errors:");
-                    foreach (var error in errorsList)
-                    {
-                        if (error != null)
-                        {
-                            var path = error.GetType().GetProperty("Path")?.GetValue(error)?.ToString() ?? "";
-                            var name = error.GetType().GetProperty("Name")?.GetValue(error)?.ToString() ?? "";
-                            var errorMessage = error.GetType().GetProperty("Error")?.GetValue(error)?.ToString() ?? "";
-                            var details = error.GetType().GetProperty("Details")?.GetValue(error)?.ToString() ?? "";
-                            lines.Add($"  - {path}.{name}: {errorMessage}");
-                            if (!string.IsNullOrEmpty(details))
-                            {
-                                lines.Add($"    Details: {details}");
-                            }
-                        }
+                        lines.Add($"    Details: {error.Details}");
                     }
                 }
             }
@@ -1139,167 +1040,86 @@ namespace OpenTiaToolkit.CLI.Output
         /// <summary>
         /// Formats a tag update result object.
         /// </summary>
-        private static string FormatTagUpdateResult(object data)
+        private static string FormatTagUpdateResult(TagUpdateResult result)
+        {
+            return FormatTagUpdateResult(TagUpdateCommandResult.From(result));
+        }
+
+        private static string FormatTagUpdateResult(TagUpdateCommandResult result)
         {
             var lines = new List<string>();
+            var summary = result.Summary;
 
-            var summaryProp = data.GetType().GetProperty("summary");
-            var updatedProp = data.GetType().GetProperty("updated");
-            var createdProp = data.GetType().GetProperty("created");
-            var deletedProp = data.GetType().GetProperty("deleted");
-            var warningsProp = data.GetType().GetProperty("warnings");
-            var errorsProp = data.GetType().GetProperty("errors");
+            lines.Add("Summary:");
+            lines.Add($"  CSV Rows: {summary.TotalCsvRows}");
+            lines.Add($"  Existing Tags Scanned: {summary.ExistingTagsScanned}");
+            lines.Add($"  Tags Updated: {summary.TagsUpdated}");
+            lines.Add($"  Tags Created: {summary.TagsCreated}");
+            lines.Add($"  Tags Deleted: {summary.TagsDeleted}");
+            lines.Add($"  Tags Skipped: {summary.TagsSkipped}");
 
-            var summary = summaryProp?.GetValue(data);
-            var updated = updatedProp?.GetValue(data);
-            var created = createdProp?.GetValue(data);
-            var deleted = deletedProp?.GetValue(data);
-            var warnings = warningsProp?.GetValue(data);
-            var errors = errorsProp?.GetValue(data);
-
-            // Format summary
-            if (summary != null)
+            if (result.Updated.Count > 0)
             {
-                var totalCsvRows = summary.GetType().GetProperty("TotalCsvRows")?.GetValue(summary);
-                var existingTagsScanned = summary.GetType().GetProperty("ExistingTagsScanned")?.GetValue(summary);
-                var tagsUpdated = summary.GetType().GetProperty("TagsUpdated")?.GetValue(summary);
-                var tagsCreated = summary.GetType().GetProperty("TagsCreated")?.GetValue(summary);
-                var tagsDeleted = summary.GetType().GetProperty("TagsDeleted")?.GetValue(summary);
-                var tagsSkipped = summary.GetType().GetProperty("TagsSkipped")?.GetValue(summary);
-
-                lines.Add("Summary:");
-                lines.Add($"  CSV Rows: {totalCsvRows ?? 0}");
-                lines.Add($"  Existing Tags Scanned: {existingTagsScanned ?? 0}");
-                lines.Add($"  Tags Updated: {tagsUpdated ?? 0}");
-                lines.Add($"  Tags Created: {tagsCreated ?? 0}");
-                lines.Add($"  Tags Deleted: {tagsDeleted ?? 0}");
-                lines.Add($"  Tags Skipped: {tagsSkipped ?? 0}");
-            }
-
-            // Format updated tags
-            if (updated != null && updated.GetType().IsGenericType && updated.GetType().GetGenericTypeDefinition() == typeof(List<>))
-            {
-                var updatedList = (System.Collections.IList)updated;
-                if (updatedList.Count > 0)
+                lines.Add("");
+                lines.Add("Updated Tags:");
+                foreach (var entry in result.Updated)
                 {
-                    lines.Add("");
-                    lines.Add("Updated Tags:");
-                    foreach (var entry in updatedList)
+                    var oldAddress = entry.OldAddress ?? string.Empty;
+                    if (entry.MatchedBy == "BaseName" && entry.OldName != entry.NewName)
                     {
-                        if (entry != null)
-                        {
-                            var tagTableName = entry.GetType().GetProperty("TagTableName")?.GetValue(entry)?.ToString() ?? "";
-                            var matchedBy = entry.GetType().GetProperty("MatchedBy")?.GetValue(entry)?.ToString() ?? "";
-                            var oldName = entry.GetType().GetProperty("OldName")?.GetValue(entry)?.ToString() ?? "";
-                            var newName = entry.GetType().GetProperty("NewName")?.GetValue(entry)?.ToString() ?? "";
-                            var oldAddress = entry.GetType().GetProperty("OldAddress")?.GetValue(entry)?.ToString() ?? "";
-                            var newAddress = entry.GetType().GetProperty("NewAddress")?.GetValue(entry)?.ToString() ?? "";
-
-                            if (matchedBy == "BaseName" && oldName != newName)
-                            {
-                                lines.Add($"  - [{tagTableName}] {oldName} -> {newName} ({oldAddress} -> {newAddress})");
-                            }
-                            else
-                            {
-                                lines.Add($"  - [{tagTableName}] {newName}: {oldAddress} -> {newAddress}");
-                            }
-                        }
+                        lines.Add($"  - [{entry.TagTableName}] {entry.OldName} -> {entry.NewName} ({oldAddress} -> {entry.NewAddress})");
+                    }
+                    else
+                    {
+                        lines.Add($"  - [{entry.TagTableName}] {entry.NewName}: {oldAddress} -> {entry.NewAddress}");
                     }
                 }
             }
 
-            // Format deleted tags
-            if (deleted != null && deleted.GetType().IsGenericType && deleted.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            if (result.Deleted.Count > 0)
             {
-                var deletedList = (System.Collections.IList)deleted;
-                if (deletedList.Count > 0)
+                lines.Add("");
+                lines.Add("Deleted Tags:");
+                foreach (var entry in result.Deleted)
                 {
-                    lines.Add("");
-                    lines.Add("Deleted Tags:");
-                    foreach (var entry in deletedList)
-                    {
-                        if (entry != null)
-                        {
-                            var tagTableName = entry.GetType().GetProperty("TagTableName")?.GetValue(entry)?.ToString() ?? "";
-                            var tagName = entry.GetType().GetProperty("TagName")?.GetValue(entry)?.ToString() ?? "";
-                            var address = entry.GetType().GetProperty("Address")?.GetValue(entry)?.ToString() ?? "";
-                            var reason = entry.GetType().GetProperty("Reason")?.GetValue(entry)?.ToString();
-                            var reasonStr = string.IsNullOrEmpty(reason) ? "" : $" - {reason}";
-                            lines.Add($"  - [{tagTableName}] {tagName}: {address}{reasonStr}");
-                        }
-                    }
+                    var reason = string.IsNullOrEmpty(entry.Reason) ? string.Empty : $" - {entry.Reason}";
+                    lines.Add($"  - [{entry.TagTableName}] {entry.TagName}: {entry.Address ?? string.Empty}{reason}");
                 }
             }
 
-            // Format created tags
-            if (created != null && created.GetType().IsGenericType && created.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            if (result.Created.Count > 0)
             {
-                var createdList = (System.Collections.IList)created;
-                if (createdList.Count > 0)
+                lines.Add("");
+                lines.Add("Created Tags:");
+                foreach (var entry in result.Created)
                 {
-                    lines.Add("");
-                    lines.Add("Created Tags:");
-                    foreach (var entry in createdList)
-                    {
-                        if (entry != null)
-                        {
-                            var tagTableName = entry.GetType().GetProperty("TagTableName")?.GetValue(entry)?.ToString() ?? "";
-                            var tagName = entry.GetType().GetProperty("TagName")?.GetValue(entry)?.ToString() ?? "";
-                            var dataType = entry.GetType().GetProperty("DataType")?.GetValue(entry)?.ToString() ?? "";
-                            var address = entry.GetType().GetProperty("Address")?.GetValue(entry)?.ToString() ?? "";
-                            var comment = entry.GetType().GetProperty("Comment")?.GetValue(entry)?.ToString();
-                            var commentStr = string.IsNullOrEmpty(comment) ? "" : $" - {comment}";
-                            lines.Add($"  - [{tagTableName}] {tagName} ({dataType}): {address}{commentStr}");
-                        }
-                    }
+                    var comment = string.IsNullOrEmpty(entry.Comment) ? string.Empty : $" - {entry.Comment}";
+                    lines.Add($"  - [{entry.TagTableName}] {entry.TagName} ({entry.DataType}): {entry.Address}{comment}");
                 }
             }
 
-            // Format warnings
-            if (warnings != null && warnings.GetType().IsGenericType && warnings.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            if (result.Warnings.Count > 0)
             {
-                var warningsList = (System.Collections.IList)warnings;
-                if (warningsList.Count > 0)
+                lines.Add("");
+                lines.Add("Warnings:");
+                foreach (var warning in result.Warnings)
                 {
-                    lines.Add("");
-                    lines.Add("Warnings:");
-                    foreach (var warning in warningsList)
-                    {
-                        if (warning != null)
-                        {
-                            var item = warning.GetType().GetProperty("Item")?.GetValue(warning)?.ToString() ?? "";
-                            var reason = warning.GetType().GetProperty("Reason")?.GetValue(warning)?.ToString() ?? "";
-                            var lineNumber = warning.GetType().GetProperty("LineNumber")?.GetValue(warning);
-                            var lineStr = lineNumber != null ? $" (line {lineNumber})" : "";
-                            lines.Add($"  - {item}{lineStr}: {reason}");
-                        }
-                    }
+                    var line = warning.LineNumber.HasValue ? $" (line {warning.LineNumber.Value})" : string.Empty;
+                    lines.Add($"  - {warning.Item}{line}: {warning.Reason}");
                 }
             }
 
-            // Format errors
-            if (errors != null && errors.GetType().IsGenericType && errors.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            if (result.Errors.Count > 0)
             {
-                var errorsList = (System.Collections.IList)errors;
-                if (errorsList.Count > 0)
+                lines.Add("");
+                lines.Add("Errors:");
+                foreach (var error in result.Errors)
                 {
-                    lines.Add("");
-                    lines.Add("Errors:");
-                    foreach (var error in errorsList)
+                    var line = error.LineNumber.HasValue ? $" (line {error.LineNumber.Value})" : string.Empty;
+                    lines.Add($"  - {error.Item}{line}: {error.Error}");
+                    if (!string.IsNullOrEmpty(error.Details))
                     {
-                        if (error != null)
-                        {
-                            var item = error.GetType().GetProperty("Item")?.GetValue(error)?.ToString() ?? "";
-                            var errorMessage = error.GetType().GetProperty("Error")?.GetValue(error)?.ToString() ?? "";
-                            var details = error.GetType().GetProperty("Details")?.GetValue(error)?.ToString();
-                            var lineNumber = error.GetType().GetProperty("LineNumber")?.GetValue(error);
-                            var lineStr = lineNumber != null ? $" (line {lineNumber})" : "";
-                            lines.Add($"  - {item}{lineStr}: {errorMessage}");
-                            if (!string.IsNullOrEmpty(details))
-                            {
-                                lines.Add($"    Details: {details}");
-                            }
-                        }
+                        lines.Add($"    Details: {error.Details}");
                     }
                 }
             }

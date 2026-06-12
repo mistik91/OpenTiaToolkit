@@ -50,7 +50,7 @@ namespace OpenTiaToolkit.Tests.Commands
             var result = await command.ExecuteAsync(args, NullLogger.Instance);
 
             Assert.IsFalse(result.Success);
-            Assert.IsNotNull(result.Data);
+            Assert.IsInstanceOfType(result.Data, typeof(TagUpdateCommandResult));
             StringAssert.Contains(result.Message, "First error: 102MotorRun");
         }
 
@@ -218,6 +218,10 @@ namespace OpenTiaToolkit.Tests.Commands
             var result = await command.ExecuteAsync(args, NullLogger.Instance);
 
             Assert.IsTrue(result.Success);
+            var payload = result.Data as TagUpdateCommandResult;
+            Assert.IsNotNull(payload);
+            Assert.IsNotNull(payload!.SafetyLogin);
+            Assert.AreEqual(1, payload.Summary.TagsUpdated);
             plcService.Verify(service => service.LoginToSafetyOfflineProgramAsync("secret"), Times.Once);
             plcService.Verify(service => service.UpdateTagsFromCsvAsync("tags.csv", false), Times.Once);
         }

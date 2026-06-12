@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Utilities;
 using System;
 using System.Collections.Generic;
@@ -128,14 +129,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                             $"Warnings: {summary.Warnings}, " +
                             $"Errors: {summary.Errors}";
 
-                var data = new
-                {
-                    summary,
-                    changes = result.Changes,
-                    skipped = result.Skipped,
-                    warnings = result.Warnings,
-                    errors = result.Errors
-                };
+                var data = FindReplaceCommandResult.From(result);
 
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(data, message))
                 {

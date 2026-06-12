@@ -2180,8 +2180,8 @@ namespace OpenTiaToolkit.Core.Services
                 var export = new HmiJsonMappingTableEntry
                 {
                     EntryType = entryType,
-                    Value = TryReadConvertedStringProperty(entry, "Value"),
-                    AlternateValue = TryReadConvertedStringProperty(entry, "AlternateValue"),
+                    Value = TryReadStringProperty(entry, "Value"),
+                    AlternateValue = TryReadStringProperty(entry, "AlternateValue"),
                     Flashing = TryReadNullableBoolProperty(entry, "Flashing"),
                     FlashingRate = TryReadStringProperty(entry, "FlashingRate")
                 };
@@ -2189,17 +2189,17 @@ namespace OpenTiaToolkit.Core.Services
                 switch (entryType)
                 {
                     case "Simple":
-                        export.Condition = TryReadConvertedStringProperty(entry, "Condition");
+                        export.Condition = TryReadStringProperty(entry, "Condition");
                         break;
                     case "Range":
-                        export.From = TryReadConvertedStringProperty(entry, "From");
-                        export.To = TryReadConvertedStringProperty(entry, "To");
+                        export.From = TryReadStringProperty(entry, "From");
+                        export.To = TryReadStringProperty(entry, "To");
                         export.RangeType = TryReadStringProperty(entry, "RangeType");
                         break;
                     case "Bitmask":
                         export.BitDynamizationType = TryReadStringProperty(entry, "BitDynamizationType");
-                        export.Condition = TryReadConvertedStringProperty(entry, "Condition");
-                        export.Relevant = TryReadConvertedStringProperty(entry, "Relevant");
+                        export.Condition = TryReadStringProperty(entry, "Condition");
+                        export.Relevant = TryReadStringProperty(entry, "Relevant");
                         break;
                 }
 
@@ -3044,11 +3044,6 @@ namespace OpenTiaToolkit.Core.Services
         private static string? TryReadStringProperty(object? source, string propertyName)
         {
             return NormalizeOptionalString(FormatValue(TryReadPropertyValue(source, propertyName)));
-        }
-
-        private static string? TryReadConvertedStringProperty(object? source, string propertyName)
-        {
-            return TryReadStringProperty(source, propertyName);
         }
 
         private static bool? TryReadNullableBoolProperty(object? source, string propertyName)

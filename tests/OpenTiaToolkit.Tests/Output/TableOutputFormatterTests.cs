@@ -210,6 +210,65 @@ namespace OpenTiaToolkit.Tests.Output
         }
 
         [TestMethod]
+        public void FormatFindReplaceCommandResult_UsesTypedPayload()
+        {
+            var payload = new FindReplaceCommandResult
+            {
+                Summary = new FindReplaceSummary
+                {
+                    TotalProcessed = 2,
+                    MatchesFound = 1,
+                    ChangesApplied = 1
+                },
+                Changes = new List<ChangeEntry>
+                {
+                    new ChangeEntry
+                    {
+                        Path = "TagTable.Default",
+                        Before = "Motor_Speed",
+                        After = "MotorSpeed"
+                    }
+                }
+            };
+
+            var formatted = TableOutputFormatter.Format(CommandResult.CreateSuccess(payload, "Done"));
+
+            StringAssert.Contains(formatted, "Total Processed: 2");
+            StringAssert.Contains(formatted, "TagTable.Default: Motor_Speed -> MotorSpeed");
+        }
+
+        [TestMethod]
+        public void FormatTagUpdateCommandResult_UsesTypedPayload()
+        {
+            var payload = new TagUpdateCommandResult
+            {
+                Summary = new TagUpdateSummary
+                {
+                    TotalCsvRows = 1,
+                    ExistingTagsScanned = 1,
+                    TagsUpdated = 1
+                },
+                Updated = new List<TagUpdateEntry>
+                {
+                    new TagUpdateEntry
+                    {
+                        TagTableName = "Default",
+                        MatchedBy = "BaseName",
+                        OldName = "101MotorRun",
+                        NewName = "201MotorRun",
+                        OldAddress = "%M1.0",
+                        NewAddress = "%M2.0"
+                    }
+                }
+            };
+
+            var formatted = TableOutputFormatter.Format(CommandResult.CreateSuccess(payload, "Done"));
+
+            StringAssert.Contains(formatted, "CSV Rows: 1");
+            StringAssert.Contains(formatted, "[Default] 101MotorRun -> 201MotorRun (%M1.0 -> %M2.0)");
+        }
+
+        [TestMethod]
         public void FormatHmiScreens_ReturnsTable_WhenScreensExist()
         {
             // Arrange

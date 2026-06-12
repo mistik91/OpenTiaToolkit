@@ -325,6 +325,42 @@ public class FindReplaceResult
 }
 
 /// <summary>
+/// Typed command payload for PLC find and replace operations.
+/// </summary>
+public class FindReplaceCommandResult
+{
+    /// <summary>Gets or sets the summary statistics.</summary>
+    public FindReplaceSummary Summary { get; set; } = new FindReplaceSummary();
+
+    /// <summary>Gets or sets the list of changes made.</summary>
+    public List<ChangeEntry> Changes { get; set; } = new List<ChangeEntry>();
+
+    /// <summary>Gets or sets the list of skipped items.</summary>
+    public List<SkippedEntry> Skipped { get; set; } = new List<SkippedEntry>();
+
+    /// <summary>Gets or sets the list of warnings.</summary>
+    public List<WarningEntry> Warnings { get; set; } = new List<WarningEntry>();
+
+    /// <summary>Gets or sets the list of errors.</summary>
+    public List<ErrorEntry> Errors { get; set; } = new List<ErrorEntry>();
+
+    /// <summary>
+    /// Creates a command payload from the service result without anonymous wrappers.
+    /// </summary>
+    public static FindReplaceCommandResult From(FindReplaceResult result)
+    {
+        return new FindReplaceCommandResult
+        {
+            Summary = result.Summary,
+            Changes = result.Changes,
+            Skipped = result.Skipped,
+            Warnings = result.Warnings,
+            Errors = result.Errors
+        };
+    }
+}
+
+/// <summary>
 /// Represents the result of a tag creation operation.
 /// </summary>
 public class CreateTagResult

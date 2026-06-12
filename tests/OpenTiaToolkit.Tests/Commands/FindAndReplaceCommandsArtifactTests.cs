@@ -81,6 +81,47 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task FindReplaceTags_ReturnsTypedPayloadWhenInline()
+        {
+            var serviceResult = new FindReplaceResult
+            {
+                Summary = new FindReplaceSummary
+                {
+                    TotalProcessed = 1,
+                    MatchesFound = 1,
+                    ChangesApplied = 1
+                }
+            };
+            serviceResult.Changes.Add(new ChangeEntry
+            {
+                ItemType = "Tag",
+                Path = "TagTable.Default tag table",
+                Before = "Motor_Speed",
+                After = "MotorSpeed"
+            });
+
+            var plcService = CreateOpenPlcService("PLC_1");
+            plcService
+                .Setup(service => service.FindAndReplaceTagsAsync(
+                    It.Is<Dictionary<string, string>>(map => map["Motor_Speed"] == "MotorSpeed"),
+                    false,
+                    true,
+                    false))
+                .ReturnsAsync(serviceResult);
+
+            var command = new FindAndReplaceTagsCommand(plcService.Object);
+            var result = await command.ExecuteAsync(Args(
+                ("plc-name", "PLC_1"),
+                ("rename-map", new Dictionary<string, string> { ["Motor_Speed"] = "MotorSpeed" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success, result.Error);
+            var payload = result.Data as FindReplaceCommandResult;
+            Assert.IsNotNull(payload);
+            Assert.AreEqual(1, payload!.Summary.ChangesApplied);
+            Assert.AreEqual("MotorSpeed", payload.Changes[0].After);
+        }
+
+        [TestMethod]
         public async Task FindReplaceDbMembers_AutoWritesCsvWhenInlineResultExceedsThreshold()
         {
             var serviceResult = new FindReplaceResult

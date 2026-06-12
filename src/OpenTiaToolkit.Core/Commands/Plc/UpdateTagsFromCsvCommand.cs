@@ -118,16 +118,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                               $"Warnings: {result.Warnings.Count}, " +
                               $"Errors: {result.Errors.Count}";
 
-                var data = new
-                {
-                    safetyLogin,
-                    summary,
-                    updated = result.Updated,
-                    created = result.Created,
-                    deleted = result.Deleted,
-                    warnings = result.Warnings,
-                    errors = result.Errors
-                };
+                var data = TagUpdateCommandResult.From(result, safetyLogin);
 
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(data, message))
                 {
