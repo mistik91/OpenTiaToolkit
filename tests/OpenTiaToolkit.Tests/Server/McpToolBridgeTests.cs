@@ -216,6 +216,7 @@ namespace OpenTiaToolkit.Tests.Server
             Assert.IsFalse(result.IsError.GetValueOrDefault());
             Assert.AreEqual("json", result.StructuredContent?["data"]?["format"]?.GetValue<string>());
             Assert.AreEqual("large-tool-result", result.StructuredContent?["data"]?["dataKind"]?.GetValue<string>());
+            Assert.AreEqual(CommandArtifactSupport.InlineResultExceededReason(), result.StructuredContent?["data"]?["reason"]?.GetValue<string>());
             var outputPath = result.StructuredContent?["data"]?["outputPath"]?.GetValue<string>();
             Assert.IsFalse(string.IsNullOrWhiteSpace(outputPath));
             Assert.IsTrue(File.Exists(outputPath));

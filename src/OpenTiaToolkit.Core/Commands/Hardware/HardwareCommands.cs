@@ -105,16 +105,6 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
             return CommandResult.CreateFailure($"{action} failed: {ex.Message}", ex);
         }
 
-        public static string ResolveCsvOutputPath(string outputPath, string defaultFileName)
-        {
-            return CommandArtifactSupport.ResolveOutputPath(outputPath, defaultFileName);
-        }
-
-        public static string ResolveJsonOutputPath(string outputPath, string defaultFileName)
-        {
-            return CommandArtifactSupport.ResolveOutputPath(outputPath, defaultFileName);
-        }
-
         public static CommandArtifactResult CreateJsonArtifact(
             object data,
             string outputPath,
@@ -187,7 +177,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                 var message = $"Found {devices.Count} hardware device tree(s).";
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(devices, message))
                 {
-                    var outputPath = HardwareCommandSupport.ResolveJsonOutputPath(
+                    var outputPath = CommandArtifactSupport.ResolveOutputPath(
                         args.Has("output-path")
                             ? args.GetString("output-path")
                             : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".json"),
@@ -244,7 +234,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                 var message = $"Found {values.Count} hardware IO address object(s).";
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(values, message))
                 {
-                    var outputPath = HardwareCommandSupport.ResolveCsvOutputPath(
+                    var outputPath = CommandArtifactSupport.ResolveOutputPath(
                         args.Has("output-path")
                             ? args.GetString("output-path")
                             : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
@@ -354,7 +344,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                 var message = $"Found {values.Count} drive telegram(s).";
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(values, message))
                 {
-                    var outputPath = HardwareCommandSupport.ResolveCsvOutputPath(
+                    var outputPath = CommandArtifactSupport.ResolveOutputPath(
                         args.Has("output-path")
                             ? args.GetString("output-path")
                             : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
@@ -495,7 +485,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                 var message = $"Audited {result.AddressedTagCount} addressed PLC tag(s); {result.UnmatchedTagCount} unmatched.";
                 if (args.Has("output-path"))
                 {
-                    var outputPath = HardwareCommandSupport.ResolveCsvOutputPath(args.GetString("output-path"), "hardware_tag_mapping_unmatched_tags.csv");
+                    var outputPath = CommandArtifactSupport.ResolveOutputPath(args.GetString("output-path"), "hardware_tag_mapping_unmatched_tags.csv");
                     var bytesWritten = WriteUnmatchedTagsCsv(result, outputPath);
                     var artifact = CommandArtifactSupport.CreateCsvArtifact(
                         outputPath,
@@ -714,7 +704,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                 var message = $"Found {values.Count} hardware network interface(s).";
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(values, message))
                 {
-                    var outputPath = HardwareCommandSupport.ResolveJsonOutputPath(
+                    var outputPath = CommandArtifactSupport.ResolveOutputPath(
                         args.Has("output-path")
                             ? args.GetString("output-path")
                             : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".json"),

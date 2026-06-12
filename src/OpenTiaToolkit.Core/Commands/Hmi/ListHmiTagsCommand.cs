@@ -104,9 +104,10 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (ShouldWriteCsvArtifact(args, tags, message))
             {
-                var outputPath = ResolveCsvOutputPath(args.Has("output-path")
+                var outputPath = CommandArtifactSupport.ResolveOutputPath(args.Has("output-path")
                     ? args.GetString("output-path")
-                    : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"));
+                    : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
+                    "unified_hmi_tags.csv");
                 var bytesWritten = WriteTagsCsv(tags, outputPath);
                 var artifact = CommandArtifactSupport.CreateCsvArtifact(
                     outputPath,
@@ -149,14 +150,6 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         private static bool ShouldWriteCsvArtifact(CommandArgs args, object data, string message)
         {
             return args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(data, message);
-        }
-
-        private static string ResolveCsvOutputPath(string outputPath)
-        {
-            var fullPath = Path.GetFullPath(outputPath);
-            return Path.HasExtension(fullPath)
-                ? fullPath
-                : Path.Combine(fullPath, "unified_hmi_tags.csv");
         }
 
         private static long WriteTagsCsv(IEnumerable<HmiTagInfo> tags, string outputPath)

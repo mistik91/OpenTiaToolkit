@@ -247,7 +247,7 @@ namespace OpenTiaToolkit.MCP.Server
                     BytesWritten = bytesWritten,
                     ItemCount = TryGetItemCount(result.Data),
                     InlineOutputSuppressed = true,
-                    Reason = $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes"
+                    Reason = CommandArtifactSupport.InlineResultExceededReason()
                 };
                 message = string.IsNullOrWhiteSpace(message)
                     ? "Result data was written to an artifact file."

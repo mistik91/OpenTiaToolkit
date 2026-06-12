@@ -118,7 +118,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 InlineOutputSuppressed = true,
                 Reason = args.Has("include-screen") && !args.GetBool("include-screen", true)
                     ? "include-screen=false was provided"
-                    : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
+                    : CommandArtifactSupport.InlineResultExceededReason(),
                 Metadata = new
                 {
                     result.GeneratedAtUtc,

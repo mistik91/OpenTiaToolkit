@@ -40,6 +40,16 @@ namespace OpenTiaToolkit.Core.Commands
             return EstimateCommandResultBytes(data, message) > InlineResultThresholdBytes;
         }
 
+        public static string InlineResultExceededReason()
+        {
+            return $"inline result exceeded {InlineResultThresholdBytes} bytes";
+        }
+
+        public static string ExplicitOutputPathReason()
+        {
+            return "output-path was provided";
+        }
+
         public static string CreateDefaultArtifactPath(string commandName, string extension)
         {
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture);
@@ -73,8 +83,8 @@ namespace OpenTiaToolkit.Core.Commands
                 ItemCount = itemCount,
                 InlineOutputSuppressed = !explicitOutputPath,
                 Reason = explicitOutputPath
-                    ? "output-path was provided"
-                    : $"inline result exceeded {InlineResultThresholdBytes} bytes",
+                    ? ExplicitOutputPathReason()
+                    : InlineResultExceededReason(),
                 Metadata = metadata
             };
         }
@@ -97,8 +107,8 @@ namespace OpenTiaToolkit.Core.Commands
                 ItemCount = itemCount,
                 InlineOutputSuppressed = !explicitOutputPath,
                 Reason = explicitOutputPath
-                    ? "output-path was provided"
-                    : $"inline result exceeded {InlineResultThresholdBytes} bytes",
+                    ? ExplicitOutputPathReason()
+                    : InlineResultExceededReason(),
                 Columns = columns,
                 Metadata = metadata
             };
