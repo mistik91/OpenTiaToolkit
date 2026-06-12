@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.Core.Abstractions;

@@ -43,9 +43,7 @@ namespace OpenTiaToolkit.CLI.Routing
                     );
                 }
 
-                // Parse command name and arguments
-                var commandName = args[0].TrimStart('-');
-                var commandArgs = ParseArguments(args.Skip(1).ToArray());
+                var commandName = args[0];
 
                 // Find the command
                 if (!_commands.TryGetValue(commandName, out var command))
@@ -54,6 +52,12 @@ namespace OpenTiaToolkit.CLI.Routing
                     return CommandResult.CreateFailure(
                         $"Unknown command: '{commandName}'. Available commands: {availableCommands}"
                     );
+                }
+
+                var commandArgs = ParseArguments(args.Skip(1).ToArray(), command.Schema, out var parseError);
+                if (parseError != null)
+                {
+                    return CommandResult.CreateFailure(parseError);
                 }
 
                 _logger.LogInformation("Routing to command: {CommandName}", command.Name);
@@ -80,9 +84,11 @@ namespace OpenTiaToolkit.CLI.Routing
         /// Parses command-line arguments into a CommandArgs dictionary.
         /// Supports both --name=value and --name value formats.
         /// </summary>
-        private CommandArgs ParseArguments(string[] args)
+        private CommandArgs ParseArguments(string[] args, CommandSchema schema, out string? error)
         {
             var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            var parameters = schema.Parameters.ToDictionary(parameter => parameter.Name, StringComparer.OrdinalIgnoreCase);
+            error = null;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -92,49 +98,127 @@ namespace OpenTiaToolkit.CLI.Routing
                 if (arg.StartsWith("--"))
                 {
                     var name = arg.Substring(2).Trim();
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        error = "Empty parameter name.";
+                        return CommandArgs.Empty;
+                    }
 
                     // Check if it's in --name=value format
                     if (name.Contains("="))
                     {
-                        var parts = name.Split('=');
-                        var key = parts[0];
-                        var value = parts.Length > 1 ? string.Join("=", parts.Skip(1)) : "true";
+                        var equalsIndex = name.IndexOf('=');
+                        var key = name.Substring(0, equalsIndex);
+                        var value = name.Substring(equalsIndex + 1);
+                        if (!parameters.ContainsKey(key))
+                        {
+                            error = $"Unknown parameter: --{key}";
+                            return CommandArgs.Empty;
+                        }
+
                         values[key] = value;
                     }
-                    // Check if next arg is a value (not another flag)
-                    else if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                    else if (!parameters.TryGetValue(name, out var parameter))
+                    {
+                        error = $"Unknown parameter: --{name}";
+                        return CommandArgs.Empty;
+                    }
+                    else if (ShouldConsumeValue(parameter, args, i))
                     {
                         values[name] = args[i + 1];
                         i++; // Skip next arg as we've consumed it
                     }
-                    else
+                    else if (parameter.Type == CommandParameterType.Boolean)
                     {
                         // Boolean flag
                         values[name] = "true";
+                    }
+                    else
+                    {
+                        error = $"Missing value for parameter: --{name}";
+                        return CommandArgs.Empty;
                     }
                 }
                 else if (arg.StartsWith("-"))
                 {
                     // Short form argument
                     var name = arg.Substring(1).Trim();
-                    if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        error = "Empty parameter name.";
+                        return CommandArgs.Empty;
+                    }
+
+                    if (!parameters.TryGetValue(name, out var parameter))
+                    {
+                        error = $"Unknown parameter: -{name}";
+                        return CommandArgs.Empty;
+                    }
+
+                    if (ShouldConsumeValue(parameter, args, i))
                     {
                         values[name] = args[i + 1];
                         i++; // Skip next arg as we've consumed it
                     }
-                    else
+                    else if (parameter.Type == CommandParameterType.Boolean)
                     {
                         values[name] = "true";
+                    }
+                    else
+                    {
+                        error = $"Missing value for parameter: -{name}";
+                        return CommandArgs.Empty;
                     }
                 }
                 else
                 {
-                    // Positional argument - store with index
-                    values[$"pos_{values.Count}"] = arg;
+                    error = $"Unexpected positional argument: {arg}";
+                    return CommandArgs.Empty;
+                }
+            }
+
+            foreach (var parameter in schema.Parameters.Where(parameter => parameter.Required))
+            {
+                if (!values.TryGetValue(parameter.Name, out var value) || IsMissingValue(value))
+                {
+                    error = $"Missing required parameter: {parameter.Name}";
+                    return CommandArgs.Empty;
                 }
             }
 
             return new CommandArgs(values);
+        }
+
+        private static bool ShouldConsumeValue(CommandParameter parameter, string[] args, int currentIndex)
+        {
+            if (currentIndex + 1 >= args.Length)
+            {
+                return false;
+            }
+
+            if (parameter.Type == CommandParameterType.Boolean)
+            {
+                return !IsNamedArgument(args[currentIndex + 1]) &&
+                       bool.TryParse(args[currentIndex + 1], out _);
+            }
+
+            return !IsNamedArgument(args[currentIndex + 1]) ||
+                   (parameter.Type == CommandParameterType.Integer && IsNegativeInteger(args[currentIndex + 1]));
+        }
+
+        private static bool IsNamedArgument(string value)
+        {
+            return value.StartsWith("-");
+        }
+
+        private static bool IsNegativeInteger(string value)
+        {
+            return int.TryParse(value, out var parsed) && parsed < 0;
+        }
+
+        private static bool IsMissingValue(object? value)
+        {
+            return value == null || value is string stringValue && string.IsNullOrWhiteSpace(stringValue);
         }
 
         /// <summary>

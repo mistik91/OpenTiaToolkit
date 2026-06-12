@@ -93,7 +93,9 @@ namespace OpenTiaToolkit.MCP.Server
                 throw new McpException($"Tool not found: {toolName}");
             }
 
-            if (!await _executionGate.WaitAsync(0, CancellationToken.None))
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!await _executionGate.WaitAsync(0, cancellationToken))
             {
                 ActiveToolOperation? activeOperation;
                 lock (_operationLock)
@@ -135,7 +137,7 @@ namespace OpenTiaToolkit.MCP.Server
             {
                 // Do not release the session gate when a caller disconnects or times out:
                 // Openness calls are not safely cancellable and must finish before another call starts.
-                var result = await tool.ExecuteAsync(arguments);
+                var result = await tool.ExecuteAsync(arguments, cancellationToken);
                 return CreateCallToolResult(result);
             }
             finally

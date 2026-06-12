@@ -1,6 +1,6 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
-using OpenTiaToolkit.Core.Commands.Hmi;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -380,7 +380,9 @@ namespace OpenTiaToolkit.Core.Services
                 return accessor.SessionContext;
             }
 
-            return new EngineeringSessionContext();
+            throw new ArgumentException(
+                "The portal service must expose the shared engineering session context. Use PortalService or the DI constructor that accepts EngineeringSessionContext.",
+                nameof(portalService));
         }
     }
 }

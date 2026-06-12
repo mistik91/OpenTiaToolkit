@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace OpenTiaToolkit.Core.Commands.Hmi
+namespace OpenTiaToolkit.Core.Models
 {
     /// <summary>
     /// Optional filters used by Unified HMI JSON export, diff, and import flows.

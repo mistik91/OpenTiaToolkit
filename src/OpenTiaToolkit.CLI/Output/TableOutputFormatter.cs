@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Hmi;
@@ -258,34 +259,14 @@ namespace OpenTiaToolkit.CLI.Output
                 ""
             };
 
-            FormatTreeNode(tree, lines, "", 0);
+            TreeTextFormatter.Format(
+                tree,
+                lines,
+                node => node.Name,
+                node => node.Type,
+                node => node.Children);
 
             return string.Join(Environment.NewLine, lines);
-        }
-
-        private static void FormatTreeNode(ProjectTreeNode node, List<string> lines, string prefix, int depth)
-        {
-            // Limit depth to prevent infinite recursion in case of circular references
-            if (depth > 20)
-            {
-                lines.Add($"{prefix}[Max depth reached]");
-                return;
-            }
-
-            var typeInfo = string.IsNullOrEmpty(node.Type) || node.Type == "Unknown"
-                ? ""
-                : $" [{node.Type}]";
-
-            lines.Add($"{prefix}{node.Name}{typeInfo}");
-
-            if (node.Children != null && node.Children.Count > 0)
-            {
-                var childPrefix = prefix + "  ";
-                foreach (var child in node.Children)
-                {
-                    FormatTreeNode(child, lines, childPrefix, depth + 1);
-                }
-            }
         }
 
         private static string FormatSoftwareTree(SoftwareTreeNode tree)
@@ -296,34 +277,14 @@ namespace OpenTiaToolkit.CLI.Output
                 ""
             };
 
-            FormatSoftwareTreeNode(tree, lines, "", 0);
+            TreeTextFormatter.Format(
+                tree,
+                lines,
+                node => node.Name,
+                node => node.Type,
+                node => node.Children);
 
             return string.Join(Environment.NewLine, lines);
-        }
-
-        private static void FormatSoftwareTreeNode(SoftwareTreeNode node, List<string> lines, string prefix, int depth)
-        {
-            // Limit depth to prevent infinite recursion in case of circular references
-            if (depth > 20)
-            {
-                lines.Add($"{prefix}[Max depth reached]");
-                return;
-            }
-
-            var typeInfo = string.IsNullOrEmpty(node.Type) || node.Type == "Unknown"
-                ? ""
-                : $" [{node.Type}]";
-
-            lines.Add($"{prefix}{node.Name}{typeInfo}");
-
-            if (node.Children != null && node.Children.Count > 0)
-            {
-                var childPrefix = prefix + "  ";
-                foreach (var child in node.Children)
-                {
-                    FormatSoftwareTreeNode(child, lines, childPrefix, depth + 1);
-                }
-            }
         }
 
         private static string FormatPlcs(IEnumerable<PlcInfo> plcs)
@@ -347,7 +308,7 @@ namespace OpenTiaToolkit.CLI.Output
                 var name = Truncate(plc.Name, 30);
                 var parent = Truncate(plc.ParentDevice ?? "N/A", 40);
                 var type = Truncate(plc.Type ?? "Unknown", 25);
-                var confirmed = plc.IsConfirmedPlc ? "✓ Yes" : "No";
+                var confirmed = plc.IsConfirmedPlc ? "Yes" : "No";
 
                 lines.Add($"{name,-30} {parent,-40} {type,-25} {confirmed,-15}");
             }

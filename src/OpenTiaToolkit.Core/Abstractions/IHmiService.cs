@@ -1,4 +1,4 @@
-using OpenTiaToolkit.Core.Commands.Hmi;
+using OpenTiaToolkit.Core.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 

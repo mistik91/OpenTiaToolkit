@@ -1,10 +1,10 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Plc;
-using OpenTiaToolkit.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;

@@ -1,0 +1,144 @@
+# OpenTiaToolkit — Feature Suggestions / Gap Analysis
+
+Date: 2026-06-12
+Companion to: [report.md](report.md) (full repository review)
+
+Scope: features that are **absent** from the current 97-command surface. Every Siemens API referenced below was verified present in the V21 PublicAPI assemblies the project already links against (`Siemens.Engineering.Base/Step7/WinCCUnified/Startdrive` 21.0.0.0, checked via reflection and the shipped IntelliSense XML docs). None of these require new Siemens dependencies.
+
+Priority legend:
+- **P0** — closes a loop agents currently cannot close at all; highest leverage.
+- **P1** — fills an asymmetry or unblocks a common real-world workflow.
+- **P2** — valuable, but defer until test coverage and the report.md P0/P1 fixes land.
+
+---
+
+## 1. Verification Loop Closure (P0)
+
+The toolkit can edit and compile, but never *run* anything. For an agent toolkit this is the single biggest gap: agents can verify syntax, not behavior.
+
+### 1.1 Download to PLCSIM / device
+- **API**: `Siemens.Engineering.Download` namespace (Base, Step7, Startdrive XMLs all document it), `Siemens.Engineering.Online` for go-online and CPU state.
+- **Suggestion**: a guarded `download-software` command, initially restricted to simulation targets (`--to-simulator`, PLCSIM Advanced), with `--dry-run` and `--confirm` gates matching the existing mutation-command conventions. Real-hardware download can stay behind an explicit opt-in flag or be deferred entirely.
+- **Payoff**: enables the canonical agent loop — edit → compile → download to sim → observe — instead of stopping at compile.
+- Follow-ups once download exists: `start-cpu` / `stop-cpu` / `get-online-status`.
+
+### 1.2 PLC compare
+- **API**: `Siemens.Engineering.Compare` (offline/offline and online/offline), present in Base + Step7.
+- **Suggestion**: `compare-software` (project vs project, or online vs offline) returning a structured diff, with `--output-path` artifact spill like the existing large-result commands.
+- **Rationale**: the HMI side already has a full export/diff/import pipeline — the diff discipline is clearly understood and is the best-engineered part of the repo. The PLC side has nothing equivalent; an agent that mutates blocks cannot show "what changed" except indirectly through VCI text. This is the most glaring asymmetry in the product.
+
+---
+
+## 2. Library Workflows (P0)
+
+- **API**: `TiaPortal.GlobalLibraries` (`GlobalLibraryComposition`) is already exposed on the connected portal object (verified by reflection); `MasterCopy` types exist in Base/Step7; project library is reachable via `Project`.
+- **Current state**: zero commands touch libraries.
+- **Suggestion**:
+  - `open-global-library` / `list-global-libraries` / `close-global-library`
+  - `list-master-copies` / `copy-from-master-copy` (into a target block group)
+  - `list-library-types` / `get-library-type-versions`, and an update-instance check (report outdated instances before mutating)
+- **Rationale**: in real TIA shops, standardization via company libraries *is* the workflow. A toolkit that can create blocks from scratch but cannot pull from the validated library fights the user's process and encourages agents to re-invent blocks that already exist in approved form.
+
+---
+
+## 3. PLC Surface Asymmetries (P1)
+
+### 3.1 `export-tags`
+`update-tags-from-csv` imports, `find-replace-tags` mutates — but there is no tag *export*. Agents must scrape list-command output to round-trip. Every import path should have its export twin; this one is cheap (the CSV writer infrastructure in `CommandArtifactSupport` already exists).
+
+### 3.2 External source files (SCL/AWL text round-trip)
+- **API**: `PlcSoftware.ExternalSourceGroup` (`PlcExternalSourceSystemGroup`, typed, verified present).
+- **Suggestion**: `import-source` (add .scl/.awl file), `generate-blocks-from-source`, and `export-block-as-source` where supported.
+- **Rationale**: plain-text source is the most LLM-friendly code path there is. VCI/S7DCL partially covers this but only through workspace ceremony (create workspace → connect block → sync); a direct source path is simpler, scriptable, and more portable to older portal versions.
+
+### 3.3 Cross-references
+- **API**: `CrossReference` service (Base).
+- **Suggestion**: `get-cross-references --name <tag-or-block>` answering "who uses this?".
+- **Rationale**: doubles as a safety feature — today `find-replace-tags`, `delete-blocks`, and the rename commands operate blind. Impact analysis before destructive operations fits the toolkit's existing dry-run/confirm philosophy, and the workflow skills could mandate an xref check before any rename/delete.
+
+### 3.4 Watch & force tables
+- **API**: `PlcWatchTable` etc. (Step7; `PlcSoftware.WatchAndForceTableGroup` is a typed property, verified).
+- **Suggestion**: list/create/export watch tables. Becomes far more valuable once §1.1 (download/online) exists, since watch tables are the natural observation channel for the verification loop.
+
+### 3.5 Technology objects
+- **API**: `PlcSoftware.TechnologicalObjectGroup` (`TechnologicalInstanceDBGroup`, typed, verified).
+- **Suggestion**: at minimum read/list TOs; later, axis parameter read/write.
+- **Rationale**: the toolkit already configures Startdrive telegrams — so drives get configured, but the motion axes that reference those telegrams cannot even be enumerated. The hardware story stops one step short of usable.
+
+### 3.6 PLC alarms & text lists
+- **API**: `PlcAlarm`, `TextList` (Step7); `PlcSoftware.PlcAlarmTextlistGroup` is a typed property.
+- **Suggestion**: list/export alarm text lists; pairs naturally with §5 (multi-language).
+
+---
+
+## 4. Project Lifecycle (P1)
+
+### 4.1 `create-project` / `add-device`
+The toolkit assumes a project always exists; greenfield bootstrap is impossible. `apply-hardware-patch` already does the *harder* part (catalog lookup, module composition, plugging) — creating the project and the station from an order number (`Devices.CreateWithItem`) is the missing first step. One command each: `create-project --project-path`, `add-device --order-number --version --name`.
+
+### 4.2 Archive / retrieve (`.zap21`)
+- **API**: `Project.Archive` (verified in Base XML).
+- **Suggestion**: `archive-project` / `retrieve-project`.
+- **Rationale**: the docs themselves tell users to "use disposable project copies until you are comfortable" — the toolkit should be able to make those copies. Also the natural building block for an agent-side undo/backup convention: archive before mutation session, retrieve on failure.
+
+### 4.3 Protected project credentials (UMAC)
+- **API**: `UmacDelegate` (Base).
+- **Current state**: `open-project` has no credential parameters, so UMAC-protected projects fail — and because of the swallowed-`bool` error pattern (report.md §5.4), they fail *undiagnosably* as a generic "Failed to open project".
+- **Suggestion**: optional `--umac-user` plus a non-echoing credential mechanism (env var or stdin prompt; never a plain CLI arg in shell history). Even without full support, *detecting* a protection prompt and returning a specific error would remove a silent failure mode.
+
+---
+
+## 5. Internationalization (P1)
+
+- **API**: `MultilingualText` (Base + WinCCUnified), project language settings.
+- **Current state**: invisible. Block comments, screen texts, and alarm texts in multi-language projects are only ever read/written in one culture; agents don't even know other languages exist.
+- **Suggestion**: `list-project-languages`, `export-texts` / `import-texts` (per-language, CSV/JSON via the existing artifact infrastructure).
+- **Rationale**: translation export/import is a classic, tedious automation chore and an unusually good fit for LLM agents — high-volume, low-risk text transformation with a clean round-trip format.
+
+---
+
+## 6. Toolkit & Infrastructure Features (no Siemens API required)
+
+### 6.1 CLI `--format json` (P0)
+MCP clients get structured JSON; CLI users get reflection-built tables. A `--format json|table` flag would make the CLI scriptable and would let most of the 1,433-line `TableOutputFormatter` be deleted — directly shrinking the worst presentation-layer liability identified in report.md §4.2. This is the rare feature that *removes* code.
+
+### 6.2 MCP `reset-session` tool + operation timeout (P0)
+Ties to report.md §2: a hung Openness call currently bricks the MCP server permanently (gate held forever, no recovery path). Suggest: a watchdog timeout surfaced in the busy-error payload, plus a `reset-session` tool that disposes the portal attachment and clears `EngineeringSessionContext`. This is both a bug fix and a missing feature.
+
+### 6.3 Session persistence for single-shot CLI (P2)
+Each non-interactive invocation is a fresh process that must re-attach; state only persists in the REPL. Options, in ascending effort: document "use the MCP server for stateful scripting" as the official answer; or add a small daemon/named-pipe mode the single-shot CLI transparently talks to. The current "REPL or nothing" model is awkward for CI scripts.
+
+### 6.4 Progress reporting & cancellation (P1)
+Long compiles/imports/downloads give zero feedback until completion, and no `CancellationToken` exists anywhere in the interfaces (report.md §2). MCP progress notifications are supported by the SDK already in use. Do this together with the report.md interface changes rather than as a separate pass.
+
+### 6.5 An actual installer (P1)
+Every plugin package already hardcodes `C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe` — the installer is a missing feature the packaging *pretends exists* (report.md §10.2). Either ship one (MSI/MSIX or winget manifest, including the Openness allow-list registration step that `Register-OpennessAllowList.ps1` already implements), or regenerate all snippets to stop referencing the fictional path.
+
+### 6.6 Multi-version support — build it or drop the claim (P2)
+README and `TIA_PORTAL_VERSION_SUPPORT.md` promise "best-effort compatibility paths for older versions", and the `V21*Adapter` naming implies a version seam — but only V21 assemblies are referenced and no abstraction exists for a V20 adapter to plug into. Either introduce the real seam (adapter interface + per-version assembly loading, which the custom `TiaPortalAssemblyResolver` half-anticipates with its V21/V20/V19 lists) or remove the claim from the docs. The current state is a promise with no mechanism.
+
+---
+
+## 7. Deliberately Not Suggested
+
+- **Project documentation/printout export, Teamcenter gateway, AddIn APIs** — niche audiences, low agent value.
+- **Real-hardware download as a default path** — too dangerous for the current maturity level; simulation targets first.
+- **Further HMI breadth** — the Unified HMI surface is already the largest and best-covered area; PLC-side parity matters more.
+
+The general posture: the command surface is already wide relative to its test coverage (21/36 service files untested, per report.md §7). Prefer the four loop-closing features — **download-to-PLCSIM (§1.1), PLC compare (§1.2), tag export (§3.1), cross-references (§3.3)** — over additional breadth, and land the report.md P0 fixes (concurrency, CI, error transparency) before or alongside any of this, since every new feature inherits those systemic weaknesses.
+
+---
+
+## Suggested Sequencing
+
+| Order | Item | Why first |
+|-------|------|-----------|
+| 1 | CLI `--format json` (§6.1) | Removes code; unblocks scripting; zero Siemens risk |
+| 2 | MCP reset/timeout (§6.2) | Converts a P0 reliability bug into a feature |
+| 3 | `export-tags` (§3.1) | Trivial; closes an import/export asymmetry |
+| 4 | Cross-references (§3.3) | Safety net for existing destructive commands |
+| 5 | PLC compare (§1.2) | Read-only; mirrors proven HMI diff design |
+| 6 | Download to PLCSIM (§1.1) | The big one; needs the guard/confirm design |
+| 7 | Libraries (§2) | High workflow value; medium surface area |
+| 8 | Archive/retrieve, create-project (§4) | Lifecycle completeness |
+| 9 | External sources, watch tables, TOs, i18n (§3.2/3.4/3.5/§5) | Breadth, after the loops close |

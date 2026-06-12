@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using System;
 using System.Collections.Concurrent;
 using System.Collections;
@@ -1120,21 +1121,6 @@ namespace OpenTiaToolkit.Core.Services
             {
                 return null;
             }
-        }
-    }
-
-    internal sealed class ReferenceEqualityComparer : IEqualityComparer<object>
-    {
-        public static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
-
-        public new bool Equals(object? x, object? y)
-        {
-            return ReferenceEquals(x, y);
-        }
-
-        public int GetHashCode(object obj)
-        {
-            return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
         }
     }
 

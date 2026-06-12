@@ -1,5 +1,6 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using OpenTiaToolkit.Core.Commands.Hmi;
+using OpenTiaToolkit.Core.Services;
 using System.Collections.Generic;
 using System.Linq;
 

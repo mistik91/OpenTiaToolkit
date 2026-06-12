@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
-using OpenTiaToolkit.Core.Models;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Plc

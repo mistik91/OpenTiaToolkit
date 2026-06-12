@@ -1,6 +1,6 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
-using OpenTiaToolkit.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -107,18 +107,12 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
         public static string ResolveCsvOutputPath(string outputPath, string defaultFileName)
         {
-            var fullPath = Path.GetFullPath(outputPath);
-            return Path.HasExtension(fullPath)
-                ? fullPath
-                : Path.Combine(fullPath, defaultFileName);
+            return CommandArtifactSupport.ResolveOutputPath(outputPath, defaultFileName);
         }
 
         public static string ResolveJsonOutputPath(string outputPath, string defaultFileName)
         {
-            var fullPath = Path.GetFullPath(outputPath);
-            return Path.HasExtension(fullPath)
-                ? fullPath
-                : Path.Combine(fullPath, defaultFileName);
+            return CommandArtifactSupport.ResolveOutputPath(outputPath, defaultFileName);
         }
 
         public static CommandArtifactResult CreateJsonArtifact(
@@ -129,20 +123,13 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
             bool explicitOutputPath,
             object? metadata = null)
         {
-            var bytesWritten = CommandArtifactSupport.SaveJsonArtifact(data, outputPath);
-            return new CommandArtifactResult
-            {
-                OutputPath = outputPath,
-                Format = "json",
-                DataKind = dataKind,
-                BytesWritten = bytesWritten,
-                ItemCount = itemCount,
-                InlineOutputSuppressed = !explicitOutputPath,
-                Reason = explicitOutputPath
-                    ? "output-path was provided"
-                    : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                Metadata = metadata
-            };
+            return CommandArtifactSupport.CreateJsonArtifact(
+                data,
+                outputPath,
+                dataKind,
+                itemCount,
+                explicitOutputPath,
+                metadata);
         }
 
         public static string FormatTargetItemPath(HardwareObjectRef? target)

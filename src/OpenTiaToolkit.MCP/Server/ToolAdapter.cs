@@ -7,6 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.MCP.Server
@@ -94,15 +95,23 @@ namespace OpenTiaToolkit.MCP.Server
         /// </summary>
         /// <param name="arguments">JSON object containing the arguments.</param>
         /// <returns>Structured MCP tool result.</returns>
-        public async Task<ToolExecutionResult> ExecuteAsync(IReadOnlyDictionary<string, JsonElement>? arguments)
+        public async Task<ToolExecutionResult> ExecuteAsync(
+            IReadOnlyDictionary<string, JsonElement>? arguments,
+            CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("MCP: Executing tool {ToolName}", Name);
 
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var args = ParseArguments(arguments);
+                cancellationToken.ThrowIfCancellationRequested();
                 var result = await _command.ExecuteAsync(args, _logger);
                 return ToolExecutionResult.FromCommandResult(result, Name);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

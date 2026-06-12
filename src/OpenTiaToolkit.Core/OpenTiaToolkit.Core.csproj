@@ -45,6 +45,7 @@
     <PackageReference Include="Siemens.Collaboration.Net.OperatingSystem.Windows" Version="3.0.1725521661">
       <Private>False</Private>
     </PackageReference>
+    <PackageReference Include="System.Reflection.DispatchProxy" Version="4.7.1" />
     <!-- Note: Using custom TiaPortalAssemblyResolver instead of official resolver package -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>

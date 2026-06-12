@@ -1,13 +1,17 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
 using OpenTiaToolkit.Core;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Services;
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Tests.Composition
 {
@@ -53,6 +57,25 @@ namespace OpenTiaToolkit.Tests.Composition
         }
 
         [TestMethod]
+        public async Task SessionSerializedServiceProxy_SerializesConcurrentAsyncCalls()
+        {
+            // Arrange
+            var context = new EngineeringSessionContext();
+            var target = new SerializedProbeService();
+            var proxy = SessionSerializedServiceProxy<ISerializedProbeService>.Create(target, context);
+
+            // Act
+            await Task.WhenAll(
+                proxy.EnterAsync(),
+                proxy.EnterAsync(),
+                proxy.EnterAsync());
+
+            // Assert
+            Assert.AreEqual(1, target.MaxObservedConcurrency);
+            Assert.AreEqual(3, target.CompletedCalls);
+        }
+
+        [TestMethod]
         public void ConstructorPath_SharesSessionContextWhenPlcServiceUsesPortalServiceInstance()
         {
             // Arrange
@@ -68,6 +91,20 @@ namespace OpenTiaToolkit.Tests.Composition
             Assert.IsNotNull(portalContext);
             Assert.IsNotNull(plcContext);
             Assert.AreSame(portalContext, plcContext);
+        }
+
+        [TestMethod]
+        public void PublicServiceConstructors_RejectPortalServiceWithoutSharedSessionContext()
+        {
+            // Arrange
+            using var loggerFactory = LoggerFactory.Create(builder => { });
+            var portalService = new Mock<IPortalService>().Object;
+
+            // Act / Assert
+            Assert.ThrowsException<ArgumentException>(() =>
+                new PlcService(portalService, loggerFactory.CreateLogger<PlcService>()));
+            Assert.ThrowsException<ArgumentException>(() =>
+                new HmiService(portalService, loggerFactory.CreateLogger<HmiService>()));
         }
 
         [TestMethod]
@@ -137,11 +174,122 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "apply-hardware-patch");
         }
 
+        [TestMethod]
+        public void AddOpenTiaToolkitCommands_RegistersEveryCoreCommandImplementation()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddOpenTiaToolkitCoreServices();
+            services.AddOpenTiaToolkitCommands();
+
+            using var serviceProvider = services.BuildServiceProvider();
+
+            // Act
+            var registeredTypes = serviceProvider.GetServices<ICommand>()
+                .Select(command => command.GetType())
+                .OrderBy(type => type.FullName, StringComparer.Ordinal)
+                .ToArray();
+            var discoveredTypes = ServiceCollectionExtensions
+                .GetCommandTypes(typeof(ServiceCollectionExtensions).Assembly)
+                .OrderBy(type => type.FullName, StringComparer.Ordinal)
+                .ToArray();
+
+            // Assert
+            CollectionAssert.AreEqual(discoveredTypes, registeredTypes);
+        }
+
+        [TestMethod]
+        public void CoreAbstractionsAndServices_DoNotDependOnCommandNamespaces()
+        {
+            // Arrange
+            var sourceRoot = FindSourceRoot();
+            var scopedFiles = Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
+                .Where(path =>
+                    path.Contains($"{Path.DirectorySeparatorChar}Abstractions{Path.DirectorySeparatorChar}") ||
+                    path.Contains($"{Path.DirectorySeparatorChar}Services{Path.DirectorySeparatorChar}"))
+                .Where(path => !path.EndsWith($"{Path.DirectorySeparatorChar}ICommand.cs", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            // Act
+            var offenders = scopedFiles
+                .Where(path => File.ReadAllText(path).IndexOf("using OpenTiaToolkit.Core.Commands.", StringComparison.Ordinal) >= 0)
+                .Select(path => path.Substring(sourceRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+
+            // Assert
+            Assert.AreEqual(0, offenders.Length, "Core abstractions/services must depend on Models, not Commands: " + string.Join(", ", offenders));
+        }
+
         private static object? GetPrivateFieldValue(object target, string fieldName)
         {
+            target = UnwrapSessionSerializedProxy(target);
+
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.IsNotNull(field, $"Could not find field '{fieldName}' on type '{target.GetType().Name}'.");
             return field!.GetValue(target);
+        }
+
+        private static object UnwrapSessionSerializedProxy(object target)
+        {
+            var targetField = FindField(target.GetType(), "_target");
+            return targetField?.GetValue(target) ?? target;
+        }
+
+        private static FieldInfo? FindField(Type type, string fieldName)
+        {
+            for (var currentType = type; currentType != null; currentType = currentType.BaseType)
+            {
+                var field = currentType.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+                if (field != null)
+                {
+                    return field;
+                }
+            }
+
+            return null;
+        }
+
+        private static string FindSourceRoot()
+        {
+            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+            while (directory != null)
+            {
+                var candidate = Path.Combine(directory.FullName, "src", "OpenTiaToolkit.Core");
+                if (Directory.Exists(candidate))
+                {
+                    return candidate;
+                }
+
+                directory = directory.Parent;
+            }
+
+            Assert.Fail("Could not locate src/OpenTiaToolkit.Core from test output directory.");
+            throw new InvalidOperationException();
+        }
+
+        public interface ISerializedProbeService
+        {
+            Task EnterAsync();
+        }
+
+        private sealed class SerializedProbeService : ISerializedProbeService
+        {
+            private int _activeCalls;
+
+            public int CompletedCalls { get; private set; }
+
+            public int MaxObservedConcurrency { get; private set; }
+
+            public async Task EnterAsync()
+            {
+                var activeCalls = Interlocked.Increment(ref _activeCalls);
+                MaxObservedConcurrency = Math.Max(MaxObservedConcurrency, activeCalls);
+                await Task.Delay(25);
+                CompletedCalls++;
+                Interlocked.Decrement(ref _activeCalls);
+            }
         }
     }
 }

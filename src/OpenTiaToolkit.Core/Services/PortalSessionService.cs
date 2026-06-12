@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using Siemens.Engineering;
@@ -23,6 +24,12 @@ namespace OpenTiaToolkit.Core.Services
         {
             get => _sessionContext.Portal;
             set => _sessionContext.Portal = value;
+        }
+
+        private int? _attachedPortalProcessId
+        {
+            get => _sessionContext.AttachedPortalProcessId;
+            set => _sessionContext.AttachedPortalProcessId = value;
         }
 
         private ProjectBase? _project
@@ -68,13 +75,16 @@ namespace OpenTiaToolkit.Core.Services
                     var processes = TiaPortal.GetProcesses();
                     if (processes.Any())
                     {
-                        _portal = processes.First().Attach();
+                        var process = processes.First();
+                        _portal = process.Attach();
+                        _attachedPortalProcessId = process.Id;
                         TrySelectSingleOpenProjectInCurrentPortal();
                         _logger?.LogInformation("Attached to existing TIA Portal instance.");
                         return true;
                     }
 
                     _portal = new TiaPortal(TiaPortalMode.WithoutUserInterface);
+                    _attachedPortalProcessId = null;
                     _logger?.LogInformation("Started new TIA Portal instance.");
                     return true;
                 }
@@ -94,13 +104,12 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    var currentPortalInstanceId = GetPortalInstanceId(_portal);
                     foreach (var process in TiaPortal.GetProcesses())
                     {
                         instances.Add(new TiaPortalInstance(
                             process.Id,
-                            process.ToString(),
-                            currentPortalInstanceId.HasValue && process.Id == currentPortalInstanceId.Value));
+                            GetProcessVersion(process),
+                            _attachedPortalProcessId.HasValue && process.Id == _attachedPortalProcessId.Value));
                     }
                 }
                 catch (Exception ex)
@@ -125,6 +134,7 @@ namespace OpenTiaToolkit.Core.Services
 
                     var mode = withUi ? TiaPortalMode.WithUserInterface : TiaPortalMode.WithoutUserInterface;
                     _portal = new TiaPortal(mode);
+                    _attachedPortalProcessId = null;
                     _logger?.LogInformation("Started new TIA Portal instance.");
                     return true;
                 }
@@ -181,6 +191,7 @@ namespace OpenTiaToolkit.Core.Services
                     }
 
                     _portal = process.Attach();
+                    _attachedPortalProcessId = process.Id;
                     TrySelectSingleOpenProjectInCurrentPortal();
                     _logger?.LogInformation("Attached to TIA Portal instance {InstanceId}.", instanceId);
                     return true;
@@ -588,11 +599,9 @@ namespace OpenTiaToolkit.Core.Services
 
         private bool TryAttachToExistingPortalWithProject(string normalizedProjectPath, string projectName)
         {
-            var currentPortalInstanceId = GetPortalInstanceId(_portal);
-
             foreach (var process in TiaPortal.GetProcesses())
             {
-                if (currentPortalInstanceId.HasValue && process.Id == currentPortalInstanceId.Value)
+                if (_attachedPortalProcessId.HasValue && process.Id == _attachedPortalProcessId.Value)
                 {
                     continue;
                 }
@@ -608,6 +617,7 @@ namespace OpenTiaToolkit.Core.Services
                         _portal?.Dispose();
 
                         _portal = attachedPortal;
+                        _attachedPortalProcessId = process.Id;
                         _sessionContext.ClearPlcSelection();
                         _session = matchedSession;
                         _project = matchedProject;
@@ -673,9 +683,22 @@ namespace OpenTiaToolkit.Core.Services
             return false;
         }
 
-        private static int? GetPortalInstanceId(TiaPortal? portal)
+        private static string? GetProcessVersion(TiaPortalProcess process)
         {
-            return (int?)portal?.GetType().GetProperty("Id")?.GetValue(portal);
+            try
+            {
+                var portalProduct = process.InstalledSoftware?
+                    .FirstOrDefault(product =>
+                        product.Name?.IndexOf("Automation Portal", StringComparison.OrdinalIgnoreCase) >= 0)
+                    ?? process.InstalledSoftware?.FirstOrDefault();
+
+                var version = portalProduct?.Version;
+                return string.IsNullOrWhiteSpace(version) ? null : version;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static string? TryGetProjectPath(ProjectBase? project)

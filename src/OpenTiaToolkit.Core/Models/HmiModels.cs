@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace OpenTiaToolkit.Core.Commands.Hmi
+namespace OpenTiaToolkit.Core.Models
 {
     /// <summary>
     /// Detailed information about a Unified HMI screen.

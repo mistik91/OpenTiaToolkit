@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using System;
@@ -7,24 +8,6 @@ using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Plc
 {
-    /// <summary>
-    /// Information about a PLC device found in the project.
-    /// </summary>
-    public class PlcInfo
-    {
-        /// <summary>Gets or sets the name of the PLC device.</summary>
-        public string Name { get; set; } = string.Empty;
-
-        /// <summary>Gets or sets the type/classification of the PLC.</summary>
-        public string? Type { get; set; }
-
-        /// <summary>Gets or sets the parent device name.</summary>
-        public string? ParentDevice { get; set; }
-
-        /// <summary>Gets or sets a value indicating whether this is a confirmed PLC.</summary>
-        public bool IsConfirmedPlc { get; set; }
-    }
-
     /// <summary>
     /// Command to list all PLC devices in the current project.
     /// </summary>

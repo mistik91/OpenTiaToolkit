@@ -1,4 +1,4 @@
-using OpenTiaToolkit.Core.Commands.Hmi;
+using OpenTiaToolkit.Core.Models;
 using System;
 using System.IO;
 using System.Text.Json;

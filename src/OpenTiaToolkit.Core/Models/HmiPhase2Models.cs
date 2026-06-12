@@ -1,4 +1,4 @@
-namespace OpenTiaToolkit.Core.Commands.Hmi
+namespace OpenTiaToolkit.Core.Models
 {
     /// <summary>
     /// Summary information about a Unified HMI tag.

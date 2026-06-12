@@ -1,6 +1,6 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
-using OpenTiaToolkit.Core.Models;
 using System;
 using System.Collections;
 using System.Collections.Generic;

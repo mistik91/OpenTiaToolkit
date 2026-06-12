@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.CLI.Output;
 using OpenTiaToolkit.Core.Abstractions;
@@ -125,6 +126,37 @@ namespace OpenTiaToolkit.Tests.Output
 
             // Assert
             Assert.AreEqual("No devices found.", formatted);
+        }
+
+        [TestMethod]
+        public void Format_UsesSharedTreeFormatting_ForProjectAndSoftwareTrees()
+        {
+            var projectTree = new ProjectTreeNode(
+                "Project",
+                "Project",
+                "Project",
+                new[]
+                {
+                    new ProjectTreeNode("PLC_1", "Device", "Project/PLC_1", Array.Empty<ProjectTreeNode>())
+                });
+            var softwareTree = new SoftwareTreeNode(
+                "PLC_1",
+                "PlcSoftware",
+                "PLC_1",
+                new[]
+                {
+                    new SoftwareTreeNode("Program blocks", "BlockGroup", "PLC_1/Program blocks", Array.Empty<SoftwareTreeNode>())
+                });
+
+            var formattedProject = TableOutputFormatter.Format(CommandResult.CreateSuccess(projectTree, "project"));
+            var formattedSoftware = TableOutputFormatter.Format(CommandResult.CreateSuccess(softwareTree, "software"));
+
+            StringAssert.Contains(formattedProject, "Project Tree:");
+            StringAssert.Contains(formattedProject, "Project [Project]");
+            StringAssert.Contains(formattedProject, "  PLC_1 [Device]");
+            StringAssert.Contains(formattedSoftware, "PLC Software Tree:");
+            StringAssert.Contains(formattedSoftware, "PLC_1 [PlcSoftware]");
+            StringAssert.Contains(formattedSoftware, "  Program blocks [BlockGroup]");
         }
 
         [TestMethod]

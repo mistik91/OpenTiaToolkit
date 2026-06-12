@@ -1,5 +1,5 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
-using OpenTiaToolkit.Core.Commands.Hmi;
 using Siemens.Engineering.HmiUnified.HmiLogging;
 using Siemens.Engineering.HmiUnified.HmiTags;
 using Siemens.Engineering.HmiUnified.LoggingTags;

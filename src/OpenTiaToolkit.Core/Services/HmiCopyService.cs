@@ -1,5 +1,5 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
-using OpenTiaToolkit.Core.Commands.Hmi;
 using System;
 using System.Threading.Tasks;
 

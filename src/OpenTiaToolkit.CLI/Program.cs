@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,8 @@ namespace OpenTiaToolkit.CLI
 
         public static async Task<int> Main(string[] args)
         {
+            ConfigureConsoleEncoding();
+
             bool isInteractiveMode = args.Length == 0 ||
                                      System.Array.Exists(args, a => a == "--interactive") ||
                                      System.Array.Exists(args, a => a == "-i");
@@ -73,7 +76,7 @@ namespace OpenTiaToolkit.CLI
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Fatal error: {ex.Message}");
+                Console.Error.WriteLine($"Fatal error: {ex.Message}");
                 return 1;
             }
             finally
@@ -110,9 +113,9 @@ namespace OpenTiaToolkit.CLI
         private static void DisplayWelcomeMessage(CommandRouter router)
         {
             Console.WriteLine();
-            Console.WriteLine("╔═══════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║        OpenTia Toolkit - Interactive Mode                 ║");
-            Console.WriteLine("╚═══════════════════════════════════════════════════════════╝");
+            Console.WriteLine("+-----------------------------------------------------------+");
+            Console.WriteLine("|        OpenTia Toolkit - Interactive Mode                 |");
+            Console.WriteLine("+-----------------------------------------------------------+");
             Console.WriteLine();
             Console.WriteLine("Connected TIA Portal instances will persist across commands.");
             Console.WriteLine("Type 'help' for available commands or 'exit' to quit.");
@@ -137,7 +140,12 @@ namespace OpenTiaToolkit.CLI
                 try
                 {
                     Console.Write("tia> ");
-                    string input = Console.ReadLine();
+                    string? input = Console.ReadLine();
+
+                    if (input == null)
+                    {
+                        break;
+                    }
 
                     if (string.IsNullOrWhiteSpace(input))
                     {
@@ -175,7 +183,7 @@ namespace OpenTiaToolkit.CLI
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error: {ex.Message}");
+                    Console.Error.WriteLine($"Error: {ex.Message}");
                     lastExitCode = 1;
                 }
             }
@@ -185,7 +193,7 @@ namespace OpenTiaToolkit.CLI
 
         private static bool HandleReplCommands(string input, ref bool shouldExit)
         {
-            string trimmed = input.Trim().ToLower();
+            string trimmed = input.Trim().ToLowerInvariant();
 
             switch (trimmed)
             {
@@ -198,7 +206,7 @@ namespace OpenTiaToolkit.CLI
                 case "clear":
                 case "cls":
                     Console.Clear();
-                    return false;
+                    return true;
 
                 default:
                     return false;
@@ -259,19 +267,33 @@ namespace OpenTiaToolkit.CLI
             // Add logging
             services.AddLogging(builder =>
             {
-                builder.AddConsole();
-                builder.SetMinimumLevel(LogLevel.Debug);
+                builder.AddConsole(options =>
+                {
+                    options.LogToStandardErrorThreshold = LogLevel.Trace;
+                });
+                builder.SetMinimumLevel(LogLevel.Warning);
             });
 
             services.AddOpenTiaToolkitCoreServices();
             services.AddOpenTiaToolkitCommands();
 
-            services.AddSingleton<ICommand, ListDbMembersCommand>();
-
             // Register router
             services.AddSingleton<CommandRouter>();
 
             return services.BuildServiceProvider();
+        }
+
+        private static void ConfigureConsoleEncoding()
+        {
+            try
+            {
+                Console.OutputEncoding = Encoding.UTF8;
+                Console.InputEncoding = Encoding.UTF8;
+            }
+            catch
+            {
+                // Some redirected or legacy hosts reject encoding changes.
+            }
         }
     }
 }

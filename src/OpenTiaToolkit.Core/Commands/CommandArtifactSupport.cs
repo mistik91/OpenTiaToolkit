@@ -46,6 +46,38 @@ namespace OpenTiaToolkit.Core.Commands
             return Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "CommandArtifacts", fileName);
         }
 
+        public static string ResolveOutputPath(string outputPath, string defaultFileName)
+        {
+            var fullPath = Path.GetFullPath(outputPath);
+            return Path.HasExtension(fullPath)
+                ? fullPath
+                : Path.Combine(fullPath, defaultFileName);
+        }
+
+        public static CommandArtifactResult CreateJsonArtifact(
+            object data,
+            string outputPath,
+            string dataKind,
+            int itemCount,
+            bool explicitOutputPath,
+            object? metadata = null)
+        {
+            var bytesWritten = SaveJsonArtifact(data, outputPath);
+            return new CommandArtifactResult
+            {
+                OutputPath = outputPath,
+                Format = "json",
+                DataKind = dataKind,
+                BytesWritten = bytesWritten,
+                ItemCount = itemCount,
+                InlineOutputSuppressed = !explicitOutputPath,
+                Reason = explicitOutputPath
+                    ? "output-path was provided"
+                    : $"inline result exceeded {InlineResultThresholdBytes} bytes",
+                Metadata = metadata
+            };
+        }
+
         public static long SaveJsonArtifact(object data, string outputPath)
         {
             EnsureParentDirectory(outputPath);

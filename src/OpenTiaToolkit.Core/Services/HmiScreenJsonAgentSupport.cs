@@ -1,8 +1,9 @@
+using OpenTiaToolkit.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace OpenTiaToolkit.Core.Commands.Hmi
+namespace OpenTiaToolkit.Core.Services
 {
     internal static class HmiScreenJsonAgentSupport
     {

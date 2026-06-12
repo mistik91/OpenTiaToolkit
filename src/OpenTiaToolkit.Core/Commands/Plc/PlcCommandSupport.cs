@@ -1,5 +1,5 @@
-using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Abstractions;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,10 +11,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     {
         public static string ResolveOutputPath(string outputPath, string defaultFileName)
         {
-            var fullPath = Path.GetFullPath(outputPath);
-            return Path.HasExtension(fullPath)
-                ? fullPath
-                : Path.Combine(fullPath, defaultFileName);
+            return CommandArtifactSupport.ResolveOutputPath(outputPath, defaultFileName);
         }
 
         public static CommandArtifactResult CreateJsonArtifact(
@@ -25,20 +22,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
             bool explicitOutputPath,
             object? metadata = null)
         {
-            var bytesWritten = CommandArtifactSupport.SaveJsonArtifact(data, outputPath);
-            return new CommandArtifactResult
-            {
-                OutputPath = outputPath,
-                Format = "json",
-                DataKind = dataKind,
-                BytesWritten = bytesWritten,
-                ItemCount = itemCount,
-                InlineOutputSuppressed = !explicitOutputPath,
-                Reason = explicitOutputPath
-                    ? "output-path was provided"
-                    : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                Metadata = metadata
-            };
+            return CommandArtifactSupport.CreateJsonArtifact(
+                data,
+                outputPath,
+                dataKind,
+                itemCount,
+                explicitOutputPath,
+                metadata);
         }
 
         public static long WriteBlocksCsv(IReadOnlyList<BlockInfo> blocks, string outputPath)

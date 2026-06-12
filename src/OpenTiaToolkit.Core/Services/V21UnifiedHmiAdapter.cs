@@ -1,5 +1,5 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
-using OpenTiaToolkit.Core.Commands.Hmi;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
 using Siemens.Engineering.HW.Features;
@@ -25,7 +25,6 @@ using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -3049,7 +3048,7 @@ namespace OpenTiaToolkit.Core.Services
 
         private static string? TryReadConvertedStringProperty(object? source, string propertyName)
         {
-            return NormalizeOptionalString(FormatValue(TryReadPropertyValue(source, propertyName)));
+            return TryReadStringProperty(source, propertyName);
         }
 
         private static bool? TryReadNullableBoolProperty(object? source, string propertyName)
@@ -3220,88 +3219,7 @@ namespace OpenTiaToolkit.Core.Services
 
         private static object ConvertInvariantStringToType(string rawValue, Type targetType)
         {
-            var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-            if (underlyingType == typeof(string))
-            {
-                return rawValue;
-            }
-
-            if (underlyingType == typeof(object))
-            {
-                return rawValue;
-            }
-
-            if (underlyingType == typeof(bool))
-            {
-                return bool.Parse(rawValue);
-            }
-
-            if (underlyingType == typeof(byte))
-            {
-                return byte.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(short))
-            {
-                return short.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(ushort))
-            {
-                return ushort.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(int))
-            {
-                return int.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(uint))
-            {
-                return uint.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(long))
-            {
-                return long.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(ulong))
-            {
-                return ulong.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(float))
-            {
-                return float.Parse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(double))
-            {
-                return double.Parse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(decimal))
-            {
-                return decimal.Parse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(TimeSpan))
-            {
-                return TimeSpan.Parse(rawValue, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(Color))
-            {
-                return ParseColor(rawValue);
-            }
-
-            if (underlyingType.IsEnum)
-            {
-                return Enum.Parse(underlyingType, rawValue, ignoreCase: true);
-            }
-
-            return Convert.ChangeType(rawValue, underlyingType, CultureInfo.InvariantCulture);
+            return EngineeringStringConverter.ConvertInvariant(rawValue, targetType, ConvertHmiPrimitiveString);
         }
 
         private IReadOnlyList<HmiItemPropertyInfo> ReadBrowsableProperties(object target)
@@ -3605,79 +3523,34 @@ namespace OpenTiaToolkit.Core.Services
 
         private object ConvertStringToType(string rawValue, Type targetType, HmiSoftware software)
         {
-            var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-            if (underlyingType == typeof(string))
-            {
-                return rawValue;
-            }
-
-            if (underlyingType == typeof(bool))
-            {
-                return bool.Parse(rawValue);
-            }
-
-            if (underlyingType == typeof(byte))
-            {
-                return byte.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(ushort))
-            {
-                return ushort.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(int))
-            {
-                return int.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(uint))
-            {
-                return uint.Parse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(float))
-            {
-                return float.Parse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(double))
-            {
-                return double.Parse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(decimal))
-            {
-                return decimal.Parse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(TimeSpan))
-            {
-                return TimeSpan.Parse(rawValue, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(Color))
-            {
-                return ParseColor(rawValue);
-            }
-
-            if (typeof(HmiScreen).IsAssignableFrom(underlyingType))
-            {
-                if (!TryGetScreen(software, rawValue, out var screen, out _ ) || screen == null)
+            return EngineeringStringConverter.ConvertInvariant(
+                rawValue,
+                targetType,
+                (underlyingType, value) =>
                 {
-                    throw new InvalidOperationException($"Referenced screen '{rawValue}' was not found.");
-                }
+                    var hmiValue = ConvertHmiPrimitiveString(underlyingType, value);
+                    if (hmiValue != null)
+                    {
+                        return hmiValue;
+                    }
 
-                return screen;
-            }
+                    if (typeof(HmiScreen).IsAssignableFrom(underlyingType))
+                    {
+                        if (!TryGetScreen(software, value, out var screen, out _) || screen == null)
+                        {
+                            throw new InvalidOperationException($"Referenced screen '{value}' was not found.");
+                        }
 
-            if (underlyingType.IsEnum)
-            {
-                return Enum.Parse(underlyingType, rawValue, ignoreCase: true);
-            }
+                        return screen;
+                    }
 
-            return Convert.ChangeType(rawValue, underlyingType, CultureInfo.InvariantCulture);
+                    return null;
+                });
+        }
+
+        private static object? ConvertHmiPrimitiveString(Type underlyingType, string rawValue)
+        {
+            return underlyingType == typeof(Color) ? ParseColor(rawValue) : null;
         }
 
         private static void SetMultilingualText(MultilingualText multilingualText, string value)
@@ -4557,19 +4430,5 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
-        {
-            public static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
-
-            public new bool Equals(object? x, object? y)
-            {
-                return ReferenceEquals(x, y);
-            }
-
-            public int GetHashCode(object obj)
-            {
-                return RuntimeHelpers.GetHashCode(obj);
-            }
-        }
     }
 }

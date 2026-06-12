@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Abstractions;
 using System;
 using System.Collections.Generic;

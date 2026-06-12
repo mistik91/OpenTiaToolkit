@@ -1,12 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
-using OpenTiaToolkit.Core.Commands.Devices;
-using OpenTiaToolkit.Core.Commands.Hardware;
-using OpenTiaToolkit.Core.Commands.Hmi;
-using OpenTiaToolkit.Core.Commands.Plc;
-using OpenTiaToolkit.Core.Commands.Portal;
-using OpenTiaToolkit.Core.Commands.Vci;
 using OpenTiaToolkit.Core.Services;
 
 namespace OpenTiaToolkit.Core
@@ -20,156 +18,78 @@ namespace OpenTiaToolkit.Core
         {
             services.AddSingleton<EngineeringSessionContext>();
 
-            services.AddSingleton<IPortalService>(serviceProvider =>
+            services.AddSingleton<PortalService>(serviceProvider =>
                 new PortalService(
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                     serviceProvider.GetService<ILogger<PortalService>>()));
+            services.AddSingleton<IPortalService>(serviceProvider =>
+                SessionSerializedServiceProxy<IPortalService>.Create(
+                    serviceProvider.GetRequiredService<PortalService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
-            services.AddSingleton<IPlcService>(serviceProvider =>
+            services.AddSingleton<PlcService>(serviceProvider =>
                 new PlcService(
                     serviceProvider.GetRequiredService<IPortalService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                     serviceProvider.GetService<ILogger<PlcService>>()));
+            services.AddSingleton<IPlcService>(serviceProvider =>
+                SessionSerializedServiceProxy<IPlcService>.Create(
+                    serviceProvider.GetRequiredService<PlcService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
-            services.AddSingleton<IHmiService>(serviceProvider =>
+            services.AddSingleton<HmiService>(serviceProvider =>
                 new HmiService(
                     serviceProvider.GetRequiredService<IPortalService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                     serviceProvider.GetService<ILogger<HmiService>>()));
+            services.AddSingleton<IHmiService>(serviceProvider =>
+                SessionSerializedServiceProxy<IHmiService>.Create(
+                    serviceProvider.GetRequiredService<HmiService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
-            services.AddSingleton<IVciService>(serviceProvider =>
+            services.AddSingleton<VciService>(serviceProvider =>
                 new VciService(
                     serviceProvider.GetRequiredService<IPortalService>(),
                     serviceProvider.GetRequiredService<IPlcService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                     serviceProvider.GetService<ILogger<VciService>>()));
+            services.AddSingleton<IVciService>(serviceProvider =>
+                SessionSerializedServiceProxy<IVciService>.Create(
+                    serviceProvider.GetRequiredService<VciService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
-            services.AddSingleton<IHardwareService>(serviceProvider =>
+            services.AddSingleton<HardwareService>(serviceProvider =>
                 new HardwareService(
                     serviceProvider.GetRequiredService<IPortalService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                     serviceProvider.GetService<ILogger<HardwareService>>()));
+            services.AddSingleton<IHardwareService>(serviceProvider =>
+                SessionSerializedServiceProxy<IHardwareService>.Create(
+                    serviceProvider.GetRequiredService<HardwareService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
             return services;
         }
 
         public static IServiceCollection AddOpenTiaToolkitCommands(this IServiceCollection services)
         {
-            // Phase 1 commands
-            services.AddSingleton<ICommand, ConnectPortalCommand>();
-            services.AddSingleton<ICommand, DisconnectPortalCommand>();
-            services.AddSingleton<ICommand, PortalStatusCommand>();
-            services.AddSingleton<ICommand, OpenProjectCommand>();
-            services.AddSingleton<ICommand, CloseProjectCommand>();
-            services.AddSingleton<ICommand, ListProjectsCommand>();
-            services.AddSingleton<ICommand, GetProjectInfoCommand>();
-            services.AddSingleton<ICommand, ListDevicesCommand>();
-
-            // Phase 2 commands
-            services.AddSingleton<ICommand, OpenTiaPortalCommand>();
-            services.AddSingleton<ICommand, CloseTiaPortalCommand>();
-            services.AddSingleton<ICommand, ListInstancesCommand>();
-            services.AddSingleton<ICommand, ConnectInstanceCommand>();
-            services.AddSingleton<ICommand, SaveProjectCommand>();
-            services.AddSingleton<ICommand, SaveAsProjectCommand>();
-            services.AddSingleton<ICommand, GetProjectTreeCommand>();
-
-            // Phase 3 commands
-            services.AddSingleton<ICommand, GetDeviceInfoCommand>();
-            services.AddSingleton<ICommand, GetDeviceItemInfoCommand>();
-            services.AddSingleton<ICommand, OpenPlcCommand>();
-            services.AddSingleton<ICommand, GetSoftwareTreeCommand>();
-            services.AddSingleton<ICommand, CompileSoftwareCommand>();
-            services.AddSingleton<ICommand, ExportPlcCommand>();
-            services.AddSingleton<ICommand, GetBlocksCommand>();
-            services.AddSingleton<ICommand, ListPlcsCommand>();
-            services.AddSingleton<ICommand, ListHmisCommand>();
-            services.AddSingleton<ICommand, OpenUnifiedHmiCommand>();
-            services.AddSingleton<ICommand, ListHmiTagsCommand>();
-            services.AddSingleton<ICommand, ListHmiScreensCommand>();
-            services.AddSingleton<ICommand, GetHmiScreenInfoCommand>();
-            services.AddSingleton<ICommand, CreateHmiScreenCommand>();
-            services.AddSingleton<ICommand, CopyHmiScreenFromTemplateCommand>();
-            services.AddSingleton<ICommand, ListHmiItemTypesCommand>();
-            services.AddSingleton<ICommand, CreateHmiItemCommand>();
-            services.AddSingleton<ICommand, GetHmiItemPropertiesCommand>();
-            services.AddSingleton<ICommand, SetHmiItemPropertyCommand>();
-            services.AddSingleton<ICommand, CreateHmiTrendCommand>();
-            services.AddSingleton<ICommand, RemoveHmiLoggingTagCommand>();
-            services.AddSingleton<ICommand, DeleteHmiDataLogCommand>();
-            services.AddSingleton<ICommand, CreateHmiTrendsCommand>();
-            services.AddSingleton<ICommand, RemoveHmiLoggingTagsCommand>();
-            services.AddSingleton<ICommand, DeleteHmiDataLogsCommand>();
-            services.AddSingleton<ICommand, ExportHmiJsonCommand>();
-            services.AddSingleton<ICommand, DiffHmiJsonCommand>();
-            services.AddSingleton<ICommand, ImportHmiJsonCommand>();
-            services.AddSingleton<ICommand, GetHmiScreenJsonCommand>();
-            services.AddSingleton<ICommand, GetHmiScreenSummaryCommand>();
-            services.AddSingleton<ICommand, HmiStatusCommand>();
-            services.AddSingleton<ICommand, AuditHmiLabelProximityCommand>();
-            services.AddSingleton<ICommand, ProbeHmiFaceplateInterfaceCommand>();
-            services.AddSingleton<ICommand, ApplyHmiScreenJsonEditCommand>();
-            services.AddSingleton<ICommand, ApplyHmiScreenJsonPatchCommand>();
-            services.AddSingleton<ICommand, InspectHmiScreenJsonCapabilitiesCommand>();
-
-            // Phase 4 commands
-            services.AddSingleton<ICommand, CreateBlockCommand>();
-            services.AddSingleton<ICommand, DeleteBlocksCommand>();
-            services.AddSingleton<ICommand, FindAndReplaceDbMembersCommand>();
-            services.AddSingleton<ICommand, FindAndReplaceUdtMembersCommand>();
-            services.AddSingleton<ICommand, GetBlockInfoCommand>();
-            services.AddSingleton<ICommand, ExportBlockCommand>();
-            services.AddSingleton<ICommand, SearchBlocksCommand>();
-
-            // Phase 4.5 commands
-            services.AddSingleton<ICommand, ExportBlockAsDocumentsCommand>();
-            services.AddSingleton<ICommand, ExportBlocksAsDocumentsCommand>();
-            services.AddSingleton<ICommand, ExportTypeCommand>();
-            services.AddSingleton<ICommand, ExportTypesCommand>();
-
-            // Phase 4.6 commands
-            services.AddSingleton<ICommand, ImportBlockCommand>();
-            services.AddSingleton<ICommand, ImportBlocksCommand>();
-            services.AddSingleton<ICommand, ImportTypeCommand>();
-            services.AddSingleton<ICommand, ImportTypesCommand>();
-            services.AddSingleton<ICommand, ImportBlockFromDocumentsCommand>();
-            services.AddSingleton<ICommand, ImportBlocksFromDocumentsCommand>();
-
-            // Phase 5 commands
-            services.AddSingleton<ICommand, FindAndReplaceTagsCommand>();
-            services.AddSingleton<ICommand, CreateTagCommand>();
-            services.AddSingleton<ICommand, UpdateTagsFromCsvCommand>();
-
-            // Phase 6 commands - Version Control Interface
-            services.AddSingleton<ICommand, ListVciWorkspacesCommand>();
-            services.AddSingleton<ICommand, GetVciWorkspaceCommand>();
-            services.AddSingleton<ICommand, CreateVciWorkspaceCommand>();
-            services.AddSingleton<ICommand, DeleteVciWorkspaceCommand>();
-            services.AddSingleton<ICommand, ListVciMappingsCommand>();
-            services.AddSingleton<ICommand, GetVciBlockFormatsCommand>();
-            services.AddSingleton<ICommand, ExportVciBlockCommand>();
-            services.AddSingleton<ICommand, ConnectVciBlockCommand>();
-            services.AddSingleton<ICommand, GetVciBlockStatusCommand>();
-            services.AddSingleton<ICommand, SyncVciBlockCommand>();
-            services.AddSingleton<ICommand, SyncVciBlocksCommand>();
-            services.AddSingleton<ICommand, SyncVciPlcCommand>();
-
-            // Phase 7 commands - Generic hardware engineering
-            services.AddSingleton<ICommand, FindHardwareCatalogItemsCommand>();
-            services.AddSingleton<ICommand, GetHardwareTreeCommand>();
-            services.AddSingleton<ICommand, GetHardwareIoAddressesCommand>();
-            services.AddSingleton<ICommand, GetHardwareDriveTelegramsCommand>();
-            services.AddSingleton<ICommand, AuditHardwareTagMappingsCommand>();
-            services.AddSingleton<ICommand, GetHardwareItemCapabilitiesCommand>();
-            services.AddSingleton<ICommand, GetHardwareFeatureAttributesCommand>();
-            services.AddSingleton<ICommand, GetHardwareNetworkItemAttributesCommand>();
-            services.AddSingleton<ICommand, FindHardwareModuleTypesCommand>();
-            services.AddSingleton<ICommand, CanPlugHardwareItemCommand>();
-            services.AddSingleton<ICommand, GetHardwareNetworksCommand>();
-            services.AddSingleton<ICommand, GetGsdParameterDataCommand>();
-            services.AddSingleton<ICommand, ApplyHardwarePatchCommand>();
+            foreach (var commandType in GetCommandTypes(typeof(ServiceCollectionExtensions).Assembly))
+            {
+                services.AddSingleton(typeof(ICommand), commandType);
+            }
 
             return services;
+        }
+
+        internal static IReadOnlyList<Type> GetCommandTypes(Assembly assembly)
+        {
+            return assembly
+                .GetTypes()
+                .Where(type => typeof(ICommand).IsAssignableFrom(type))
+                .Where(type => type.IsClass && !type.IsAbstract)
+                .Where(type => type.GetConstructor(Type.EmptyTypes) != null || type.GetConstructors().Any())
+                .OrderBy(type => type.FullName, StringComparer.Ordinal)
+                .ToList();
         }
     }
 }

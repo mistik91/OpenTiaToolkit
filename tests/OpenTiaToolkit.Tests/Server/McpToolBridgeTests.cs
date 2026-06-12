@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Tests.Server
@@ -279,6 +280,20 @@ namespace OpenTiaToolkit.Tests.Server
             release.SetResult(true);
             var completed = await firstCall;
             Assert.IsFalse(completed.IsError.GetValueOrDefault());
+        }
+
+        [TestMethod]
+        public async Task ToolRegistry_CallToolAsync_HonorsCancellationBeforeExecution()
+        {
+            var commandMock = CreateCommandMock("cancel-tool", new CommandSchema("Cancellation test"));
+            var registry = new ToolRegistry(new[] { commandMock.Object }, Mock.Of<ILogger<ToolRegistry>>());
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+
+            await Assert.ThrowsExceptionAsync<OperationCanceledException>(
+                async () => await registry.CallToolAsync("cancel-tool", CreateArguments(new { }), cancellation.Token).AsTask());
+
+            commandMock.Verify(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()), Times.Never);
         }
 
         private static Mock<ICommand> CreateCommandMock(string name, CommandSchema schema)

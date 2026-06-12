@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace OpenTiaToolkit.Core.Commands.Hmi
+namespace OpenTiaToolkit.Core.Models
 {
     public sealed class HmiFaceplateInterfaceProbeResult
     {

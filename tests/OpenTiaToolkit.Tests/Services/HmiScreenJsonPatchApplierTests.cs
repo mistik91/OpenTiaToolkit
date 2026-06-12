@@ -1,3 +1,4 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Hmi;

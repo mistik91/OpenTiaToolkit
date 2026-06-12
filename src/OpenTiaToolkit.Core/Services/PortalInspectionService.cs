@@ -1,7 +1,6 @@
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
-using OpenTiaToolkit.Core.Commands.Hmi;
-using OpenTiaToolkit.Core.Commands.Plc;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
 using System;

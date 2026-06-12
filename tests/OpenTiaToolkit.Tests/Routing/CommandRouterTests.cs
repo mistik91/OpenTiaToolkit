@@ -47,6 +47,102 @@ namespace OpenTiaToolkit.Tests.Routing
         }
 
         [TestMethod]
+        public async Task ExecuteAsync_ParsesNegativeIntegerValue_WhenValueStartsWithDash()
+        {
+            // Arrange
+            _commandMock.Setup(c => c.Schema).Returns(new CommandSchema("Test command", new[]
+            {
+                new CommandParameter("limit", CommandParameterType.Integer, "Limit")
+            }));
+
+            CommandArgs? capturedArgs = null;
+            _commandMock.Setup(c => c.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()))
+                .Callback<CommandArgs, ILogger>((args, _) => capturedArgs = args)
+                .ReturnsAsync(CommandResult.CreateSuccess("Executed"));
+
+            var router = new CommandRouter(new List<ICommand> { _commandMock.Object }, _loggerMock.Object);
+
+            // Act
+            var result = await router.ExecuteAsync(new[] { "test-command", "--limit", "-5" });
+
+            // Assert
+            Assert.IsTrue(result.Success);
+            Assert.IsNotNull(capturedArgs);
+            Assert.AreEqual(-5, capturedArgs!.GetInt("limit"));
+        }
+
+        [TestMethod]
+        public async Task ExecuteAsync_ReturnsError_WhenParameterIsUnknown()
+        {
+            // Arrange
+            _commandMock.Setup(c => c.Schema).Returns(new CommandSchema("Test command", new[]
+            {
+                new CommandParameter("known", CommandParameterType.String, "Known")
+            }));
+
+            var router = new CommandRouter(new List<ICommand> { _commandMock.Object }, _loggerMock.Object);
+
+            // Act
+            var result = await router.ExecuteAsync(new[] { "test-command", "--unknwon", "value" });
+
+            // Assert
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "Unknown parameter");
+            _commandMock.Verify(c => c.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task ExecuteAsync_ReturnsError_WhenRequiredParameterIsMissing()
+        {
+            // Arrange
+            _commandMock.Setup(c => c.Schema).Returns(new CommandSchema("Test command", new[]
+            {
+                new CommandParameter("plc-name", CommandParameterType.String, "PLC name", required: true)
+            }));
+
+            var router = new CommandRouter(new List<ICommand> { _commandMock.Object }, _loggerMock.Object);
+
+            // Act
+            var result = await router.ExecuteAsync(new[] { "test-command" });
+
+            // Assert
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "Missing required parameter: plc-name");
+            _commandMock.Verify(c => c.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task ExecuteAsync_ReturnsUnknownCommand_WhenCommandNameStartsWithDash()
+        {
+            // Arrange
+            _commandMock.Setup(c => c.Name).Returns("version");
+            var router = new CommandRouter(new List<ICommand> { _commandMock.Object }, _loggerMock.Object);
+
+            // Act
+            var result = await router.ExecuteAsync(new[] { "--version" });
+
+            // Assert
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "Unknown command: '--version'");
+            _commandMock.Verify(c => c.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task ExecuteAsync_ReturnsError_WhenUnexpectedPositionalArgumentIsProvided()
+        {
+            // Arrange
+            var router = new CommandRouter(new List<ICommand> { _commandMock.Object }, _loggerMock.Object);
+
+            // Act
+            var result = await router.ExecuteAsync(new[] { "test-command", "stray" });
+
+            // Assert
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "Unexpected positional argument: stray");
+            _commandMock.Verify(c => c.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()), Times.Never);
+        }
+
+        [TestMethod]
         public async Task ExecuteAsync_ReturnsError_WhenCommandNotExists()
         {
             // Arrange

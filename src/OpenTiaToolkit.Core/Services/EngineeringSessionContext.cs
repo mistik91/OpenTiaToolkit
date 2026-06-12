@@ -2,6 +2,9 @@ using Siemens.Engineering;
 using Siemens.Engineering.HW;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.Multiuser;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -12,7 +15,12 @@ namespace OpenTiaToolkit.Core.Services
     /// </summary>
     internal sealed class EngineeringSessionContext
     {
+        private readonly SemaphoreSlim _opennessGate = new SemaphoreSlim(1, 1);
+        private readonly AsyncLocal<int> _opennessGateDepth = new AsyncLocal<int>();
+
         public TiaPortal? Portal { get; set; }
+
+        public int? AttachedPortalProcessId { get; set; }
 
         public ProjectBase? Project { get; set; }
 
@@ -39,6 +47,7 @@ namespace OpenTiaToolkit.Core.Services
         public void ClearPortalSelection()
         {
             Portal = null;
+            AttachedPortalProcessId = null;
             ClearProjectSelection();
         }
 
@@ -65,6 +74,70 @@ namespace OpenTiaToolkit.Core.Services
             HmiSoftware = null;
             CurrentHmiDevice = null;
             CurrentHmiName = null;
+        }
+
+        public async Task RunExclusiveAsync(Func<Task> action)
+        {
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
+            }
+
+            await RunExclusiveAsync(async () =>
+            {
+                await action().ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
+        }
+
+        public async Task<T> RunExclusiveAsync<T>(Func<Task<T>> action)
+        {
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
+            }
+
+            if (_opennessGateDepth.Value > 0)
+            {
+                return await action().ConfigureAwait(false);
+            }
+
+            await _opennessGate.WaitAsync().ConfigureAwait(false);
+            _opennessGateDepth.Value++;
+            try
+            {
+                return await action().ConfigureAwait(false);
+            }
+            finally
+            {
+                _opennessGateDepth.Value--;
+                _opennessGate.Release();
+            }
+        }
+
+        public T RunExclusive<T>(Func<T> action)
+        {
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
+            }
+
+            if (_opennessGateDepth.Value > 0)
+            {
+                return action();
+            }
+
+            _opennessGate.Wait();
+            _opennessGateDepth.Value++;
+            try
+            {
+                return action();
+            }
+            finally
+            {
+                _opennessGateDepth.Value--;
+                _opennessGate.Release();
+            }
         }
     }
 }
