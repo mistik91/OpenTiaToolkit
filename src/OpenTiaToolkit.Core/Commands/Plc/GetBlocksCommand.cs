@@ -83,24 +83,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                             : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
                         "plc_blocks.csv");
                     var bytesWritten = PlcCommandSupport.WriteBlocksCsv(blocks, outputPath);
-                    var artifact = new CommandArtifactResult
-                    {
-                        OutputPath = outputPath,
-                        Format = "csv",
-                        DataKind = "plc-blocks",
-                        BytesWritten = bytesWritten,
-                        ItemCount = blocks.Count,
-                        InlineOutputSuppressed = !args.Has("output-path"),
-                        Reason = args.Has("output-path")
-                            ? "output-path was provided"
-                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                        Columns = PlcCommandSupport.BlockCsvColumns,
-                        Metadata = new
+                    var artifact = CommandArtifactSupport.CreateCsvArtifact(
+                        outputPath,
+                        "plc-blocks",
+                        bytesWritten,
+                        blocks.Count,
+                        args.Has("output-path"),
+                        PlcCommandSupport.BlockCsvColumns,
+                        new
                         {
                             plcName,
                             filter
-                        }
-                    };
+                        });
 
                     return CommandResult.CreateSuccess(
                         data: artifact,

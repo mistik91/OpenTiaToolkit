@@ -108,19 +108,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                     ? args.GetString("output-path")
                     : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"));
                 var bytesWritten = WriteTagsCsv(tags, outputPath);
-                var artifact = new CommandArtifactResult
-                {
-                    OutputPath = outputPath,
-                    Format = "csv",
-                    DataKind = "unified-hmi-tags",
-                    BytesWritten = bytesWritten,
-                    ItemCount = tags.Count,
-                    InlineOutputSuppressed = !args.Has("output-path"),
-                    Reason = args.Has("output-path")
-                        ? "output-path was provided"
-                        : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                    Columns = CsvColumns,
-                    Metadata = new
+                var artifact = CommandArtifactSupport.CreateCsvArtifact(
+                    outputPath,
+                    "unified-hmi-tags",
+                    bytesWritten,
+                    tags.Count,
+                    args.Has("output-path"),
+                    CsvColumns,
+                    new
                     {
                         hmiName,
                         options.Filter,
@@ -130,8 +125,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                         options.IncludeDetails,
                         options.IncludeLoggingCounts,
                         limited = tags.Count >= options.MaxResults.GetValueOrDefault(int.MaxValue)
-                    }
-                };
+                    });
 
                 return CommandResult.CreateSuccess(artifact, $"{message}. CSV written to: {outputPath}");
             }

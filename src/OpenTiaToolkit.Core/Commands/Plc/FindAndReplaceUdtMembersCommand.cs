@@ -141,19 +141,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                         "plc_udt_member_find_replace_results.csv");
                     var bytesWritten = PlcCommandSupport.WriteFindReplaceCsv(result, outputPath);
                     var itemCount = result.Changes.Count + result.Skipped.Count + result.Warnings.Count + result.Errors.Count;
-                    var artifact = new CommandArtifactResult
-                    {
-                        OutputPath = outputPath,
-                        Format = "csv",
-                        DataKind = "plc-udt-member-find-replace-results",
-                        BytesWritten = bytesWritten,
-                        ItemCount = itemCount,
-                        InlineOutputSuppressed = !explicitOutputPath,
-                        Reason = explicitOutputPath
-                            ? "output-path was provided"
-                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                        Columns = PlcCommandSupport.FindReplaceCsvColumns,
-                        Metadata = new
+                    var artifact = CommandArtifactSupport.CreateCsvArtifact(
+                        outputPath,
+                        "plc-udt-member-find-replace-results",
+                        bytesWritten,
+                        itemCount,
+                        explicitOutputPath,
+                        PlcCommandSupport.FindReplaceCsvColumns,
+                        new
                         {
                             plcName,
                             dryRun,
@@ -161,8 +156,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                             targetTypes,
                             mappings = renameMap.Count,
                             summary
-                        }
-                    };
+                        });
 
                     return CommandResult.CreateSuccess(
                         data: artifact,

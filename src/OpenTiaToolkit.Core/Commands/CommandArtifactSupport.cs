@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -74,6 +75,31 @@ namespace OpenTiaToolkit.Core.Commands
                 Reason = explicitOutputPath
                     ? "output-path was provided"
                     : $"inline result exceeded {InlineResultThresholdBytes} bytes",
+                Metadata = metadata
+            };
+        }
+
+        public static CommandArtifactResult CreateCsvArtifact(
+            string outputPath,
+            string dataKind,
+            long bytesWritten,
+            int itemCount,
+            bool explicitOutputPath,
+            IReadOnlyList<string> columns,
+            object? metadata = null)
+        {
+            return new CommandArtifactResult
+            {
+                OutputPath = outputPath,
+                Format = "csv",
+                DataKind = dataKind,
+                BytesWritten = bytesWritten,
+                ItemCount = itemCount,
+                InlineOutputSuppressed = !explicitOutputPath,
+                Reason = explicitOutputPath
+                    ? "output-path was provided"
+                    : $"inline result exceeded {InlineResultThresholdBytes} bytes",
+                Columns = columns,
                 Metadata = metadata
             };
         }

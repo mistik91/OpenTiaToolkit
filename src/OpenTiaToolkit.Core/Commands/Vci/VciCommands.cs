@@ -256,20 +256,14 @@ namespace OpenTiaToolkit.Core.Commands.Vci
                             : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
                         "vci_mappings.csv");
                     var bytesWritten = VciCommandSupport.WriteMappingsCsv(mappings, outputPath);
-                    var artifact = new CommandArtifactResult
-                    {
-                        OutputPath = outputPath,
-                        Format = "csv",
-                        DataKind = "vci-mappings",
-                        BytesWritten = bytesWritten,
-                        ItemCount = mappings.Count,
-                        InlineOutputSuppressed = !args.Has("output-path"),
-                        Reason = args.Has("output-path")
-                            ? "output-path was provided"
-                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                        Columns = VciCommandSupport.MappingCsvColumns,
-                        Metadata = new { workspaceName }
-                    };
+                    var artifact = CommandArtifactSupport.CreateCsvArtifact(
+                        outputPath,
+                        "vci-mappings",
+                        bytesWritten,
+                        mappings.Count,
+                        args.Has("output-path"),
+                        VciCommandSupport.MappingCsvColumns,
+                        new { workspaceName });
                     return CommandResult.CreateSuccess(artifact, $"{message} CSV written to: {outputPath}");
                 }
 

@@ -250,25 +250,19 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                             : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
                         "hardware_io_addresses.csv");
                     var bytesWritten = WriteIoAddressesCsv(values, outputPath);
-                    var artifact = new CommandArtifactResult
-                    {
-                        OutputPath = outputPath,
-                        Format = "csv",
-                        DataKind = "hardware-io-addresses",
-                        BytesWritten = bytesWritten,
-                        ItemCount = values.Count,
-                        InlineOutputSuppressed = !args.Has("output-path"),
-                        Reason = args.Has("output-path")
-                            ? "output-path was provided"
-                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                        Columns = IoAddressCsvColumns,
-                        Metadata = new
+                    var artifact = CommandArtifactSupport.CreateCsvArtifact(
+                        outputPath,
+                        "hardware-io-addresses",
+                        bytesWritten,
+                        values.Count,
+                        args.Has("output-path"),
+                        IoAddressCsvColumns,
+                        new
                         {
                             deviceName = args.Has("device-name") ? args.GetString("device-name") : null,
                             attributes = args.Has("attributes") ? args.GetStringArray("attributes") : Array.Empty<string>(),
                             rowCount = CountIoAddressCsvRows(values)
-                        }
-                    };
+                        });
                     return CommandResult.CreateSuccess(artifact, $"{message}. CSV written to: {outputPath}");
                 }
 
@@ -366,26 +360,20 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                             : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
                         "hardware_drive_telegrams.csv");
                     var bytesWritten = WriteDriveTelegramsCsv(values, outputPath);
-                    var artifact = new CommandArtifactResult
-                    {
-                        OutputPath = outputPath,
-                        Format = "csv",
-                        DataKind = "hardware-drive-telegrams",
-                        BytesWritten = bytesWritten,
-                        ItemCount = values.Count,
-                        InlineOutputSuppressed = !args.Has("output-path"),
-                        Reason = args.Has("output-path")
-                            ? "output-path was provided"
-                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                        Columns = DriveTelegramCsvColumns,
-                        Metadata = new
+                    var artifact = CommandArtifactSupport.CreateCsvArtifact(
+                        outputPath,
+                        "hardware-drive-telegrams",
+                        bytesWritten,
+                        values.Count,
+                        args.Has("output-path"),
+                        DriveTelegramCsvColumns,
+                        new
                         {
                             deviceName,
                             addressAttributes = addressAttributes ?? Array.Empty<string>(),
                             addressCount = values.Sum(value => value.Addresses.Count),
                             rowCount = CountDriveTelegramCsvRows(values)
-                        }
-                    };
+                        });
                     return CommandResult.CreateSuccess(artifact, $"{message} CSV written to: {outputPath}");
                 }
 
@@ -509,17 +497,14 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                 {
                     var outputPath = HardwareCommandSupport.ResolveCsvOutputPath(args.GetString("output-path"), "hardware_tag_mapping_unmatched_tags.csv");
                     var bytesWritten = WriteUnmatchedTagsCsv(result, outputPath);
-                    var artifact = new CommandArtifactResult
-                    {
-                        OutputPath = outputPath,
-                        Format = "csv",
-                        DataKind = "hardware-tag-mapping-unmatched-tags",
-                        BytesWritten = bytesWritten,
-                        ItemCount = result.UnmatchedTags.Count,
-                        InlineOutputSuppressed = false,
-                        Reason = "output-path was provided",
-                        Columns = UnmatchedTagsCsvColumns,
-                        Metadata = new
+                    var artifact = CommandArtifactSupport.CreateCsvArtifact(
+                        outputPath,
+                        "hardware-tag-mapping-unmatched-tags",
+                        bytesWritten,
+                        result.UnmatchedTags.Count,
+                        explicitOutputPath: true,
+                        UnmatchedTagsCsvColumns,
+                        new
                         {
                             result.PlcName,
                             result.TagTableFilter,
@@ -532,8 +517,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                             result.UnmatchedTagCount,
                             exportedUnmatchedTagCount = result.UnmatchedTags.Count,
                             result.Warnings
-                        }
-                    };
+                        });
                     return CommandResult.CreateSuccess(artifact, $"{message}. Unmatched tag CSV written to: {outputPath}");
                 }
 

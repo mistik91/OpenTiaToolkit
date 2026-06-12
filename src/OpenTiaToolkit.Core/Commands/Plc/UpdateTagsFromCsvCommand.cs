@@ -130,27 +130,21 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                         "plc_tag_update_results.csv");
                     var bytesWritten = PlcCommandSupport.WriteTagUpdateCsv(result, outputPath);
                     var itemCount = result.Updated.Count + result.Created.Count + result.Deleted.Count + result.Warnings.Count + result.Errors.Count;
-                    var artifact = new CommandArtifactResult
-                    {
-                        OutputPath = outputPath,
-                        Format = "csv",
-                        DataKind = "plc-tag-update-results",
-                        BytesWritten = bytesWritten,
-                        ItemCount = itemCount,
-                        InlineOutputSuppressed = !explicitOutputPath,
-                        Reason = explicitOutputPath
-                            ? "output-path was provided"
-                            : $"inline result exceeded {CommandArtifactSupport.InlineResultThresholdBytes} bytes",
-                        Columns = PlcCommandSupport.TagUpdateCsvColumns,
-                        Metadata = new
+                    var artifact = CommandArtifactSupport.CreateCsvArtifact(
+                        outputPath,
+                        "plc-tag-update-results",
+                        bytesWritten,
+                        itemCount,
+                        explicitOutputPath,
+                        PlcCommandSupport.TagUpdateCsvColumns,
+                        new
                         {
                             plcName,
                             csvPath,
                             dryRun,
                             safetyLogin,
                             summary
-                        }
-                    };
+                        });
 
                     if (result.Errors.Count > 0)
                     {
