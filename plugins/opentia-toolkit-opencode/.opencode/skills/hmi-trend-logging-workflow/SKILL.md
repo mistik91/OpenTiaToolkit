@@ -18,6 +18,8 @@ Use this skill for Unified HMI logging infrastructure, not for screen layout edi
 3. Resolve tag paths:
    - Prefer a known `root-path` with `list-hmi-tags`.
    - Avoid full scans unless discovery is unavoidable; if needed, set `allow-full-scan=true`, `max-results`, and `max-depth`.
+   - For broad discovery or large tag tables, provide `output-path` or use the returned artifact `outputPath` CSV instead of expecting all tags inline.
+   - When the user gives several related tag-table names or naming prefixes, prefer one bounded scan with a shared filter and CSV output, then group the artifact rows locally by `TagTableName`. Use `max-depth` deliberately: shallow scans are faster for parent/direct-member coverage checks, while deeper scans are needed when logging may live on nested members.
 4. For one tag, use `create-hmi-trend`.
 5. For multiple tags, use `create-hmi-trends` with `dry-run=true` first.
 6. For removal, use `remove-hmi-logging-tag` or `remove-hmi-logging-tags` before deleting data logs.

@@ -101,3 +101,7 @@ jobs:
               throw "Required publication file is missing: $path"
             }
           }
+
+      - name: Plugin skill sync check
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -CheckOnly

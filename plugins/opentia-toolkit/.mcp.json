@@ -1,8 +1,13 @@
 {
   "mcpServers": {
     "opentia": {
-      "command": "C:\\Program Files\\OpenTiaToolkit\\OpenTiaToolkit.MCP.exe",
-      "args": [],
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts\\run-opentia-mcp.ps1"
+      ],
       "env": {
         "OPEN_TIA_MCP_LOG_LEVEL": "Error"
       }

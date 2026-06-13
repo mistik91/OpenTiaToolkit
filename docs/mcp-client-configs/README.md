@@ -48,11 +48,13 @@ If you switch to a Release build, replace `Debug` with `Release` in the snippets
 
 The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit`](../../plugins/opentia-toolkit). It bundles:
 
-- the `opentia` MCP server configuration for the installed product path
+- the `opentia` MCP server configuration through `scripts/run-opentia-mcp.ps1`
 - the `opentia-toolkit-workflow` router skill and specialized workflow skills
 - the `basic-tia-interaction` skill for TIA Portal instance/project selection
 - the `hmi-unified-agent-editing` skill and references
 - a helper script for manually registering the installed MCP executable during development or manual installs
+
+The launcher uses `OPEN_TIA_MCP_EXE` when set; otherwise it searches upward for this repo and runs the Debug or Release MCP build output.
 
 The marketplace entry lives at [`../../.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json).
 
@@ -60,11 +62,12 @@ The marketplace entry lives at [`../../.agents/plugins/marketplace.json`](../../
 
 The repo includes a Claude Code plugin package at [`plugins/opentia-toolkit-claude-code`](../../plugins/opentia-toolkit-claude-code). It bundles:
 
-- the installed-product `opentia` MCP server configuration in `.mcp.json`
+- the `opentia` MCP server configuration through `scripts/run-opentia-mcp.ps1`
 - the `opentia-toolkit-workflow` router skill and specialized workflow skills under `skills/`
 - the `basic-tia-interaction` skill and references under `skills/`
 - the `hmi-unified-agent-editing` skill and references under `skills/`
-- plugin metadata in `.claude-plugin/plugin.json`
+
+The launcher uses `OPEN_TIA_MCP_EXE` when set; otherwise it searches upward for this repo and runs the Debug or Release MCP build output.
 
 The local Claude Code marketplace entry lives at [`../../.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json). From the repo root, add and install it in Claude Code with:
 
@@ -105,14 +108,14 @@ The pack script stages the MCP executable under `artifacts\claude-desktop-mcpb\o
 
 The repo also includes a copyable OpenCode bundle at [`plugins/opentia-toolkit-opencode`](../../plugins/opentia-toolkit-opencode). It bundles:
 
-- the installed-product `opentia` MCP server configuration in `opencode.json`
+- the `opentia` MCP server configuration through `.opencode/plugins/run-opentia-mcp.ps1`
 - an `AGENTS.md` rule file with the required TIA Portal connection and project-discovery sequence
 - a local `.opencode/plugins/opentia-toolkit.js` plugin that sets the default OpenTiaToolkit shell log level
 - the `opentia-toolkit-workflow` router skill and specialized workflow skills under `.opencode/skills`
 - the `basic-tia-interaction` skill and references under `.opencode/skills`
 - the `hmi-unified-agent-editing` skill and references under `.opencode/skills`
 
-OpenCode uses `opencode.json` for project or user config, `.opencode/plugins/` for local plugins, and `.opencode/skills/<name>/SKILL.md` for reusable skills. Use `opencode.jsonc` from this folder for development checkouts, or `opencode.installed.jsonc` / the bundle for installed-product paths.
+OpenCode uses `opencode.json` for project or user config, `.opencode/plugins/` for local plugins, and `.opencode/skills/<name>/SKILL.md` for reusable skills. The launcher uses `OPEN_TIA_MCP_EXE` when set; otherwise it searches upward for this repo and runs the Debug or Release MCP build output. You can also use `opencode.jsonc` from this folder for development checkouts, or `opencode.installed.jsonc` for installed-product paths.
 
 The supplied OpenCode configurations use a 600-second MCP timeout because some TIA Portal Openness reads on real projects can take longer than one minute, especially broad HMI tag enumeration.
 

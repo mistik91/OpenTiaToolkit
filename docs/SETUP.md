@@ -62,15 +62,15 @@ Single command mode:
 
 Ready-to-adapt snippets live in `docs/mcp-client-configs`.
 
-Use the development checkout snippets when running from this repository. Use the installed-product snippets when the MCP executable is installed at:
+Use the development checkout snippets when running from this repository. Use the installed-product snippets only when an installer or your own deployment has placed the MCP executable at:
 
 ```text
 C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
 ```
 
-The Codex plugin package lives in `plugins/opentia-toolkit` and uses the installed-product MCP path. It includes the top-level `opentia-toolkit-workflow` router plus specialized TIA interaction, HMI editing, hardware, PLC, trend logging, VCI, and repo development skills.
+The Codex plugin package lives in `plugins/opentia-toolkit`. It runs `scripts/run-opentia-mcp.ps1`, which uses `OPEN_TIA_MCP_EXE` when set or falls back to this repo's Debug/Release MCP build output. It includes the top-level `opentia-toolkit-workflow` router plus specialized TIA interaction, HMI editing, hardware, PLC, trend logging, VCI, and repo development skills.
 
-The Claude Code plugin package lives in `plugins/opentia-toolkit-claude-code` and uses the installed-product MCP path. It includes the same workflow skills. The repo root also has a local Claude Code marketplace at `.claude-plugin/marketplace.json`.
+The Claude Code plugin package lives in `plugins/opentia-toolkit-claude-code` and uses the same launcher pattern. It includes the same workflow skills. The repo root also has a local Claude Code marketplace at `.claude-plugin/marketplace.json`.
 
 The Claude Desktop MCPB source package lives in `plugins/opentia-toolkit-claude-desktop`. Claude Desktop MCPB packages expose the MCP server but do not currently bundle skill folders, so keep equivalent project/prompt guidance available when using Claude Desktop. Build a `.mcpb` extension from a local MCP build with:
 
@@ -78,7 +78,7 @@ The Claude Desktop MCPB source package lives in `plugins/opentia-toolkit-claude-
 .\scripts\Pack-ClaudeDesktopMcpb.ps1
 ```
 
-The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its contents into an OpenCode project root to get the installed-product MCP config, `.opencode` plugin, OpenTiaToolkit workflow skills, and `AGENTS.md` rules. For a development checkout, use `docs/mcp-client-configs/opencode.jsonc` and replace the placeholder path with your local build output.
+The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its contents into an OpenCode project root to get the MCP launcher config, `.opencode` plugin, OpenTiaToolkit workflow skills, and `AGENTS.md` rules. For a development checkout, you can also use `docs/mcp-client-configs/opencode.jsonc` and replace the placeholder path with your local build output.
 
 Generic hardware configuration, including GSD/GSDML instantiation, PROFINET identity/wiring, process-image address assignment, Startdrive telegram edits, and guarded parameter-record changes, is available through both CLI and MCP. See [HARDWARE_AUTOMATION.md](HARDWARE_AUTOMATION.md) before building device-specific workflows.
 

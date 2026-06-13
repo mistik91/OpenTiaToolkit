@@ -4,7 +4,11 @@
     "opentia": {
       "type": "local",
       "command": [
-        "C:\\Program Files\\OpenTiaToolkit\\OpenTiaToolkit.MCP.exe"
+        "powershell",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".opencode/plugins/run-opentia-mcp.ps1"
       ],
       "environment": {
         "OPEN_TIA_MCP_LOG_LEVEL": "Error"

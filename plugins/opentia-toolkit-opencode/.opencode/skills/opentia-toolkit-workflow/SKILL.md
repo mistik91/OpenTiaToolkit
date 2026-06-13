@@ -39,6 +39,8 @@ Do not call `open-project` before connecting to TIA Portal. Do not conclude that
 
 Use exact command argument names from the tool schema. For CLI-shaped examples, use kebab-case such as `plc-name`, `hmi-name`, `screen-path`, `dry-run`, and `confirm`.
 
+Large MCP results may return a compact artifact manifest instead of the full payload. When `data.outputPath`, `data.format`, and `inlineOutputSuppressed` are present, read the file at `outputPath` for the full result before continuing. Domain commands choose task-appropriate formats: CSV for tabular rows such as HMI tags, PLC block lists, hardware addresses, VCI mappings, and PLC rename/update previews; JSON for hierarchical snapshots such as HMI screens, hardware trees, and software trees.
+
 ## Mutation Defaults
 
 Use dry-runs, previews, or status reads before applying changes when the command supports them:
@@ -61,7 +63,7 @@ After a mutation, verify through the narrowest available read:
 - Project/session changes: `portal-status`, `list-projects`, or `get-project-info`.
 - PLC changes: `get-blocks`, `get-block-info`, `get-software-tree`, relevant tag/rename result, and compile when appropriate.
 - HMI screen changes: fresh screen snapshot, item properties, `VerifiedScreen`, or `hmi-status`.
-- Hardware changes: `get-hardware-tree`, `get-hardware-io-addresses`, `get-hardware-networks`, or parameter reads.
+- Hardware changes: `get-hardware-tree`, `get-hardware-io-addresses`, `get-hardware-networks`, `audit-hardware-tag-mappings`, or parameter reads.
 - VCI changes: `get-vci-block-status` or `list-vci-mappings`.
 
 Report any safety block exactly enough for the user to act, especially online-mode blocks, stale hashes, ambiguous targets, active references, or destructive-operation confirmation requirements.

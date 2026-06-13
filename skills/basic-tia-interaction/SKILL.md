@@ -14,11 +14,11 @@ Do not conclude that no project is open from a connect response alone. Project d
 ## Standard Workflow
 
 1. Identify any user-provided targets: TIA instance id, project name/path, PLC name, HMI name, and whether the user says the project is already open.
-2. Call `list_instances` first when a running TIA Portal instance is expected.
-3. If exactly one instance is running, connect to it with `connect_instance`, then call `list_projects` or `get_project_info` to verify the project.
+2. Call `list-instances` first when a running TIA Portal instance is expected.
+3. If exactly one instance is running, connect to it with `connect-instance`, then call `list-projects` or `get-project-info` to verify the project.
 4. If multiple instances are running, probe them before choosing:
    - Connect to each instance by id.
-   - Record the instance id, TIA version if available, and any open project name/path from `list_projects` or `get_project_info`.
+   - Record the instance id, TIA version if available, and any open project name/path from `list-projects` or `get-project-info`.
    - If the user specified a project name/path, choose the matching instance automatically.
    - If the user did not specify a project and more than one candidate has an open project, ask which instance/project to use.
 5. If no project is open in the selected instance, open the user-specified project path. If no path was provided, ask for the project path.
@@ -29,13 +29,13 @@ Do not conclude that no project is open from a connect response alone. Project d
 When the user says "connect to the current open instance", "the project is already open", or similar:
 
 - Treat an open project as expected.
-- Do not use `open_project` unless project discovery proves no project is open or the user supplied a different project path.
-- After `connect_instance` or `connect_portal`, immediately call `list_projects` or `get_project_info`.
+- Do not use `open-project` unless project discovery proves no project is open or the user supplied a different project path.
+- After `connect-instance` or `connect-portal`, immediately call `list-projects` or `get-project-info`.
 - If project discovery finds the open project, continue without warning the user that no project was open.
 
 ## Multiple Instances
 
-If `list_instances` returns more than one TIA Portal process:
+If `list-instances` returns more than one TIA Portal process:
 
 - Do not pick an arbitrary instance.
 - Probe each instance and map instance id to open project.
@@ -67,15 +67,15 @@ If two instances match the same project name but different paths, ask the user t
 
 After the project is selected:
 
-- For PLC work, use `list_plcs` or `open_plc` with the requested PLC name.
-- For HMI work, use `list_hmis` or `open_unified_hmi` with the requested HMI name.
+- For PLC work, use `list-plcs` or `open-plc` with the requested PLC name.
+- For HMI work, use `list-hmis` or `open-unified-hmi` with the requested HMI name.
 - If the requested HMI/PLC name is not found exactly, list candidates and use an obvious exact-like alias only when the mapping is unambiguous. Otherwise ask.
 
 ## Recovery
 
-- If an Openness command reports that no project is open, call `list_projects` before asking the user for a path.
-- If a connected instance has stale or surprising state, run `portal_status` and `list_projects`.
-- If the user provided a project path and no running instance has it open, connect to the intended instance or start one, then call `open_project`.
+- If an Openness command reports that no project is open, call `list-projects` before asking the user for a path.
+- If a connected instance has stale or surprising state, run `portal-status` and `list-projects`.
+- If the user provided a project path and no running instance has it open, connect to the intended instance or start one, then call `open-project`.
 - If opening a project changes the selected instance/project, re-run target discovery before continuing.
 
 ## Hand-Off

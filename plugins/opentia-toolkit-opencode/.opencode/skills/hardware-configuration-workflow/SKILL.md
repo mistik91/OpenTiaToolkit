@@ -14,7 +14,7 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
 ## Standard Workflow
 
 1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven.
-2. Discover the current hardware shape with `get-hardware-tree`, scoped by `device-name` when possible.
+2. Discover the current hardware shape with `get-hardware-tree`, scoped by `device-name` when possible. For PROFINET work, also inspect `get-hardware-networks`; project IO-system `connectedIoDevices` can contain GSD/GSDML IO devices that are not visible as top-level `Project.Devices`.
 3. Discover catalog and type identifiers with `find-hardware-catalog-items` or `find-hardware-module-types`.
 4. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
 5. Inspect feature services with `get-hardware-item-capabilities` before writing attributes.
@@ -25,12 +25,13 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
    - `get-hardware-feature-attributes`
    - `get-hardware-network-item-attributes`
    - `get-gsd-parameter-data`
+   - `audit-hardware-tag-mappings`
 7. Build `apply-hardware-patch` operations with expected-value guards wherever the operation supports them.
-8. Use `targetRef` for items created earlier in the same patch. When a child item is generated during a plug, combine `targetRef` with a relative `target.itemPath` discovered from the prior dry-run result or from `get-hardware-tree`.
+8. Use `targetRef` for items created earlier in the same patch. When a child item is generated during a plug, combine `targetRef` with a relative `target.itemPath` discovered from the prior dry-run result or from `get-hardware-tree`. If `plug-item` reports that TIA placed a GSD/GSDML subslot at a different actual path, prefer `allowDisplacedPlacement=true` with a `resultId`, then use that `resultId` for follow-up operations instead of adding a new device-specific command.
 9. Run `apply-hardware-patch` with `dry-run=true`.
 10. Pass `plc-name` and `safety-password` when the transaction may touch fail-safe hardware or Startdrive safety telegram configuration. Dry-runs still execute Siemens mutations inside a rolled-back transaction and can require safety authorization.
 11. Apply with `dry-run=false` only after the dry-run validates and the user has confirmed destructive operations when needed.
-12. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, or GSD parameter bytes.
+12. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, audit result, or GSD parameter bytes.
 
 ## Patch Safety
 
@@ -47,13 +48,27 @@ Treat these as destructive and require explicit user confirmation before apply:
 
 For GSD/GSDML parameters, read current bytes first and record the dataset number, byte offset, length, and expected old value. Do not infer vendor-specific byte meanings from the generic toolkit.
 
+For GSD/GSDML submodules, TIA may legally place the created item somewhere other than the requested parent path. The generic workaround is to dry-run first without `allowDisplacedPlacement`, inspect the actual path reported by the failure, and only opt in with `allowDisplacedPlacement=true` when that actual layout is acceptable. Put a `resultId` on that `plug-item` and use the `resultId` for subsequent IO address, parameter, delete, or attribute operations. Keep the command surface generic; do not introduce a new command when the workflow can be expressed through actual-path reporting and `resultId`.
+
 ## PROFINET And IO Notes
 
 PROFINET station name is not the same as the TIA display `Name`. Use the patch operation field intended for station identity when setting station name, and use guarded attribute writes for display names.
 
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
+For large topology reads, pass `output-path` to `get-hardware-tree` or `get-hardware-networks`, or use the returned JSON artifact path when the command auto-spills. These nested outputs should stay JSON so they can be reloaded for follow-up target selection and network analysis.
+
+For large IO address reviews, pass `output-path` to `get-hardware-io-addresses` or use the returned CSV artifact path instead of reading a long inline result. For `audit-hardware-tag-mappings`, use `output-path` when the unmatched PLC tag rows should be reviewed in CSV; use the generic JSON artifact returned by MCP when the full audit object is needed.
+
+For Startdrive telegram reviews across multiple inverters, pass `output-path` to `get-hardware-drive-telegrams` or use its returned CSV artifact path. Include `address-attributes` such as `StartAddress`, `IoType`, and `Length` when checking address assignments or collisions.
+
 Before wiring a subnet or IO system, use `get-hardware-networks` to identify nodes, IO controllers, IO connectors, and existing connections.
+
+For PROFINET IO devices that appear in PLC tags or IO-system references but not in `list-devices` or `get-hardware-tree`, do not conclude they are absent. Read `get-hardware-networks` and inspect project IO-system `connectedIoDevices` entries. Their `nodes[].attributes` can expose IP address, subnet mask, and station-name fields; `connector.attributes` can expose `PnDeviceNumber` when TIA provides it.
+
+When PLC `%I` or `%Q` tags suggest a missing field device, run `audit-hardware-tag-mappings` with the relevant `plc-name`, tag-table filter, and optional catalog hint such as a vendor or device name. Treat tag names and process-image ranges as evidence, not authority: prefer actual network attributes from existing `connectedIoDevices` over inferred sequential patterns before creating or configuring new devices.
+
+When adding a new PROFINET IO device that should follow an existing pattern, first discover the old devices through `connectedIoDevices`, record their IP, station name, device number, and IO address progression, then use guarded patch operations and a dry-run before apply.
 
 ## Startdrive Drive Notes
 

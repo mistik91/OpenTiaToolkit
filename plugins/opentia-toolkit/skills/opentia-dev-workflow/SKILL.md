@@ -66,19 +66,25 @@ After registration, run a read-only smoke test before deeper live validation. Go
 .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe connect-instance --instance-id <pid>
 ```
 
-For MCP, use `portal_status`, `list_instances`, and then `connect_instance` through the OpenTia MCP tools.
+For MCP, use `portal-status`, `list-instances`, and then `connect-instance` through the OpenTia MCP tools.
 
 ## Skill And Plugin Packaging
 
-Canonical skill sources live under `skills/`. Plugin copies under `plugins/opentia-toolkit/skills` and `plugins/opentia-toolkit-claude-code/skills` should match the canonical skill content when packaging.
+Canonical skill sources live under `skills/`. Plugin copies under `plugins/opentia-toolkit/skills`, `plugins/opentia-toolkit-claude-code/skills`, and `plugins/opentia-toolkit-opencode/.opencode/skills` should match the canonical skill content when packaging.
 
 When adding a skill:
 
 1. Create or update `skills/<skill-name>/SKILL.md`.
 2. Include `agents/openai.yaml` for Codex-facing skills.
 3. Validate with the skill creator `quick_validate.py`.
-4. Copy the skill into plugin packages that bundle skills.
+4. Run `powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1` to copy canonical skills into plugin packages that bundle skills.
 5. Update plugin README/docs and client config notes when the included skill set changes.
+
+Before handoff, run the packaging drift guard:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -CheckOnly
+```
 
 Use the existing packaging script when installing or zipping a single skill:
 
