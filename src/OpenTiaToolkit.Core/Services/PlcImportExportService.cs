@@ -71,14 +71,17 @@ namespace OpenTiaToolkit.Core.Services
                         var fileName = !string.IsNullOrWhiteSpace(type) ? $"{name}.{type}.xml" : $"{name}.xml";
                         var filePath = Path.Combine(exportPath, fileName);
 
-                        if (_v21Adapter.TryExportEngineeringObject(block, filePath, "WithDefaults"))
+                        if (_v21Adapter.TryExportEngineeringObject(block, filePath, "WithDefaults", out var failureReason))
                         {
                             successCount++;
                         }
                         else
                         {
                             failureCount++;
-                            _logger?.LogWarning("Could not export block: {BlockName}", name);
+                            _logger?.LogWarning(
+                                "Could not export block {BlockName}: {FailureReason}",
+                                name,
+                                failureReason ?? "No supported export overload succeeded");
                         }
                     }
 
@@ -134,7 +137,16 @@ namespace OpenTiaToolkit.Core.Services
                         Directory.CreateDirectory(directory);
                     }
 
-                    return _v21Adapter.TryExportEngineeringObject(block, exportPath, "WithDefaults");
+                    if (_v21Adapter.TryExportEngineeringObject(block, exportPath, "WithDefaults", out var failureReason))
+                    {
+                        return true;
+                    }
+
+                    _logger?.LogError(
+                        "Could not export block {BlockName}: {FailureReason}",
+                        blockName,
+                        failureReason ?? "No supported export overload succeeded");
+                    return false;
                 }
                 catch (Exception ex)
                 {
@@ -335,7 +347,16 @@ namespace OpenTiaToolkit.Core.Services
                         Directory.CreateDirectory(directory);
                     }
 
-                    return _v21Adapter.TryExportEngineeringObject(type, exportPath, "None");
+                    if (_v21Adapter.TryExportEngineeringObject(type, exportPath, "None", out var failureReason))
+                    {
+                        return true;
+                    }
+
+                    _logger?.LogError(
+                        "Could not export type {TypeName}: {FailureReason}",
+                        typeName,
+                        failureReason ?? "No supported export overload succeeded");
+                    return false;
                 }
                 catch (Exception ex)
                 {
@@ -401,7 +422,7 @@ namespace OpenTiaToolkit.Core.Services
                         }
 
                         var typeExportPath = Path.Combine(exportPath, $"{name}.xml");
-                        if (_v21Adapter.TryExportEngineeringObject(type, typeExportPath, "None"))
+                        if (_v21Adapter.TryExportEngineeringObject(type, typeExportPath, "None", out var failureReason))
                         {
                             result.SuccessCount++;
                             result.ExportedItems.Add(name);
@@ -410,7 +431,7 @@ namespace OpenTiaToolkit.Core.Services
                         {
                             result.FailedCount++;
                             result.FailedItems.Add(name);
-                            result.Errors.Add($"Failed to export: {name}");
+                            result.Errors.Add($"Failed to export {name}: {failureReason ?? "No supported export overload succeeded"}");
                         }
                     }
 
@@ -471,8 +492,12 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.TryImport(blocksCollection, fileInfo, 1, out var result))
+                    if (!_v21Adapter.TryImport(blocksCollection, fileInfo, 1, out var result, out var failureReason))
                     {
+                        _logger?.LogError(
+                            "Could not import block from {ImportPath}: {FailureReason}",
+                            importPath,
+                            failureReason ?? "No supported import overload succeeded");
                         return false;
                     }
 
@@ -585,8 +610,12 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.TryImport(typesCollection, fileInfo, 1, out var result))
+                    if (!_v21Adapter.TryImport(typesCollection, fileInfo, 1, out var result, out var failureReason))
                     {
+                        _logger?.LogError(
+                            "Could not import type from {ImportPath}: {FailureReason}",
+                            importPath,
+                            failureReason ?? "No supported import overload succeeded");
                         return false;
                     }
 
@@ -708,9 +737,12 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.TryImportFromDocuments(blocksCollection, dirInfo, fileNameWithoutExtension, ParseImportDocumentOption(importOption), out var result))
+                    if (!_v21Adapter.TryImportFromDocuments(blocksCollection, dirInfo, fileNameWithoutExtension, ParseImportDocumentOption(importOption), out var result, out var failureReason))
                     {
-                        _logger?.LogError("ImportFromDocuments method not found (requires TIA Portal V20+)");
+                        _logger?.LogError(
+                            "Could not import block documents from {ImportDirectory}: {FailureReason}",
+                            importDirectory,
+                            failureReason ?? "ImportFromDocuments method not found (requires TIA Portal V20+)");
                         return false;
                     }
 

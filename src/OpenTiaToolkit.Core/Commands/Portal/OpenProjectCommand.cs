@@ -70,8 +70,11 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                 }
                 else
                 {
+                    var detail = string.IsNullOrWhiteSpace(_portalService.LastError)
+                        ? null
+                        : $": {_portalService.LastError}";
                     return CommandResult.CreateFailure(
-                        $"Failed to open project: {projectPath}"
+                        $"Failed to open project: {projectPath}{detail}"
                     );
                 }
             }

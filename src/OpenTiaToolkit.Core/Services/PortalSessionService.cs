@@ -5,6 +5,7 @@ using Siemens.Engineering;
 using Siemens.Engineering.Multiuser;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -55,6 +56,8 @@ namespace OpenTiaToolkit.Core.Services
             get => _sessionContext.OwnsCurrentSession;
             set => _sessionContext.OwnsCurrentSession = value;
         }
+
+        public string? LastError { get; private set; }
 
         public PortalSessionService(EngineeringSessionContext sessionContext, ILogger? logger)
         {
@@ -228,9 +231,11 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                LastError = null;
                 if (_portal == null)
                 {
-                    _logger?.LogWarning("Not connected to TIA Portal");
+                    LastError = "Not connected to TIA Portal";
+                    _logger?.LogWarning("{LastError}", LastError);
                     return false;
                 }
 
@@ -255,6 +260,10 @@ namespace OpenTiaToolkit.Core.Services
                         _project = _session?.Project;
                         _ownsCurrentSession = _session != null;
                         _ownsCurrentProject = _project != null;
+                        if (_project == null)
+                        {
+                            LastError = $"Opened local session file '{projectPath}', but Siemens Openness did not return a project.";
+                        }
                         return _project != null;
                     }
 
@@ -298,11 +307,16 @@ namespace OpenTiaToolkit.Core.Services
                     _project = _portal.Projects.OpenWithUpgrade(fileInfo);
                     _ownsCurrentProject = _project != null;
                     _ownsCurrentSession = false;
+                    if (_project == null)
+                    {
+                        LastError = $"Siemens Openness did not return a project for '{projectPath}'.";
+                    }
                     return _project != null;
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogError(ex, "Failed to open project: {ProjectPath}", projectPath);
+                    LastError = FormatExceptionMessage(ex);
+                    _logger?.LogError(ex, "Failed to open project {ProjectPath}: {LastError}", projectPath, LastError);
                     return false;
                 }
             });
@@ -461,18 +475,20 @@ namespace OpenTiaToolkit.Core.Services
                     project.Close();
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Ignore
+                _logger?.LogDebug(ex, "Failed to close owned TIA Portal project/session during dispose.");
+                Trace.TraceWarning($"[PortalSessionService] Failed to close owned project/session during dispose: {FormatExceptionMessage(ex)}");
             }
 
             try
             {
                 _portal?.Dispose();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Ignore
+                _logger?.LogDebug(ex, "Failed to dispose TIA Portal instance.");
+                Trace.TraceWarning($"[PortalSessionService] Failed to dispose TIA Portal instance: {FormatExceptionMessage(ex)}");
             }
 
             _sessionContext.ClearPortalSelection();
@@ -635,9 +651,10 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     attachedPortal?.Dispose();
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Ignore
+                    _logger?.LogDebug(ex, "Failed to dispose inspected TIA Portal instance {InstanceId}.", process.Id);
+                    Trace.TraceWarning($"[PortalSessionService] Failed to dispose inspected TIA Portal instance {process.Id}: {FormatExceptionMessage(ex)}");
                 }
             }
 
@@ -754,6 +771,11 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return false;
+        }
+
+        private static string FormatExceptionMessage(Exception ex)
+        {
+            return ex.InnerException?.Message ?? ex.Message;
         }
     }
 }

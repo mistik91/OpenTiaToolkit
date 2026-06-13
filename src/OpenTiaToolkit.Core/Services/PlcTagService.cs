@@ -17,12 +17,18 @@ namespace OpenTiaToolkit.Core.Services
     {
         private readonly EngineeringSessionContext _sessionContext;
         private readonly V21OpennessAdapter _v21Adapter;
+        private readonly IPlcTagNamingStrategy _tagNamingStrategy;
         private readonly ILogger? _logger;
 
-        public PlcTagService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
+        public PlcTagService(
+            EngineeringSessionContext sessionContext,
+            ILogger? logger,
+            V21OpennessAdapter? v21Adapter = null,
+            IPlcTagNamingStrategy? tagNamingStrategy = null)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _v21Adapter = v21Adapter ?? new V21OpennessAdapter();
+            _tagNamingStrategy = tagNamingStrategy ?? new PageBasedPlcTagNamingStrategy();
             _logger = logger;
         }
 
@@ -468,7 +474,6 @@ namespace OpenTiaToolkit.Core.Services
                         return result;
                     }
 
-                    var tagPattern = new Regex(@"^(\d+)([a-zA-Z0-9_]+)$");
                     var tagsOverPage100 = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase);
                     var tagsUnderPage100 = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase);
                     var tagsByFullName = new Dictionary<string, List<TagInfo>>(StringComparer.OrdinalIgnoreCase);
@@ -528,18 +533,17 @@ namespace OpenTiaToolkit.Core.Services
                             tagsByTable[tagTableName].Add(tagInfo);
                             result.Summary.ExistingTagsScanned++;
 
-                            var match = tagPattern.Match(nonNullTagName);
-                            if (!match.Success)
+                            if (!_tagNamingStrategy.TryParse(nonNullTagName, out var existingNameParts))
                             {
                                 continue;
                             }
 
-                            int pageNumber = int.Parse(match.Groups[1].Value);
-                            string baseName = match.Groups[2].Value;
+                            int pageNumber = existingNameParts.PageNumber;
+                            string baseName = existingNameParts.BaseName;
                             tagInfo.BaseName = baseName;
                             tagInfo.PageNumber = pageNumber;
 
-                            if (pageNumber >= 100)
+                            if (existingNameParts.UsesBaseNameMatching)
                             {
                                 AddTagIndex(tagsOverPage100, baseName, tagInfo);
                             }
@@ -646,17 +650,15 @@ namespace OpenTiaToolkit.Core.Services
                             }
                         }
 
-                        var match = tagPattern.Match(csvRow.TagName);
-                        if (!match.Success)
+                        if (!_tagNamingStrategy.TryParse(csvRow.TagName, out var csvNameParts))
                         {
                             CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, reservedTagNames, result, dryRun, csvPageNumber: null);
                             continue;
                         }
 
-                        int csvPageNumber = int.Parse(match.Groups[1].Value);
-                        string csvBaseName = match.Groups[2].Value;
+                        int csvPageNumber = csvNameParts.PageNumber;
 
-                        if (csvPageNumber >= 100)
+                        if (csvNameParts.UsesBaseNameMatching)
                         {
                             ProcessPage100OrAboveRow(csvRow, tagsOverPage100, tagsByFullName, tagsByTable, tagTables, reservedTagNames, result, dryRun, csvNameCounts[csvRow.TagName], csvTagNames);
                         }
@@ -704,9 +706,14 @@ namespace OpenTiaToolkit.Core.Services
             int csvNameCount,
             HashSet<string> csvTagNames)
         {
-            var match = Regex.Match(csvRow.TagName, @"^(\d+)([a-zA-Z0-9_]+)$");
-            int csvPageNumber = int.Parse(match.Groups[1].Value);
-            string csvBaseName = match.Groups[2].Value;
+            if (!_tagNamingStrategy.TryParse(csvRow.TagName, out var csvNameParts))
+            {
+                CreateTagFromCsvRow(csvRow, tagTables, tagsByTable, reservedTagNames, result, dryRun, csvPageNumber: null);
+                return;
+            }
+
+            int csvPageNumber = csvNameParts.PageNumber;
+            string csvBaseName = csvNameParts.BaseName;
 
             if (csvNameCount == 1 && tagsByFullName.TryGetValue(csvRow.TagName, out var exactNameMatches) && exactNameMatches.Count > 0)
             {

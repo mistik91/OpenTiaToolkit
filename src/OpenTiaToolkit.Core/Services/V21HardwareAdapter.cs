@@ -1,6 +1,7 @@
 using OpenTiaToolkit.Core.Models;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
+using Siemens.Engineering.HW.Features;
 using Siemens.Engineering.MC.Drives;
 using Siemens.Engineering.MC.Drives.Enums;
 using System;
@@ -446,50 +447,49 @@ namespace OpenTiaToolkit.Core.Services
 
         public HardwareNetworkInfo? GetNetworkInfo(HardwareObject target, HardwareObjectRef reference)
         {
-            var network = GetFeatureService(target, "NetworkInterface");
-            if (network == null)
+            if (GetFeatureService(target, "NetworkInterface") is not NetworkInterface network)
             {
                 return null;
             }
 
             var info = new HardwareNetworkInfo { Target = reference };
             int index = 0;
-            foreach (var node in Enumerate(network, "Nodes"))
+            foreach (var node in network.Nodes)
             {
-                var subnet = TiaReflectionHelper.GetProperty(node, "ConnectedSubnet");
+                var subnet = node.ConnectedSubnet;
                 info.Nodes.Add(new HardwareNodeInfo
                 {
                     Index = index,
-                    Name = TiaReflectionHelper.GetProperty(node, "Name")?.ToString(),
-                    NodeType = TiaReflectionHelper.GetProperty(node, "NodeType")?.ToString(),
-                    ConnectedSubnet = TiaReflectionHelper.GetProperty(subnet, "Name")?.ToString(),
+                    Name = node.Name,
+                    NodeType = node.NodeType.ToString(),
+                    ConnectedSubnet = subnet?.Name,
                     Attributes = GetSelectedEngineeringAttributeInfos(node, DefaultNodeAttributeNames)
                 });
                 index++;
             }
 
             index = 0;
-            foreach (var controller in Enumerate(network, "IoControllers"))
+            foreach (var controller in network.IoControllers)
             {
-                var ioSystem = TiaReflectionHelper.GetProperty(controller, "IoSystem");
+                var ioSystem = controller.IoSystem;
                 info.IoControllers.Add(new HardwareIoControllerInfo
                 {
                     Index = index++,
-                    IoSystemName = TiaReflectionHelper.GetProperty(ioSystem, "Name")?.ToString()
+                    IoSystemName = ioSystem?.Name
                 });
             }
 
             index = 0;
-            foreach (var connector in Enumerate(network, "IoConnectors"))
+            foreach (var connector in network.IoConnectors)
             {
-                var ioSystem = TiaReflectionHelper.GetProperty(connector, "ConnectedToIoSystem");
+                var ioSystem = connector.ConnectedToIoSystem;
                 var connectorNetwork = TiaReflectionHelper.GetProperty(connector, "Parent");
                 var owner = TiaReflectionHelper.GetProperty(connectorNetwork, "OwnedBy")
                     ?? TiaReflectionHelper.GetProperty(connectorNetwork, "Parent");
                 info.IoConnectors.Add(new HardwareIoConnectorInfo
                 {
                     Index = index++,
-                    ConnectedIoSystemName = TiaReflectionHelper.GetProperty(ioSystem, "Name")?.ToString(),
+                    ConnectedIoSystemName = ioSystem?.Name,
                     OwnerName = TiaReflectionHelper.GetName(owner),
                     OwnerTypeIdentifier = TiaReflectionHelper.GetProperty(owner, "TypeIdentifier")?.ToString(),
                     InterfaceOperatingMode = TiaReflectionHelper.GetProperty(connectorNetwork, "InterfaceOperatingMode")?.ToString(),

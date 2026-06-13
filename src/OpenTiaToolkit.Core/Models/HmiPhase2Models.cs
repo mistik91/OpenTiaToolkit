@@ -59,6 +59,8 @@ namespace OpenTiaToolkit.Core.Models
 
         public int CopiedItemEventHandlerCount { get; set; }
 
+        public System.Collections.Generic.List<string> Warnings { get; } = new System.Collections.Generic.List<string>();
+
         public HmiScreenInfo Screen { get; set; } = new HmiScreenInfo();
     }
 

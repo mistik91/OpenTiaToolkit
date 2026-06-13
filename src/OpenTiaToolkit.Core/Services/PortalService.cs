@@ -56,6 +56,9 @@ namespace OpenTiaToolkit.Core.Services
         public ProjectBase? Project => _sessionContext.Project;
 
         /// <inheritdoc/>
+        public string? LastError => _sessionService.LastError;
+
+        /// <inheritdoc/>
         public async Task<bool> ConnectAsync()
         {
             return await _sessionService.ConnectAsync();

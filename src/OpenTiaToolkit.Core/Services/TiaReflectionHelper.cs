@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Siemens.Engineering.SW;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -11,6 +12,11 @@ namespace OpenTiaToolkit.Core.Services
     /// </summary>
     public static class TiaReflectionHelper
     {
+        static TiaReflectionHelper()
+        {
+            TiaPortalAssemblyResolver.Register();
+        }
+
         /// <summary>
         /// Gets a property value from an object via reflection.
         /// </summary>
@@ -44,6 +50,11 @@ namespace OpenTiaToolkit.Core.Services
         /// <returns>The TagTableGroup object, or null if not found.</returns>
         public static object? GetTagTableGroup(object? plcSoftware)
         {
+            if (plcSoftware is PlcSoftware typedPlcSoftware)
+            {
+                return typedPlcSoftware.TagTableGroup;
+            }
+
             return GetProperty(plcSoftware, "TagTableGroup");
         }
 
@@ -54,6 +65,11 @@ namespace OpenTiaToolkit.Core.Services
         /// <returns>The ExternalSourceGroup object, or null if not found.</returns>
         public static object? GetExternalSourceGroup(object? plcSoftware)
         {
+            if (plcSoftware is PlcSoftware typedPlcSoftware)
+            {
+                return typedPlcSoftware.ExternalSourceGroup;
+            }
+
             return GetProperty(plcSoftware, "ExternalSourceGroup");
         }
 
@@ -181,6 +197,11 @@ namespace OpenTiaToolkit.Core.Services
         /// <returns>The BlockGroup object, or null if not found.</returns>
         public static object? GetBlockGroup(object? plcSoftware)
         {
+            if (plcSoftware is PlcSoftware typedPlcSoftware)
+            {
+                return typedPlcSoftware.BlockGroup;
+            }
+
             return GetProperty(plcSoftware, "BlockGroup");
         }
 
@@ -191,6 +212,11 @@ namespace OpenTiaToolkit.Core.Services
         /// <returns>The TypeGroup object, or null if not found.</returns>
         public static object? GetTypeGroup(object? plcSoftware)
         {
+            if (plcSoftware is PlcSoftware typedPlcSoftware)
+            {
+                return typedPlcSoftware.TypeGroup;
+            }
+
             return GetProperty(plcSoftware, "TypeGroup");
         }
 

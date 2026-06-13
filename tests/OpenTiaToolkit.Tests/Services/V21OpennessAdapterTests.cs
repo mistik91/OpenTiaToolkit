@@ -4,6 +4,7 @@ using OpenTiaToolkit.Core.Services;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System;
 
 namespace OpenTiaToolkit.Tests.Services
 {
@@ -42,6 +43,22 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void TryExportEngineeringObject_ReturnsInvocationFailureReason()
+        {
+            // Arrange
+            var exportable = new FailingExportableObject();
+            var adapter = new V21OpennessAdapter();
+            var exportPath = Path.Combine(Path.GetTempPath(), "adapter-test-failure.xml");
+
+            // Act
+            var success = adapter.TryExportEngineeringObject(exportable, exportPath, "WithDefaults", out var failureReason);
+
+            // Assert
+            Assert.IsFalse(success);
+            Assert.AreEqual("Export failed inside Siemens API", failureReason);
+        }
+
+        [TestMethod]
         public void TryImport_UsesEnumImportOverloadWhenAvailable()
         {
             // Arrange
@@ -57,6 +74,23 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.AreEqual(importFile.FullName, collection.LastImportPath);
             Assert.AreEqual(FakeImportOptions.Override, collection.LastImportOption);
             Assert.AreSame(collection.ImportResult, result);
+        }
+
+        [TestMethod]
+        public void TryImport_ReturnsLastInvocationFailureReason()
+        {
+            // Arrange
+            var collection = new FailingImportableCollection();
+            var adapter = new V21OpennessAdapter();
+            var importFile = new FileInfo(Path.Combine(Path.GetTempPath(), "adapter-import-failure.xml"));
+
+            // Act
+            var success = adapter.TryImport(collection, importFile, 1, out var result, out var failureReason);
+
+            // Assert
+            Assert.IsFalse(success);
+            Assert.IsNull(result);
+            Assert.AreEqual("Import failed inside Siemens API", failureReason);
         }
 
         [TestMethod]
@@ -248,6 +282,14 @@ namespace OpenTiaToolkit.Tests.Services
             }
         }
 
+        private sealed class FailingExportableObject
+        {
+            public void Export(FileInfo fileInfo, ExportOptions options)
+            {
+                throw new InvalidOperationException("Export failed inside Siemens API");
+            }
+        }
+
         private enum ProgrammingLanguage
         {
             ProDiag
@@ -390,6 +432,14 @@ namespace OpenTiaToolkit.Tests.Services
                 LastImportPath = path.FullName;
                 LastImportOption = importOptions;
                 return ImportResult;
+            }
+        }
+
+        private sealed class FailingImportableCollection
+        {
+            public object Import(FileInfo path, FakeImportOptions importOptions)
+            {
+                throw new InvalidOperationException("Import failed inside Siemens API");
             }
         }
 

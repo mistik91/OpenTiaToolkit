@@ -8,6 +8,12 @@ using System.Linq;
 using System.Reflection;
 using System.Security;
 using OpenTiaToolkit.Core.Abstractions;
+using Siemens.Engineering;
+using Siemens.Engineering.Compiler;
+using Siemens.Engineering.HW;
+using Siemens.Engineering.HW.Features;
+using Siemens.Engineering.SW;
+using Siemens.Engineering.SW.Blocks;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -20,11 +26,21 @@ namespace OpenTiaToolkit.Core.Services
         private readonly ConcurrentDictionary<string, Type?> _typeByNameCache = new ConcurrentDictionary<string, Type?>(StringComparer.Ordinal);
         private readonly ConcurrentDictionary<string, Type?> _typeByFullNameCache = new ConcurrentDictionary<string, Type?>(StringComparer.Ordinal);
 
+        static V21OpennessAdapter()
+        {
+            TiaPortalAssemblyResolver.Register();
+        }
+
         public Type? FindTypeByName(string typeName)
         {
             if (string.IsNullOrWhiteSpace(typeName))
             {
                 return null;
+            }
+
+            if (TryFindKnownSiemensType(typeName, out var knownType))
+            {
+                return knownType;
             }
 
             return _typeByNameCache.GetOrAdd(typeName, static (name, @this) =>
@@ -33,7 +49,11 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     try
                     {
-                        var type = assembly.GetTypes().FirstOrDefault(candidate => candidate.Name == name);
+                        var matches = assembly.GetTypes()
+                            .Where(candidate => candidate.Name == name)
+                            .OrderBy(candidate => candidate.FullName, StringComparer.Ordinal)
+                            .ToList();
+                        var type = matches.Count == 1 ? matches[0] : null;
                         if (type != null)
                         {
                             return type;
@@ -119,6 +139,15 @@ namespace OpenTiaToolkit.Core.Services
         public object? GetPlcSoftware(object deviceItem)
         {
             if (deviceItem == null) throw new ArgumentNullException(nameof(deviceItem));
+
+            if (deviceItem is DeviceItem typedDeviceItem)
+            {
+                var typedSoftwareContainer = typedDeviceItem.GetService<SoftwareContainer>();
+                if (typedSoftwareContainer?.Software is PlcSoftware containedPlcSoftware)
+                {
+                    return containedPlcSoftware;
+                }
+            }
 
             var directPlcSoftware = GetService(deviceItem, "PlcSoftware");
             if (directPlcSoftware != null)
@@ -572,159 +601,54 @@ namespace OpenTiaToolkit.Core.Services
         {
             if (plcSoftware == null) throw new ArgumentNullException(nameof(plcSoftware));
 
-            var compileService = GetService(plcSoftware, "Siemens.Engineering.Compiler.ICompilable");
+            if (plcSoftware is not PlcSoftware typedPlcSoftware)
+            {
+                return null;
+            }
+
+            var compileService = typedPlcSoftware.GetService<ICompilable>();
             if (compileService == null)
             {
                 return null;
             }
 
-            var compileMethod = compileService.GetType().GetMethod("Compile", Type.EmptyTypes);
-            if (compileMethod == null)
-            {
-                return null;
-            }
-
-            var rawResult = compileMethod.Invoke(compileService, null);
-            if (rawResult == null)
-            {
-                return null;
-            }
+            var rawResult = compileService.Compile();
 
             return new V21CompileResult(
-                GetIntProperty(rawResult, "ErrorCount"),
-                GetIntProperty(rawResult, "WarningCount"),
-                TiaReflectionHelper.GetProperty(rawResult, "State")?.ToString() ?? "Unknown",
-                TiaReflectionHelper.GetProperty(rawResult, "Message")?.ToString(),
+                rawResult.ErrorCount,
+                rawResult.WarningCount,
+                rawResult.State.ToString(),
+                null,
                 ExtractCompileDiagnostics(rawResult));
         }
 
-        private static IReadOnlyList<CompilationDiagnostic> ExtractCompileDiagnostics(object rawResult)
+        private static IReadOnlyList<CompilationDiagnostic> ExtractCompileDiagnostics(CompilerResult rawResult)
         {
             var diagnostics = new List<CompilationDiagnostic>();
-            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-            ExtractCompileDiagnostics(rawResult, diagnostics, visited, depth: 0);
+            AddCompileDiagnostics(rawResult.Messages, diagnostics);
             return diagnostics;
         }
 
-        private static void ExtractCompileDiagnostics(
-            object? value,
-            List<CompilationDiagnostic> diagnostics,
-            HashSet<object> visited,
-            int depth)
+        private static void AddCompileDiagnostics(
+            CompilerResultMessageComposition? messages,
+            List<CompilationDiagnostic> diagnostics)
         {
-            if (value == null || depth > 5)
+            if (messages == null)
             {
                 return;
             }
 
-            if (value is string)
-            {
-                return;
-            }
-
-            var type = value.GetType();
-            if (type.IsPrimitive || type.IsEnum)
-            {
-                return;
-            }
-
-            if (!visited.Add(value))
-            {
-                return;
-            }
-
-            if (value is IEnumerable enumerable)
-            {
-                foreach (var item in enumerable)
-                {
-                    ExtractCompileDiagnostics(item, diagnostics, visited, depth + 1);
-                }
-
-                return;
-            }
-
-            if (LooksLikeCompileDiagnostic(value))
+            foreach (var message in messages)
             {
                 diagnostics.Add(new CompilationDiagnostic(
-                    GetFirstPropertyText(value, "Severity", "State", "Type") ?? "Unknown",
-                    GetFirstPropertyText(value, "Path", "PathName", "ObjectPath", "Location"),
-                    GetFirstPropertyText(value, "Name", "ObjectName", "ItemName"),
-                    GetFirstPropertyText(value, "Description", "Message", "Text", "ErrorText"),
-                    GetFirstPropertyText(value, "ErrorCode", "Code", "Id")));
+                    message.State.ToString(),
+                    message.Path,
+                    null,
+                    message.Description,
+                    null));
+
+                AddCompileDiagnostics(message.Messages, diagnostics);
             }
-
-            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-            {
-                if (property.GetIndexParameters().Length > 0)
-                {
-                    continue;
-                }
-
-                var propertyName = property.Name;
-                if (property.PropertyType == typeof(string)
-                    || property.PropertyType.IsPrimitive
-                    || property.PropertyType.IsEnum)
-                {
-                    continue;
-                }
-
-                if (propertyName.IndexOf("Message", StringComparison.OrdinalIgnoreCase) < 0
-                    && propertyName.IndexOf("Diagnostic", StringComparison.OrdinalIgnoreCase) < 0
-                    && propertyName.IndexOf("Result", StringComparison.OrdinalIgnoreCase) < 0
-                    && propertyName.IndexOf("Error", StringComparison.OrdinalIgnoreCase) < 0
-                    && propertyName.IndexOf("Warning", StringComparison.OrdinalIgnoreCase) < 0
-                    && propertyName.IndexOf("Item", StringComparison.OrdinalIgnoreCase) < 0)
-                {
-                    continue;
-                }
-
-                object? child;
-                try
-                {
-                    child = property.GetValue(value);
-                }
-                catch
-                {
-                    continue;
-                }
-
-                ExtractCompileDiagnostics(child, diagnostics, visited, depth + 1);
-            }
-        }
-
-        private static bool LooksLikeCompileDiagnostic(object value)
-        {
-            var type = value.GetType();
-            var hasText = GetFirstPropertyText(value, "Description", "Message", "Text", "ErrorText") != null;
-            var hasSeverity = GetFirstPropertyText(value, "Severity", "State", "Type") != null;
-            return hasText && (hasSeverity || type.Name.IndexOf("Message", StringComparison.OrdinalIgnoreCase) >= 0);
-        }
-
-        private static string? GetFirstPropertyText(object value, params string[] propertyNames)
-        {
-            foreach (var propertyName in propertyNames)
-            {
-                var property = value.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                if (property == null || property.GetIndexParameters().Length > 0)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    var propertyValue = property.GetValue(value);
-                    var text = propertyValue?.ToString();
-                    if (!string.IsNullOrWhiteSpace(text))
-                    {
-                        return text;
-                    }
-                }
-                catch
-                {
-                }
-            }
-
-            return null;
         }
 
         public bool TryDelete(object engineeringObject)
@@ -748,12 +672,6 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            var programmingLanguageType = FindTypeByName("ProgrammingLanguage");
-            if (programmingLanguageType == null || !programmingLanguageType.IsEnum)
-            {
-                return null;
-            }
-
             var languageMapping = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 { "SCL", "SCL" },
@@ -770,7 +688,7 @@ namespace OpenTiaToolkit.Core.Services
                 ? mappedName
                 : requestedLanguage;
 
-            foreach (var value in Enum.GetValues(programmingLanguageType))
+            foreach (var value in Enum.GetValues(typeof(ProgrammingLanguage)))
             {
                 if (value?.ToString()?.Equals(targetName, StringComparison.OrdinalIgnoreCase) == true)
                 {
@@ -809,29 +727,46 @@ namespace OpenTiaToolkit.Core.Services
 
         public bool TryExportEngineeringObject(object engineeringObject, string exportPath, string preferredOptionName)
         {
+            return TryExportEngineeringObject(engineeringObject, exportPath, preferredOptionName, out _);
+        }
+
+        public bool TryExportEngineeringObject(object engineeringObject, string exportPath, string preferredOptionName, out string? failureReason)
+        {
             if (engineeringObject == null) throw new ArgumentNullException(nameof(engineeringObject));
             if (string.IsNullOrWhiteSpace(exportPath)) throw new ArgumentException("Export path cannot be empty.", nameof(exportPath));
 
-            var exportOptionsType = FindTypeInAssembly(engineeringObject.GetType().Assembly, "ExportOptions") ?? FindTypeByName("ExportOptions");
+            failureReason = null;
+            var exportOptionsType = FindTypeInAssembly(engineeringObject.GetType().Assembly, "ExportOptions")
+                ?? typeof(ExportOptions);
             var preferredOptionValue = exportOptionsType?.GetField(preferredOptionName)?.GetValue(null);
 
             if (exportOptionsType != null && preferredOptionValue != null)
             {
                 var exportWithOptions = engineeringObject.GetType().GetMethod("Export", new[] { typeof(FileInfo), exportOptionsType });
-                if (TryInvoke(exportWithOptions, engineeringObject, new object[] { new FileInfo(exportPath), preferredOptionValue }))
+                if (TryInvoke(exportWithOptions, engineeringObject, new object[] { new FileInfo(exportPath), preferredOptionValue }, out var attemptedFailureReason))
                 {
                     return true;
                 }
+
+                failureReason ??= attemptedFailureReason;
             }
 
             var exportWithFileInfo = engineeringObject.GetType().GetMethod("Export", new[] { typeof(FileInfo) });
-            if (TryInvoke(exportWithFileInfo, engineeringObject, new object[] { new FileInfo(exportPath) }))
+            if (TryInvoke(exportWithFileInfo, engineeringObject, new object[] { new FileInfo(exportPath) }, out var fileInfoFailureReason))
             {
                 return true;
             }
 
+            failureReason ??= fileInfoFailureReason;
+
             var exportWithString = engineeringObject.GetType().GetMethod("Export", new[] { typeof(string) });
-            return TryInvoke(exportWithString, engineeringObject, new object[] { exportPath });
+            if (TryInvoke(exportWithString, engineeringObject, new object[] { exportPath }, out var stringFailureReason))
+            {
+                return true;
+            }
+
+            failureReason ??= stringFailureReason;
+            return false;
         }
 
         public bool TryExportAsDocuments(object engineeringObject, DirectoryInfo exportDirectory, string baseName, out string? state)
@@ -854,10 +789,16 @@ namespace OpenTiaToolkit.Core.Services
 
         public bool TryImport(object collection, FileInfo fileInfo, int importMode, out object? result)
         {
+            return TryImport(collection, fileInfo, importMode, out result, out _);
+        }
+
+        public bool TryImport(object collection, FileInfo fileInfo, int importMode, out object? result, out string? failureReason)
+        {
             if (collection == null) throw new ArgumentNullException(nameof(collection));
             if (fileInfo == null) throw new ArgumentNullException(nameof(fileInfo));
 
             result = null;
+            failureReason = null;
             foreach (var importMethod in collection.GetType()
                 .GetMethods(BindingFlags.Public | BindingFlags.Instance)
                 .Where(method => string.Equals(method.Name, "Import", StringComparison.Ordinal))
@@ -893,22 +834,30 @@ namespace OpenTiaToolkit.Core.Services
                     result = importMethod.Invoke(collection, arguments);
                     return true;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    failureReason = FormatInvocationException(ex);
                     // Try the next compatible overload if invocation fails.
                 }
             }
 
+            failureReason ??= "No compatible Import(FileInfo, import option) overload succeeded.";
             return false;
         }
 
         public bool TryImportFromDocuments(object collection, DirectoryInfo importDirectory, string baseName, int importMode, out object? result)
+        {
+            return TryImportFromDocuments(collection, importDirectory, baseName, importMode, out result, out _);
+        }
+
+        public bool TryImportFromDocuments(object collection, DirectoryInfo importDirectory, string baseName, int importMode, out object? result, out string? failureReason)
         {
             if (collection == null) throw new ArgumentNullException(nameof(collection));
             if (importDirectory == null) throw new ArgumentNullException(nameof(importDirectory));
             if (string.IsNullOrWhiteSpace(baseName)) throw new ArgumentException("Base name cannot be empty.", nameof(baseName));
 
             result = null;
+            failureReason = null;
             foreach (var importMethod in collection.GetType()
                 .GetMethods(BindingFlags.Public | BindingFlags.Instance)
                 .Where(method => string.Equals(method.Name, "ImportFromDocuments", StringComparison.Ordinal))
@@ -932,12 +881,14 @@ namespace OpenTiaToolkit.Core.Services
                     result = importMethod.Invoke(collection, new[] { (object)importDirectory, baseName, importOptionValue });
                     return true;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    failureReason = FormatInvocationException(ex);
                     // Try the next compatible overload if invocation fails.
                 }
             }
 
+            failureReason ??= "No compatible ImportFromDocuments(DirectoryInfo, string, import option) overload succeeded.";
             return false;
         }
 
@@ -977,10 +928,12 @@ namespace OpenTiaToolkit.Core.Services
             return value is not bool consistent || consistent;
         }
 
-        private static bool TryInvoke(MethodInfo? method, object target, object[] arguments)
+        private static bool TryInvoke(MethodInfo? method, object target, object[] arguments, out string? failureReason)
         {
+            failureReason = null;
             if (method == null)
             {
+                failureReason = "Method overload was not found.";
                 return false;
             }
 
@@ -989,21 +942,18 @@ namespace OpenTiaToolkit.Core.Services
                 method.Invoke(target, arguments);
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                failureReason = FormatInvocationException(ex);
                 return false;
             }
         }
 
-        private static int GetIntProperty(object source, string propertyName)
+        private static string FormatInvocationException(Exception ex)
         {
-            var value = TiaReflectionHelper.GetProperty(source, propertyName);
-            if (value is int intValue)
-            {
-                return intValue;
-            }
-
-            return int.TryParse(value?.ToString(), out var parsedValue) ? parsedValue : 0;
+            return ex is TargetInvocationException { InnerException: { } innerException }
+                ? innerException.Message
+                : ex.Message;
         }
 
         private static IEnumerable<object> EnumerateCommentItems(object comment)
@@ -1120,6 +1070,28 @@ namespace OpenTiaToolkit.Core.Services
             catch
             {
                 return null;
+            }
+        }
+
+        private static bool TryFindKnownSiemensType(string typeName, out Type type)
+        {
+            switch (typeName)
+            {
+                case nameof(PlcSoftware):
+                    type = typeof(PlcSoftware);
+                    return true;
+                case nameof(ProgrammingLanguage):
+                    type = typeof(ProgrammingLanguage);
+                    return true;
+                case nameof(ExportOptions):
+                    type = typeof(ExportOptions);
+                    return true;
+                case nameof(SoftwareContainer):
+                    type = typeof(SoftwareContainer);
+                    return true;
+                default:
+                    type = null!;
+                    return false;
             }
         }
     }

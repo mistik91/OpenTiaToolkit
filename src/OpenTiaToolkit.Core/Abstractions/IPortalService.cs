@@ -27,6 +27,11 @@ public interface IPortalService : IDisposable
     Siemens.Engineering.ProjectBase? Project { get; }
 
     /// <summary>
+    /// Gets the most recent portal operation failure detail, if any.
+    /// </summary>
+    string? LastError { get; }
+
+    /// <summary>
     /// Gets the list of running TIA Portal instances.
     /// </summary>
     /// <returns>List of TIA Portal process IDs.</returns>

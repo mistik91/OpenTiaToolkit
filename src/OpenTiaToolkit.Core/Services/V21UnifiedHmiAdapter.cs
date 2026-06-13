@@ -597,9 +597,11 @@ namespace OpenTiaToolkit.Core.Services
                     return false;
                 }
 
-                TryCopyDirectProperty(templateScreen, targetScreen, "BackGraphic");
-                CopyPropertyGraph(templateScreen, targetScreen, ScreenCopyRootPropertyExclusions, findText, replaceText, 0, new HashSet<object>(ReferenceEqualityComparer.Instance));
-                CopyEventHandlers(templateScreen, targetScreen, findText, replaceText);
+                var warnings = new List<string>();
+
+                TryCopyDirectProperty(templateScreen, targetScreen, "BackGraphic", warnings);
+                CopyPropertyGraph(templateScreen, targetScreen, ScreenCopyRootPropertyExclusions, findText, replaceText, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), warnings);
+                CopyEventHandlers(templateScreen, targetScreen, findText, replaceText, warnings);
 
                 foreach (var templateItem in templateScreen.ScreenItems.Cast<HmiScreenItemBase>())
                 {
@@ -609,8 +611,8 @@ namespace OpenTiaToolkit.Core.Services
                         throw new InvalidOperationException($"Item type '{templateItem.GetType().Name}' is not supported for screen copy.");
                     }
 
-                    CopyPropertyGraph(templateItem, targetItem, ItemCopyRootPropertyExclusions, findText, replaceText, 0, new HashSet<object>(ReferenceEqualityComparer.Instance));
-                    CopyEventHandlers(templateItem, targetItem, findText, replaceText);
+                    CopyPropertyGraph(templateItem, targetItem, ItemCopyRootPropertyExclusions, findText, replaceText, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), warnings);
+                    CopyEventHandlers(templateItem, targetItem, findText, replaceText, warnings);
                 }
 
                 result = new HmiScreenCopyResult
@@ -623,6 +625,7 @@ namespace OpenTiaToolkit.Core.Services
                     CopiedItemEventHandlerCount = targetScreen.ScreenItems.Cast<HmiScreenItemBase>().Sum(CountEventHandlers),
                     Screen = ToScreenInfo(targetScreen, normalizedTargetPath, includeItems: true)
                 };
+                result.Warnings.AddRange(warnings);
 
                 return true;
             }
@@ -1700,16 +1703,10 @@ namespace OpenTiaToolkit.Core.Services
 
         private static object CreateEventHandlerObject(object composition, string eventType, Type eventTypeEnum)
         {
-            var createMethod = composition.GetType()
-                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(method =>
-                    string.Equals(method.Name, "Create", StringComparison.OrdinalIgnoreCase) &&
-                    method.GetParameters().Length == 1 &&
-                    method.GetParameters()[0].ParameterType == eventTypeEnum);
-            if (createMethod == null)
-            {
-                throw new InvalidOperationException("EventHandlers.Create(enum) is not available.");
-            }
+            var createMethod = ResolveSingleCreateMethod(
+                composition.GetType(),
+                "EventHandlers.Create(enum)",
+                eventTypeEnum);
 
             var enumValue = Enum.Parse(eventTypeEnum, eventType, ignoreCase: true);
             return createMethod.Invoke(composition, new[] { enumValue })
@@ -1903,17 +1900,11 @@ namespace OpenTiaToolkit.Core.Services
             string eventType,
             Type eventTypeEnum)
         {
-            var createMethod = composition.GetType()
-                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(method =>
-                    string.Equals(method.Name, "Create", StringComparison.OrdinalIgnoreCase) &&
-                    method.GetParameters().Length == 2 &&
-                    method.GetParameters()[0].ParameterType == typeof(string) &&
-                    method.GetParameters()[1].ParameterType == eventTypeEnum);
-            if (createMethod == null)
-            {
-                throw new InvalidOperationException("PropertyEventHandlers.Create(string, enum) is not available.");
-            }
+            var createMethod = ResolveSingleCreateMethod(
+                composition.GetType(),
+                "PropertyEventHandlers.Create(string, enum)",
+                typeof(string),
+                eventTypeEnum);
 
             var enumValue = Enum.Parse(eventTypeEnum, eventType, ignoreCase: true);
             return createMethod.Invoke(composition, new[] { propertyName, enumValue })
@@ -2628,22 +2619,61 @@ namespace OpenTiaToolkit.Core.Services
 
         private static object CreateDynamizationObject(object composition, HmiJsonDynamization dynamization)
         {
-            var createMethod = composition.GetType()
-                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(method =>
-                    string.Equals(method.Name, "Create", StringComparison.OrdinalIgnoreCase) &&
-                    method.IsGenericMethodDefinition &&
-                    method.GetParameters().Length == 1 &&
-                    method.GetParameters()[0].ParameterType == typeof(string));
-            if (createMethod == null)
-            {
-                throw new InvalidOperationException("Dynamizations.Create<T>(string) is not available.");
-            }
+            var createMethod = ResolveSingleCreateMethod(
+                composition.GetType(),
+                "Dynamizations.Create<T>(string)",
+                new[] { typeof(string) },
+                requireGenericMethodDefinition: true);
 
             var dynamizationType = ResolveDynamizationClrType(dynamization.Type)
                 ?? throw new InvalidOperationException($"Unsupported dynamization type '{dynamization.Type}'.");
             return createMethod.MakeGenericMethod(dynamizationType).Invoke(composition, new object[] { dynamization.Property })
                 ?? throw new InvalidOperationException($"Failed to create dynamization '{dynamization.Property}'.");
+        }
+
+        private static MethodInfo ResolveSingleCreateMethod(
+            Type compositionType,
+            string displayName,
+            params Type[] parameterTypes)
+        {
+            return ResolveSingleCreateMethod(
+                compositionType,
+                displayName,
+                parameterTypes,
+                requireGenericMethodDefinition: false);
+        }
+
+        private static MethodInfo ResolveSingleCreateMethod(
+            Type compositionType,
+            string displayName,
+            Type[] parameterTypes,
+            bool requireGenericMethodDefinition)
+        {
+            var matches = compositionType
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(method =>
+                    string.Equals(method.Name, "Create", StringComparison.Ordinal) &&
+                    method.IsGenericMethodDefinition == requireGenericMethodDefinition)
+                .Where(method =>
+                {
+                    var parameters = method.GetParameters();
+                    return parameters.Length == parameterTypes.Length &&
+                        parameters.Select(parameter => parameter.ParameterType).SequenceEqual(parameterTypes);
+                })
+                .OrderBy(method => method.MetadataToken)
+                .ToList();
+
+            if (matches.Count == 0)
+            {
+                throw new InvalidOperationException($"{displayName} is not available on {compositionType.FullName}.");
+            }
+
+            if (matches.Count > 1)
+            {
+                throw new InvalidOperationException($"{displayName} is ambiguous on {compositionType.FullName}; {matches.Count} matching overloads were found.");
+            }
+
+            return matches[0];
         }
 
         private static void ApplyDynamizationExport(object targetDynamization, HmiJsonDynamization desired)
@@ -3271,9 +3301,13 @@ namespace OpenTiaToolkit.Core.Services
                         Source = "Attribute"
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore individual attribute read failures.
+                    _logger?.LogDebug(
+                        ex,
+                        "Failed to read Unified HMI attribute {AttributeName} on {TargetType}",
+                        info.Name,
+                        target.GetType().FullName);
                 }
             }
 
@@ -3674,7 +3708,7 @@ namespace OpenTiaToolkit.Core.Services
                 .ToDictionary(type => NormalizeToken(type.Name), type => type, StringComparer.OrdinalIgnoreCase);
         }
 
-        private static void TryCopyDirectProperty(object source, object target, string propertyName)
+        private static void TryCopyDirectProperty(object source, object target, string propertyName, List<string>? warnings = null)
         {
             var sourceProperty = ResolvePublicInstanceProperty(source.GetType(), propertyName);
             var targetProperty = ResolvePublicInstanceProperty(target.GetType(), propertyName);
@@ -3691,13 +3725,13 @@ namespace OpenTiaToolkit.Core.Services
                     targetProperty.SetValue(target, value);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore best-effort direct copy failures.
+                warnings?.Add($"Failed to copy direct property '{propertyName}' from {source.GetType().Name} to {target.GetType().Name}: {FormatExceptionMessage(ex)}");
             }
         }
 
-        private static void CopyWritableAttributes(object source, object target, string? findText, string? replaceText)
+        private static void CopyWritableAttributes(object source, object target, string? findText, string? replaceText, List<string>? warnings)
         {
             foreach (var attribute in GetAttributeInfos(source))
             {
@@ -3713,8 +3747,9 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     value = GetAttributeValue(source, attribute.Name);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    warnings?.Add($"Failed to read attribute '{attribute.Name}' from {source.GetType().Name}: {FormatExceptionMessage(ex)}");
                     continue;
                 }
 
@@ -3733,9 +3768,9 @@ namespace OpenTiaToolkit.Core.Services
 
                     SetAttributeValue(target, attribute.Name, copiedValue);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore individual attribute copy failures.
+                    warnings?.Add($"Failed to copy attribute '{attribute.Name}' from {source.GetType().Name} to {target.GetType().Name}: {FormatExceptionMessage(ex)}");
                 }
             }
         }
@@ -3747,14 +3782,15 @@ namespace OpenTiaToolkit.Core.Services
             string? findText,
             string? replaceText,
             int depth,
-            HashSet<object> visited)
+            HashSet<object> visited,
+            List<string>? warnings = null)
         {
             if (depth > 4 || !visited.Add(source))
             {
                 return;
             }
 
-            CopyWritableAttributes(source, target, findText, replaceText);
+            CopyWritableAttributes(source, target, findText, replaceText, warnings);
 
             foreach (var property in source.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
@@ -3790,7 +3826,8 @@ namespace OpenTiaToolkit.Core.Services
                         findText,
                         replaceText,
                         depth + 1,
-                        visited);
+                        visited,
+                        warnings);
                     continue;
                 }
 
@@ -3804,9 +3841,9 @@ namespace OpenTiaToolkit.Core.Services
                             CopyMultilingualText(sourceText, targetText, findText, replaceText);
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Ignore best-effort multilingual copy failures.
+                        warnings?.Add($"Failed to copy multilingual property '{property.Name}' from {source.GetType().Name} to {target.GetType().Name}: {FormatExceptionMessage(ex)}");
                     }
 
                     continue;
@@ -3837,7 +3874,7 @@ namespace OpenTiaToolkit.Core.Services
                     continue;
                 }
 
-                CopyPropertyGraph(sourceValue, targetValue, rootExclusions, findText, replaceText, depth + 1, visited);
+                    CopyPropertyGraph(sourceValue, targetValue, rootExclusions, findText, replaceText, depth + 1, visited, warnings);
             }
         }
 
@@ -3938,7 +3975,8 @@ namespace OpenTiaToolkit.Core.Services
             string? findText,
             string? replaceText,
             int depth,
-            HashSet<object> visited)
+            HashSet<object> visited,
+            List<string>? warnings = null)
         {
             if (depth > 4 ||
                 sourceComposition is not IEnumerable sourceEnumerable ||
@@ -3953,7 +3991,7 @@ namespace OpenTiaToolkit.Core.Services
                 return;
             }
 
-            EnsureCompositionItems(targetComposition, sourceItems.Count, sourceItems);
+            EnsureCompositionItems(targetComposition, sourceItems.Count, sourceItems, warnings);
             var targetItems = ((IEnumerable)targetComposition).Cast<object>().ToList();
             if (targetItems.Count == 0)
             {
@@ -3970,12 +4008,12 @@ namespace OpenTiaToolkit.Core.Services
                 }
 
                 assignedTargets.Add(targetItem);
-                CopyPropertyGraph(sourceItem, targetItem, EmptyRootPropertyExclusions, findText, replaceText, depth, visited);
-                CopyEventHandlers(sourceItem, targetItem, findText, replaceText);
+                CopyPropertyGraph(sourceItem, targetItem, EmptyRootPropertyExclusions, findText, replaceText, depth, visited, warnings);
+                CopyEventHandlers(sourceItem, targetItem, findText, replaceText, warnings);
             }
         }
 
-        private static void EnsureCompositionItems(object targetComposition, int requiredCount, IReadOnlyList<object> sourceItems)
+        private static void EnsureCompositionItems(object targetComposition, int requiredCount, IReadOnlyList<object> sourceItems, List<string>? warnings)
         {
             var targetItems = ((IEnumerable)targetComposition).Cast<object>().ToList();
             if (targetItems.Count >= requiredCount)
@@ -3993,14 +4031,14 @@ namespace OpenTiaToolkit.Core.Services
 
             for (var index = targetItems.Count; index < requiredCount; index++)
             {
-                if (!TryCreateCompositionItem(targetComposition, sourceItems[index], createMethods))
+                if (!TryCreateCompositionItem(targetComposition, sourceItems[index], createMethods, warnings))
                 {
                     return;
                 }
             }
         }
 
-        private static bool TryCreateCompositionItem(object targetComposition, object sourceItem, IReadOnlyList<MethodInfo> createMethods)
+        private static bool TryCreateCompositionItem(object targetComposition, object sourceItem, IReadOnlyList<MethodInfo> createMethods, List<string>? warnings)
         {
             var sourceName = TryReadPropertyValue(sourceItem, "Name") as string;
 
@@ -4024,9 +4062,9 @@ namespace OpenTiaToolkit.Core.Services
                         return true;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore best-effort composition creation failures.
+                    warnings?.Add($"Failed to create composition item on {targetComposition.GetType().Name}: {FormatExceptionMessage(ex)}");
                 }
             }
 
@@ -4078,7 +4116,7 @@ namespace OpenTiaToolkit.Core.Services
                 : 0;
         }
 
-        private static void CopyEventHandlers(object sourceOwner, object targetOwner, string? findText, string? replaceText)
+        private static void CopyEventHandlers(object sourceOwner, object targetOwner, string? findText, string? replaceText, List<string>? warnings = null)
         {
             var sourceHandlers = TryReadPropertyValue(sourceOwner, "EventHandlers");
             var targetHandlers = TryReadPropertyValue(targetOwner, "EventHandlers");
@@ -4109,8 +4147,9 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     targetHandler = createMethod.Invoke(targetHandlers, new[] { eventType });
                 }
-                catch
+                catch (Exception ex)
                 {
+                    warnings?.Add($"Failed to create event handler on {targetOwner.GetType().Name}: {FormatExceptionMessage(ex)}");
                     continue;
                 }
 
@@ -4118,23 +4157,24 @@ namespace OpenTiaToolkit.Core.Services
                     TryReadPropertyValue(sourceHandler, "Script"),
                     TryReadPropertyValue(targetHandler, "Script"),
                     findText,
-                    replaceText);
+                    replaceText,
+                    warnings);
             }
         }
 
-        private static void CopyScript(object? sourceScript, object? targetScript, string? findText, string? replaceText)
+        private static void CopyScript(object? sourceScript, object? targetScript, string? findText, string? replaceText, List<string>? warnings = null)
         {
             if (sourceScript == null || targetScript == null)
             {
                 return;
             }
 
-            TryCopyScriptProperty(sourceScript, targetScript, "Async", null, null);
-            TryCopyScriptProperty(sourceScript, targetScript, "GlobalDefinitionAreaScriptCode", findText, replaceText);
-            TryCopyScriptProperty(sourceScript, targetScript, "ScriptCode", findText, replaceText);
+            TryCopyScriptProperty(sourceScript, targetScript, "Async", null, null, warnings);
+            TryCopyScriptProperty(sourceScript, targetScript, "GlobalDefinitionAreaScriptCode", findText, replaceText, warnings);
+            TryCopyScriptProperty(sourceScript, targetScript, "ScriptCode", findText, replaceText, warnings);
         }
 
-        private static void TryCopyScriptProperty(object source, object target, string propertyName, string? findText, string? replaceText)
+        private static void TryCopyScriptProperty(object source, object target, string propertyName, string? findText, string? replaceText, List<string>? warnings = null)
         {
             var sourceProperty = ResolvePublicInstanceProperty(source.GetType(), propertyName);
             var targetProperty = ResolvePublicInstanceProperty(target.GetType(), propertyName);
@@ -4157,9 +4197,9 @@ namespace OpenTiaToolkit.Core.Services
                     targetProperty.SetValue(target, value);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore best-effort script copy failures.
+                warnings?.Add($"Failed to copy script property '{propertyName}' from {source.GetType().Name} to {target.GetType().Name}: {FormatExceptionMessage(ex)}");
             }
         }
 

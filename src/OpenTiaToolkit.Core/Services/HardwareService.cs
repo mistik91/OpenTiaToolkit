@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
+using Siemens.Engineering.HW.Features;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -881,19 +882,22 @@ namespace OpenTiaToolkit.Core.Services
             return Success(index, op, target.Reference, "Deleted hardware item.");
         }
 
-        private object FindIoSystem(string name)
+        private IoSystem FindIoSystem(string name)
         {
             foreach (var network in GetNetworksAsync().GetAwaiter().GetResult())
             {
                 var target = Resolve(network.Target);
-                var feature = _adapter.GetFeatureService(target, "NetworkInterface");
-                if (feature == null) continue;
-                foreach (var controller in TiaReflectionHelper.GetEnumerableProperty(feature, "IoControllers") ?? Enumerable.Empty<object>())
+                if (_adapter.GetFeatureService(target, "NetworkInterface") is not NetworkInterface feature)
                 {
-                    var ioSystem = TiaReflectionHelper.GetProperty(controller, "IoSystem");
-                    if (string.Equals(TiaReflectionHelper.GetProperty(ioSystem, "Name")?.ToString(), name, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                }
+
+                foreach (var controller in feature.IoControllers)
+                {
+                    var ioSystem = controller.IoSystem;
+                    if (ioSystem != null && string.Equals(ioSystem.Name, name, StringComparison.OrdinalIgnoreCase))
                     {
-                        return ioSystem!;
+                        return ioSystem;
                     }
                 }
             }

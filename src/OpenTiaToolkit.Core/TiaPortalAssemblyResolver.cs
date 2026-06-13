@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using Microsoft.Win32;
@@ -14,6 +15,7 @@ namespace OpenTiaToolkit.Core
     {
         private static string? _opennessFolder;
         private static bool _isRegistered = false;
+        private static readonly object SyncRoot = new object();
 
         /// <summary>
         /// Registers the TIA Portal assembly resolver with the current AppDomain.
@@ -21,11 +23,14 @@ namespace OpenTiaToolkit.Core
         /// </summary>
         public static void Register()
         {
-            if (_isRegistered)
-                return;
+            lock (SyncRoot)
+            {
+                if (_isRegistered)
+                    return;
 
-            AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
-            _isRegistered = true;
+                AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
+                _isRegistered = true;
+            }
         }
 
         /// <summary>
@@ -45,18 +50,23 @@ namespace OpenTiaToolkit.Core
                     return null;
 
                 // Debug output
-                System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Resolving: {args.Name}");
+                Trace.TraceInformation($"[TiaPortalAssemblyResolver] Resolving: {args.Name}");
 
                 // Get TIA Portal root directory (first time only)
                 if (_opennessFolder == null)
                 {
-                    _opennessFolder = GetTiaPortalRoot();
+                    lock (SyncRoot)
+                    {
+                        _opennessFolder ??= GetTiaPortalRoot();
+                    }
+
                     if (_opennessFolder == null)
                     {
-                        System.Diagnostics.Debug.WriteLine("[TiaPortalAssemblyResolver] GetTiaPortalRoot returned null!");
+                        Trace.TraceWarning("[TiaPortalAssemblyResolver] Siemens Openness root could not be located.");
                         return null;
                     }
-                    System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] TIA Portal Root: {_opennessFolder}");
+
+                    Trace.TraceInformation($"[TiaPortalAssemblyResolver] TIA Portal Root: {_opennessFolder}");
                 }
 
                 // Try multiple locations where assemblies might be
@@ -78,11 +88,11 @@ namespace OpenTiaToolkit.Core
                 foreach (string searchPath in searchPaths)
                 {
                     string filePath = Path.Combine(searchPath, requestedAssemblyName.Name + ".dll");
-                    System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Trying: {filePath}");
+                    Trace.TraceInformation($"[TiaPortalAssemblyResolver] Trying: {filePath}");
 
                     if (File.Exists(filePath))
                     {
-                        System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] File exists, loading...");
+                        Trace.TraceInformation("[TiaPortalAssemblyResolver] File exists, loading.");
                         Assembly loadedAssembly = Assembly.LoadFrom(filePath);
 
                         // Check if version matches (important!)
@@ -92,22 +102,22 @@ namespace OpenTiaToolkit.Core
                         if (requestedVersion != null && loadedVersion != null && requestedVersion != loadedVersion)
                         {
                             // Version mismatch - try next location
-                            System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Version mismatch: requested {requestedVersion}, loaded {loadedVersion}");
+                            Trace.TraceWarning($"[TiaPortalAssemblyResolver] Version mismatch while resolving {requestedAssemblyName.Name}: requested {requestedVersion}, loaded {loadedVersion}.");
                             continue;
                         }
 
-                        System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] SUCCESS: Loaded {loadedAssembly.FullName}");
+                        Trace.TraceInformation($"[TiaPortalAssemblyResolver] Loaded {loadedAssembly.FullName}.");
                         return loadedAssembly;
                     }
                 }
 
                 // Not found in any location
-                System.Diagnostics.Debug.WriteLine("[TiaPortalAssemblyResolver] Assembly not found in any location!");
+                Trace.TraceWarning($"[TiaPortalAssemblyResolver] Assembly '{requestedAssemblyName.Name}' was not found in any Siemens Openness search path.");
                 return null;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Exception: {ex.Message}");
+                Trace.TraceWarning($"[TiaPortalAssemblyResolver] Failed to resolve Siemens Openness assembly '{args.Name}': {ex.Message}");
                 // If resolution fails, return null to let .NET continue searching
                 return null;
             }
@@ -125,7 +135,7 @@ namespace OpenTiaToolkit.Core
             string v21Direct = @"C:\Program Files\Siemens\Automation\Portal V21";
             if (Directory.Exists(v21Direct))
             {
-                System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Found V21 at: {v21Direct}");
+                Trace.TraceInformation($"[TiaPortalAssemblyResolver] Found V21 at: {v21Direct}");
                 return v21Direct;
             }
 
@@ -133,7 +143,7 @@ namespace OpenTiaToolkit.Core
             string? path = TryGetTiaPortalRoot("V21");
             if (path != null)
             {
-                System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Found V21 in registry: {path}");
+                Trace.TraceInformation($"[TiaPortalAssemblyResolver] Found V21 in registry: {path}");
                 return path;
             }
 
@@ -143,7 +153,7 @@ namespace OpenTiaToolkit.Core
                 path = TryGetTiaPortalRoot($"V{v}");
                 if (path != null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Found V{v} in registry: {path}");
+                    Trace.TraceInformation($"[TiaPortalAssemblyResolver] Found V{v} in registry: {path}");
                     return path;
                 }
             }
@@ -161,12 +171,12 @@ namespace OpenTiaToolkit.Core
             {
                 if (Directory.Exists(testPath))
                 {
-                    System.Diagnostics.Debug.WriteLine($"[TiaPortalAssemblyResolver] Found via common path: {testPath}");
+                    Trace.TraceInformation($"[TiaPortalAssemblyResolver] Found via common path: {testPath}");
                     return testPath;
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine("[TiaPortalAssemblyResolver] No TIA Portal installation found!");
+            Trace.TraceWarning("[TiaPortalAssemblyResolver] No TIA Portal installation found.");
             return null;
         }
 
