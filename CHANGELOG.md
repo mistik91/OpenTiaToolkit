@@ -11,11 +11,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Prepared the repository for beta distribution and future open-source publication.
 - Added TIA Portal V21 VCI workspace management, S7DCL block mapping, surgical synchronization, filtered bulk synchronization, and whole-PLC traversal through the shared CLI/MCP surface.
 - Added compact bulk VCI results by default with `include-skipped=true` available for full audit output.
+- Added generic hardware automation for catalog lookup, module/submodule placement checks, PROFINET network and process-image inspection, Startdrive telegram review, guarded hardware patch dry-runs/applies, GSD parameter reads, and PLC tag-to-hardware mapping audits.
+- Added artifact-spill handling for large CLI/MCP responses, including compact manifests and domain-specific CSV or JSON output paths for PLC, HMI, hardware, and VCI review commands.
 - Fixed attachment to a running TIA instance with one already-open project so downstream PLC and VCI operations share the selected project context.
 - Added `list-hmi-tags --root-path` for fast enumeration of a known Unified HMI tag subtree.
 - Raised supplied OpenCode MCP timeout defaults to 600 seconds for long-running TIA Portal reads.
 - Added confirmed `remove-hmi-logging-tag` and `delete-hmi-data-log` tools, with reference checks that prevent deletion of an in-use Unified HMI data log.
 - Added batch Unified HMI trend lifecycle tools for previewable creation, logging-tag removal, and safe unreferenced data-log deletion.
+- Made CI fail loudly when Siemens PublicAPI references are missing instead of reporting a green build with restore, build, and tests skipped.
+- Centralized repository build metadata, pinned the C# language version, added an `.editorconfig` and CI format check, removed unused build packages, and added a cleanup script for generated artifacts and test deployment folders.
 
 ## [0.1.0] - 2026-05-07
 

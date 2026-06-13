@@ -23,8 +23,6 @@ Major packages include:
 - `ModelContextProtocol`
 - `MSTest`
 - `Moq`
-- `Siemens.Collaboration.Net.OperatingSystem.Windows`
-- `Spectre.Console`
 - `System.Text.Json`
 
 Each package is distributed under its own license. Review package metadata on NuGet before redistributing binary builds.

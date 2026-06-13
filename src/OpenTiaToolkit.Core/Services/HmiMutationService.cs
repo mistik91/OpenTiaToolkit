@@ -104,7 +104,7 @@ namespace OpenTiaToolkit.Core.Services
                     return false;
                 }
 
-                if (!_adapter.TryGetScreen(software, screenPath, out var screen, out _ ) || screen == null)
+                if (!_adapter.TryGetScreen(software, screenPath, out var screen, out _) || screen == null)
                 {
                     _logger?.LogWarning("Unified HMI screen not found: {ScreenPath}", screenPath);
                     return false;

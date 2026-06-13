@@ -47,7 +47,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 var assembly = portal.GetType().Assembly;
                 var assemblyName = assembly.GetName().Name;
-                if (assemblyName != null && assemblyName.Contains("Siemens.Engineering", StringComparison.Ordinal))
+                if (assemblyName != null && assemblyName.IndexOf("Siemens.Engineering", StringComparison.Ordinal) >= 0)
                 {
                     var fileVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location);
                     var majorVersion = fileVersion.FileMajorPart;

@@ -3,7 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net48</TargetFramework>
-    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <AssemblyName>OpenTiaToolkit.CLI</AssemblyName>
     <RootNamespace>OpenTiaToolkit.CLI</RootNamespace>
@@ -26,13 +25,6 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Delete Siemens Engineering DLLs from output directory after build to comply with Openness API requirements -->
-  <Target Name="RemoveSiemensDllsFromOutput" AfterTargets="CopyFilesToOutputDirectory">
-    <Delete Files="$(OutputPath)Siemens.Engineering.Base.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Base.dll')" />
-    <Delete Files="$(OutputPath)Siemens.Engineering.Step7.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.Step7.dll')" />
-    <Delete Files="$(OutputPath)Siemens.Engineering.WinCCUnified.dll" Condition="Exists('$(OutputPath)Siemens.Engineering.WinCCUnified.dll')" />
-  </Target>
-
   <ItemGroup>
     <ProjectReference Include="..\OpenTiaToolkit.Core\OpenTiaToolkit.Core.csproj" />
   </ItemGroup>
@@ -40,11 +32,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-    <PackageReference Include="Siemens.Collaboration.Net.OperatingSystem.Windows" Version="3.0.1725521661">
-      <Private>False</Private>
-    </PackageReference>
-    <!-- Note: Using custom TiaPortalAssemblyResolver instead of official resolver package -->
-    <PackageReference Include="Spectre.Console" Version="0.49.1" />
   </ItemGroup>
 
 </Project>

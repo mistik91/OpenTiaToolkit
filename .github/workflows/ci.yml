@@ -46,19 +46,20 @@ jobs:
           if ($available) {
             Write-Host "TIA Portal PublicAPI found at $path"
           } else {
-            Write-Host "TIA Portal PublicAPI was not found. Build and tests that require Siemens Openness references will be skipped on this runner."
+            Write-Error "TIA Portal PublicAPI was not found at '$path'. Install TIA Portal PublicAPI on the runner or dispatch the workflow with tiaPortalPublicApiPath. Build and tests must not be skipped silently."
+            exit 1
           }
 
       - name: Restore
-        if: steps.tia.outputs.available == 'true'
         run: dotnet restore OpenTiaToolkit.sln
 
       - name: Build
-        if: steps.tia.outputs.available == 'true'
         run: dotnet build OpenTiaToolkit.sln --no-restore /p:TiaPortalPublicApiPath="${{ steps.tia.outputs.path }}"
 
+      - name: Format check
+        run: dotnet format OpenTiaToolkit.sln --no-restore --verify-no-changes --verbosity minimal
+
       - name: Fast tests
-        if: steps.tia.outputs.available == 'true'
         run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --no-build --filter "TestCategory!=Integration"
 
       - name: Config and docs sanity
@@ -88,4 +89,3 @@ jobs:
               throw "Required publication file is missing: $path"
             }
           }
-

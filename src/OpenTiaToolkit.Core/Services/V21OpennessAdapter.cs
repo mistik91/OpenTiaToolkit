@@ -297,18 +297,21 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             var typeIdentifier = GetTypeIdentifier(deviceItem);
-            if (!string.IsNullOrWhiteSpace(typeIdentifier) &&
-                (typeIdentifier.Contains("Comfort", StringComparison.OrdinalIgnoreCase) ||
-                 typeIdentifier.Contains("Unified", StringComparison.OrdinalIgnoreCase) ||
-                 typeIdentifier.Contains("Basic", StringComparison.OrdinalIgnoreCase) ||
-                 typeIdentifier.Contains("Mobile Panel", StringComparison.OrdinalIgnoreCase) ||
-                 typeIdentifier.Contains(" TP", StringComparison.OrdinalIgnoreCase) ||
-                 typeIdentifier.Contains(" MP", StringComparison.OrdinalIgnoreCase) ||
-                 typeIdentifier.Contains("WinCC", StringComparison.OrdinalIgnoreCase)))
+            if (!string.IsNullOrWhiteSpace(typeIdentifier))
             {
-                typeInfo = "Device type: " + typeIdentifier;
-                isConfirmedHmi = false;
-                return true;
+                var nonNullTypeIdentifier = typeIdentifier!;
+                if (nonNullTypeIdentifier.IndexOf("Comfort", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    nonNullTypeIdentifier.IndexOf("Unified", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    nonNullTypeIdentifier.IndexOf("Basic", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    nonNullTypeIdentifier.IndexOf("Mobile Panel", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    nonNullTypeIdentifier.IndexOf(" TP", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    nonNullTypeIdentifier.IndexOf(" MP", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    nonNullTypeIdentifier.IndexOf("WinCC", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    typeInfo = "Device type: " + nonNullTypeIdentifier;
+                    isConfirmedHmi = false;
+                    return true;
+                }
             }
 
             var itemName = TiaReflectionHelper.GetName(deviceItem);

@@ -208,7 +208,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             var screenPath = screenDocument.Path;
             var screenAction = NormalizeAction(screenDocument.Action, defaultAction: "Update");
-            var screenExists = _adapter.TryGetScreen(software, screenPath, out var existingScreen, out _ ) && existingScreen != null;
+            var screenExists = _adapter.TryGetScreen(software, screenPath, out var existingScreen, out _) && existingScreen != null;
             var screen = existingScreen;
 
             if (string.Equals(screenAction, "Delete", StringComparison.OrdinalIgnoreCase))

@@ -86,7 +86,6 @@ namespace OpenTiaToolkit.Core.Commands
 
         /// <summary>
         /// Converts the result to a formatted table string for CLI output.
-        /// Uses Spectre.Console for table formatting when Data is a collection.
         /// </summary>
         /// <returns>A formatted string representation.</returns>
         public string ToTable()
@@ -101,7 +100,7 @@ namespace OpenTiaToolkit.Core.Commands
                 return Message;
             }
 
-            // Simple formatting for now - will be enhanced with Spectre.Console later
+            // Simple formatting for now; richer rendering belongs in the CLI layer.
             // For complex objects, serialize to JSON with indentation
             if (Data is string str)
             {

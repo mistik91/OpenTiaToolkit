@@ -3874,7 +3874,7 @@ namespace OpenTiaToolkit.Core.Services
                     continue;
                 }
 
-                    CopyPropertyGraph(sourceValue, targetValue, rootExclusions, findText, replaceText, depth + 1, visited, warnings);
+                CopyPropertyGraph(sourceValue, targetValue, rootExclusions, findText, replaceText, depth + 1, visited, warnings);
             }
         }
 
