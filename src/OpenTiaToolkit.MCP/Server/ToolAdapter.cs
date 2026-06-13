@@ -7,6 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -210,7 +211,18 @@ namespace OpenTiaToolkit.MCP.Server
     /// </summary>
     public sealed class ToolExecutionResult
     {
-        public ToolExecutionResult(bool isError, object structuredContent, string text)
+        private static readonly JsonSerializerOptions TextSerializerOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        private static readonly JsonSerializerOptions NodeSerializerOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        public ToolExecutionResult(bool isError, JsonNode structuredContent, string text)
         {
             IsError = isError;
             StructuredContent = structuredContent;
@@ -219,7 +231,7 @@ namespace OpenTiaToolkit.MCP.Server
 
         public bool IsError { get; }
 
-        public object StructuredContent { get; }
+        public JsonNode StructuredContent { get; }
 
         public string Text { get; }
 
@@ -262,26 +274,20 @@ namespace OpenTiaToolkit.MCP.Server
                 text: text);
         }
 
-        private static object CreateStructuredContent(CommandResult result, string message, object? data)
+        private static JsonNode CreateStructuredContent(CommandResult result, string message, object? data)
         {
-            return new
+            return JsonSerializer.SerializeToNode(new
             {
                 success = result.Success,
                 message,
                 error = result.Error,
                 data
-            };
+            }, NodeSerializerOptions) ?? new JsonObject();
         }
 
-        private static string SerializeStructuredContent(object structuredContent)
+        private static string SerializeStructuredContent(JsonNode structuredContent)
         {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-
-            return JsonSerializer.Serialize(structuredContent, options);
+            return structuredContent.ToJsonString(TextSerializerOptions);
         }
 
         private static bool ShouldSpillToJsonArtifact(CommandResult result, object? data, string text)

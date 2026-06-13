@@ -297,6 +297,40 @@ namespace OpenTiaToolkit.Tests.Server
             commandMock.Verify(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()), Times.Never);
         }
 
+        [TestMethod]
+        public async Task ToolRegistry_CallToolAsync_ReturnsTimeoutAndKeepsGateBusyUntilOperationFinishes()
+        {
+            var release = new TaskCompletionSource<bool>();
+            var commandMock = CreateCommandMock("slow-tool", new CommandSchema("Slow operation"));
+            commandMock
+                .Setup(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()))
+                .Returns(async () =>
+                {
+                    await release.Task;
+                    return CommandResult.CreateSuccess(message: "Complete");
+                });
+
+            var registry = new ToolRegistry(
+                new[] { commandMock.Object },
+                Mock.Of<ILogger<ToolRegistry>>(),
+                new McpRuntimeOptions { ToolTimeout = TimeSpan.FromMilliseconds(20) });
+
+            var timedOut = await registry.CallToolAsync("slow-tool", CreateArguments(new { }));
+
+            Assert.IsTrue(timedOut.IsError.GetValueOrDefault());
+            Assert.IsTrue(timedOut.StructuredContent?["data"]?["timedOut"]?.GetValue<bool>() ?? false);
+
+            var busy = await registry.CallToolAsync("slow-tool", CreateArguments(new { }));
+            Assert.IsTrue(busy.IsError.GetValueOrDefault());
+            Assert.IsTrue(busy.StructuredContent?["data"]?["busy"]?.GetValue<bool>() ?? false);
+
+            release.SetResult(true);
+            await Task.Delay(100);
+
+            var completedAfterRelease = await registry.CallToolAsync("slow-tool", CreateArguments(new { }));
+            Assert.IsFalse(completedAfterRelease.IsError.GetValueOrDefault());
+        }
+
         private static Mock<ICommand> CreateCommandMock(string name, CommandSchema schema)
         {
             var commandMock = new Mock<ICommand>();

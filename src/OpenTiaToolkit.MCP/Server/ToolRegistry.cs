@@ -18,13 +18,9 @@ namespace OpenTiaToolkit.MCP.Server
     /// </summary>
     public class ToolRegistry
     {
-        private static readonly JsonSerializerOptions StructuredContentSerializerOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
         private readonly Dictionary<string, ToolAdapter> _tools;
         private readonly ILogger<ToolRegistry> _logger;
+        private readonly McpRuntimeOptions _options;
         private readonly SemaphoreSlim _executionGate = new SemaphoreSlim(1, 1);
         private readonly object _operationLock = new object();
         private ActiveToolOperation? _activeOperation;
@@ -34,9 +30,10 @@ namespace OpenTiaToolkit.MCP.Server
         /// </summary>
         /// <param name="commands">The commands to register as tools.</param>
         /// <param name="logger">Logger instance.</param>
-        public ToolRegistry(IEnumerable<ICommand> commands, ILogger<ToolRegistry> logger)
+        public ToolRegistry(IEnumerable<ICommand> commands, ILogger<ToolRegistry> logger, McpRuntimeOptions? options = null)
         {
             _logger = logger;
+            _options = options ?? new McpRuntimeOptions();
             _tools = new Dictionary<string, ToolAdapter>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var command in commands)
@@ -135,23 +132,56 @@ namespace OpenTiaToolkit.MCP.Server
 
             try
             {
-                // Do not release the session gate when a caller disconnects or times out:
-                // Openness calls are not safely cancellable and must finish before another call starts.
-                var result = await tool.ExecuteAsync(arguments, cancellationToken);
+                // Do not cancel Openness calls through caller cancellation:
+                // they must finish before another tool can safely use the same session.
+                var executionTask = tool.ExecuteAsync(arguments, CancellationToken.None);
+                if (_options.ToolTimeout.HasValue)
+                {
+                    var delayTask = Task.Delay(_options.ToolTimeout.Value);
+                    var completedTask = await Task.WhenAny(executionTask, delayTask);
+                    if (completedTask != executionTask)
+                    {
+                        MarkTimedOut(operation);
+                        _ = executionTask.ContinueWith(
+                            completed =>
+                            {
+                                if (completed.IsFaulted)
+                                {
+                                    _logger.LogError(
+                                        completed.Exception,
+                                        "Timed-out MCP tool operation {OperationId}: {ToolName} later failed.",
+                                        operation.OperationId,
+                                        operation.ToolName);
+                                }
+
+                                ReleaseOperation(operation);
+                            },
+                            TaskScheduler.Default);
+
+                        var timeoutResult = CommandResult.CreateFailure(
+                            $"MCP tool '{operation.ToolName}' exceeded the configured timeout of {_options.ToolTimeout.Value.TotalSeconds:0.###} seconds. The underlying TIA Portal operation is still running; later calls remain busy until it finishes.",
+                            new
+                            {
+                                timedOut = true,
+                                activeOperationId = operation.OperationId,
+                                activeToolName = operation.ToolName,
+                                activeStartedAtUtc = operation.StartedAtUtc,
+                                timedOutAtUtc = operation.TimedOutAtUtc,
+                                timeoutSeconds = _options.ToolTimeout.Value.TotalSeconds
+                            });
+                        return CreateCallToolResult(ToolExecutionResult.FromCommandResult(timeoutResult));
+                    }
+                }
+
+                var result = await executionTask;
                 return CreateCallToolResult(result);
             }
             finally
             {
-                lock (_operationLock)
+                if (!operation.TimedOut)
                 {
-                    _activeOperation = null;
+                    ReleaseOperation(operation);
                 }
-
-                _logger.LogInformation(
-                    "Finished MCP tool operation {OperationId}: {ToolName}",
-                    operation.OperationId,
-                    operation.ToolName);
-                _executionGate.Release();
             }
         }
 
@@ -160,7 +190,7 @@ namespace OpenTiaToolkit.MCP.Server
             return new CallToolResult
             {
                 IsError = result.IsError,
-                StructuredContent = JsonSerializer.SerializeToNode(result.StructuredContent, StructuredContentSerializerOptions),
+                StructuredContent = result.StructuredContent,
                 Content = new List<ContentBlock>
                 {
                     new TextContentBlock
@@ -171,6 +201,37 @@ namespace OpenTiaToolkit.MCP.Server
             };
         }
 
+        private void MarkTimedOut(ActiveToolOperation operation)
+        {
+            lock (_operationLock)
+            {
+                operation.TimedOut = true;
+                operation.TimedOutAtUtc = DateTime.UtcNow.ToString("o");
+            }
+
+            _logger.LogWarning(
+                "MCP tool operation {OperationId}: {ToolName} exceeded the configured timeout.",
+                operation.OperationId,
+                operation.ToolName);
+        }
+
+        private void ReleaseOperation(ActiveToolOperation operation)
+        {
+            lock (_operationLock)
+            {
+                if (ReferenceEquals(_activeOperation, operation))
+                {
+                    _activeOperation = null;
+                }
+            }
+
+            _logger.LogInformation(
+                "Finished MCP tool operation {OperationId}: {ToolName}",
+                operation.OperationId,
+                operation.ToolName);
+            _executionGate.Release();
+        }
+
         private sealed class ActiveToolOperation
         {
             public string OperationId { get; set; } = string.Empty;
@@ -178,6 +239,10 @@ namespace OpenTiaToolkit.MCP.Server
             public string ToolName { get; set; } = string.Empty;
 
             public string StartedAtUtc { get; set; } = string.Empty;
+
+            public bool TimedOut { get; set; }
+
+            public string? TimedOutAtUtc { get; set; }
         }
     }
 }

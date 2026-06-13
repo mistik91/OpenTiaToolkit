@@ -14,6 +14,10 @@ namespace OpenTiaToolkit.Core.Commands
     public static class CommandArtifactSupport
     {
         public const int InlineResultThresholdBytes = 32 * 1024;
+        private const int DefaultArtifactRetentionDays = 7;
+        private const string ArtifactRetentionDaysVariable = "OPEN_TIA_ARTIFACT_RETENTION_DAYS";
+        private static readonly object PruneLock = new object();
+        private static DateTime _lastPruneUtc = DateTime.MinValue;
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -52,6 +56,7 @@ namespace OpenTiaToolkit.Core.Commands
 
         public static string CreateDefaultArtifactPath(string commandName, string extension)
         {
+            PruneDefaultArtifactDirectory();
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture);
             var fileName = SanitizePathSegment(commandName) + "_" + timestamp + "_" + Guid.NewGuid().ToString("N") + extension;
             return Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "CommandArtifacts", fileName);
@@ -151,6 +156,62 @@ namespace OpenTiaToolkit.Core.Commands
             }
 
             return builder.Length == 0 ? "command" : builder.ToString();
+        }
+
+        private static void PruneDefaultArtifactDirectory()
+        {
+            var now = DateTime.UtcNow;
+            lock (PruneLock)
+            {
+                if ((now - _lastPruneUtc) < TimeSpan.FromHours(1))
+                {
+                    return;
+                }
+
+                _lastPruneUtc = now;
+            }
+
+            var retention = ResolveArtifactRetention();
+            if (retention <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            var directory = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "CommandArtifacts");
+            if (!Directory.Exists(directory))
+            {
+                return;
+            }
+
+            var cutoffUtc = now - retention;
+            foreach (var file in Directory.EnumerateFiles(directory))
+            {
+                try
+                {
+                    var lastWriteUtc = File.GetLastWriteTimeUtc(file);
+                    if (lastWriteUtc < cutoffUtc)
+                    {
+                        File.Delete(file);
+                    }
+                }
+                catch
+                {
+                    // Best-effort cleanup must never block command output.
+                }
+            }
+        }
+
+        private static TimeSpan ResolveArtifactRetention()
+        {
+            var configuredDays = Environment.GetEnvironmentVariable(ArtifactRetentionDaysVariable);
+            if (string.IsNullOrWhiteSpace(configuredDays))
+            {
+                return TimeSpan.FromDays(DefaultArtifactRetentionDays);
+            }
+
+            return double.TryParse(configuredDays, NumberStyles.Float, CultureInfo.InvariantCulture, out var days) && days >= 0
+                ? TimeSpan.FromDays(days)
+                : TimeSpan.FromDays(DefaultArtifactRetentionDays);
         }
     }
 }

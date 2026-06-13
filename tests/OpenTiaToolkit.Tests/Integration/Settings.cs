@@ -1,37 +1,56 @@
 using System;
+using System.IO;
 
 namespace OpenTiaToolkit.Tests.Integration
 {
     internal static class Settings
     {
-        // Test Project 'MCP_TEST_V21' - V21 local project (primary target)
-        public static readonly string TestProjectPath = GetSetting(
-            "OPEN_TIA_TEST_PROJECT_PATH",
-            "D:\\Siemens\\V21\\MCP_TEST_V21\\MCP_TEST_V21.ap21");
+        // Integration tests intentionally require caller-provided project paths.
+        // Falling back to a developer workstation path can mutate the wrong TIA project.
+        public static string TestProjectPath => GetRequiredPath("OPEN_TIA_TEST_PROJECT_PATH");
 
         // Export paths for testing
-        public static readonly string TestExportPath = GetSetting(
+        public static string TestExportPath => GetSetting(
             "OPEN_TIA_TEST_EXPORT_PATH",
-            "D:\\Siemens\\V21\\MCP_TEST_V21\\Exports");
+            Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "Integration", "Exports"));
 
         // Output path for test files (outside project directory to avoid TIA Portal access issues)
-        public static readonly string TestOutputPath = GetSetting(
+        public static string TestOutputPath => GetSetting(
             "OPEN_TIA_TEST_OUTPUT_PATH",
-            "D:\\Siemens\\V21\\MCP_TEST_OUTPUT");
+            Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "Integration", "Output"));
 
         // Unified HMI-specific validation project
-        public static readonly string UnifiedHmiProjectPath = GetSetting(
-            "OPEN_TIA_TEST_HMI_PROJECT_PATH",
-            @"E:\Documents\Automation\HmiTest\HmiTest.ap21");
+        public static string UnifiedHmiProjectPath => GetRequiredPath("OPEN_TIA_TEST_HMI_PROJECT_PATH");
 
-        public static readonly string UnifiedHmiName = GetSetting(
+        public static string UnifiedHmiName => GetSetting(
             "OPEN_TIA_TEST_UNIFIED_HMI_NAME",
             "HMI_1");
+
+        public static bool AllowDestructiveProjectTests => IsEnabled(
+            "OPEN_TIA_ALLOW_DESTRUCTIVE_INTEGRATION_TESTS");
 
         private static string GetSetting(string envVarName, string fallback)
         {
             var configured = Environment.GetEnvironmentVariable(envVarName);
             return string.IsNullOrWhiteSpace(configured) ? fallback : configured;
+        }
+
+        private static string GetRequiredPath(string envVarName)
+        {
+            var configured = Environment.GetEnvironmentVariable(envVarName);
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured;
+            }
+
+            throw new InvalidOperationException(
+                $"{envVarName} must be set to run OpenTiaToolkit integration tests.");
+        }
+
+        private static bool IsEnabled(string envVarName)
+        {
+            var configured = Environment.GetEnvironmentVariable(envVarName);
+            return bool.TryParse(configured, out var enabled) && enabled;
         }
     }
 }

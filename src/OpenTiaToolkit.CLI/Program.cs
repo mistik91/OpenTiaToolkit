@@ -60,6 +60,13 @@ namespace OpenTiaToolkit.CLI
                 return 0;
             }
 
+            if (args.Length > 1 && (args[1] == "--help" || args[1] == "-h"))
+            {
+                var router = serviceProvider.GetRequiredService<CommandRouter>();
+                Console.WriteLine(router.GetHelp(args[0]));
+                return 0;
+            }
+
             try
             {
                 // Execute the command
@@ -158,8 +165,12 @@ namespace OpenTiaToolkit.CLI
                         continue;
                     }
 
-                    // Parse input into args
-                    string[] args = ParseReplInput(input);
+                    if (!CommandLineTokenizer.TryTokenize(input, out string[] args, out var parseError))
+                    {
+                        Console.Error.WriteLine(parseError);
+                        lastExitCode = 2;
+                        continue;
+                    }
 
                     // Handle help command
                     if (args.Length > 0 && (args[0] == "help" || args[0] == "?"))
@@ -168,6 +179,12 @@ namespace OpenTiaToolkit.CLI
                             ? router.GetHelp(args[1])
                             : router.GetHelp();
                         Console.WriteLine(helpText);
+                        continue;
+                    }
+
+                    if (args.Length > 1 && (args[1] == "--help" || args[1] == "-h"))
+                    {
+                        Console.WriteLine(router.GetHelp(args[0]));
                         continue;
                     }
 
@@ -211,53 +228,6 @@ namespace OpenTiaToolkit.CLI
                 default:
                     return false;
             }
-        }
-
-        private static string[] ParseReplInput(string input)
-        {
-            // Simple argument parser that handles quoted strings
-            // This is a basic implementation that supports space-separated arguments
-            // with double-quoted strings treated as single arguments
-
-            var args = new System.Collections.Generic.List<string>();
-            bool inQuotes = false;
-            System.Text.StringBuilder currentArg = new System.Text.StringBuilder();
-
-            for (int index = 0; index < input.Length; index++)
-            {
-                char c = input[index];
-                if (c == '\\' && index + 1 < input.Length && input[index + 1] == '"')
-                {
-                    currentArg.Append('"');
-                    index++;
-                    continue;
-                }
-
-                if (c == '"')
-                {
-                    inQuotes = !inQuotes;
-                }
-                else if (char.IsWhiteSpace(c) && !inQuotes)
-                {
-                    if (currentArg.Length > 0)
-                    {
-                        args.Add(currentArg.ToString());
-                        currentArg.Clear();
-                    }
-                }
-                else
-                {
-                    currentArg.Append(c);
-                }
-            }
-
-            // Add the last argument
-            if (currentArg.Length > 0)
-            {
-                args.Add(currentArg.ToString());
-            }
-
-            return args.ToArray();
         }
 
         private static IServiceProvider BuildServiceProvider()

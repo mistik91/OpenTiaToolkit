@@ -161,4 +161,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps
 - TOML configs can use single-quoted Windows paths, for example `'E:\Path\To\OpenTiaToolkit\...'`.
 - OpenCode local MCP configs use a `command` array and `environment` object inside an `mcp.<server-name>` entry.
 - Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.
+- `OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS` can be set to a positive number to make long tool calls return a structured timeout result. The server keeps the TIA session gate busy until the underlying Openness call actually finishes.
+- `OPEN_TIA_ARTIFACT_RETENTION_DAYS` controls best-effort cleanup for temporary command artifacts written under `%TEMP%\OpenTiaToolkit\CommandArtifacts`; the default is 7 days.
 - Do not enable parallel MCP tool calls for this server. TIA Portal sessions are stateful and should be driven serially.

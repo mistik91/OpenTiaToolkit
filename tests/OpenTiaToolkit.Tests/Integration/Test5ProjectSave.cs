@@ -96,6 +96,8 @@ namespace OpenTiaToolkit.Tests.Integration
         [TestMethod]
         public async Task Test_501_SaveProject_WithOpenProject_ReturnsSuccess()
         {
+            RequireDestructiveProjectTests();
+
             // Arrange
             await _connectCommand!.ExecuteAsync(TestHelpers.CreateEmptyArgs(), _logger!);
             var projectOpened = await TestHelpers.OpenProjectAsync(_portalService!, Settings.TestProjectPath, _logger!);
@@ -113,14 +115,15 @@ namespace OpenTiaToolkit.Tests.Integration
             _logger!.LogInformation("Project saved: {Data}", result.Data);
         }
 
-        // NOTE: This test is currently disabled due to TIA Portal SaveAs behavior.
+        // NOTE: This test is opt-in due to TIA Portal SaveAs behavior.
         // The SaveAs operation succeeds, but the saved project file is not immediately accessible.
         // This appears to be a TIA Portal limitation - the project may need to be closed/reopened
         // or there may be file locking issues. The SaveAs functionality itself works (Test_501 passes).
         [TestMethod]
-        [Ignore] // Disabled until TIA Portal SaveAs file access issue is resolved
         public async Task Test_502_SaveAsProject_WithValidPath_ReturnsSuccess()
         {
+            RequireDestructiveProjectTests("OPENTIA-TEST-502 tracks SaveAs file accessibility after TIA Portal releases locks.");
+
             // Arrange
             await _connectCommand!.ExecuteAsync(TestHelpers.CreateEmptyArgs(), _logger!);
             var projectOpened = await TestHelpers.OpenProjectAsync(_portalService!, Settings.TestProjectPath, _logger!);
@@ -129,8 +132,8 @@ namespace OpenTiaToolkit.Tests.Integration
             var saveAsCommand = new SaveAsProjectCommand(_portalService);
 
             // TIA Portal SaveAs creates a subdirectory with the project name
-            // e.g., saving to D:\Siemens\V21\MCP_TEST_OUTPUT creates:
-            // D:\Siemens\V21\MCP_TEST_OUTPUT\MCP_TEST\MCP_TEST.ap21
+            // e.g., saving to the configured output directory creates:
+            // <output>\MCP_TEST\MCP_TEST.ap21
             var destinationDirectory = Settings.TestOutputPath;
 
             var args = TestHelpers.CreateArgs("destination-path", destinationDirectory);
@@ -162,6 +165,8 @@ namespace OpenTiaToolkit.Tests.Integration
         [TestMethod]
         public async Task Test_503_SaveProject_WithoutProject_ReturnsFailure()
         {
+            RequireDestructiveProjectTests();
+
             // Arrange
             await _connectCommand!.ExecuteAsync(TestHelpers.CreateEmptyArgs(), _logger!);
 
@@ -201,20 +206,21 @@ namespace OpenTiaToolkit.Tests.Integration
             _logger!.LogInformation("Correctly failed to save as without project: {Error}", result.Error);
         }
 
-        // NOTE: This test is currently disabled due to TIA Portal SaveAs behavior.
+        // NOTE: This test is opt-in due to TIA Portal SaveAs behavior.
         // See Test_502 for details. The SaveAs and open workflow requires further investigation.
         [TestMethod]
-        [Ignore] // Disabled until TIA Portal SaveAs file access issue is resolved
         public async Task Test_505_SaveAsProject_ThenOpen_ReturnsSuccess()
         {
+            RequireDestructiveProjectTests("OPENTIA-TEST-505 tracks SaveAs-then-open behavior after TIA Portal releases locks.");
+
             // Arrange
             await _connectCommand!.ExecuteAsync(TestHelpers.CreateEmptyArgs(), _logger!);
             var projectOpened = await TestHelpers.OpenProjectAsync(_portalService!, Settings.TestProjectPath, _logger!);
             Assert.IsTrue(projectOpened, $"Failed to open test project: {Settings.TestProjectPath}");
 
             // TIA Portal SaveAs creates a subdirectory with the project name
-            // e.g., saving to D:\Siemens\V21\MCP_TEST_OUTPUT creates:
-            // D:\Siemens\V21\MCP_TEST_OUTPUT\MCP_TEST\MCP_TEST.ap21
+            // e.g., saving to the configured output directory creates:
+            // <output>\MCP_TEST\MCP_TEST.ap21
             var destinationDirectory = Settings.TestOutputPath;
             var projectName = Path.GetFileNameWithoutExtension(Settings.TestProjectPath);
             var savedProjectPath = Path.Combine(destinationDirectory, projectName, Path.GetFileName(Settings.TestProjectPath));
@@ -250,6 +256,8 @@ namespace OpenTiaToolkit.Tests.Integration
         [TestMethod]
         public async Task Test_506_SaveProject_MultipleTimes_WorksCorrectly()
         {
+            RequireDestructiveProjectTests();
+
             // Arrange
             await _connectCommand!.ExecuteAsync(TestHelpers.CreateEmptyArgs(), _logger!);
             var projectOpened = await TestHelpers.OpenProjectAsync(_portalService!, Settings.TestProjectPath, _logger!);
@@ -270,6 +278,16 @@ namespace OpenTiaToolkit.Tests.Integration
 
             // Assert
             _logger!.LogInformation("Multiple saves completed successfully");
+        }
+
+        private static void RequireDestructiveProjectTests(string? reason = null)
+        {
+            if (!Settings.AllowDestructiveProjectTests)
+            {
+                Assert.Inconclusive(
+                    reason ??
+                    "Set OPEN_TIA_ALLOW_DESTRUCTIVE_INTEGRATION_TESTS=true to run tests that save or close the active TIA project.");
+            }
         }
     }
 }

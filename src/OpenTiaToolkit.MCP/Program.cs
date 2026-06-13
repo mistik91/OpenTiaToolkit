@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -25,6 +26,12 @@ namespace OpenTiaToolkit.MCP
 
         public static async Task<int> Main(string[] args)
         {
+            if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help"))
+            {
+                Console.WriteLine(GetHelpText());
+                return 0;
+            }
+
             try
             {
                 using var host = BuildHost(args);
@@ -57,6 +64,7 @@ namespace OpenTiaToolkit.MCP
             {
                 services.AddOpenTiaToolkitCoreServices();
                 services.AddOpenTiaToolkitCommands();
+                services.AddSingleton(ResolveRuntimeOptions());
                 services.AddSingleton<ToolRegistry>();
                 services
                     .AddMcpServer(options =>
@@ -91,9 +99,65 @@ namespace OpenTiaToolkit.MCP
         private static LogLevel ResolveMinimumLogLevel()
         {
             var configuredLevel = Environment.GetEnvironmentVariable("OPEN_TIA_MCP_LOG_LEVEL");
-            return Enum.TryParse(configuredLevel, ignoreCase: true, out LogLevel parsedLevel)
-                ? parsedLevel
-                : LogLevel.Warning;
+            if (string.IsNullOrWhiteSpace(configuredLevel))
+            {
+                return LogLevel.Warning;
+            }
+
+            if (Enum.TryParse(configuredLevel, ignoreCase: true, out LogLevel parsedLevel))
+            {
+                return parsedLevel;
+            }
+
+            Console.Error.WriteLine(
+                $"Ignoring invalid OPEN_TIA_MCP_LOG_LEVEL value '{configuredLevel}'. Valid values: Trace, Debug, Information, Warning, Error, Critical, None.");
+            return LogLevel.Warning;
+        }
+
+        private static McpRuntimeOptions ResolveRuntimeOptions()
+        {
+            return new McpRuntimeOptions
+            {
+                ToolTimeout = ResolveToolTimeout()
+            };
+        }
+
+        private static TimeSpan? ResolveToolTimeout()
+        {
+            var configuredSeconds = Environment.GetEnvironmentVariable("OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS");
+            if (string.IsNullOrWhiteSpace(configuredSeconds))
+            {
+                return null;
+            }
+
+            if (double.TryParse(configuredSeconds, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) &&
+                seconds > 0)
+            {
+                return TimeSpan.FromSeconds(seconds);
+            }
+
+            Console.Error.WriteLine(
+                $"Ignoring invalid OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS value '{configuredSeconds}'. Use a positive number of seconds.");
+            return null;
+        }
+
+        private static string GetHelpText()
+        {
+            return string.Join(Environment.NewLine, new[]
+            {
+                "OpenTiaToolkit MCP Server",
+                "",
+                "Usage: OpenTiaToolkit.MCP.exe",
+                "",
+                "The server communicates over stdio using the Model Context Protocol.",
+                "",
+                "Environment:",
+                "  OPEN_TIA_MCP_LOG_LEVEL             Trace, Debug, Information, Warning, Error, Critical, or None. Default: Warning.",
+                "  OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS  Optional positive timeout for one tool call. The TIA session gate stays busy until the underlying Openness call finishes.",
+                "  OPEN_TIA_ARTIFACT_RETENTION_DAYS   Optional retention window for temporary command artifacts. Default: 7.",
+                "",
+                "After rebuilding this executable, refresh the Siemens Openness allow-list for this exact path and hash."
+            });
         }
     }
 }

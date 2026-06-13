@@ -240,14 +240,22 @@ namespace OpenTiaToolkit.CLI.Routing
                     "Available commands:"
                 };
 
-                foreach (var kvp in _commands.OrderBy(k => k.Key))
+                foreach (var group in _commands
+                             .Values
+                             .OrderBy(GetCommandCategory)
+                             .ThenBy(command => command.Name, StringComparer.OrdinalIgnoreCase)
+                             .GroupBy(GetCommandCategory))
                 {
-                    var command = kvp.Value;
-                    lines.Add($"  {command.Name,-25} {command.Description}");
+                    lines.Add("");
+                    lines.Add(group.Key + ":");
+                    foreach (var command in group)
+                    {
+                        lines.Add($"  {command.Name,-25} {command.Description}");
+                    }
                 }
 
                 lines.Add("");
-                lines.Add("Use 'help <command>' for more information about a specific command.");
+                lines.Add("Use 'help <command>' or '<command> --help' for more information about a specific command.");
                 lines.Add("");
                 lines.Add("Examples:");
                 lines.Add("  OpenTiaToolkit.CLI.exe connect-portal");
@@ -289,6 +297,31 @@ namespace OpenTiaToolkit.CLI.Routing
                 }
 
                 return string.Join(Environment.NewLine, lines);
+            }
+        }
+
+        private static string GetCommandCategory(ICommand command)
+        {
+            var commandNamespace = command.GetType().Namespace ?? string.Empty;
+            var segments = commandNamespace.Split('.');
+            var category = segments.Length > 0 ? segments[segments.Length - 1] : string.Empty;
+
+            switch (category)
+            {
+                case "Portal":
+                    return "Portal";
+                case "Plc":
+                    return "PLC";
+                case "Hmi":
+                    return "Unified HMI";
+                case "Hardware":
+                    return "Hardware";
+                case "Vci":
+                    return "VCI";
+                case "Devices":
+                    return "Devices";
+                default:
+                    return "Other";
             }
         }
     }

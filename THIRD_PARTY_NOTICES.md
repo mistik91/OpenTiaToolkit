@@ -26,11 +26,9 @@ Major packages include:
 - `Siemens.Collaboration.Net.OperatingSystem.Windows`
 - `Spectre.Console`
 - `System.Text.Json`
-- `xunit` and `xunit.assert`
 
 Each package is distributed under its own license. Review package metadata on NuGet before redistributing binary builds.
 
 ## Codex Plugin Assets
 
 The `plugins/opentia-toolkit` package contains OpenTiaToolkit-authored configuration, docs, and skill guidance for Codex. It does not bundle Siemens binaries or TIA Portal project files.
-
