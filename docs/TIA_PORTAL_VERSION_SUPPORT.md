@@ -78,7 +78,7 @@ Current behavior:
 
 ### Block creation
 
-The public `create-block` command is not currently enabled in the CLI/MCP registrations.
+The public `create-block` command is enabled in the shared CLI/MCP command registration.
 
 During V21 validation on the current test project, the loaded `PlcBlockComposition` surface exposed `CreateFB(...)` and `CreateInstanceDB(...)`, and `CreateFB(...)` only accepted the `ProDiag` language in this context. Treat generic FC/DB/OB/UDT creation as unsupported until a broader V21-safe implementation is added and validated.
 

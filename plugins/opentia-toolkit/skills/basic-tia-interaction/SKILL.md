@@ -47,10 +47,10 @@ Example decision summary:
 
 ```text
 Found multiple TIA instances:
-- PID 1234: Project 19089Q1, path E:\Documents\Automation\19089Q1\19089Q1.ap21
+- PID 1234: Project Line1, path C:\Projects\Line1\Line1.ap21
 - PID 5678: no open project
 
-Using PID 1234 because the prompt specified project 19089Q1.
+Using PID 1234 because the prompt specified project Line1.
 ```
 
 ## Project Matching
@@ -58,8 +58,8 @@ Using PID 1234 because the prompt specified project 19089Q1.
 Treat these as project matches when the user specified a project:
 
 - Exact project path match, case-insensitive.
-- Same normalized file name, such as `19089Q1.ap21`.
-- Same project name without extension, such as `19089Q1`.
+- Same normalized file name, such as `Line1.ap21`.
+- Same project name without extension, such as `Line1`.
 
 If two instances match the same project name but different paths, ask the user to choose. Do not guess between duplicate project names.
 

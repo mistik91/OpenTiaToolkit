@@ -7,6 +7,7 @@ Complete guide for using the OpenTiaToolkit CLI application.
 - [Basic Usage](#basic-usage)
 - [Command Reference](#command-reference)
 - [Output Formats](#output-formats)
+- [Agent and MCP Packaging](#agent-and-mcp-packaging)
 - [Examples](#examples)
 - [Troubleshooting](#troubleshooting)
 
@@ -718,18 +719,28 @@ OpenTiaToolkit.CLI.exe inspect-hmi-screen-json-capabilities --hmi-name="HMI_1" -
 - `include-snapshot`: Include the full screen snapshot in the result. Defaults to `false`; use `get-hmi-screen-json` when the snapshot is the main output you need.
 - `working-path`: Optional root for generated snapshot artifacts.
 
-**Codex skill packaging**:
-- Agent workflow skills are versioned in `skills/`, including the top-level `opentia-toolkit-workflow` router, `basic-tia-interaction`, `hmi-unified-agent-editing`, and specialized hardware, PLC, trend logging, VCI, and repo-development workflows.
-- Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip the default HMI skill under `artifacts\skills`.
-- Pass `-SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip` to package the TIA session-selection skill.
-- Add `-Install` to refresh `$CODEX_HOME\skills\<skill-name>`.
-
-**Claude Desktop MCPB packaging**:
-- The MCPB source package is versioned in `plugins/opentia-toolkit-claude-desktop`.
-- Run `powershell -ExecutionPolicy Bypass -File .\scripts\Pack-ClaudeDesktopMcpb.ps1` to stage the MCP build output and create `artifacts\claude-desktop-mcpb\opentia-toolkit.mcpb` with `mcpb` or `npx -y @anthropic-ai/mcpb`.
-- Add `-RegisterOpenness` from an elevated PowerShell session to register the exact staged MCP executable path and hash with Siemens Openness.
-
 ### PLC Operations
+
+#### list-plcs
+
+Lists all PLC devices found in the currently open project.
+
+```bash
+OpenTiaToolkit.CLI.exe list-plcs
+```
+
+**Parameters**:
+- None
+
+**Output**:
+```
+Found 2 PLC device(s):
+
+Name       Device Name    Type
+---------------------------------
+PLC_1      PLC_1          S7-1500
+PLC_2      PLC_2          S7-1500
+```
 
 #### open-plc
 
@@ -852,6 +863,29 @@ OB1           Organization Block    FBD         1
 FC_Motor      Function              STL         10
 FB_MotorCtrl  Function Block        FBD         1
 ```
+
+#### create-block
+
+Creates a new PLC block. The current validated creation path is Function Block (`FB`) with `ProDiag`/`S7_PDIAG` language in TIA Portal V21.
+
+```bash
+OpenTiaToolkit.CLI.exe create-block --plc-name="PLC_1" --block-name="FB_Diagnostics" --block-type="FB" --language="ProDiag"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `block-name` (required): Name of the block to create
+- `block-type` (required): Block type to create. Currently validated value: `FB`
+- `language` (optional): Programming language. Currently validated values: `ProDiag`, `S7_PDIAG`
+
+**Output**:
+```
+Block 'FB_Diagnostics' created successfully
+```
+
+**Safety Notes**:
+- This command mutates the open project. Create a backup or use a disposable validation project before applying it to production work.
+- Generic FC/DB/OB/UDT creation is not currently supported by this command.
 
 #### delete-blocks
 
@@ -1596,9 +1630,9 @@ For CSV artifacts, rows use `Kind,LineNumber,TagTableName,MatchedBy,OldName,NewN
 
 #### find-replace-db-members
 
-> **NOTE**: This command is currently disabled. The command file and service method remain available for potential future re-enabling.
-
 Finds and replaces GlobalDB member names with nested struct support.
+
+> **Safety note**: This command is registered in both CLI and MCP and can mutate GlobalDB members when `dry-run=false`. Run with `dry-run=true`, review skipped/warning rows, and back up the project before applying changes.
 
 ```bash
 # Preview DB member changes (dry-run is default)
@@ -1643,9 +1677,9 @@ For CSV artifacts, rows use `Kind,ItemType,Path,Before,After,Name,Reason,Code,Me
 
 #### find-replace-udt-members
 
-> **NOTE**: This command is currently disabled. The command file and service method remain available for potential future re-enabling.
-
 Finds and replaces UDT member names with nested struct support.
+
+> **Safety note**: This command is registered in both CLI and MCP and can mutate UDT definitions when `dry-run=false`. Run with `dry-run=true`, review skipped/warning rows, and back up the project before applying changes.
 
 ```bash
 # Preview UDT member changes (dry-run is default)
@@ -1835,6 +1869,19 @@ Project1             C:\Path1.ap21        V21        2025-01-01
 Project2             C:\Path2.ap21        V21        2025-01-02
 ```
 
+## Agent and MCP Packaging
+
+**Codex skill packaging**:
+- Agent workflow skills are versioned in `skills/`, including the top-level `opentia-toolkit-workflow` router, `basic-tia-interaction`, `hmi-unified-agent-editing`, and specialized hardware, PLC, trend logging, VCI, and repo-development workflows.
+- Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip the default HMI skill under `artifacts\skills`.
+- Pass `-SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip` to package the TIA session-selection skill.
+- Add `-Install` to refresh `$CODEX_HOME\skills\<skill-name>`.
+
+**Claude Desktop MCPB packaging**:
+- The MCPB source package is versioned in `plugins/opentia-toolkit-claude-desktop`.
+- Run `powershell -ExecutionPolicy Bypass -File .\scripts\Pack-ClaudeDesktopMcpb.ps1` to stage the MCP build output and create `artifacts\claude-desktop-mcpb\opentia-toolkit.mcpb` with `mcpb` or `npx -y @anthropic-ai/mcpb`.
+- Add `-RegisterOpenness` from an elevated PowerShell session to register the exact staged MCP executable path and hash with Siemens Openness.
+
 ## Examples
 
 ### Example 1: Connect and Explore
@@ -1946,7 +1993,7 @@ OpenTiaToolkit.CLI.exe get-device-item-info --device-name="PLC_1" --item-name="C
 OpenTiaToolkit.CLI.exe save-project
 ```
 
-### Example 8: HMI Device Discovery
+### Example 7: HMI Device Discovery
 
 ```bash
 # Connect and open project
@@ -1960,7 +2007,7 @@ OpenTiaToolkit.CLI.exe list-hmis
 OpenTiaToolkit.CLI.exe get-device-info --device-name="HMI_1"
 ```
 
-### Example 9: Block Search and Export Workflow
+### Example 8: Block Search and Export Workflow
 
 ```bash
 # Connect and open project
@@ -1986,7 +2033,7 @@ OpenTiaToolkit.CLI.exe export-block --plc-name="PLC_1" --block-name="FB_Motor" -
 OpenTiaToolkit.CLI.exe get-block-info --plc-name="PLC_1" --block-name="Main"
 ```
 
-### Example 10: SIMATIC SD Export (V20+)
+### Example 9: SIMATIC SD Export (V20+)
 
 ```bash
 # Connect and open project (requires TIA Portal V20 or newer)
@@ -2010,7 +2057,7 @@ OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --export-path="C
 
 **Note**: SIMATIC SD export requires TIA Portal V20 or newer. The .s7dcl + .s7res format is the official multi-language document format used by TIA Portal.
 
-### Example 11: Type Export (UDT)
+### Example 10: Type Export (UDT)
 
 ```bash
 # Connect and open project
@@ -2033,7 +2080,7 @@ OpenTiaToolkit.CLI.exe export-types --plc-name="PLC_1" --export-path="C:\Exports
 
 **Note**: Type export checks the `IsConsistent` property. Inconsistent types will be skipped with an error message.
 
-### Example 12: Safe Block Deletion Workflow
+### Example 11: Safe Block Deletion Workflow
 
 ```bash
 # Connect and open project
@@ -2055,7 +2102,7 @@ OpenTiaToolkit.CLI.exe delete-blocks --plc-name="PLC_1" --filter="Test_.*" --con
 OpenTiaToolkit.CLI.exe get-blocks --plc-name="PLC_1"
 ```
 
-### Example 11: Complete PLC Backup Workflow
+### Example 12: Complete PLC Backup Workflow
 
 ```powershell
 # PowerShell script to backup all PLCs in a project
@@ -2183,7 +2230,7 @@ OpenTiaToolkit.CLI.exe save-project
 OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1"
 ```
 
-### Example 17b: Safer Substring Replacement with Specific Patterns
+### Example 18: Safer Substring Replacement with Specific Patterns
 
 ```bash
 # Connect and open project
@@ -2207,7 +2254,7 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"_Spe
 OpenTiaToolkit.CLI.exe save-project
 ```
 
-### Example 18: Batch Tag Creation from CSV
+### Example 19: Batch Tag Creation from CSV
 
 ```powershell
 # PowerShell script to create tags from CSV file
@@ -2237,7 +2284,7 @@ Import-Csv $csvFile | ForEach-Object {
 }
 ```
 
-### Example 19: Batch Tag Rename from CSV File
+### Example 20: Batch Tag Rename from CSV File
 
 ```powershell
 # Create CSV file with rename mappings

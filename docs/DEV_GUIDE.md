@@ -38,7 +38,7 @@ OpenTiaToolkit.sln
 dotnet build OpenTiaToolkit.sln
 ```
 
-If you want to pre-authorize a freshly built executable for TIA Openness, run [Register-OpennessAllowList.ps1](/E:/Documents/Codex/OpenTiaToolkit/scripts/Register-OpennessAllowList.ps1) from an elevated PowerShell session after the build.
+If you want to pre-authorize a freshly built executable for TIA Openness, run [Register-OpennessAllowList.ps1](../scripts/Register-OpennessAllowList.ps1) from an elevated PowerShell session after the build.
 
 ### Recommended Visual Studio Extensions
 
@@ -72,7 +72,7 @@ OpenTiaToolkit.sln
 
 ### Shared Host Composition
 
-Both executable hosts reuse the same registrations from [ServiceCollectionExtensions.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
+Both executable hosts reuse the same registrations from [ServiceCollectionExtensions.cs](../src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
 
 - `AddOpenTiaToolkitCoreServices()`
 - `AddOpenTiaToolkitCommands()`
@@ -81,7 +81,7 @@ That means command and service registration happens once in Core and is automati
 
 ### Shared Session State
 
-[EngineeringSessionContext.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/EngineeringSessionContext.cs) is the single source of truth for:
+[EngineeringSessionContext.cs](../src/OpenTiaToolkit.Core/Services/EngineeringSessionContext.cs) is the single source of truth for:
 
 - attached `TiaPortal`
 - current project or local session
@@ -94,31 +94,31 @@ The main goal is to keep portal/project/PLC state consistent across services.
 
 The public service interfaces stay stable, but the implementation is now split into capability services:
 
-- [PortalService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PortalService.cs): thin facade for the public portal API
-- [PortalSessionService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PortalSessionService.cs): portal attachment, open/close, ownership, save flows
-- [PortalInspectionService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PortalInspectionService.cs): read-only project/device/PLC/HMI inspection
-- [PlcService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcService.cs): thin facade for the public PLC API
-- [PlcBrowseService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcBrowseService.cs): read-only browse/search/info operations
-- [PlcCompileService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcCompileService.cs): software compilation
-- [PlcBlockMutationService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcBlockMutationService.cs): block creation/deletion
-- [PlcTagService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcTagService.cs): tag creation and update flows
-- [PlcMemberRenameService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcMemberRenameService.cs): DB/UDT member rename flows
-- [PlcImportExportService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): XML and document import/export flows
-- [VciService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/VciService.cs): VCI workspaces, mappings, comparison state, and surgical/bulk synchronization
-- [HardwareService.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/HardwareService.cs): generic hardware catalog, topology, network, GSD record, and transactional patch operations
+- [PortalService.cs](../src/OpenTiaToolkit.Core/Services/PortalService.cs): thin facade for the public portal API
+- [PortalSessionService.cs](../src/OpenTiaToolkit.Core/Services/PortalSessionService.cs): portal attachment, open/close, ownership, save flows
+- [PortalInspectionService.cs](../src/OpenTiaToolkit.Core/Services/PortalInspectionService.cs): read-only project/device/PLC/HMI inspection
+- [PlcService.cs](../src/OpenTiaToolkit.Core/Services/PlcService.cs): thin facade for the public PLC API
+- [PlcBrowseService.cs](../src/OpenTiaToolkit.Core/Services/PlcBrowseService.cs): read-only browse/search/info operations
+- [PlcCompileService.cs](../src/OpenTiaToolkit.Core/Services/PlcCompileService.cs): software compilation
+- [PlcBlockMutationService.cs](../src/OpenTiaToolkit.Core/Services/PlcBlockMutationService.cs): block creation/deletion
+- [PlcTagService.cs](../src/OpenTiaToolkit.Core/Services/PlcTagService.cs): tag creation and update flows
+- [PlcMemberRenameService.cs](../src/OpenTiaToolkit.Core/Services/PlcMemberRenameService.cs): DB/UDT member rename flows
+- [PlcImportExportService.cs](../src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): XML and document import/export flows
+- [VciService.cs](../src/OpenTiaToolkit.Core/Services/VciService.cs): VCI workspaces, mappings, comparison state, and surgical/bulk synchronization
+- [HardwareService.cs](../src/OpenTiaToolkit.Core/Services/HardwareService.cs): generic hardware catalog, topology, network, GSD record, and transactional patch operations
 
 ### Builders
 
 Tree-shaping logic is being extracted from services into dedicated builders:
 
-- [ProjectTreeBuilder.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/ProjectTreeBuilder.cs)
-- [SoftwareTreeBuilder.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/SoftwareTreeBuilder.cs)
+- [ProjectTreeBuilder.cs](../src/OpenTiaToolkit.Core/Services/ProjectTreeBuilder.cs)
+- [SoftwareTreeBuilder.cs](../src/OpenTiaToolkit.Core/Services/SoftwareTreeBuilder.cs)
 
 These builders are intended to be testable with fake object graphs so traversal behavior can be verified without a live TIA session.
 
 ### V21 Adapter Boundary
 
-[V21OpennessAdapter.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs) is the current boundary for version-sensitive Siemens reflection. It centralizes:
+[V21OpennessAdapter.cs](../src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs) is the current boundary for version-sensitive Siemens reflection. It centralizes:
 
 - V21 type and service discovery
 - compile-service invocation
@@ -190,7 +190,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
 
 ### Step 2: Register It Once
 
-Register the command in [ServiceCollectionExtensions.cs](/E:/Documents/Codex/OpenTiaToolkit/src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
+Register the command in [ServiceCollectionExtensions.cs](../src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
 
 ```csharp
 services.AddSingleton<ICommand, MyNewCommand>();
@@ -266,9 +266,9 @@ dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "Tes
 
 ### CLI Automation
 
-Use [Test-CLI.ps1](/E:/Documents/Codex/OpenTiaToolkit/scripts/Test-CLI.ps1) for end-to-end CLI automation against the built executable.
+Use [Test-CLI.ps1](../scripts/Test-CLI.ps1) for end-to-end CLI automation against the built executable.
 
-See [CLI_TESTING.md](/E:/Documents/Codex/OpenTiaToolkit/docs/CLI_TESTING.md) for the full suite matrix, artifact layout, expected skips, and current V21 coverage notes.
+See [CLI_TESTING.md](CLI_TESTING.md) for the full suite matrix, artifact layout, expected skips, and current V21 coverage notes.
 
 - `Help` validates general help plus `help <command>` for every command currently exposed by the CLI host
 - `ReadOnly` drives the real CLI through scripted REPL batches so project and PLC state stay alive inside one process
