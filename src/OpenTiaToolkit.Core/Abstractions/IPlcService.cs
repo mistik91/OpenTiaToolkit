@@ -55,6 +55,43 @@ public interface IPlcService
     Task<CompilationResult> CompileSoftwareAsync(string? password = null);
 
     /// <summary>
+    /// Compares the currently open PLC software to its online target.
+    /// </summary>
+    /// <returns>Structured compare result.</returns>
+    Task<PlcSoftwareCompareResult> CompareSoftwareToOnlineAsync();
+
+    /// <summary>
+    /// Downloads PLC software through a guarded simulator-only path.
+    /// </summary>
+    /// <param name="toSimulator">Require PLCSIM Advanced as the target.</param>
+    /// <param name="dryRun">Validate and return a plan without downloading.</param>
+    /// <param name="confirm">Explicit confirmation for non-dry-run downloads.</param>
+    /// <param name="onlyChanges">Download software changes instead of the full software load.</param>
+    /// <returns>Structured download result.</returns>
+    Task<PlcSoftwareDownloadResult> DownloadSoftwareAsync(bool toSimulator, bool dryRun = true, bool confirm = false, bool onlyChanges = false);
+
+    /// <summary>
+    /// Gets or establishes online status for the currently open PLC.
+    /// </summary>
+    /// <param name="goOnline">Attempt to go online before reading status.</param>
+    /// <returns>Structured online status.</returns>
+    Task<PlcOnlineStatusResult> GetOnlineStatusAsync(bool goOnline = true);
+
+    /// <summary>
+    /// Attempts to start the CPU when the selected online provider exposes a supported operation.
+    /// </summary>
+    /// <param name="confirm">Explicit confirmation for runtime state changes.</param>
+    /// <returns>Structured CPU control result.</returns>
+    Task<PlcCpuControlResult> StartCpuAsync(bool confirm = false);
+
+    /// <summary>
+    /// Attempts to stop the CPU when the selected online provider exposes a supported operation.
+    /// </summary>
+    /// <param name="confirm">Explicit confirmation for runtime state changes.</param>
+    /// <returns>Structured CPU control result.</returns>
+    Task<PlcCpuControlResult> StopCpuAsync(bool confirm = false);
+
+    /// <summary>
     /// Exports all blocks from the PLC software to XML files.
     /// </summary>
     /// <param name="exportPath">The directory path where XML files will be saved.</param>

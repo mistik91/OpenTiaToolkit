@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OpenTiaToolkit.Core.Models;
 
@@ -106,6 +107,148 @@ public class CompilationDiagnostic
     public string? Description { get; }
 
     public string? ErrorCode { get; }
+}
+
+/// <summary>
+/// Represents a PLC software compare result.
+/// </summary>
+public class PlcSoftwareCompareResult
+{
+    public PlcSoftwareCompareResult(bool success, bool comparedToOnline, string message, IReadOnlyList<PlcSoftwareCompareEntry>? entries = null)
+    {
+        Success = success;
+        ComparedToOnline = comparedToOnline;
+        Message = message;
+        Entries = entries ?? System.Array.Empty<PlcSoftwareCompareEntry>();
+        DifferenceCount = Entries.Count(entry => entry.HasDifference);
+    }
+
+    public bool Success { get; }
+
+    public bool ComparedToOnline { get; }
+
+    public string Message { get; }
+
+    public int DifferenceCount { get; }
+
+    public IReadOnlyList<PlcSoftwareCompareEntry> Entries { get; }
+}
+
+/// <summary>
+/// Represents one flattened entry from a PLC software compare tree.
+/// </summary>
+public class PlcSoftwareCompareEntry
+{
+    public PlcSoftwareCompareEntry(string path, string state, string? leftName, string? rightName, string? detail, bool hasDifference)
+    {
+        Path = path;
+        State = state;
+        LeftName = leftName;
+        RightName = rightName;
+        Detail = detail;
+        HasDifference = hasDifference;
+    }
+
+    public string Path { get; }
+
+    public string State { get; }
+
+    public string? LeftName { get; }
+
+    public string? RightName { get; }
+
+    public string? Detail { get; }
+
+    public bool HasDifference { get; }
+}
+
+/// <summary>
+/// Represents a guarded PLC software download result.
+/// </summary>
+public class PlcSoftwareDownloadResult
+{
+    public PlcSoftwareDownloadResult(
+        bool success,
+        bool dryRun,
+        bool toSimulator,
+        bool applied,
+        string message,
+        IReadOnlyList<string>? warnings = null,
+        string? state = null,
+        bool onlyChanges = false)
+    {
+        Success = success;
+        DryRun = dryRun;
+        ToSimulator = toSimulator;
+        Applied = applied;
+        Message = message;
+        Warnings = warnings ?? System.Array.Empty<string>();
+        State = state;
+        OnlyChanges = onlyChanges;
+    }
+
+    public bool Success { get; }
+
+    public bool DryRun { get; }
+
+    public bool ToSimulator { get; }
+
+    public bool Applied { get; }
+
+    public bool OnlyChanges { get; }
+
+    public string Message { get; }
+
+    public IReadOnlyList<string> Warnings { get; }
+
+    public string? State { get; }
+}
+
+/// <summary>
+/// Represents PLC online connection status.
+/// </summary>
+public class PlcOnlineStatusResult
+{
+    public PlcOnlineStatusResult(bool success, string onlineState, bool isOnline, string message)
+    {
+        Success = success;
+        OnlineState = onlineState;
+        IsOnline = isOnline;
+        Message = message;
+    }
+
+    public bool Success { get; }
+
+    public string OnlineState { get; }
+
+    public bool IsOnline { get; }
+
+    public string Message { get; }
+}
+
+/// <summary>
+/// Represents the result of an attempted PLC runtime control operation.
+/// </summary>
+public class PlcCpuControlResult
+{
+    public PlcCpuControlResult(bool success, string action, bool applied, string onlineState, string message)
+    {
+        Success = success;
+        Action = action;
+        Applied = applied;
+        OnlineState = onlineState;
+        Message = message;
+    }
+
+    public bool Success { get; }
+
+    public string Action { get; }
+
+    public bool Applied { get; }
+
+    public string OnlineState { get; }
+
+    public string Message { get; }
 }
 
 /// <summary>

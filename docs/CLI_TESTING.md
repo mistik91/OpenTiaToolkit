@@ -130,9 +130,11 @@ It covers:
 - `connect-portal`, `disconnect-portal`, and `portal-status`
 - `open-project`, `get-project-info`, and project session handling
 - `list-devices`, `list-plcs`, `list-hmis`, and project tree inspection
-- `open-plc`, `get-software-tree`, `compile-software`, `get-blocks`, `get-block-info`, and `search-blocks`
+- `open-plc`, `get-software-tree`, `compile-software`, `compare-software`, guarded `download-software` dry-runs, `get-online-status`, `start-cpu`, `stop-cpu`, `get-blocks`, `get-block-info`, and `search-blocks`
 - XML export commands such as `export-block`, `export-plc`, `export-type`, and `export-types`
 - SIMATIC SD document export commands `export-block-as-docs` and `export-blocks-as-docs`
+
+Applied PLC downloads are not part of the generic `ReadOnly` suite. Validate `download-software --dry-run=false --confirm=true` only against an explicitly configured PLCSIM Advanced target. For fail-safe projects, prefer `--only-changes=true`; Siemens Openness may reject full fail-safe software loads even when the simulator connection is valid.
 
 ### Mutation
 

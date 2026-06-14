@@ -13,6 +13,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added compact bulk VCI results by default with `include-skipped=true` available for full audit output.
 - Added generic hardware automation for catalog lookup, module/submodule placement checks, PROFINET network and process-image inspection, Startdrive telegram review, guarded hardware patch dry-runs/applies, GSD parameter reads, and PLC tag-to-hardware mapping audits.
 - Added artifact-spill handling for large CLI/MCP responses, including compact manifests and domain-specific CSV or JSON output paths for PLC, HMI, hardware, and VCI review commands.
+- Added PLC verification-loop commands for online compare, guarded PLCSIM Advanced software download, online status checks, and guarded CPU start/stop attempts where Siemens Openness exposes runtime control.
 - Fixed attachment to a running TIA instance with one already-open project so downstream PLC and VCI operations share the selected project context.
 - Added `list-hmi-tags --root-path` for fast enumeration of a known Unified HMI tag subtree.
 - Raised supplied OpenCode MCP timeout defaults to 600 seconds for long-running TIA Portal reads.

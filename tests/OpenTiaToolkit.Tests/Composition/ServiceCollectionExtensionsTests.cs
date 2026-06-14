@@ -126,6 +126,11 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "open-project");
             CollectionAssert.Contains(commands, "open-plc");
             CollectionAssert.Contains(commands, "compile-software");
+            CollectionAssert.Contains(commands, "compare-software");
+            CollectionAssert.Contains(commands, "download-software");
+            CollectionAssert.Contains(commands, "get-online-status");
+            CollectionAssert.Contains(commands, "start-cpu");
+            CollectionAssert.Contains(commands, "stop-cpu");
             CollectionAssert.Contains(commands, "open-unified-hmi");
             CollectionAssert.Contains(commands, "list-hmi-tags");
             CollectionAssert.Contains(commands, "list-hmi-screens");

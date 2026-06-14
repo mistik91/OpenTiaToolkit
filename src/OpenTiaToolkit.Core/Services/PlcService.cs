@@ -26,6 +26,7 @@ namespace OpenTiaToolkit.Core.Services
         private readonly V21OpennessAdapter _v21Adapter;
         private readonly PlcBrowseService _browseService;
         private readonly PlcCompileService _compileService;
+        private readonly PlcVerificationService _verificationService;
         private readonly PlcBlockMutationService _blockMutationService;
         private readonly PlcMemberRenameService _memberRenameService;
         private readonly PlcImportExportService _importExportService;
@@ -68,6 +69,7 @@ namespace OpenTiaToolkit.Core.Services
             _v21Adapter = new V21OpennessAdapter();
             _browseService = new PlcBrowseService(_sessionContext, _logger);
             _compileService = new PlcCompileService(_sessionContext, _logger, _v21Adapter);
+            _verificationService = new PlcVerificationService(_sessionContext, _logger, _v21Adapter);
             _blockMutationService = new PlcBlockMutationService(_sessionContext, _browseService, _logger, _v21Adapter);
             _memberRenameService = new PlcMemberRenameService(_sessionContext, _logger, _v21Adapter);
             _importExportService = new PlcImportExportService(_sessionContext, _portalService, _browseService, _logger, _v21Adapter);
@@ -238,6 +240,36 @@ namespace OpenTiaToolkit.Core.Services
         public async Task<CompilationResult> CompileSoftwareAsync(string? password = null)
         {
             return await _compileService.CompileSoftwareAsync(password);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcSoftwareCompareResult> CompareSoftwareToOnlineAsync()
+        {
+            return await _verificationService.CompareSoftwareToOnlineAsync();
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcSoftwareDownloadResult> DownloadSoftwareAsync(bool toSimulator, bool dryRun = true, bool confirm = false, bool onlyChanges = false)
+        {
+            return await _verificationService.DownloadSoftwareAsync(toSimulator, dryRun, confirm, onlyChanges);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcOnlineStatusResult> GetOnlineStatusAsync(bool goOnline = true)
+        {
+            return await _verificationService.GetOnlineStatusAsync(goOnline);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcCpuControlResult> StartCpuAsync(bool confirm = false)
+        {
+            return await _verificationService.ControlCpuAsync("start", confirm);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcCpuControlResult> StopCpuAsync(bool confirm = false)
+        {
+            return await _verificationService.ControlCpuAsync("stop", confirm);
         }
 
         /// <inheritdoc/>

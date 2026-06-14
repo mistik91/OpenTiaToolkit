@@ -813,6 +813,70 @@ Warning Count: 2
 Message:       Compilation completed successfully
 ```
 
+#### compare-software
+
+Compares PLC software to the online target and returns a structured difference tree.
+
+```bash
+OpenTiaToolkit.CLI.exe compare-software --plc-name="PLC_1"
+OpenTiaToolkit.CLI.exe compare-software --plc-name="PLC_1" --output-path="C:\Exports\plc_compare.json"
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `target` (optional, default: `online`): Compare target. Currently supported: `online`
+- `output-path` (optional): JSON file or folder path for compare results
+
+When `--output-path` is provided, the compare tree is written as JSON. Without `--output-path`, large compare results that exceed the 32 KB inline response threshold are automatically written to a temporary JSON artifact.
+
+#### download-software
+
+Plans or downloads PLC software to PLCSIM Advanced. Real-hardware download is deliberately blocked.
+
+```bash
+OpenTiaToolkit.CLI.exe download-software --plc-name="PLC_1" --to-simulator=true
+OpenTiaToolkit.CLI.exe download-software --plc-name="PLC_1" --to-simulator=true --dry-run=false --confirm=true
+OpenTiaToolkit.CLI.exe download-software --plc-name="PLC_1" --to-simulator=true --dry-run=false --confirm=true --only-changes=true
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `to-simulator` (required): Must be `true`; selects the guarded PLCSIM Advanced path
+- `dry-run` (optional, default: `true`): Validate and return the planned download without applying
+- `only-changes` (optional, default: `false`): Use TIA `SoftwareOnlyChanges` instead of a full software load
+- `confirm` (optional, default: `false`): Required when `dry-run=false`
+
+Non-dry-run downloads require TIA Portal to already have a configured PLCSIM Advanced download connection for the selected PLC.
+TIA Openness may still block downloads for fail-safe projects; when Siemens returns that fail-safe data cannot be loaded through Openness, use TIA Portal's UI workflow for that safety download step.
+
+#### get-online-status
+
+Gets PLC online status and optionally asks TIA Portal to go online first.
+
+```bash
+OpenTiaToolkit.CLI.exe get-online-status --plc-name="PLC_1"
+OpenTiaToolkit.CLI.exe get-online-status --plc-name="PLC_1" --go-online=false
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `go-online` (optional, default: `true`): Attempt to go online before reading status
+
+#### start-cpu / stop-cpu
+
+Attempts to start or stop the online CPU when the selected TIA online provider exposes a supported runtime operation.
+
+```bash
+OpenTiaToolkit.CLI.exe start-cpu --plc-name="PLC_1" --confirm=true
+OpenTiaToolkit.CLI.exe stop-cpu --plc-name="PLC_1" --confirm=true
+```
+
+**Parameters**:
+- `plc-name` (required): Name of the PLC device
+- `confirm` (optional, default: `false`): Required for runtime state changes
+
+Some TIA Portal online providers expose connection state but not CPU RUN/STOP operations through Openness. In that case these commands return a structured not-supported result listing the available online invocations.
+
 #### export-plc
 
 Exports all PLC blocks to XML files.

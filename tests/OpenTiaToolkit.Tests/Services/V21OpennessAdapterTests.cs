@@ -269,6 +269,49 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.AreEqual("Speed", adapter.GetName(members!.Single()));
         }
 
+        [TestMethod]
+        public void ExtractCompareEntries_FlattensCompareResultTreeAndFlagsDifferences()
+        {
+            // Arrange
+            var adapter = new V21OpennessAdapter();
+            var compareResult = new FakeCompareResult
+            {
+                RootElement = new FakeCompareElement
+                {
+                    LeftName = "PLC_1",
+                    RightName = "PLC_1",
+                    ComparisonResult = "FolderContentsDifferent",
+                    Elements =
+                    {
+                        new FakeCompareElement
+                        {
+                            LeftName = "Main",
+                            RightName = "Main",
+                            ComparisonResult = "ObjectsDifferent",
+                            DetailedInformation = "Block changed"
+                        },
+                        new FakeCompareElement
+                        {
+                            LeftName = "Helper",
+                            RightName = "Helper",
+                            ComparisonResult = "ObjectsIdentical"
+                        }
+                    }
+                }
+            };
+
+            // Act
+            var entries = adapter.ExtractCompareEntries(compareResult);
+
+            // Assert
+            Assert.AreEqual(3, entries.Count);
+            Assert.AreEqual("PLC_1/Main", entries[1].Path);
+            Assert.IsTrue(entries[0].HasDifference);
+            Assert.IsTrue(entries[1].HasDifference);
+            Assert.IsFalse(entries[2].HasDifference);
+            Assert.AreEqual("Block changed", entries[1].Detail);
+        }
+
         private sealed class FakeExportableObject
         {
             public string? LastExportPath { get; private set; }
@@ -460,6 +503,24 @@ namespace OpenTiaToolkit.Tests.Services
                 LastImportOption = importDocumentOptions;
                 return ImportResult;
             }
+        }
+
+        private sealed class FakeCompareResult
+        {
+            public FakeCompareElement? RootElement { get; set; }
+        }
+
+        private sealed class FakeCompareElement
+        {
+            public List<FakeCompareElement> Elements { get; } = new List<FakeCompareElement>();
+
+            public string? LeftName { get; set; }
+
+            public string? RightName { get; set; }
+
+            public string ComparisonResult { get; set; } = string.Empty;
+
+            public string? DetailedInformation { get; set; }
         }
 
         private sealed class GlobalDB

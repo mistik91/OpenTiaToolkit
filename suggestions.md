@@ -3,7 +3,9 @@
 Date: 2026-06-12
 Companion to: [report.md](report.md) (full repository review)
 
-Scope: features that are **absent** from the current 97-command surface. Every Siemens API referenced below was verified present in the V21 PublicAPI assemblies the project already links against (`Siemens.Engineering.Base/Step7/WinCCUnified/Startdrive` 21.0.0.0, checked via reflection and the shipped IntelliSense XML docs). None of these require new Siemens dependencies.
+Scope: features that were **absent** from the command surface at the time of review. Every Siemens API referenced below was verified present in the V21 PublicAPI assemblies the project already links against (`Siemens.Engineering.Base/Step7/WinCCUnified/Startdrive` 21.0.0.0, checked via reflection and the shipped IntelliSense XML docs). None of these require new Siemens dependencies.
+
+Status update: Section 1 has been implemented. The toolkit now exposes PLC online compare, guarded PLCSIM Advanced software download, online status, and guarded CPU start/stop attempts. Live validation against PLCSIM Advanced succeeded with `download-software --only-changes=true`; full fail-safe software loads may still be rejected by Siemens Openness.
 
 Priority legend:
 - **P0** — closes a loop agents currently cannot close at all; highest leverage.
@@ -12,19 +14,20 @@ Priority legend:
 
 ---
 
-## 1. Verification Loop Closure (P0)
+## 1. Verification Loop Closure (P0) - Implemented
 
-The toolkit can edit and compile, but never *run* anything. For an agent toolkit this is the single biggest gap: agents can verify syntax, not behavior.
+The toolkit can edit, compile, compare online state, and download software changes to PLCSIM Advanced. This closes the first guarded verification loop for agent workflows: edit -> compile -> download to sim -> observe/compare.
 
 ### 1.1 Download to PLCSIM / device
 - **API**: `Siemens.Engineering.Download` namespace (Base, Step7, Startdrive XMLs all document it), `Siemens.Engineering.Online` for go-online and CPU state.
-- **Suggestion**: a guarded `download-software` command, initially restricted to simulation targets (`--to-simulator`, PLCSIM Advanced), with `--dry-run` and `--confirm` gates matching the existing mutation-command conventions. Real-hardware download can stay behind an explicit opt-in flag or be deferred entirely.
+- **Implemented**: guarded `download-software` is restricted to simulation targets (`--to-simulator`, PLCSIM Advanced) with `--dry-run` and `--confirm` gates matching the existing mutation-command conventions. Real-hardware download remains blocked.
 - **Payoff**: enables the canonical agent loop — edit → compile → download to sim → observe — instead of stopping at compile.
-- Follow-ups once download exists: `start-cpu` / `stop-cpu` / `get-online-status`.
+- **Fail-safe note**: use `--only-changes=true` for fail-safe projects when possible. Siemens Openness may reject full fail-safe software loads even when PLCSIM Advanced is configured and reachable.
+- **Follow-ups implemented**: `start-cpu`, `stop-cpu`, and `get-online-status`. Some TIA Portal online providers expose connection state but no CPU RUN/STOP operation; those commands return structured not-supported results in that case.
 
 ### 1.2 PLC compare
 - **API**: `Siemens.Engineering.Compare` (offline/offline and online/offline), present in Base + Step7.
-- **Suggestion**: `compare-software` (project vs project, or online vs offline) returning a structured diff, with `--output-path` artifact spill like the existing large-result commands.
+- **Implemented**: `compare-software` supports online/offline compare and returns a structured diff, with `--output-path` artifact spill like the existing large-result commands.
 - **Rationale**: the HMI side already has a full export/diff/import pipeline — the diff discipline is clearly understood and is the best-engineered part of the repo. The PLC side has nothing equivalent; an agent that mutates blocks cannot show "what changed" except indirectly through VCI text. This is the most glaring asymmetry in the product.
 
 ---
