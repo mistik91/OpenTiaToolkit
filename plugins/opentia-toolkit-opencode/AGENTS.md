@@ -19,6 +19,6 @@ For Unified HMI screen edits, load and follow the `basic-tia-interaction` skill 
 
 For hardware configuration, establish the TIA project with `basic-tia-interaction`, then use `hardware-configuration-workflow`: discover catalog identifiers and hardware target paths, and use `apply-hardware-patch` with `dry-run=true` before applying. Keep vendor/device-specific type identifiers and GSD parameter byte meanings outside the generic toolkit layer.
 
-For PLC block, type, tag, CSV update, rename, or compile work, use `plc-block-and-tag-workflow`. For Unified HMI trend logging, logging tags, or data log lifecycle work, use `hmi-trend-logging-workflow`. For TIA Version Control Interface work, use `vci-sync-workflow`. For repo development, tests, plugin packaging, or skill packaging, use `opentia-dev-workflow`.
+For PLC block, type, tag, CSV update, rename, or compile work, use `plc-block-and-tag-workflow`. For project/global library, master copy, library type, UDT version, or update-check work, use `library-workflow`. For Unified HMI trend logging, logging tags, or data log lifecycle work, use `hmi-trend-logging-workflow`. For TIA Version Control Interface work, use `vci-sync-workflow`. For repo development, tests, plugin packaging, or skill packaging, use `opentia-dev-workflow`.
 
 Keep OpenTiaToolkit MCP calls serial. The MCP server rejects overlapping TIA operations with active-operation details; after a timeout or disconnected response, wait for the in-flight operation to finish and verify the filtered target before retrying.

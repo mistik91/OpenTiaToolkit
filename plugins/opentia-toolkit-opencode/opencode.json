@@ -24,6 +24,7 @@
       "opentia-toolkit-workflow": "allow",
       "hardware-configuration-workflow": "allow",
       "plc-block-and-tag-workflow": "allow",
+      "library-workflow": "allow",
       "vci-sync-workflow": "allow",
       "hmi-trend-logging-workflow": "allow",
       "opentia-dev-workflow": "allow"

@@ -68,6 +68,17 @@ namespace OpenTiaToolkit.Core
                     serviceProvider.GetRequiredService<HardwareService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
+            services.AddSingleton<LibraryService>(serviceProvider =>
+                new LibraryService(
+                    serviceProvider.GetRequiredService<IPortalService>(),
+                    serviceProvider.GetRequiredService<IPlcService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>(),
+                    serviceProvider.GetService<ILogger<LibraryService>>()));
+            services.AddSingleton<ILibraryService>(serviceProvider =>
+                SessionSerializedServiceProxy<ILibraryService>.Create(
+                    serviceProvider.GetRequiredService<LibraryService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
+
             return services;
         }
 

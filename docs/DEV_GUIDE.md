@@ -104,6 +104,7 @@ The public service interfaces stay stable, but the implementation is now split i
 - [PlcTagService.cs](../src/OpenTiaToolkit.Core/Services/PlcTagService.cs): tag creation and update flows
 - [PlcMemberRenameService.cs](../src/OpenTiaToolkit.Core/Services/PlcMemberRenameService.cs): DB/UDT member rename flows
 - [PlcImportExportService.cs](../src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): XML and document import/export flows
+- [LibraryService.cs](../src/OpenTiaToolkit.Core/Services/LibraryService.cs): project/global library listing, master-copy copy workflows, library type versions, and update checks
 - [VciService.cs](../src/OpenTiaToolkit.Core/Services/VciService.cs): VCI workspaces, mappings, comparison state, and surgical/bulk synchronization
 - [HardwareService.cs](../src/OpenTiaToolkit.Core/Services/HardwareService.cs): generic hardware catalog, topology, network, GSD record, and transactional patch operations
 
@@ -141,6 +142,7 @@ Good work lanes:
 - PLC browse/info
 - PLC compile
 - PLC import/export
+- project/global library workflows
 - VCI workspace and synchronization flows
 - PLC tags and rename flows
 - CLI/MCP presentation layers

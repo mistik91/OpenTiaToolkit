@@ -719,6 +719,42 @@ OpenTiaToolkit.CLI.exe inspect-hmi-screen-json-capabilities --hmi-name="HMI_1" -
 - `include-snapshot`: Include the full screen snapshot in the result. Defaults to `false`; use `get-hmi-screen-json` when the snapshot is the main output you need.
 - `working-path`: Optional root for generated snapshot artifacts.
 
+### Library Operations
+
+These commands work with the currently connected TIA Portal and open project. `library-scope` defaults to `project`; pass `library-scope=global` with `global-library` after opening a user global library.
+
+#### Global library lifecycle
+
+```bash
+OpenTiaToolkit.CLI.exe list-global-libraries
+OpenTiaToolkit.CLI.exe open-global-library --path="C:\Libraries\Company.al21" --read-only=true
+OpenTiaToolkit.CLI.exe close-global-library --global-library="Company"
+```
+
+#### Master copies
+
+Lists approved master copies from the project library or an open global library. Results can be written to JSON with `--output-path`.
+
+```bash
+OpenTiaToolkit.CLI.exe list-master-copies --library-scope=project
+OpenTiaToolkit.CLI.exe list-master-copies --library-scope=global --global-library="Company" --folder-path="Motion" --output-path="C:\Exports\master_copies.json"
+```
+
+Copies a master copy into a PLC block group. The command defaults to `dry-run=true`; applying requires `--dry-run=false --confirm=true`.
+
+```bash
+OpenTiaToolkit.CLI.exe copy-from-master-copy --master-copy-path="Motion/MotorFB" --plc-name="PLC_1" --target-group-path="Motors"
+OpenTiaToolkit.CLI.exe copy-from-master-copy --library-scope=global --global-library="Company" --master-copy-path="Motion/MotorFB" --plc-name="PLC_1" --target-group-path="Motors" --dry-run=false --confirm=true
+```
+
+#### Library types and update checks
+
+```bash
+OpenTiaToolkit.CLI.exe list-library-types --library-scope=project --output-path="C:\Exports\library_types.json"
+OpenTiaToolkit.CLI.exe get-library-type-versions --library-scope=global --global-library="Company" --type-path="Motion/MotorType"
+OpenTiaToolkit.CLI.exe check-library-updates --library-scope=global --global-library="Company" --include-up-to-date=false --output-path="C:\Exports\library_updates.json"
+```
+
 ### PLC Operations
 
 #### list-plcs
@@ -1936,7 +1972,7 @@ Project2             C:\Path2.ap21        V21        2025-01-02
 ## Agent and MCP Packaging
 
 **Codex skill packaging**:
-- Agent workflow skills are versioned in `skills/`, including the top-level `opentia-toolkit-workflow` router, `basic-tia-interaction`, `hmi-unified-agent-editing`, and specialized hardware, PLC, trend logging, VCI, and repo-development workflows.
+- Agent workflow skills are versioned in `skills/`, including the top-level `opentia-toolkit-workflow` router, `basic-tia-interaction`, `hmi-unified-agent-editing`, and specialized hardware, PLC, library, trend logging, VCI, and repo-development workflows.
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip the default HMI skill under `artifacts\skills`.
 - Pass `-SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip` to package the TIA session-selection skill.
 - Add `-Install` to refresh `$CODEX_HOME\skills\<skill-name>`.

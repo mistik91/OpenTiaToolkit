@@ -20,6 +20,7 @@ Register the exact MCP executable you launch with Siemens Openness. Developers w
 - `skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance.
 - `skills/hardware-configuration-workflow`: generic hardware discovery, guarded patch, dry-run, and apply guidance.
 - `skills/plc-block-and-tag-workflow`: PLC blocks, types, tags, CSV updates, rename, and compile guidance.
+- `skills/library-workflow`: project/global library, master copy, library type, UDT version, and update-check guidance.
 - `skills/hmi-trend-logging-workflow`: Unified HMI trend logging, logging tag, and data log lifecycle guidance.
 - `skills/vci-sync-workflow`: TIA Version Control Interface workspace, mapping, status, and sync guidance.
 - `skills/opentia-dev-workflow`: repo development, test, plugin, and skill packaging guidance.

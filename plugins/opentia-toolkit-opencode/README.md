@@ -11,6 +11,7 @@ This bundle packages OpenTiaToolkit guidance for OpenCode:
 - `.opencode/skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance
 - `.opencode/skills/hardware-configuration-workflow`: generic hardware discovery, guarded patch, dry-run, and apply guidance
 - `.opencode/skills/plc-block-and-tag-workflow`: PLC blocks, types, tags, CSV updates, rename, and compile guidance
+- `.opencode/skills/library-workflow`: project/global library, master copy, library type, UDT version, and update-check guidance
 - `.opencode/skills/hmi-trend-logging-workflow`: Unified HMI trend logging, logging tag, and data log lifecycle guidance
 - `.opencode/skills/vci-sync-workflow`: TIA Version Control Interface workspace, mapping, status, and sync guidance
 - `.opencode/skills/opentia-dev-workflow`: repo development, test, plugin, and skill packaging guidance

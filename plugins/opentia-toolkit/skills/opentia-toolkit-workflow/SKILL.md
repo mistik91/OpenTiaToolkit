@@ -19,6 +19,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
    - Generic catalog, module/submodule, PROFINET, IO address, Startdrive telegram, GSD/GSDML parameter, or `apply-hardware-patch` work: use `hardware-configuration-workflow`.
    - PLC blocks, types, compile, import/export, tags, CSV tag updates, or find/replace rename work: use `plc-block-and-tag-workflow`.
    - Unified HMI trend logging, logging tags, data logs, or bulk logging configs: use `hmi-trend-logging-workflow`.
+   - Project/global library browsing, master copies, library types, UDT versions, update checks, or approved asset reuse: use `library-workflow`.
    - Version Control Interface workspace, mapping, status, export/connect/sync work: use `vci-sync-workflow`.
    - OpenTiaToolkit repo changes, tests, docs, plugin packaging, or skill packaging: use `opentia-dev-workflow`.
 2. If live TIA context is needed and not already proven in the current turn, use `basic-tia-interaction` before the domain workflow.
@@ -49,6 +50,7 @@ Use dry-runs, previews, or status reads before applying changes when the command
 - `apply-hmi-screen-json-patch` and `apply-hmi-screen-json-edit`: start with `dry-run=true` and keep `base-hash` filters stable.
 - `import-hmi-json`: start with `dry-run=true`; use `require-clean-preflight=true` before applying broad imports.
 - `create-hmi-trends`, `remove-hmi-logging-tags`, `delete-hmi-data-logs`: start with `dry-run=true`.
+- `copy-from-master-copy`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true` after confirming the master copy matches the target domain.
 - `find-replace-tags`, `find-replace-db-members`, `find-replace-udt-members`, `update-tags-from-csv`: start with `dry-run=true`.
 - Deletions require explicit confirmation from the user or an explicit `confirm=true` request.
 
@@ -62,6 +64,7 @@ After a mutation, verify through the narrowest available read:
 
 - Project/session changes: `portal-status`, `list-projects`, or `get-project-info`.
 - PLC changes: `get-blocks`, `get-block-info`, `get-software-tree`, relevant tag/rename result, and compile when appropriate.
+- Library workflows: `list-master-copies`, `list-library-types`, `get-library-type-versions`, or `check-library-updates`.
 - HMI screen changes: fresh screen snapshot, item properties, `VerifiedScreen`, or `hmi-status`.
 - Hardware changes: `get-hardware-tree`, `get-hardware-io-addresses`, `get-hardware-networks`, `audit-hardware-tag-mappings`, or parameter reads.
 - VCI changes: `get-vci-block-status` or `list-vci-mappings`.

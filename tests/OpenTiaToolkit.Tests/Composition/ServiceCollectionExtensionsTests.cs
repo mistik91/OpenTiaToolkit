@@ -37,6 +37,7 @@ namespace OpenTiaToolkit.Tests.Composition
             var hmiService = serviceProvider.GetRequiredService<IHmiService>();
             var vciService = serviceProvider.GetRequiredService<IVciService>();
             var hardwareService = serviceProvider.GetRequiredService<IHardwareService>();
+            var libraryService = serviceProvider.GetRequiredService<ILibraryService>();
 
             // Assert
             var portalContext = GetPrivateFieldValue(portalService, "_sessionContext");
@@ -44,16 +45,19 @@ namespace OpenTiaToolkit.Tests.Composition
             var hmiContext = GetPrivateFieldValue(hmiService, "_sessionContext");
             var vciContext = GetPrivateFieldValue(vciService, "_sessionContext");
             var hardwareContext = GetPrivateFieldValue(hardwareService, "_sessionContext");
+            var libraryContext = GetPrivateFieldValue(libraryService, "_sessionContext");
 
             Assert.IsNotNull(portalContext);
             Assert.IsNotNull(plcContext);
             Assert.IsNotNull(hmiContext);
             Assert.IsNotNull(vciContext);
             Assert.IsNotNull(hardwareContext);
+            Assert.IsNotNull(libraryContext);
             Assert.AreSame(portalContext, plcContext);
             Assert.AreSame(portalContext, hmiContext);
             Assert.AreSame(portalContext, vciContext);
             Assert.AreSame(portalContext, hardwareContext);
+            Assert.AreSame(portalContext, libraryContext);
         }
 
         [TestMethod]
@@ -131,6 +135,14 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "get-online-status");
             CollectionAssert.Contains(commands, "start-cpu");
             CollectionAssert.Contains(commands, "stop-cpu");
+            CollectionAssert.Contains(commands, "open-global-library");
+            CollectionAssert.Contains(commands, "list-global-libraries");
+            CollectionAssert.Contains(commands, "close-global-library");
+            CollectionAssert.Contains(commands, "list-master-copies");
+            CollectionAssert.Contains(commands, "copy-from-master-copy");
+            CollectionAssert.Contains(commands, "list-library-types");
+            CollectionAssert.Contains(commands, "get-library-type-versions");
+            CollectionAssert.Contains(commands, "check-library-updates");
             CollectionAssert.Contains(commands, "open-unified-hmi");
             CollectionAssert.Contains(commands, "list-hmi-tags");
             CollectionAssert.Contains(commands, "list-hmi-screens");

@@ -68,7 +68,7 @@ Use the development checkout snippets when running from this repository. Use the
 C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
 ```
 
-The Codex plugin package lives in `plugins/opentia-toolkit`. It runs `scripts/run-opentia-mcp.ps1`, which uses `OPEN_TIA_MCP_EXE` when set or falls back to this repo's Debug/Release MCP build output. It includes the top-level `opentia-toolkit-workflow` router plus specialized TIA interaction, HMI editing, hardware, PLC, trend logging, VCI, and repo development skills.
+The Codex plugin package lives in `plugins/opentia-toolkit`. It runs `scripts/run-opentia-mcp.ps1`, which uses `OPEN_TIA_MCP_EXE` when set or falls back to this repo's Debug/Release MCP build output. It includes the top-level `opentia-toolkit-workflow` router plus specialized TIA interaction, HMI editing, hardware, PLC, library, trend logging, VCI, and repo development skills.
 
 The Claude Code plugin package lives in `plugins/opentia-toolkit-claude-code` and uses the same launcher pattern. It includes the same workflow skills. The repo root also has a local Claude Code marketplace at `.claude-plugin/marketplace.json`.
 

@@ -14,6 +14,7 @@ The project targets **TIA Portal V21** first, with selected best-effort compatib
 - Opens, inspects, saves, and closes TIA Portal projects.
 - Lists devices, PLCs, HMI devices, project trees, and PLC software trees.
 - Runs PLC workflows such as compile, online compare, guarded PLCSIM Advanced download, online status checks, block browse, import/export, VCI workspace synchronization, search, delete, tag creation, CSV tag updates, and rename operations.
+- Works with project and global libraries: open/list/close global libraries, list master copies and library types, copy approved master copies into PLC block groups, and report library update status before mutation.
 - Supports generic hardware catalog discovery, module/submodule composition, PROFINET IO identity/wiring, process-image address assignment, Startdrive telegram configuration, and transactional GSD/GSDML parameter changes.
 - Supports Unified HMI browse, screen/item mutation, tag/trend setup, JSON export/diff/import, focused screen patches, faceplate interface probes, and safety preflights.
 - Exposes the same capabilities through both CLI and MCP, so scripts and agents use the same implementation.

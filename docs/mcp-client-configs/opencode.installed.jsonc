@@ -22,7 +22,8 @@
   },
   "permission": {
     "skill": {
-      "hmi-unified-agent-editing": "allow"
+      "hmi-unified-agent-editing": "allow",
+      "library-workflow": "allow"
     }
   }
 }
