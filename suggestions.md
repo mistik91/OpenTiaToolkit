@@ -107,12 +107,16 @@ The toolkit assumes a project always exists; greenfield bootstrap is impossible.
 MCP clients get structured JSON; CLI users get reflection-built tables. A `--format json|table` flag would make the CLI scriptable and would let most of the 1,433-line `TableOutputFormatter` be deleted — directly shrinking the worst presentation-layer liability identified in report.md §4.2. This is the rare feature that *removes* code.
 
 ### 6.2 MCP `reset-session` tool + operation timeout (P0)
+**Implemented**: MCP now exposes `reset-session`, `operation-status`, and `cancel-operation`. Tool calls run under a server operation context with timeout metadata, latest progress, and cooperative cancellation. `reset-session` cancels the active operation, releases the MCP gate, disposes the current TIA attachment, and clears `EngineeringSessionContext` without requiring the serialized Openness gate.
+
 Ties to report.md §2: a hung Openness call currently bricks the MCP server permanently (gate held forever, no recovery path). Suggest: a watchdog timeout surfaced in the busy-error payload, plus a `reset-session` tool that disposes the portal attachment and clears `EngineeringSessionContext`. This is both a bug fix and a missing feature.
 
 ### 6.3 Session persistence for single-shot CLI (P2)
 Each non-interactive invocation is a fresh process that must re-attach; state only persists in the REPL. Options, in ascending effort: document "use the MCP server for stateful scripting" as the official answer; or add a small daemon/named-pipe mode the single-shot CLI transparently talks to. The current "REPL or nothing" model is awkward for CI scripts.
 
 ### 6.4 Progress reporting & cancellation (P1)
+**Implemented**: The MCP bridge now creates a per-operation cancellation token and progress reporter, exposes latest progress through `operation-status` and busy payloads, and supports opt-in contextual commands through `IContextualCommand` / `CommandExecutionContext`. Existing commands remain source-compatible while long-running commands can incrementally adopt cooperative cancellation and richer progress.
+
 Long compiles/imports/downloads give zero feedback until completion, and no `CancellationToken` exists anywhere in the interfaces (report.md §2). MCP progress notifications are supported by the SDK already in use. Do this together with the report.md interface changes rather than as a separate pass.
 
 ### 6.5 An actual installer (P1)

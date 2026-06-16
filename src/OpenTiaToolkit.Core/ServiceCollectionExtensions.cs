@@ -17,6 +17,7 @@ namespace OpenTiaToolkit.Core
         public static IServiceCollection AddOpenTiaToolkitCoreServices(this IServiceCollection services)
         {
             services.AddSingleton<EngineeringSessionContext>();
+            services.AddSingleton<ISessionResetService, EngineeringSessionResetService>();
 
             services.AddSingleton<PortalService>(serviceProvider =>
                 new PortalService(

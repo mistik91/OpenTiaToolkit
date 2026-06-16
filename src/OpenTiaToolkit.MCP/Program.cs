@@ -153,8 +153,13 @@ namespace OpenTiaToolkit.MCP
                 "",
                 "Environment:",
                 "  OPEN_TIA_MCP_LOG_LEVEL             Trace, Debug, Information, Warning, Error, Critical, or None. Default: Warning.",
-                "  OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS  Optional positive timeout for one tool call. The TIA session gate stays busy until the underlying Openness call finishes.",
+                "  OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS  Optional positive timeout for one tool call. Timed-out calls are asked to cancel; use reset-session if the attachment stays busy.",
                 "  OPEN_TIA_ARTIFACT_RETENTION_DAYS   Optional retention window for temporary command artifacts. Default: 7.",
+                "",
+                "Built-in MCP tools:",
+                "  operation-status                    Reports active operation details and latest progress.",
+                "  cancel-operation                    Requests cancellation of the active operation.",
+                "  reset-session                       Cancels the active operation, clears the MCP gate, and disposes the current TIA attachment.",
                 "",
                 "After rebuilding this executable, refresh the Siemens Openness allow-list for this exact path and hash."
             });

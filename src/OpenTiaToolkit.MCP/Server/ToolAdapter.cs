@@ -98,7 +98,8 @@ namespace OpenTiaToolkit.MCP.Server
         /// <returns>Structured MCP tool result.</returns>
         public async Task<ToolExecutionResult> ExecuteAsync(
             IReadOnlyDictionary<string, JsonElement>? arguments,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            IProgress<CommandProgressUpdate>? progress = null)
         {
             _logger.LogInformation("MCP: Executing tool {ToolName}", Name);
 
@@ -107,7 +108,13 @@ namespace OpenTiaToolkit.MCP.Server
                 cancellationToken.ThrowIfCancellationRequested();
                 var args = ParseArguments(arguments);
                 cancellationToken.ThrowIfCancellationRequested();
-                var result = await _command.ExecuteAsync(args, _logger);
+                progress?.Report(new CommandProgressUpdate($"Starting {Name}.", 0, "starting"));
+                var context = new CommandExecutionContext(cancellationToken, progress);
+                var result = _command is IContextualCommand contextualCommand
+                    ? await contextualCommand.ExecuteAsync(args, _logger, context)
+                    : await _command.ExecuteAsync(args, _logger);
+                cancellationToken.ThrowIfCancellationRequested();
+                progress?.Report(new CommandProgressUpdate($"Completed {Name}.", 100, "completed"));
                 return ToolExecutionResult.FromCommandResult(result, Name);
             }
             catch (OperationCanceledException)

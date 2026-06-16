@@ -104,9 +104,12 @@ namespace OpenTiaToolkit.Tests.Server
             var tools = registry.ListTools();
 
             // Assert
-            Assert.AreEqual(2, tools.Count);
-            Assert.AreEqual("cmd1", tools[0].Name);
-            Assert.AreEqual("cmd2", tools[1].Name);
+            Assert.AreEqual(5, tools.Count);
+            Assert.IsTrue(tools.Any(tool => tool.Name == "cmd1"));
+            Assert.IsTrue(tools.Any(tool => tool.Name == "cmd2"));
+            Assert.IsTrue(tools.Any(tool => tool.Name == "cancel-operation"));
+            Assert.IsTrue(tools.Any(tool => tool.Name == "operation-status"));
+            Assert.IsTrue(tools.Any(tool => tool.Name == "reset-session"));
         }
 
         [TestMethod]

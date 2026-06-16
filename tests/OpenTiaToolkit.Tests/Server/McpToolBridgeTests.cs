@@ -173,6 +173,37 @@ namespace OpenTiaToolkit.Tests.Server
         }
 
         [TestMethod]
+        public async Task ToolAdapter_ExecuteAsync_PassesExecutionContextToContextualCommand()
+        {
+            CommandExecutionContext? capturedContext = null;
+            var commandMock = new Mock<IContextualCommand>();
+            commandMock.Setup(command => command.Name).Returns("context-tool");
+            commandMock.Setup(command => command.Description).Returns("Context test");
+            commandMock.Setup(command => command.Schema).Returns(new CommandSchema("Context test"));
+            commandMock
+                .Setup(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>(), It.IsAny<CommandExecutionContext>()))
+                .ReturnsAsync((CommandArgs _, ILogger _, CommandExecutionContext context) =>
+                {
+                    capturedContext = context;
+                    context.ReportProgress("Halfway", 50, "working");
+                    return CommandResult.CreateSuccess(message: "Done");
+                });
+
+            var progressUpdates = new List<CommandProgressUpdate>();
+            var adapter = new ToolAdapter(commandMock.Object, Mock.Of<ILogger>());
+            var result = await adapter.ExecuteAsync(
+                CreateArguments(new { }),
+                CancellationToken.None,
+                new InlineProgress(update => progressUpdates.Add(update)));
+
+            Assert.IsFalse(result.IsError);
+            Assert.IsNotNull(capturedContext);
+            Assert.IsFalse(capturedContext!.CancellationToken.IsCancellationRequested);
+            Assert.IsTrue(progressUpdates.Exists(update => update.Stage == "working" && update.Percentage == 50));
+            commandMock.Verify(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()), Times.Never);
+        }
+
+        [TestMethod]
         public async Task ToolRegistry_CallToolAsync_ReturnsStructuredContentAndText()
         {
             var commandMock = CreateCommandMock(
@@ -331,6 +362,108 @@ namespace OpenTiaToolkit.Tests.Server
             Assert.IsFalse(completedAfterRelease.IsError.GetValueOrDefault());
         }
 
+        [TestMethod]
+        public async Task ToolRegistry_OperationStatus_ReturnsLatestProgress()
+        {
+            var started = new TaskCompletionSource<bool>();
+            var release = new TaskCompletionSource<bool>();
+            var command = new ProgressCommand("progress-tool", async context =>
+            {
+                context.ReportProgress("Scanning project", 25, "scan");
+                started.SetResult(true);
+                await release.Task;
+                return CommandResult.CreateSuccess(message: "Complete");
+            });
+
+            var registry = new ToolRegistry(new ICommand[] { command }, Mock.Of<ILogger<ToolRegistry>>());
+            var firstCall = registry.CallToolAsync("progress-tool", CreateArguments(new { })).AsTask();
+            await started.Task;
+
+            var status = await registry.CallToolAsync("operation-status", CreateArguments(new { }));
+
+            Assert.IsFalse(status.IsError.GetValueOrDefault());
+            Assert.IsTrue(status.StructuredContent?["data"]?["active"]?.GetValue<bool>() ?? false);
+            Assert.AreEqual("progress-tool", status.StructuredContent?["data"]?["activeToolName"]?.GetValue<string>());
+            Assert.AreEqual("Scanning project", status.StructuredContent?["data"]?["progress"]?["message"]?.GetValue<string>());
+            Assert.AreEqual("scan", status.StructuredContent?["data"]?["progress"]?["stage"]?.GetValue<string>());
+
+            release.SetResult(true);
+            await firstCall;
+        }
+
+        [TestMethod]
+        public async Task ToolRegistry_CancelOperation_RequestsCancellation()
+        {
+            var started = new TaskCompletionSource<bool>();
+            var observedCancellation = new TaskCompletionSource<bool>();
+            var command = new ProgressCommand("cancelable-tool", async context =>
+            {
+                started.SetResult(true);
+                while (!context.CancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(5);
+                }
+
+                observedCancellation.SetResult(true);
+                return CommandResult.CreateSuccess(message: "Canceled cooperatively");
+            });
+
+            var registry = new ToolRegistry(new ICommand[] { command }, Mock.Of<ILogger<ToolRegistry>>());
+            var firstCall = registry.CallToolAsync("cancelable-tool", CreateArguments(new { })).AsTask();
+            await started.Task;
+
+            var cancel = await registry.CallToolAsync("cancel-operation", CreateArguments(new { }));
+
+            Assert.IsFalse(cancel.IsError.GetValueOrDefault());
+            Assert.IsTrue(cancel.StructuredContent?["data"]?["cancelRequested"]?.GetValue<bool>() ?? false);
+            await observedCancellation.Task;
+            await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () => await firstCall);
+        }
+
+        [TestMethod]
+        public async Task ToolRegistry_ResetSession_ReleasesGateAndResetsSession()
+        {
+            var started = new TaskCompletionSource<bool>();
+            var release = new TaskCompletionSource<bool>();
+            var callCount = 0;
+            var commandMock = CreateCommandMock("blocked-tool", new CommandSchema("Blocked operation"));
+            commandMock
+                .Setup(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()))
+                .Returns(async () =>
+                {
+                    if (Interlocked.Increment(ref callCount) == 1)
+                    {
+                        started.SetResult(true);
+                        await release.Task;
+                    }
+
+                    return CommandResult.CreateSuccess(message: "Late complete");
+                });
+            var resetService = new Mock<ISessionResetService>();
+            resetService
+                .Setup(service => service.ResetAsync())
+                .ReturnsAsync(new SessionResetResult(hadPortal: true, hadProject: true, hadPlcSelection: false, hadHmiSelection: false));
+
+            var registry = new ToolRegistry(
+                new[] { commandMock.Object },
+                Mock.Of<ILogger<ToolRegistry>>(),
+                sessionResetService: resetService.Object);
+
+            var firstCall = registry.CallToolAsync("blocked-tool", CreateArguments(new { })).AsTask();
+            await started.Task;
+
+            var reset = await registry.CallToolAsync("reset-session", CreateArguments(new { }));
+            var secondCall = await registry.CallToolAsync("blocked-tool", CreateArguments(new { }));
+
+            Assert.IsFalse(reset.IsError.GetValueOrDefault());
+            Assert.IsTrue(reset.StructuredContent?["data"]?["releasedGate"]?.GetValue<bool>() ?? false);
+            Assert.IsFalse(secondCall.IsError.GetValueOrDefault());
+            resetService.Verify(service => service.ResetAsync(), Times.Once);
+
+            release.SetResult(true);
+            await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () => await firstCall);
+        }
+
         private static Mock<ICommand> CreateCommandMock(string name, CommandSchema schema)
         {
             var commandMock = new Mock<ICommand>();
@@ -383,6 +516,50 @@ namespace OpenTiaToolkit.Tests.Server
 
             Assert.AreEqual("string", outputPath.GetProperty("type").GetString());
             StringAssert.Contains(outputPath.GetProperty("description").GetString(), format);
+        }
+
+        private sealed class ProgressCommand : IContextualCommand
+        {
+            private readonly Func<CommandExecutionContext, Task<CommandResult>> _execute;
+
+            public ProgressCommand(string name, Func<CommandExecutionContext, Task<CommandResult>> execute)
+            {
+                Name = name;
+                Description = name;
+                Schema = new CommandSchema(name);
+                _execute = execute;
+            }
+
+            public string Name { get; }
+
+            public string Description { get; }
+
+            public CommandSchema Schema { get; }
+
+            public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+            {
+                return _execute(CommandExecutionContext.None);
+            }
+
+            public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+            {
+                return _execute(context);
+            }
+        }
+
+        private sealed class InlineProgress : IProgress<CommandProgressUpdate>
+        {
+            private readonly Action<CommandProgressUpdate> _report;
+
+            public InlineProgress(Action<CommandProgressUpdate> report)
+            {
+                _report = report;
+            }
+
+            public void Report(CommandProgressUpdate value)
+            {
+                _report(value);
+            }
         }
     }
 }

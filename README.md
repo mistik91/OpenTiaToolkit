@@ -123,12 +123,15 @@ A typical installed-product config uses:
       "command": "C:\\Program Files\\OpenTiaToolkit\\OpenTiaToolkit.MCP.exe",
       "args": [],
       "env": {
-        "OPEN_TIA_MCP_LOG_LEVEL": "Error"
+        "OPEN_TIA_MCP_LOG_LEVEL": "Error",
+        "OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS": "600"
       }
     }
   }
 }
 ```
+
+The MCP server also exposes infrastructure tools for long-running TIA operations: `operation-status`, `cancel-operation`, and `reset-session`. Use `operation-status` after a timeout or busy response, and `reset-session` only when the current TIA attachment needs to be discarded.
 
 For development checkouts and client-specific snippets, use [docs/mcp-client-configs](docs/mcp-client-configs/README.md).
 

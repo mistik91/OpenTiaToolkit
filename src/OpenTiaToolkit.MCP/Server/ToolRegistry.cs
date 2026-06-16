@@ -21,6 +21,7 @@ namespace OpenTiaToolkit.MCP.Server
         private readonly Dictionary<string, ToolAdapter> _tools;
         private readonly ILogger<ToolRegistry> _logger;
         private readonly McpRuntimeOptions _options;
+        private readonly ISessionResetService? _sessionResetService;
         private readonly SemaphoreSlim _executionGate = new SemaphoreSlim(1, 1);
         private readonly object _operationLock = new object();
         private ActiveToolOperation? _activeOperation;
@@ -30,10 +31,15 @@ namespace OpenTiaToolkit.MCP.Server
         /// </summary>
         /// <param name="commands">The commands to register as tools.</param>
         /// <param name="logger">Logger instance.</param>
-        public ToolRegistry(IEnumerable<ICommand> commands, ILogger<ToolRegistry> logger, McpRuntimeOptions? options = null)
+        public ToolRegistry(
+            IEnumerable<ICommand> commands,
+            ILogger<ToolRegistry> logger,
+            McpRuntimeOptions? options = null,
+            ISessionResetService? sessionResetService = null)
         {
             _logger = logger;
             _options = options ?? new McpRuntimeOptions();
+            _sessionResetService = sessionResetService;
             _tools = new Dictionary<string, ToolAdapter>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var command in commands)
@@ -65,10 +71,14 @@ namespace OpenTiaToolkit.MCP.Server
         /// <returns>List of tool information.</returns>
         public List<Tool> ListTools()
         {
-            return _tools.Values
+            var tools = _tools.Values
                 .OrderBy(tool => tool.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(tool => tool.ProtocolTool)
                 .ToList();
+            tools.Add(CreateBuiltInTool("cancel-operation", "Requests cancellation of the active MCP tool operation.", new Dictionary<string, object?>()));
+            tools.Add(CreateBuiltInTool("operation-status", "Reports the active MCP tool operation and latest progress.", new Dictionary<string, object?>()));
+            tools.Add(CreateBuiltInTool("reset-session", "Cancels the active operation, clears the MCP gate, and disposes the current TIA session attachment.", new Dictionary<string, object?>()));
+            return tools.OrderBy(tool => tool.Name, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         /// <summary>
@@ -82,6 +92,11 @@ namespace OpenTiaToolkit.MCP.Server
             if (string.IsNullOrWhiteSpace(toolName))
             {
                 throw new McpException("Missing tool name.");
+            }
+
+            if (TryHandleBuiltInTool(toolName!, out var builtInResult))
+            {
+                return builtInResult;
             }
 
             var tool = GetTool(toolName!);
@@ -104,13 +119,7 @@ namespace OpenTiaToolkit.MCP.Server
                     activeOperation == null
                         ? "TIA Portal is busy executing another MCP operation."
                         : $"TIA Portal is busy executing '{activeOperation.ToolName}' (operation {activeOperation.OperationId}). Retry after it completes.",
-                    new
-                    {
-                        busy = true,
-                        activeOperationId = activeOperation?.OperationId,
-                        activeToolName = activeOperation?.ToolName,
-                        activeStartedAtUtc = activeOperation?.StartedAtUtc
-                    });
+                    CreateOperationStatusData(activeOperation, busy: true));
                 return CreateCallToolResult(ToolExecutionResult.FromCommandResult(busyResult));
             }
 
@@ -118,8 +127,10 @@ namespace OpenTiaToolkit.MCP.Server
             {
                 OperationId = Guid.NewGuid().ToString("N"),
                 ToolName = tool.Name,
-                StartedAtUtc = DateTime.UtcNow.ToString("o")
+                StartedAtUtc = DateTime.UtcNow.ToString("o"),
+                Cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
             };
+            var progress = new Progress<CommandProgressUpdate>(update => ReportProgress(operation, update));
             lock (_operationLock)
             {
                 _activeOperation = operation;
@@ -132,9 +143,7 @@ namespace OpenTiaToolkit.MCP.Server
 
             try
             {
-                // Do not cancel Openness calls through caller cancellation:
-                // they must finish before another tool can safely use the same session.
-                var executionTask = tool.ExecuteAsync(arguments, CancellationToken.None);
+                var executionTask = tool.ExecuteAsync(arguments, operation.Cancellation.Token, progress);
                 if (_options.ToolTimeout.HasValue)
                 {
                     var delayTask = Task.Delay(_options.ToolTimeout.Value);
@@ -159,16 +168,8 @@ namespace OpenTiaToolkit.MCP.Server
                             TaskScheduler.Default);
 
                         var timeoutResult = CommandResult.CreateFailure(
-                            $"MCP tool '{operation.ToolName}' exceeded the configured timeout of {_options.ToolTimeout.Value.TotalSeconds:0.###} seconds. The underlying TIA Portal operation is still running; later calls remain busy until it finishes.",
-                            new
-                            {
-                                timedOut = true,
-                                activeOperationId = operation.OperationId,
-                                activeToolName = operation.ToolName,
-                                activeStartedAtUtc = operation.StartedAtUtc,
-                                timedOutAtUtc = operation.TimedOutAtUtc,
-                                timeoutSeconds = _options.ToolTimeout.Value.TotalSeconds
-                            });
+                            $"MCP tool '{operation.ToolName}' exceeded the configured timeout of {_options.ToolTimeout.Value.TotalSeconds:0.###} seconds. The operation was asked to cancel; use reset-session if the TIA Portal attachment remains busy.",
+                            CreateOperationStatusData(operation, timedOut: true, timeoutSeconds: _options.ToolTimeout.Value.TotalSeconds));
                         return CreateCallToolResult(ToolExecutionResult.FromCommandResult(timeoutResult));
                     }
                 }
@@ -183,6 +184,92 @@ namespace OpenTiaToolkit.MCP.Server
                     ReleaseOperation(operation);
                 }
             }
+        }
+
+        private bool TryHandleBuiltInTool(string toolName, out CallToolResult result)
+        {
+            if (string.Equals(toolName, "operation-status", StringComparison.OrdinalIgnoreCase))
+            {
+                ActiveToolOperation? activeOperation;
+                lock (_operationLock)
+                {
+                    activeOperation = _activeOperation;
+                }
+
+                result = CreateCallToolResult(ToolExecutionResult.FromCommandResult(CommandResult.CreateSuccess(
+                    CreateOperationStatusData(activeOperation),
+                    activeOperation == null ? "No MCP tool operation is active." : $"MCP tool '{activeOperation.ToolName}' is active.")));
+                return true;
+            }
+
+            if (string.Equals(toolName, "cancel-operation", StringComparison.OrdinalIgnoreCase))
+            {
+                ActiveToolOperation? activeOperation;
+                lock (_operationLock)
+                {
+                    activeOperation = _activeOperation;
+                    activeOperation?.Cancellation.Cancel();
+                    if (activeOperation != null)
+                    {
+                        activeOperation.CancelRequested = true;
+                        activeOperation.CancelRequestedAtUtc = DateTime.UtcNow.ToString("o");
+                    }
+                }
+
+                result = CreateCallToolResult(ToolExecutionResult.FromCommandResult(CommandResult.CreateSuccess(
+                    CreateOperationStatusData(activeOperation, cancelRequested: activeOperation != null),
+                    activeOperation == null ? "No MCP tool operation is active." : $"Cancellation requested for MCP tool '{activeOperation.ToolName}'.")));
+                return true;
+            }
+
+            if (string.Equals(toolName, "reset-session", StringComparison.OrdinalIgnoreCase))
+            {
+                result = CreateCallToolResult(ToolExecutionResult.FromCommandResult(ResetSessionAsync().GetAwaiter().GetResult()));
+                return true;
+            }
+
+            result = null!;
+            return false;
+        }
+
+        private async Task<CommandResult> ResetSessionAsync()
+        {
+            ActiveToolOperation? resetOperation;
+            var releasedGate = false;
+
+            lock (_operationLock)
+            {
+                resetOperation = _activeOperation;
+                if (resetOperation != null)
+                {
+                    resetOperation.CancelRequested = true;
+                    resetOperation.CancelRequestedAtUtc = DateTime.UtcNow.ToString("o");
+                    resetOperation.ResetRequested = true;
+                    resetOperation.Cancellation.Cancel();
+                    _activeOperation = null;
+                    releasedGate = true;
+                }
+            }
+
+            if (releasedGate)
+            {
+                _executionGate.Release();
+            }
+
+            var sessionReset = _sessionResetService == null
+                ? null
+                : await _sessionResetService.ResetAsync().ConfigureAwait(false);
+
+            return CommandResult.CreateSuccess(
+                new
+                {
+                    reset = true,
+                    releasedGate,
+                    canceledOperationId = resetOperation?.OperationId,
+                    canceledToolName = resetOperation?.ToolName,
+                    session = sessionReset
+                },
+                "MCP session reset completed.");
         }
 
         private static CallToolResult CreateCallToolResult(ToolExecutionResult result)
@@ -207,6 +294,7 @@ namespace OpenTiaToolkit.MCP.Server
             {
                 operation.TimedOut = true;
                 operation.TimedOutAtUtc = DateTime.UtcNow.ToString("o");
+                operation.Cancellation.Cancel();
             }
 
             _logger.LogWarning(
@@ -217,19 +305,92 @@ namespace OpenTiaToolkit.MCP.Server
 
         private void ReleaseOperation(ActiveToolOperation operation)
         {
+            var shouldRelease = false;
             lock (_operationLock)
             {
                 if (ReferenceEquals(_activeOperation, operation))
                 {
                     _activeOperation = null;
+                    shouldRelease = true;
                 }
             }
+
+            operation.Cancellation.Dispose();
 
             _logger.LogInformation(
                 "Finished MCP tool operation {OperationId}: {ToolName}",
                 operation.OperationId,
                 operation.ToolName);
-            _executionGate.Release();
+
+            if (shouldRelease)
+            {
+                _executionGate.Release();
+            }
+        }
+
+        private void ReportProgress(ActiveToolOperation operation, CommandProgressUpdate update)
+        {
+            lock (_operationLock)
+            {
+                if (!ReferenceEquals(_activeOperation, operation))
+                {
+                    return;
+                }
+
+                operation.LatestProgress = new OperationProgressSnapshot
+                {
+                    Message = update.Message,
+                    Percentage = update.Percentage,
+                    Stage = update.Stage,
+                    ReportedAtUtc = DateTime.UtcNow.ToString("o")
+                };
+                operation.ProgressCount++;
+            }
+        }
+
+        private static object CreateOperationStatusData(
+            ActiveToolOperation? operation,
+            bool busy = false,
+            bool timedOut = false,
+            double? timeoutSeconds = null,
+            bool cancelRequested = false)
+        {
+            return new
+            {
+                busy,
+                active = operation != null,
+                timedOut = timedOut || operation?.TimedOut == true,
+                cancelRequested = cancelRequested || operation?.CancelRequested == true,
+                activeOperationId = operation?.OperationId,
+                activeToolName = operation?.ToolName,
+                activeStartedAtUtc = operation?.StartedAtUtc,
+                timedOutAtUtc = operation?.TimedOutAtUtc,
+                cancelRequestedAtUtc = operation?.CancelRequestedAtUtc,
+                timeoutSeconds,
+                progress = operation?.LatestProgress,
+                progressCount = operation?.ProgressCount ?? 0
+            };
+        }
+
+        private static Tool CreateBuiltInTool(string name, string description, Dictionary<string, object?> properties)
+        {
+            var schema = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["type"] = "object",
+                ["additionalProperties"] = false
+            };
+
+            if (properties.Count > 0)
+            {
+                schema["properties"] = properties;
+            }
+
+            return new Tool
+            {
+                Name = name,
+                Description = description,
+                InputSchema = JsonSerializer.SerializeToElement(schema)
+            };
         }
 
         private sealed class ActiveToolOperation
@@ -243,6 +404,29 @@ namespace OpenTiaToolkit.MCP.Server
             public bool TimedOut { get; set; }
 
             public string? TimedOutAtUtc { get; set; }
+
+            public bool CancelRequested { get; set; }
+
+            public string? CancelRequestedAtUtc { get; set; }
+
+            public bool ResetRequested { get; set; }
+
+            public CancellationTokenSource Cancellation { get; set; } = new CancellationTokenSource();
+
+            public OperationProgressSnapshot? LatestProgress { get; set; }
+
+            public int ProgressCount { get; set; }
+        }
+
+        private sealed class OperationProgressSnapshot
+        {
+            public string Message { get; set; } = string.Empty;
+
+            public double? Percentage { get; set; }
+
+            public string? Stage { get; set; }
+
+            public string ReportedAtUtc { get; set; } = string.Empty;
         }
     }
 }

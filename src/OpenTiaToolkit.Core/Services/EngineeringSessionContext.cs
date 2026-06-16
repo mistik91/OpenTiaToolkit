@@ -2,6 +2,7 @@ using Siemens.Engineering;
 using Siemens.Engineering.HW;
 using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.Multiuser;
+using OpenTiaToolkit.Core.Abstractions;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -74,6 +75,45 @@ namespace OpenTiaToolkit.Core.Services
             HmiSoftware = null;
             CurrentHmiDevice = null;
             CurrentHmiName = null;
+        }
+
+        public SessionResetResult ResetWithoutGate()
+        {
+            var hadPortal = Portal != null;
+            var hadProject = Project != null || Session != null;
+            var hadPlcSelection = PlcSoftware != null || CurrentPlcDevice != null || CurrentPlcDeviceItem != null || CurrentPlcName != null;
+            var hadHmiSelection = HmiSoftware != null || CurrentHmiDevice != null || CurrentHmiName != null;
+            string? warning = null;
+
+            try
+            {
+                if (OwnsCurrentSession)
+                {
+                    Session?.Close();
+                }
+                else if (OwnsCurrentProject && Project is Project ownedProject)
+                {
+                    ownedProject.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                warning = ex.InnerException?.Message ?? ex.Message;
+            }
+
+            try
+            {
+                Portal?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                warning = string.IsNullOrWhiteSpace(warning)
+                    ? ex.InnerException?.Message ?? ex.Message
+                    : warning + " " + (ex.InnerException?.Message ?? ex.Message);
+            }
+
+            ClearPortalSelection();
+            return new SessionResetResult(hadPortal, hadProject, hadPlcSelection, hadHmiSelection, warning);
         }
 
         public async Task RunExclusiveAsync(Func<Task> action)
