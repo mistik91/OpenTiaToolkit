@@ -1,13 +1,13 @@
 ---
 name: plc-block-and-tag-workflow
-description: Use for OpenTiaToolkit PLC workflows in Siemens TIA Portal, including PLC discovery, opening PLC software, software tree inspection, block and type browsing, block/type import or export, SIMATIC SD document sync, compile, PLC tag creation, CSV tag updates, and tag/DB/UDT member rename dry-run/apply workflows.
+description: Use for OpenTiaToolkit PLC workflows in Siemens TIA Portal, including PLC discovery, opening PLC software, software tree inspection, block and type browsing, block/type import or export, SIMATIC SD document sync, compile, guarded PLCSIM Advanced download, online status, online compare, PLC tag creation, CSV tag updates, and tag/DB/UDT member rename dry-run/apply workflows.
 ---
 
 # PLC Block And Tag Workflow
 
 ## Overview
 
-Use this skill for PLC software work through OpenTiaToolkit. Start with target discovery, preview any broad mutation, apply narrowly, then verify with reads and compile when behavior or consistency may be affected.
+Use this skill for PLC software work through OpenTiaToolkit. Start with target discovery, preview any broad mutation, apply narrowly, then verify with reads, compile, and the guarded online/simulator loop when behavior or consistency may be affected.
 
 ## Standard Workflow
 
@@ -24,7 +24,8 @@ Use this skill for PLC software work through OpenTiaToolkit. Start with target d
 5. Run dry-run or preview mode first when available.
 6. Apply only after preview results match the user's intent.
 7. Verify with focused reads and run `compile-software` after imports, deletes, or renames that may affect PLC consistency.
-8. Save only when the user asked to persist or after an intentional successful mutation workflow.
+8. When a PLCSIM Advanced target is explicitly configured and the user wants runtime verification, close the loop with the guarded verification sequence below.
+9. Save only when the user asked to persist or after an intentional successful mutation workflow.
 
 ## Import And Export
 
@@ -41,6 +42,19 @@ For imports, keep paths and groups explicit:
 - Use `import-block-from-docs` / `import-blocks-from-docs` for `.s7dcl` + `.s7res`.
 
 After imports, run `get-blocks` or `get-block-info`, then compile when reasonable.
+
+## Verification Loop
+
+Use the online/simulator loop after intentional PLC software changes when the user wants behavior-oriented verification and a PLCSIM Advanced target is already configured:
+
+1. Run `compile-software --plc-name <name>` and stop on compile errors.
+2. Run `download-software --plc-name <name> --to-simulator=true` first as a dry-run.
+3. Apply only with `download-software --plc-name <name> --to-simulator=true --dry-run=false --confirm=true`.
+4. For fail-safe projects, prefer `--only-changes=true`; Siemens Openness may reject full fail-safe software loads even when safety access and PLCSIM Advanced are configured.
+5. Run `get-online-status --plc-name <name>` to confirm the target is online.
+6. Run `compare-software --plc-name <name>` or pass `output-path` for a durable JSON diff artifact.
+
+Treat `start-cpu` and `stop-cpu` as optional guarded follow-ups. Some TIA Portal online providers expose connection state but no CPU RUN/STOP operation through Openness; report the structured not-supported result instead of trying an unsafe workaround.
 
 ## Tag Creation And CSV Updates
 
