@@ -254,6 +254,71 @@ namespace OpenTiaToolkit.Core.Commands.Plc
             return new FileInfo(outputPath).Length;
         }
 
+        public static long WriteTagExportCsv(IReadOnlyList<PlcTagExportRow> rows, string outputPath)
+        {
+            CommandArtifactSupport.EnsureParentDirectory(outputPath);
+            using (var writer = new StreamWriter(outputPath, append: false, encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.WriteLine(string.Join(",", TagExportCsvColumns));
+                foreach (var row in rows)
+                {
+                    writer.WriteLine(string.Join(",", new[]
+                    {
+                        row.TagTableName,
+                        row.Name,
+                        row.DataType,
+                        row.LogicalAddress,
+                        row.Comment
+                    }.Select(CommandArtifactSupport.EscapeCsv)));
+                }
+            }
+
+            return new FileInfo(outputPath).Length;
+        }
+
+        public static long WriteCrossReferencesCsv(IReadOnlyList<PlcCrossReferenceEntry> rows, string outputPath)
+        {
+            CommandArtifactSupport.EnsureParentDirectory(outputPath);
+            using (var writer = new StreamWriter(outputPath, append: false, encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.WriteLine(string.Join(",", CrossReferenceCsvColumns));
+                foreach (var row in rows)
+                {
+                    writer.WriteLine(string.Join(",", new[]
+                    {
+                        row.Name,
+                        row.Path,
+                        row.Usage,
+                        row.ItemType,
+                        row.Detail
+                    }.Select(CommandArtifactSupport.EscapeCsv)));
+                }
+            }
+
+            return new FileInfo(outputPath).Length;
+        }
+
+        public static long WriteSurfaceItemsCsv(IReadOnlyList<PlcSurfaceItem> rows, string outputPath)
+        {
+            CommandArtifactSupport.EnsureParentDirectory(outputPath);
+            using (var writer = new StreamWriter(outputPath, append: false, encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            {
+                writer.WriteLine(string.Join(",", SurfaceItemCsvColumns));
+                foreach (var row in rows)
+                {
+                    writer.WriteLine(string.Join(",", new[]
+                    {
+                        row.Name,
+                        row.ItemType,
+                        row.Path,
+                        row.Detail
+                    }.Select(CommandArtifactSupport.EscapeCsv)));
+                }
+            }
+
+            return new FileInfo(outputPath).Length;
+        }
+
         public static readonly IReadOnlyList<string> BlockCsvColumns = new[]
         {
             "Name",
@@ -295,6 +360,32 @@ namespace OpenTiaToolkit.Core.Commands.Plc
             "Item",
             "Error",
             "Details"
+        };
+
+        public static readonly IReadOnlyList<string> TagExportCsvColumns = new[]
+        {
+            "TagTableName",
+            "Name",
+            "DataType",
+            "LogicalAddress",
+            "Comment"
+        };
+
+        public static readonly IReadOnlyList<string> CrossReferenceCsvColumns = new[]
+        {
+            "Name",
+            "Path",
+            "Usage",
+            "ItemType",
+            "Detail"
+        };
+
+        public static readonly IReadOnlyList<string> SurfaceItemCsvColumns = new[]
+        {
+            "Name",
+            "ItemType",
+            "Path",
+            "Detail"
         };
     }
 }

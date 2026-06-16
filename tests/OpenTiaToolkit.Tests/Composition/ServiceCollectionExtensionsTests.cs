@@ -175,6 +175,15 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "create-block");
             CollectionAssert.Contains(commands, "find-replace-db-members");
             CollectionAssert.Contains(commands, "find-replace-udt-members");
+            CollectionAssert.Contains(commands, "export-tags");
+            CollectionAssert.Contains(commands, "import-source");
+            CollectionAssert.Contains(commands, "generate-blocks-from-source");
+            CollectionAssert.Contains(commands, "export-block-as-source");
+            CollectionAssert.Contains(commands, "get-cross-references");
+            CollectionAssert.Contains(commands, "list-external-sources");
+            CollectionAssert.Contains(commands, "list-watch-tables");
+            CollectionAssert.Contains(commands, "list-technology-objects");
+            CollectionAssert.Contains(commands, "list-plc-alarm-text-lists");
             CollectionAssert.Contains(commands, "update-tags-from-csv");
             CollectionAssert.Contains(commands, "list-vci-workspaces");
             CollectionAssert.Contains(commands, "create-vci-workspace");

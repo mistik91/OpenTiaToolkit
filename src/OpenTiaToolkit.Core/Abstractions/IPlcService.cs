@@ -92,6 +92,55 @@ public interface IPlcService
     Task<PlcCpuControlResult> StopCpuAsync(bool confirm = false);
 
     /// <summary>
+    /// Exports PLC tags from all tag tables.
+    /// </summary>
+    /// <param name="culture">Project language culture used for tag comments.</param>
+    /// <returns>Structured tag export result.</returns>
+    Task<PlcTagExportResult> ExportTagsAsync(string culture = "en-US");
+
+    /// <summary>
+    /// Gets cross references for a tag, block, or other named PLC object.
+    /// </summary>
+    /// <param name="name">Object name to look up.</param>
+    /// <returns>Structured cross-reference result.</returns>
+    Task<PlcCrossReferenceResult> GetCrossReferencesAsync(string name);
+
+    /// <summary>
+    /// Lists PLC external source files.
+    /// </summary>
+    Task<IReadOnlyList<PlcSurfaceItem>> ListExternalSourcesAsync();
+
+    /// <summary>
+    /// Lists PLC watch and force tables.
+    /// </summary>
+    Task<IReadOnlyList<PlcSurfaceItem>> ListWatchTablesAsync();
+
+    /// <summary>
+    /// Lists PLC technology objects.
+    /// </summary>
+    Task<IReadOnlyList<PlcSurfaceItem>> ListTechnologyObjectsAsync();
+
+    /// <summary>
+    /// Lists PLC alarm text lists.
+    /// </summary>
+    Task<IReadOnlyList<PlcSurfaceItem>> ListPlcAlarmTextListsAsync();
+
+    /// <summary>
+    /// Imports a PLC external source file when supported by the selected PLC software.
+    /// </summary>
+    Task<PlcSourceOperationResult> ImportSourceAsync(string sourcePath, bool dryRun = true, bool confirm = false);
+
+    /// <summary>
+    /// Generates blocks from an imported PLC external source when supported.
+    /// </summary>
+    Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false);
+
+    /// <summary>
+    /// Exports a PLC block as an external source file when supported.
+    /// </summary>
+    Task<PlcSourceOperationResult> ExportBlockAsSourceAsync(string blockName, string outputPath);
+
+    /// <summary>
     /// Exports all blocks from the PLC software to XML files.
     /// </summary>
     /// <param name="exportPath">The directory path where XML files will be saved.</param>

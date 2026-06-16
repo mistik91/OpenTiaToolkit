@@ -17,7 +17,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
    - TIA instance, project lifecycle, devices, PLC/HMI target discovery: use `basic-tia-interaction`.
    - Unified HMI screen JSON, screen item, faceplate, event handler, dynamization, or JSON import/export edits: use `hmi-unified-agent-editing`.
    - Generic catalog, module/submodule, PROFINET, IO address, Startdrive telegram, GSD/GSDML parameter, or `apply-hardware-patch` work: use `hardware-configuration-workflow`.
-   - PLC blocks, types, compile, import/export, tags, CSV tag updates, or find/replace rename work: use `plc-block-and-tag-workflow`.
+   - PLC blocks, types, source files, compile, import/export, tags, cross-references, watch tables, technology objects, alarm text lists, CSV tag updates, or find/replace rename work: use `plc-block-and-tag-workflow`.
    - Unified HMI trend logging, logging tags, data logs, or bulk logging configs: use `hmi-trend-logging-workflow`.
    - Project/global library browsing, master copies, library types, UDT versions, update checks, or approved asset reuse: use `library-workflow`.
    - Version Control Interface workspace, mapping, status, export/connect/sync work: use `vci-sync-workflow`.
@@ -53,6 +53,7 @@ Use dry-runs, previews, or status reads before applying changes when the command
 - `create-hmi-trends`, `remove-hmi-logging-tags`, `delete-hmi-data-logs`: start with `dry-run=true`.
 - `import-texts`: start with the default `dry-run=true`; apply project text workbook changes only with explicit user intent and `dry-run=false`.
 - `copy-from-master-copy`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true` after confirming the master copy matches the target domain.
+- `import-source`, `generate-blocks-from-source`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true`, then verify with `get-block-info`/`get-blocks` and `compile-software`.
 - `find-replace-tags`, `find-replace-db-members`, `find-replace-udt-members`, `update-tags-from-csv`: start with `dry-run=true`.
 - Deletions require explicit confirmation from the user or an explicit `confirm=true` request.
 
@@ -79,7 +80,7 @@ After a read-only task, report the discovered target and relevant result.
 After a mutation, verify through the narrowest available read:
 
 - Project/session changes: `portal-status`, `list-projects`, or `get-project-info`.
-- PLC changes: `get-blocks`, `get-block-info`, `get-software-tree`, relevant tag/rename result, and compile when appropriate.
+- PLC changes: `get-blocks`, `get-block-info`, `get-software-tree`, `export-tags`, `get-cross-references`, relevant source/tag/rename result, and compile when appropriate.
 - Library workflows: `list-master-copies`, `list-library-types`, `get-library-type-versions`, or `check-library-updates`.
 - Project text workflows: `list-project-languages`, `get-project-info`, a targeted `export-texts`, or `import-texts` dry-run/summary.
 - HMI screen changes: fresh screen snapshot, item properties, `VerifiedScreen`, or `hmi-status`.

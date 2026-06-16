@@ -31,6 +31,7 @@ namespace OpenTiaToolkit.Core.Services
         private readonly PlcMemberRenameService _memberRenameService;
         private readonly PlcImportExportService _importExportService;
         private readonly PlcTagService _tagService;
+        private readonly PlcSurfaceService _surfaceService;
         private readonly ILogger<PlcService>? _logger;
 
         private object? _plcSoftware
@@ -74,6 +75,7 @@ namespace OpenTiaToolkit.Core.Services
             _memberRenameService = new PlcMemberRenameService(_sessionContext, _logger, _v21Adapter);
             _importExportService = new PlcImportExportService(_sessionContext, _portalService, _browseService, _logger, _v21Adapter);
             _tagService = new PlcTagService(_sessionContext, _logger, _v21Adapter);
+            _surfaceService = new PlcSurfaceService(_sessionContext, _browseService, _logger, _v21Adapter);
         }
 
         private static EngineeringSessionContext ResolveSessionContext(IPortalService portalService)
@@ -270,6 +272,60 @@ namespace OpenTiaToolkit.Core.Services
         public async Task<PlcCpuControlResult> StopCpuAsync(bool confirm = false)
         {
             return await _verificationService.ControlCpuAsync("stop", confirm);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcTagExportResult> ExportTagsAsync(string culture = "en-US")
+        {
+            return await _surfaceService.ExportTagsAsync(culture);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcCrossReferenceResult> GetCrossReferencesAsync(string name)
+        {
+            return await _surfaceService.GetCrossReferencesAsync(name);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<PlcSurfaceItem>> ListExternalSourcesAsync()
+        {
+            return await _surfaceService.ListExternalSourcesAsync();
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<PlcSurfaceItem>> ListWatchTablesAsync()
+        {
+            return await _surfaceService.ListWatchTablesAsync();
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<PlcSurfaceItem>> ListTechnologyObjectsAsync()
+        {
+            return await _surfaceService.ListTechnologyObjectsAsync();
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<PlcSurfaceItem>> ListPlcAlarmTextListsAsync()
+        {
+            return await _surfaceService.ListPlcAlarmTextListsAsync();
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcSourceOperationResult> ImportSourceAsync(string sourcePath, bool dryRun = true, bool confirm = false)
+        {
+            return await _surfaceService.ImportSourceAsync(sourcePath, dryRun, confirm);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false)
+        {
+            return await _surfaceService.GenerateBlocksFromSourceAsync(sourceName, dryRun, confirm);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PlcSourceOperationResult> ExportBlockAsSourceAsync(string blockName, string outputPath)
+        {
+            return await _surfaceService.ExportBlockAsSourceAsync(blockName, outputPath);
         }
 
         /// <inheritdoc/>

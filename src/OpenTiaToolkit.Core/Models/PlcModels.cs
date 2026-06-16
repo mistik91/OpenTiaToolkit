@@ -252,6 +252,148 @@ public class PlcCpuControlResult
 }
 
 /// <summary>
+/// Represents one exported PLC tag row.
+/// </summary>
+public class PlcTagExportRow
+{
+    public PlcTagExportRow(string tagTableName, string name, string? dataType, string? logicalAddress, string? comment)
+    {
+        TagTableName = tagTableName;
+        Name = name;
+        DataType = dataType;
+        LogicalAddress = logicalAddress;
+        Comment = comment;
+    }
+
+    public string TagTableName { get; }
+
+    public string Name { get; }
+
+    public string? DataType { get; }
+
+    public string? LogicalAddress { get; }
+
+    public string? Comment { get; }
+}
+
+/// <summary>
+/// Represents exported PLC tags.
+/// </summary>
+public class PlcTagExportResult
+{
+    public PlcTagExportResult(bool success, string message, IReadOnlyList<PlcTagExportRow>? tags = null)
+    {
+        Success = success;
+        Message = message;
+        Tags = tags ?? System.Array.Empty<PlcTagExportRow>();
+    }
+
+    public bool Success { get; }
+
+    public string Message { get; }
+
+    public int TagCount => Tags.Count;
+
+    public IReadOnlyList<PlcTagExportRow> Tags { get; }
+}
+
+/// <summary>
+/// Represents a named PLC surface item such as a source file, watch table, technology object, or alarm text list.
+/// </summary>
+public class PlcSurfaceItem
+{
+    public PlcSurfaceItem(string name, string itemType, string path, string? detail = null)
+    {
+        Name = name;
+        ItemType = itemType;
+        Path = path;
+        Detail = detail;
+    }
+
+    public string Name { get; }
+
+    public string ItemType { get; }
+
+    public string Path { get; }
+
+    public string? Detail { get; }
+}
+
+/// <summary>
+/// Represents one PLC cross-reference entry.
+/// </summary>
+public class PlcCrossReferenceEntry
+{
+    public PlcCrossReferenceEntry(string name, string? path, string? usage, string? itemType, string? detail)
+    {
+        Name = name;
+        Path = path;
+        Usage = usage;
+        ItemType = itemType;
+        Detail = detail;
+    }
+
+    public string Name { get; }
+
+    public string? Path { get; }
+
+    public string? Usage { get; }
+
+    public string? ItemType { get; }
+
+    public string? Detail { get; }
+}
+
+/// <summary>
+/// Represents PLC cross-reference lookup output.
+/// </summary>
+public class PlcCrossReferenceResult
+{
+    public PlcCrossReferenceResult(bool success, string query, string message, IReadOnlyList<PlcCrossReferenceEntry>? entries = null)
+    {
+        Success = success;
+        Query = query;
+        Message = message;
+        Entries = entries ?? System.Array.Empty<PlcCrossReferenceEntry>();
+    }
+
+    public bool Success { get; }
+
+    public string Query { get; }
+
+    public string Message { get; }
+
+    public int ReferenceCount => Entries.Count;
+
+    public IReadOnlyList<PlcCrossReferenceEntry> Entries { get; }
+}
+
+/// <summary>
+/// Represents a PLC source-file operation result.
+/// </summary>
+public class PlcSourceOperationResult
+{
+    public PlcSourceOperationResult(bool success, bool applied, string message, string? sourceName = null, string? outputPath = null)
+    {
+        Success = success;
+        Applied = applied;
+        Message = message;
+        SourceName = sourceName;
+        OutputPath = outputPath;
+    }
+
+    public bool Success { get; }
+
+    public bool Applied { get; }
+
+    public string Message { get; }
+
+    public string? SourceName { get; }
+
+    public string? OutputPath { get; }
+}
+
+/// <summary>
 /// Represents information about a PLC block.
 /// </summary>
 public class BlockInfo

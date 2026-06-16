@@ -1,6 +1,6 @@
 ---
 name: plc-block-and-tag-workflow
-description: Use for OpenTiaToolkit PLC workflows in Siemens TIA Portal, including PLC discovery, opening PLC software, software tree inspection, block and type browsing, block/type import or export, SIMATIC SD document sync, compile, guarded PLCSIM Advanced download, online status, online compare, PLC tag creation, CSV tag updates, and tag/DB/UDT member rename dry-run/apply workflows.
+description: Use for OpenTiaToolkit PLC workflows in Siemens TIA Portal, including PLC discovery, opening PLC software, software tree inspection, block/type/source import or export, PLC tag export and CSV updates, cross-reference impact checks, watch tables, technology objects, alarm text lists, compile, guarded PLCSIM Advanced download, online status, online compare, and tag/DB/UDT member rename dry-run/apply workflows.
 ---
 
 # PLC Block And Tag Workflow
@@ -19,7 +19,10 @@ Use this skill for PLC software work through OpenTiaToolkit. Start with target d
    - `get-software-tree` for hierarchy.
    - `get-blocks` or `search-blocks` for candidate blocks.
    - `get-block-info` for a specific block.
-   For large PLC discovery reads, pass `output-path` to `get-software-tree`, `get-blocks`, or `search-blocks`, or use the returned artifact path when the command auto-spills. Keep software trees as JSON and flat block lists/searches as CSV.
+   - `export-tags` when a tag round-trip, audit, or CSV handoff is involved.
+   - `get-cross-references` for a concrete tag/block/type/source before rename, delete, or broad impact analysis.
+   - `list-external-sources`, `list-watch-tables`, `list-technology-objects`, or `list-plc-alarm-text-lists` when the request touches those PLC surfaces.
+   For large PLC discovery reads, pass `output-path` to `get-software-tree`, `get-blocks`, `search-blocks`, `export-tags`, `get-cross-references`, or list commands, or use the returned artifact path when the command auto-spills. Keep software trees as JSON and flat block/tag/xref/surface lists as CSV.
 4. Choose the narrowest operation for the request.
 5. Run dry-run or preview mode first when available.
 6. Apply only after preview results match the user's intent.
@@ -34,14 +37,31 @@ For backups or reviewable artifacts, prefer export before mutation:
 - XML block export: `export-block` or `export-plc`.
 - XML type export: `export-type` or `export-types`.
 - SIMATIC SD documents: `export-block-as-docs` or `export-blocks-as-docs` when V20+ document format is needed.
+- Plain-text PLC source: `export-block-as-source` for SCL/STL-capable, non-protected blocks.
+- PLC tag tables: `export-tags`, preferably with `output-path` for reviewable CSV.
 
 For imports, keep paths and groups explicit:
 
 - Use `import-block` / `import-blocks` for XML.
 - Use `import-type` / `import-types` for UDT XML.
 - Use `import-block-from-docs` / `import-blocks-from-docs` for `.s7dcl` + `.s7res`.
+- Use `import-source --dry-run=true` before adding `.scl` or `.awl` external source files. Apply only with `dry-run=false` and `confirm=true`.
+- Use `generate-blocks-from-source --dry-run=true` before generating blocks from an external source. Apply only with `dry-run=false` and `confirm=true`, then verify with `get-block-info` or `get-blocks`.
 
 After imports, run `get-blocks` or `get-block-info`, then compile when reasonable.
+
+## PLC Surface Reads
+
+Use the newer PLC surface commands instead of scraping broad tree output:
+
+- `export-tags` writes all PLC tags across tag tables, including data type, logical address, and comment when available.
+- `get-cross-references --name <tag-or-block>` answers impact questions such as "who uses this?" and should be run before concrete rename/delete operations when a named object is involved.
+- `list-external-sources` shows imported PLC source files.
+- `list-watch-tables` shows PLC watch and force tables.
+- `list-technology-objects` shows motion/technology objects.
+- `list-plc-alarm-text-lists` shows PLC alarm/text-list surface items.
+
+Treat cross-reference output as impact-analysis evidence, not as permission to mutate by itself. If it returns many rows, prefer `output-path` and summarize the key blocks/tables before proceeding.
 
 ## Verification Loop
 
@@ -73,6 +93,8 @@ Always preview broad renames:
 - `find-replace-udt-members` with `dry-run=true`.
 
 Use `target-blocks` or `target-types` when the user intended a limited scope. Use `substring-match=true` only when the user explicitly wants substring replacement, and prefer specific patterns over short generic strings.
+
+When a rename targets a concrete tag, block, DB member container, UDT, or source name, run `get-cross-references` first and include the impact summary in the preview.
 
 For broad rename previews, prefer `output-path` so `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members` write tabular CSV rows. If omitted, large rename results auto-spill to CSV artifacts once inline JSON would exceed the toolkit threshold.
 
