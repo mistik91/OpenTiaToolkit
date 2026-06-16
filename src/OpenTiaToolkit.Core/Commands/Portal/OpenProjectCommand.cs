@@ -30,15 +30,18 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         /// <inheritdoc/>
         public CommandSchema Schema => new CommandSchema(
             Description,
-            new[]
-            {
-                new CommandParameter(
-                    "project-path",
-                    CommandParameterType.Path,
-                    "Full path to the project file",
-                    required: true
-                )
-            }
+            Combine(
+                new[]
+                {
+                    new CommandParameter(
+                        "project-path",
+                        CommandParameterType.Path,
+                        "Full path to the project file",
+                        required: true
+                    )
+                },
+                ProjectCommandSupport.UmacParameters()
+            )
         );
 
         /// <inheritdoc/>
@@ -57,7 +60,9 @@ namespace OpenTiaToolkit.Core.Commands.Portal
 
                 logger.LogInformation("Opening project: {ProjectPath}", projectPath);
 
-                var success = await _portalService.OpenProjectAsync(projectPath);
+                var success = await _portalService.OpenProjectAsync(
+                    projectPath,
+                    ProjectCommandSupport.GetAuthenticationOptions(args));
 
                 if (success)
                 {
@@ -86,6 +91,14 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                     ex
                 );
             }
+        }
+
+        private static CommandParameter[] Combine(CommandParameter[] first, CommandParameter[] second)
+        {
+            var result = new CommandParameter[first.Length + second.Length];
+            first.CopyTo(result, 0);
+            second.CopyTo(result, first.Length);
+            return result;
         }
     }
 }

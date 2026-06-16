@@ -77,6 +77,48 @@ public interface IPortalService : IDisposable
     Task<bool> OpenProjectAsync(string projectPath);
 
     /// <summary>
+    /// Opens a TIA Portal project with optional UMAC credentials.
+    /// </summary>
+    /// <param name="projectPath">The full path to the project file (.ap21/.als21 primary, legacy formats also supported).</param>
+    /// <param name="authentication">Optional UMAC authentication options.</param>
+    /// <returns>True if the project was opened successfully.</returns>
+    Task<bool> OpenProjectAsync(string projectPath, ProjectAuthenticationOptions? authentication);
+
+    /// <summary>
+    /// Creates a new TIA Portal project and selects it as the current project.
+    /// </summary>
+    /// <param name="projectPath">Project folder path or .ap21 file path.</param>
+    /// <returns>Project lifecycle result, or null if creation failed.</returns>
+    Task<ProjectLifecycleResult?> CreateProjectAsync(string projectPath);
+
+    /// <summary>
+    /// Adds a hardware device with its primary item to the current project.
+    /// </summary>
+    /// <param name="orderNumber">TIA hardware type identifier or order number.</param>
+    /// <param name="version">Optional device catalog version.</param>
+    /// <param name="name">Device and item base name.</param>
+    /// <returns>Device information for the created device, or null if creation failed.</returns>
+    Task<DeviceInfo?> AddDeviceAsync(string orderNumber, string? version, string name);
+
+    /// <summary>
+    /// Archives the current project.
+    /// </summary>
+    /// <param name="archivePath">Target .zap archive path.</param>
+    /// <param name="mode">Archive mode.</param>
+    /// <returns>Archive result, or null if archiving failed.</returns>
+    Task<ProjectArchiveResult?> ArchiveProjectAsync(string archivePath, string mode);
+
+    /// <summary>
+    /// Retrieves an archived project and selects it as the current project.
+    /// </summary>
+    /// <param name="archivePath">Source .zap archive path.</param>
+    /// <param name="targetDirectory">Target directory for the retrieved project.</param>
+    /// <param name="upgrade">Whether to upgrade the retrieved project to the current TIA version.</param>
+    /// <param name="authentication">Optional UMAC authentication options.</param>
+    /// <returns>Project lifecycle result, or null if retrieve failed.</returns>
+    Task<ProjectLifecycleResult?> RetrieveProjectAsync(string archivePath, string targetDirectory, bool upgrade, ProjectAuthenticationOptions? authentication);
+
+    /// <summary>
     /// Closes the currently open project.
     /// </summary>
     /// <param name="saveChanges">Whether to save changes before closing (default: false).</param>

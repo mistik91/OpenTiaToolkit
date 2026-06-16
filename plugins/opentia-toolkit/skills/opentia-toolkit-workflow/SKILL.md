@@ -14,7 +14,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
 ## Routing
 
 1. Establish the request domain:
-   - TIA instance, project, devices, PLC/HMI target discovery: use `basic-tia-interaction`.
+   - TIA instance, project lifecycle, devices, PLC/HMI target discovery: use `basic-tia-interaction`.
    - Unified HMI screen JSON, screen item, faceplate, event handler, dynamization, or JSON import/export edits: use `hmi-unified-agent-editing`.
    - Generic catalog, module/submodule, PROFINET, IO address, Startdrive telegram, GSD/GSDML parameter, or `apply-hardware-patch` work: use `hardware-configuration-workflow`.
    - PLC blocks, types, compile, import/export, tags, CSV tag updates, or find/replace rename work: use `plc-block-and-tag-workflow`.
@@ -55,6 +55,8 @@ Use dry-runs, previews, or status reads before applying changes when the command
 - Deletions require explicit confirmation from the user or an explicit `confirm=true` request.
 
 Prefer backups for HMI applies and disposable project copies for broad hardware/PLC/HMI mutation workflows. Save the project only when the user asked to persist changes or the workflow clearly requires persistence after successful verification.
+
+For project-level backup/rollback, prefer `archive-project` before risky mutation sessions and `retrieve-project` when a disposable copy or rollback is needed. Run `save-project` before `archive-project` because TIA Portal refuses to archive projects with unsaved changes.
 
 ## Verification
 

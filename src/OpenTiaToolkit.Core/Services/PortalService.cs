@@ -101,6 +101,40 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
+        public async Task<bool> OpenProjectAsync(string projectPath, ProjectAuthenticationOptions? authentication)
+        {
+            return await _sessionService.OpenProjectAsync(projectPath, authentication);
+        }
+
+        /// <inheritdoc/>
+        public async Task<ProjectLifecycleResult?> CreateProjectAsync(string projectPath)
+        {
+            return await _sessionService.CreateProjectAsync(projectPath);
+        }
+
+        /// <inheritdoc/>
+        public async Task<DeviceInfo?> AddDeviceAsync(string orderNumber, string? version, string name)
+        {
+            return await _sessionService.AddDeviceAsync(orderNumber, version, name);
+        }
+
+        /// <inheritdoc/>
+        public async Task<ProjectArchiveResult?> ArchiveProjectAsync(string archivePath, string mode)
+        {
+            return await _sessionService.ArchiveProjectAsync(archivePath, mode);
+        }
+
+        /// <inheritdoc/>
+        public async Task<ProjectLifecycleResult?> RetrieveProjectAsync(
+            string archivePath,
+            string targetDirectory,
+            bool upgrade,
+            ProjectAuthenticationOptions? authentication)
+        {
+            return await _sessionService.RetrieveProjectAsync(archivePath, targetDirectory, upgrade, authentication);
+        }
+
+        /// <inheritdoc/>
         public async Task<bool> CloseProjectAsync(bool saveChanges = false)
         {
             return await _sessionService.CloseProjectAsync(saveChanges);

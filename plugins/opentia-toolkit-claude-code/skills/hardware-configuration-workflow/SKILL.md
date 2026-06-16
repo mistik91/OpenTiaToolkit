@@ -1,6 +1,6 @@
 ---
 name: hardware-configuration-workflow
-description: Use for OpenTiaToolkit generic Siemens TIA Portal hardware automation, including hardware catalog lookup, module or submodule plugging, device tree target paths, PROFINET identity and network wiring, IO address assignment, Startdrive telegram changes, GSD/GSDML parameter reads or writes, and apply-hardware-patch dry-run/apply workflows.
+description: Use for OpenTiaToolkit generic Siemens TIA Portal hardware automation, including greenfield project/device bootstrap, hardware catalog lookup, module or submodule plugging, device tree target paths, PROFINET identity and network wiring, IO address assignment, Startdrive telegram changes, GSD/GSDML parameter reads or writes, and apply-hardware-patch dry-run/apply workflows.
 ---
 
 # Hardware Configuration Workflow
@@ -13,10 +13,10 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
 
 ## Standard Workflow
 
-1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven.
+1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven. For greenfield work, create the project first with `create-project --project-path`.
 2. Discover the current hardware shape with `get-hardware-tree`, scoped by `device-name` when possible. For PROFINET work, also inspect `get-hardware-networks`; project IO-system `connectedIoDevices` can contain GSD/GSDML IO devices that are not visible as top-level `Project.Devices`.
 3. Discover catalog and type identifiers with `find-hardware-catalog-items` or `find-hardware-module-types`.
-4. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
+4. For a new station in a greenfield project, call `add-device` only after catalog lookup confirms the exact order number/type identifier and version. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
 5. Inspect feature services with `get-hardware-item-capabilities` before writing attributes.
 6. Read current network, IO, telegram, or GSD state using the narrowest command:
    - `get-hardware-networks`

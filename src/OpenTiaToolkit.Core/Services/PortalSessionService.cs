@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -229,6 +230,11 @@ namespace OpenTiaToolkit.Core.Services
 
         public async Task<bool> OpenProjectAsync(string projectPath)
         {
+            return await OpenProjectAsync(projectPath, null);
+        }
+
+        public async Task<bool> OpenProjectAsync(string projectPath, ProjectAuthenticationOptions? authentication)
+        {
             return await Task.Run(() =>
             {
                 LastError = null;
@@ -304,7 +310,10 @@ namespace OpenTiaToolkit.Core.Services
                     }
 
                     _sessionContext.ClearProjectSelection();
-                    _project = _portal.Projects.OpenWithUpgrade(fileInfo);
+                    var umacDelegate = CreateUmacDelegate(authentication);
+                    _project = umacDelegate == null
+                        ? _portal.Projects.OpenWithUpgrade(fileInfo)
+                        : _portal.Projects.OpenWithUpgrade(fileInfo, umacDelegate);
                     _ownsCurrentProject = _project != null;
                     _ownsCurrentSession = false;
                     if (_project == null)
@@ -318,6 +327,143 @@ namespace OpenTiaToolkit.Core.Services
                     LastError = FormatExceptionMessage(ex);
                     _logger?.LogError(ex, "Failed to open project {ProjectPath}: {LastError}", projectPath, LastError);
                     return false;
+                }
+            });
+        }
+
+        public async Task<ProjectLifecycleResult?> CreateProjectAsync(string projectPath)
+        {
+            return await Task.Run(() =>
+            {
+                LastError = null;
+                if (_portal == null)
+                {
+                    LastError = "Not connected to TIA Portal";
+                    _logger?.LogWarning("{LastError}", LastError);
+                    return null;
+                }
+
+                try
+                {
+                    var projectTarget = SplitProjectPath(projectPath);
+                    PreparePortalForNewSelectedProject(projectTarget.Name);
+
+                    _project = _portal.Projects.Create(projectTarget.Directory, projectTarget.Name);
+                    _ownsCurrentProject = _project != null;
+                    _ownsCurrentSession = false;
+
+                    return _project == null
+                        ? null
+                        : ToLifecycleResult(_project);
+                }
+                catch (Exception ex)
+                {
+                    LastError = FormatExceptionMessage(ex);
+                    _logger?.LogError(ex, "Failed to create project {ProjectPath}: {LastError}", projectPath, LastError);
+                    return null;
+                }
+            });
+        }
+
+        public async Task<DeviceInfo?> AddDeviceAsync(string orderNumber, string? version, string name)
+        {
+            return await Task.Run(() =>
+            {
+                LastError = null;
+                if (_project is not Project project)
+                {
+                    LastError = "No project is currently open";
+                    _logger?.LogWarning("{LastError}", LastError);
+                    return null;
+                }
+
+                try
+                {
+                    var typeIdentifier = BuildDeviceTypeIdentifier(orderNumber, version);
+                    var device = project.Devices.CreateWithItem(typeIdentifier, name, name);
+                    return new DeviceInfo(device.Name, device.TypeIdentifier, device.GetIdentification(), null);
+                }
+                catch (Exception ex)
+                {
+                    LastError = FormatExceptionMessage(ex);
+                    _logger?.LogError(ex, "Failed to add device {DeviceName}: {LastError}", name, LastError);
+                    return null;
+                }
+            });
+        }
+
+        public async Task<ProjectArchiveResult?> ArchiveProjectAsync(string archivePath, string mode)
+        {
+            return await Task.Run(() =>
+            {
+                LastError = null;
+                if (_project is not Project project)
+                {
+                    LastError = "No project is currently open";
+                    _logger?.LogWarning("{LastError}", LastError);
+                    return null;
+                }
+
+                try
+                {
+                    var archiveTarget = SplitArchivePath(archivePath);
+                    Directory.CreateDirectory(archiveTarget.Directory.FullName);
+                    var archivationMode = ParseArchivationMode(mode);
+                    project.Archive(archiveTarget.Directory, archiveTarget.Name, archivationMode);
+                    return new ProjectArchiveResult(archiveTarget.ExpectedPath, archivationMode.ToString());
+                }
+                catch (Exception ex)
+                {
+                    LastError = FormatExceptionMessage(ex);
+                    _logger?.LogError(ex, "Failed to archive project to {ArchivePath}: {LastError}", archivePath, LastError);
+                    return null;
+                }
+            });
+        }
+
+        public async Task<ProjectLifecycleResult?> RetrieveProjectAsync(
+            string archivePath,
+            string targetDirectory,
+            bool upgrade,
+            ProjectAuthenticationOptions? authentication)
+        {
+            return await Task.Run(() =>
+            {
+                LastError = null;
+                if (_portal == null)
+                {
+                    LastError = "Not connected to TIA Portal";
+                    _logger?.LogWarning("{LastError}", LastError);
+                    return null;
+                }
+
+                try
+                {
+                    var source = new FileInfo(archivePath);
+                    var target = new DirectoryInfo(targetDirectory);
+                    Directory.CreateDirectory(target.FullName);
+                    PreparePortalForNewSelectedProject(Path.GetFileNameWithoutExtension(archivePath));
+
+                    var umacDelegate = CreateUmacDelegate(authentication);
+                    _project = upgrade
+                        ? (umacDelegate == null
+                            ? _portal.Projects.RetrieveWithUpgrade(source, target)
+                            : _portal.Projects.RetrieveWithUpgrade(source, target, umacDelegate))
+                        : (umacDelegate == null
+                            ? _portal.Projects.Retrieve(source, target)
+                            : _portal.Projects.Retrieve(source, target, umacDelegate));
+                    _ownsCurrentProject = _project != null;
+                    _ownsCurrentSession = false;
+
+                    return _project == null
+                        ? null
+                        : ToLifecycleResult(_project);
+                }
+                catch (Exception ex)
+                {
+                    LastError = FormatExceptionMessage(ex);
+                    _logger?.LogError(ex, "Failed to retrieve project from {ArchivePath}: {LastError}", archivePath, LastError);
+                    return null;
                 }
             });
         }
@@ -497,6 +643,127 @@ namespace OpenTiaToolkit.Core.Services
         private static bool IsLocalSessionFile(string sessionPath)
         {
             return Regex.IsMatch(sessionPath, @"\.als\d+$", RegexOptions.IgnoreCase);
+        }
+
+        private void PreparePortalForNewSelectedProject(string requestedProjectName)
+        {
+            if (_portal == null)
+            {
+                throw new InvalidOperationException("Not connected to TIA Portal");
+            }
+
+            if (!CurrentPortalHasAnyOpenProject())
+            {
+                _sessionContext.ClearProjectSelection();
+                return;
+            }
+
+            if (_ownsCurrentSession)
+            {
+                _session?.Close();
+                _sessionContext.ClearProjectSelection();
+                return;
+            }
+
+            if (_ownsCurrentProject && _project is Project ownedProject)
+            {
+                ownedProject.Close();
+                _sessionContext.ClearProjectSelection();
+                return;
+            }
+
+            _logger?.LogInformation(
+                "The attached TIA Portal instance already has an externally managed project open. Starting a dedicated hidden instance for {ProjectName}.",
+                requestedProjectName);
+
+            _portal.Dispose();
+            _portal = new TiaPortal(TiaPortalMode.WithoutUserInterface);
+            _attachedPortalProcessId = null;
+            _sessionContext.ClearProjectSelection();
+        }
+
+        private static UmacDelegate? CreateUmacDelegate(ProjectAuthenticationOptions? authentication)
+        {
+            if (authentication == null)
+            {
+                return null;
+            }
+
+            return credentials =>
+            {
+                credentials.SetAttribute("Name", authentication.UserName);
+                credentials.SetAttribute("Type", ParseUmacUserType(authentication.UserType));
+                credentials.SetPassword(authentication.Password);
+            };
+        }
+
+        private static UmacUserType ParseUmacUserType(string userType)
+        {
+            return string.Equals(userType, "global", StringComparison.OrdinalIgnoreCase)
+                ? UmacUserType.Global
+                : UmacUserType.Project;
+        }
+
+        private static ProjectArchivationMode ParseArchivationMode(string mode)
+        {
+            if (string.IsNullOrWhiteSpace(mode))
+            {
+                return ProjectArchivationMode.Compressed;
+            }
+
+            return (ProjectArchivationMode)Enum.Parse(typeof(ProjectArchivationMode), mode, ignoreCase: true);
+        }
+
+        private static string BuildDeviceTypeIdentifier(string orderNumber, string? version)
+        {
+            if (string.IsNullOrWhiteSpace(version) ||
+                orderNumber.IndexOf(version, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return orderNumber;
+            }
+
+            return $"{orderNumber}/{version}";
+        }
+
+        private static (DirectoryInfo Directory, string Name) SplitProjectPath(string projectPath)
+        {
+            if (string.IsNullOrWhiteSpace(projectPath))
+            {
+                throw new ArgumentException("Project path is required.", nameof(projectPath));
+            }
+
+            var fullPath = Path.GetFullPath(projectPath);
+            var name = Path.GetFileNameWithoutExtension(fullPath);
+            var parentPath = Path.GetDirectoryName(fullPath);
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(parentPath))
+            {
+                throw new ArgumentException("Project path must include a project name and parent directory.", nameof(projectPath));
+            }
+
+            return (new DirectoryInfo(parentPath), name);
+        }
+
+        private static (DirectoryInfo Directory, string Name, string ExpectedPath) SplitArchivePath(string archivePath)
+        {
+            if (string.IsNullOrWhiteSpace(archivePath))
+            {
+                throw new ArgumentException("Archive path is required.", nameof(archivePath));
+            }
+
+            var fullPath = Path.GetFullPath(archivePath);
+            var directoryPath = Path.GetDirectoryName(fullPath);
+            var name = Path.GetFileName(fullPath);
+            if (string.IsNullOrWhiteSpace(directoryPath) || string.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentException("Archive path must include a file name and parent directory.", nameof(archivePath));
+            }
+
+            return (new DirectoryInfo(directoryPath), name, fullPath);
+        }
+
+        private static ProjectLifecycleResult ToLifecycleResult(ProjectBase project)
+        {
+            return new ProjectLifecycleResult(project.Name, TryGetProjectPath(project) ?? string.Empty);
         }
 
         private bool CurrentPortalHasAnyOpenProject()

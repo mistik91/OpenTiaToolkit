@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Security;
 
 namespace OpenTiaToolkit.Core.Models;
 
@@ -75,6 +76,64 @@ public class ProjectInfo
 
     /// <summary>Gets when the project was created.</summary>
     public DateTime? Created { get; }
+}
+
+/// <summary>
+/// Credentials used when Siemens Openness requests UMAC authentication.
+/// </summary>
+public class ProjectAuthenticationOptions
+{
+    public ProjectAuthenticationOptions(string userName, SecureString password, string userType)
+    {
+        UserName = userName;
+        Password = password;
+        UserType = userType;
+    }
+
+    /// <summary>Gets the UMAC user name.</summary>
+    public string UserName { get; }
+
+    /// <summary>Gets the UMAC password.</summary>
+    public SecureString Password { get; }
+
+    /// <summary>Gets the UMAC user type, such as Project or Global.</summary>
+    public string UserType { get; }
+}
+
+/// <summary>
+/// Result of creating or retrieving a project.
+/// </summary>
+public class ProjectLifecycleResult
+{
+    public ProjectLifecycleResult(string name, string path)
+    {
+        Name = name;
+        Path = path;
+    }
+
+    /// <summary>Gets the project name.</summary>
+    public string Name { get; }
+
+    /// <summary>Gets the full path to the project.</summary>
+    public string Path { get; }
+}
+
+/// <summary>
+/// Result of archiving a project.
+/// </summary>
+public class ProjectArchiveResult
+{
+    public ProjectArchiveResult(string archivePath, string mode)
+    {
+        ArchivePath = archivePath;
+        Mode = mode;
+    }
+
+    /// <summary>Gets the expected archive file path.</summary>
+    public string ArchivePath { get; }
+
+    /// <summary>Gets the archive mode.</summary>
+    public string Mode { get; }
 }
 
 /// <summary>

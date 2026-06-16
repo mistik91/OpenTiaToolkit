@@ -97,10 +97,17 @@ Opens a TIA Portal project file (.ap21 for local projects, .als21 for multiuser 
 
 ```bash
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap21"
+
+# Protected projects: keep the password out of shell history
+$env:OPENTIA_UMAC_PASSWORD = "secret"
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Protected.ap21" --umac-user="Engineer"
 ```
 
 **Parameters**:
 - `project-path` (required): Full path to the project file
+- `umac-user` (optional): UMAC user name for protected projects
+- `umac-password-env` (optional, default: `OPENTIA_UMAC_PASSWORD`): Environment variable containing the UMAC password
+- `umac-user-type` (optional, default: `project`): UMAC user type (`project` or `global`)
 
 **Output**:
 ```
@@ -111,6 +118,65 @@ Path:     C:\Projects\MyProject.ap21
 Version:  V21
 Created:  2025-01-15 10:30:00
 ```
+
+#### create-project
+
+Creates a new project and selects it as the current project.
+
+```bash
+OpenTiaToolkit.CLI.exe create-project --project-path="C:\Projects\NewProject.ap21"
+```
+
+**Parameters**:
+- `project-path` (required): Project folder path or `.ap21` file path. The parent folder is used as the TIA target directory and the file/folder name becomes the project name.
+
+#### add-device
+
+Adds a hardware device with its primary item to the current project.
+
+```bash
+OpenTiaToolkit.CLI.exe add-device --order-number="OrderNumber:6ES7 214-1AG40-0XB0" --version="V4.6" --name="PLC_1"
+```
+
+**Parameters**:
+- `order-number` (required): TIA hardware type identifier or order number
+- `version` (optional): Catalog version appended to the order number when needed
+- `name` (required): Name for the device and primary item
+
+#### archive-project
+
+Archives the current project to a `.zap21` file.
+
+```bash
+OpenTiaToolkit.CLI.exe save-project
+OpenTiaToolkit.CLI.exe archive-project --archive-path="C:\Backups\MyProject.zap21"
+```
+
+**Parameters**:
+- `archive-path` (required): Target `.zap21` archive path
+- `mode` (optional, default: `Compressed`): `Compressed`, `None`, `DiscardRestorableData`, or `DiscardRestorableDataAndCompressed`
+
+TIA Portal requires the project to have no unsaved changes before archiving. Run `save-project` first when the current session has edits.
+
+#### retrieve-project
+
+Retrieves an archived project and selects it as the current project.
+
+```bash
+OpenTiaToolkit.CLI.exe retrieve-project --archive-path="C:\Backups\MyProject.zap21" --target-directory="C:\Projects"
+
+# Protected archive/project
+$env:OPENTIA_UMAC_PASSWORD = "secret"
+OpenTiaToolkit.CLI.exe retrieve-project --archive-path="C:\Backups\Protected.zap21" --target-directory="C:\Projects" --umac-user="Engineer"
+```
+
+**Parameters**:
+- `archive-path` (required): Source `.zap` archive path
+- `target-directory` (required): Directory where the project should be retrieved
+- `upgrade` (optional, default: true): Upgrade the retrieved project to the current TIA version
+- `umac-user` (optional): UMAC user name for protected projects
+- `umac-password-env` (optional, default: `OPENTIA_UMAC_PASSWORD`): Environment variable containing the UMAC password
+- `umac-user-type` (optional, default: `project`): UMAC user type (`project` or `global`)
 
 #### close-project
 

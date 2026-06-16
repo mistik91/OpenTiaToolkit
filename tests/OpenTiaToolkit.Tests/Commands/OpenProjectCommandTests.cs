@@ -16,7 +16,7 @@ namespace OpenTiaToolkit.Tests.Commands
         public async Task ExecuteAsync_WhenOpenFails_IncludesPortalLastError()
         {
             var portalService = new Mock<IPortalService>();
-            portalService.Setup(service => service.OpenProjectAsync(@"C:\Projects\Locked.ap21"))
+            portalService.Setup(service => service.OpenProjectAsync(@"C:\Projects\Locked.ap21", null))
                 .ReturnsAsync(false);
             portalService.SetupGet(service => service.LastError)
                 .Returns("Project is locked by another TIA Portal instance.");

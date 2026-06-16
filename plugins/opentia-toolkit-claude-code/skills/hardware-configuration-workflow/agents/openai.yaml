@@ -1,4 +1,4 @@
 interface:
   display_name: "Hardware Configuration Workflow"
-  short_description: "Plan and apply safe OpenTiaToolkit hardware automation."
-  default_prompt: "Use $hardware-configuration-workflow to dry-run and apply generic TIA hardware patches safely."
+  short_description: "Plan greenfield and safe OpenTiaToolkit hardware automation."
+  default_prompt: "Use $hardware-configuration-workflow to bootstrap projects/devices, dry-run hardware changes, and apply TIA hardware patches safely."

@@ -76,6 +76,8 @@ The toolkit can edit, compile, compare online state, and download software chang
 
 ## 4. Project Lifecycle (P1)
 
+Status update: Section 4 has been implemented. The toolkit now exposes `create-project`, `add-device`, `archive-project`, and `retrieve-project`, and `open-project` / `retrieve-project` accept optional UMAC credentials via `--umac-user` plus a password environment variable.
+
 ### 4.1 `create-project` / `add-device`
 The toolkit assumes a project always exists; greenfield bootstrap is impossible. `apply-hardware-patch` already does the *harder* part (catalog lookup, module composition, plugging) — creating the project and the station from an order number (`Devices.CreateWithItem`) is the missing first step. One command each: `create-project --project-path`, `add-device --order-number --version --name`.
 

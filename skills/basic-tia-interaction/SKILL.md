@@ -1,6 +1,6 @@
 ---
 name: basic-tia-interaction
-description: Use when connecting to Siemens TIA Portal with OpenTiaToolkit, selecting among running TIA instances, finding an already-open project, opening a specified project, or preparing PLC/HMI work before specialized skills.
+description: Use when connecting to Siemens TIA Portal with OpenTiaToolkit, selecting among running TIA instances, finding an already-open project, opening, creating, archiving, or retrieving projects, or preparing PLC/HMI work before specialized skills.
 ---
 
 # Basic TIA Interaction
@@ -21,8 +21,15 @@ Do not conclude that no project is open from a connect response alone. Project d
    - Record the instance id, TIA version if available, and any open project name/path from `list-projects` or `get-project-info`.
    - If the user specified a project name/path, choose the matching instance automatically.
    - If the user did not specify a project and more than one candidate has an open project, ask which instance/project to use.
-5. If no project is open in the selected instance, open the user-specified project path. If no path was provided, ask for the project path.
+5. If no project is open in the selected instance, open the user-specified project path. If the user requested a new greenfield project, use `create-project --project-path`; if no path or lifecycle intent was provided, ask for the project path.
 6. After the project is verified, open or list the requested PLC/HMI target only as needed.
+
+## Project Lifecycle
+
+- Use `create-project --project-path` only when the user asks for a greenfield project or discovery proves no suitable project exists.
+- Use `archive-project` before broad mutation sessions or when the user asks for a disposable backup. Run `save-project` first; Siemens Openness rejects archive when the project has unsaved changes.
+- Use `retrieve-project --archive-path --target-directory` for rollback or disposable-copy workflows, then verify with `get-project-info` and `list-devices` or a narrower domain read.
+- For UMAC-protected projects, pass `--umac-user` and keep the password in `--umac-password-env` (default `OPENTIA_UMAC_PASSWORD`). Do not pass passwords as plain command arguments.
 
 ## Current Open Instance Requests
 
