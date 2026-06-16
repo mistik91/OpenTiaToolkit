@@ -79,6 +79,16 @@ namespace OpenTiaToolkit.Core
                     serviceProvider.GetRequiredService<LibraryService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
+            services.AddSingleton<TextService>(serviceProvider =>
+                new TextService(
+                    serviceProvider.GetRequiredService<IPortalService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>(),
+                    serviceProvider.GetService<ILogger<TextService>>()));
+            services.AddSingleton<ITextService>(serviceProvider =>
+                SessionSerializedServiceProxy<ITextService>.Create(
+                    serviceProvider.GetRequiredService<TextService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
+
             return services;
         }
 

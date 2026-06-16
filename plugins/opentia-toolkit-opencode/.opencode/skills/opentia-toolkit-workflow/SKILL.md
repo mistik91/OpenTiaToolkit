@@ -21,6 +21,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
    - Unified HMI trend logging, logging tags, data logs, or bulk logging configs: use `hmi-trend-logging-workflow`.
    - Project/global library browsing, master copies, library types, UDT versions, update checks, or approved asset reuse: use `library-workflow`.
    - Version Control Interface workspace, mapping, status, export/connect/sync work: use `vci-sync-workflow`.
+   - Project languages, internationalization, translation export/import, project text workbooks, `list-project-languages`, `export-texts`, or `import-texts`: use this skill plus `basic-tia-interaction`.
    - OpenTiaToolkit repo changes, tests, docs, plugin packaging, or skill packaging: use `opentia-dev-workflow`.
 2. If live TIA context is needed and not already proven in the current turn, use `basic-tia-interaction` before the domain workflow.
 3. If several domains are involved, order them by dependency. For example: session selection, hardware discovery, PLC changes, HMI changes, compile/save verification.
@@ -50,6 +51,7 @@ Use dry-runs, previews, or status reads before applying changes when the command
 - `apply-hmi-screen-json-patch` and `apply-hmi-screen-json-edit`: start with `dry-run=true` and keep `base-hash` filters stable.
 - `import-hmi-json`: start with `dry-run=true`; use `require-clean-preflight=true` before applying broad imports.
 - `create-hmi-trends`, `remove-hmi-logging-tags`, `delete-hmi-data-logs`: start with `dry-run=true`.
+- `import-texts`: start with the default `dry-run=true`; apply project text workbook changes only with explicit user intent and `dry-run=false`.
 - `copy-from-master-copy`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true` after confirming the master copy matches the target domain.
 - `find-replace-tags`, `find-replace-db-members`, `find-replace-udt-members`, `update-tags-from-csv`: start with `dry-run=true`.
 - Deletions require explicit confirmation from the user or an explicit `confirm=true` request.
@@ -57,6 +59,18 @@ Use dry-runs, previews, or status reads before applying changes when the command
 Prefer backups for HMI applies and disposable project copies for broad hardware/PLC/HMI mutation workflows. Save the project only when the user asked to persist changes or the workflow clearly requires persistence after successful verification.
 
 For project-level backup/rollback, prefer `archive-project` before risky mutation sessions and `retrieve-project` when a disposable copy or rollback is needed. Run `save-project` before `archive-project` because TIA Portal refuses to archive projects with unsaved changes.
+
+## Project Texts And Languages
+
+For translation or internationalization workflows, establish the TIA instance and open project first, then discover the export scope:
+
+```text
+list-instances -> connect-instance/connect-portal -> list-projects/get-project-info -> list-project-languages -> list-devices/list-hmis -> export-texts --objects <device-or-device-item> -> import-texts
+```
+
+Use `list-project-languages` before export/import so source and target cultures are based on the actual project language settings. `export-texts` requires an explicit `objects` scope; Siemens Openness rejects empty scope and can reject broad mixed device sets that contain objects without project text support. Prefer a known text-bearing HMI or device item such as a Unified HMI target, and retry with a narrower object if Siemens reports the object does not support text export.
+
+Project text export writes a Siemens `.xlsx` workbook artifact. Treat `import-texts` as a mutation command: keep the default `dry-run=true` for validation, and use `dry-run=false` only after the user confirms the workbook should be imported. Verify after import with `get-project-info`, another targeted export, or a domain read that reflects the changed text.
 
 ## Verification
 
@@ -67,6 +81,7 @@ After a mutation, verify through the narrowest available read:
 - Project/session changes: `portal-status`, `list-projects`, or `get-project-info`.
 - PLC changes: `get-blocks`, `get-block-info`, `get-software-tree`, relevant tag/rename result, and compile when appropriate.
 - Library workflows: `list-master-copies`, `list-library-types`, `get-library-type-versions`, or `check-library-updates`.
+- Project text workflows: `list-project-languages`, `get-project-info`, a targeted `export-texts`, or `import-texts` dry-run/summary.
 - HMI screen changes: fresh screen snapshot, item properties, `VerifiedScreen`, or `hmi-status`.
 - Hardware changes: `get-hardware-tree`, `get-hardware-io-addresses`, `get-hardware-networks`, `audit-hardware-tag-mappings`, or parameter reads.
 - VCI changes: `get-vci-block-status` or `list-vci-mappings`.

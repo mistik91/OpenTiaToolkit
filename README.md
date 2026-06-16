@@ -12,6 +12,7 @@ The project targets **TIA Portal V21** first, with selected best-effort compatib
 
 - Connects to running TIA Portal instances or opens a new one.
 - Opens, inspects, saves, and closes TIA Portal projects.
+- Lists project languages and exports/imports Siemens project text workbooks for translation workflows.
 - Lists devices, PLCs, HMI devices, project trees, and PLC software trees.
 - Runs PLC workflows such as compile, online compare, guarded PLCSIM Advanced download, online status checks, block browse, import/export, VCI workspace synchronization, search, delete, tag creation, CSV tag updates, and rename operations.
 - Works with project and global libraries: open/list/close global libraries, list master copies and library types, copy approved master copies into PLC block groups, and report library update status before mutation.

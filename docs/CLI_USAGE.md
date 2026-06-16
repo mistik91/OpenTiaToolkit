@@ -234,6 +234,48 @@ Version:  V21
 Created:  2025-01-15 10:30:00
 ```
 
+### Project Texts and Languages
+
+#### list-project-languages
+
+Lists project languages, active languages, and the editing/reference language settings.
+
+```bash
+OpenTiaToolkit.CLI.exe list-project-languages
+```
+
+#### export-texts
+
+Exports project texts to Siemens' native project text workbook format (`.xlsx`) for translation workflows.
+
+```bash
+OpenTiaToolkit.CLI.exe export-texts --output-path="C:\Exports\project_texts.xlsx" --source-culture="en-US" --target-cultures="de-DE,it-IT" --objects="HMI_1"
+
+# Limit the export to selected text categories when needed
+OpenTiaToolkit.CLI.exe export-texts --output-path="C:\Exports" --source-culture="en-US" --target-cultures="de-DE" --categories="alarms,screens" --objects="PLC_1,HMI_1"
+```
+
+**Parameters**:
+- `output-path` (required): Target `.xlsx` file path or folder. Folder paths write `project_texts.xlsx`.
+- `source-culture` (required): Source language culture name, such as `en-US`.
+- `target-cultures` (required): Comma-separated target language culture names.
+- `objects` (required): Top-level device or device-item names to export.
+- `categories` (optional): Project text category identifiers.
+
+#### import-texts
+
+Imports a Siemens project text workbook. The command defaults to dry-run validation; pass `--dry-run=false` to apply changes.
+
+```bash
+OpenTiaToolkit.CLI.exe import-texts --input-path="C:\Exports\project_texts.xlsx"
+OpenTiaToolkit.CLI.exe import-texts --input-path="C:\Exports\project_texts.xlsx" --dry-run=false --update-source-language=false
+```
+
+**Parameters**:
+- `input-path` (required): Source `.xlsx` project text workbook.
+- `dry-run` (optional, default: true): Validate the project and workbook path without invoking Siemens text import.
+- `update-source-language` (optional, default: false): Allow import to update source-language text.
+
 ### Device Operations
 
 #### list-devices

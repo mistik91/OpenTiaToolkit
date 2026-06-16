@@ -38,6 +38,7 @@ namespace OpenTiaToolkit.Tests.Composition
             var vciService = serviceProvider.GetRequiredService<IVciService>();
             var hardwareService = serviceProvider.GetRequiredService<IHardwareService>();
             var libraryService = serviceProvider.GetRequiredService<ILibraryService>();
+            var textService = serviceProvider.GetRequiredService<ITextService>();
 
             // Assert
             var portalContext = GetPrivateFieldValue(portalService, "_sessionContext");
@@ -46,6 +47,7 @@ namespace OpenTiaToolkit.Tests.Composition
             var vciContext = GetPrivateFieldValue(vciService, "_sessionContext");
             var hardwareContext = GetPrivateFieldValue(hardwareService, "_sessionContext");
             var libraryContext = GetPrivateFieldValue(libraryService, "_sessionContext");
+            var textContext = GetPrivateFieldValue(textService, "_sessionContext");
 
             Assert.IsNotNull(portalContext);
             Assert.IsNotNull(plcContext);
@@ -53,11 +55,13 @@ namespace OpenTiaToolkit.Tests.Composition
             Assert.IsNotNull(vciContext);
             Assert.IsNotNull(hardwareContext);
             Assert.IsNotNull(libraryContext);
+            Assert.IsNotNull(textContext);
             Assert.AreSame(portalContext, plcContext);
             Assert.AreSame(portalContext, hmiContext);
             Assert.AreSame(portalContext, vciContext);
             Assert.AreSame(portalContext, hardwareContext);
             Assert.AreSame(portalContext, libraryContext);
+            Assert.AreSame(portalContext, textContext);
         }
 
         [TestMethod]
@@ -143,6 +147,9 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "list-library-types");
             CollectionAssert.Contains(commands, "get-library-type-versions");
             CollectionAssert.Contains(commands, "check-library-updates");
+            CollectionAssert.Contains(commands, "list-project-languages");
+            CollectionAssert.Contains(commands, "export-texts");
+            CollectionAssert.Contains(commands, "import-texts");
             CollectionAssert.Contains(commands, "open-unified-hmi");
             CollectionAssert.Contains(commands, "list-hmi-tags");
             CollectionAssert.Contains(commands, "list-hmi-screens");

@@ -96,8 +96,7 @@ The toolkit assumes a project always exists; greenfield bootstrap is impossible.
 ## 5. Internationalization (P1)
 
 - **API**: `MultilingualText` (Base + WinCCUnified), project language settings.
-- **Current state**: invisible. Block comments, screen texts, and alarm texts in multi-language projects are only ever read/written in one culture; agents don't even know other languages exist.
-- **Suggestion**: `list-project-languages`, `export-texts` / `import-texts` (per-language, CSV/JSON via the existing artifact infrastructure).
+- **Implemented**: `list-project-languages` exposes available, active, editing, and reference project languages. `export-texts` writes Siemens project text `.xlsx` workbooks with source/target cultures, required object scope, and optional category scope. `import-texts` imports the workbook with `--dry-run=true` by default so agents validate intent before mutating project texts.
 - **Rationale**: translation export/import is a classic, tedious automation chore and an unusually good fit for LLM agents — high-volume, low-risk text transformation with a clean round-trip format.
 
 ---
