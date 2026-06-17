@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to create or update Unified HMI trend logging infrastructure.
     /// </summary>
-    public class CreateHmiTrendCommand : ICommand
+    public class CreateHmiTrendCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -36,8 +36,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("segment-max-size", CommandParameterType.Integer, "Optional segment max size", required: false, defaultValue: 500)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Configuring Unified HMI trend.");
             var hmiName = args.GetString("hmi-name");
             var tagPath = args.GetString("tag-path");
             var dataLogName = args.GetString("datalog-name");
@@ -59,6 +65,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -66,6 +73,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint($"Configuring Unified HMI trend for tag: {tagPath}.", 65, "configure-trend");
             var trendInfo = await _hmiService.CreateTrendAsync(
                 tagPath,
                 dataLogName,
@@ -76,6 +84,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 args.Has("duration-days") ? args.GetInt("duration-days") : 365,
                 args.Has("segment-max-size") ? args.GetInt("segment-max-size") : 500);
 
+            context.CompleteCommand(Name, trendInfo != null ? $"Unified HMI trend configured for tag: {tagPath}" : $"Failed to configure Unified HMI trend for tag: {tagPath}");
             return trendInfo != null
                 ? CommandResult.CreateSuccess(trendInfo, $"Unified HMI trend configured for tag: {tagPath}")
                 : CommandResult.CreateFailure($"Failed to configure Unified HMI trend for tag: {tagPath}");

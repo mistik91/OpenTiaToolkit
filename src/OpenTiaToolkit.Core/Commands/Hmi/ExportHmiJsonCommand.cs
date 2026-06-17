@@ -10,7 +10,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to export the supported Unified HMI surface to JSON.
     /// </summary>
-    public class ExportHmiJsonCommand : ICommand
+    public class ExportHmiJsonCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -34,8 +34,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("properties", CommandParameterType.String, "Optional comma-separated property paths", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating Unified HMI JSON export inputs.");
             var hmiName = args.GetString("hmi-name");
             var outputPath = args.GetString("output-path");
 
@@ -51,6 +57,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 20, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -58,14 +65,20 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint("Building Unified HMI JSON export filters.", 35, "prepare-filters");
             var filters = HmiJsonCommandSupport.BuildFilters(args);
+            context.Checkpoint("Exporting Unified HMI JSON from TIA Portal.", 55, "export-hmi-json");
             var exportResult = await _hmiService.ExportJsonAsync(
                 outputPath,
                 HasAnyFilter(filters) ? filters : null);
 
-            return exportResult != null
-                ? CommandResult.CreateSuccess(exportResult, $"Unified HMI JSON export written to: {exportResult.OutputPath}")
-                : CommandResult.CreateFailure("Failed to export Unified HMI JSON.");
+            if (exportResult == null)
+            {
+                return CommandResult.CreateFailure("Failed to export Unified HMI JSON.");
+            }
+
+            context.CompleteCommand(Name, $"Unified HMI JSON export written to: {exportResult.OutputPath}");
+            return CommandResult.CreateSuccess(exportResult, $"Unified HMI JSON export written to: {exportResult.OutputPath}");
         }
 
         private static bool HasAnyFilter(HmiJsonFilterOptions filters)

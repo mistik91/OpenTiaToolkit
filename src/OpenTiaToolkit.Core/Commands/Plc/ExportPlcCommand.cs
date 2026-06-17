@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to export all PLC blocks to XML files.
     /// </summary>
-    public class ExportPlcCommand : ICommand
+    public class ExportPlcCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -46,9 +46,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC export inputs.");
 
             try
             {
@@ -67,13 +73,16 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Exporting PLC blocks from TIA Portal.", 55, "export-plc");
                 var success = await _plcService.ExportPlcAsync(exportPath);
 
                 if (success)
                 {
+                    context.CompleteCommand(Name, $"PLC blocks exported to: {exportPath}");
                     return CommandResult.CreateSuccess(
                         data: new
                         {

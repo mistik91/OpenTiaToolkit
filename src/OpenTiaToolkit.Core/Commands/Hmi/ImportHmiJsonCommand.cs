@@ -10,7 +10,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to preflight or import a Unified HMI JSON export or patch.
     /// </summary>
-    public class ImportHmiJsonCommand : ICommand
+    public class ImportHmiJsonCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -39,8 +39,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("properties", CommandParameterType.String, "Optional comma-separated property paths", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating Unified HMI JSON import inputs.");
             var hmiName = args.GetString("hmi-name");
             var inputPath = args.GetString("input-path");
 
@@ -56,6 +62,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 20, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -63,6 +70,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint("Building Unified HMI JSON import filters and safety options.", 35, "prepare-import");
             var filters = HmiJsonCommandSupport.BuildFilters(args);
             var executionOptions = new HmiJsonImportExecutionOptions
             {
@@ -73,6 +81,10 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             };
 
             var dryRun = args.Has("dry-run") && args.GetBool("dry-run");
+            context.Checkpoint(
+                dryRun ? "Preflighting Unified HMI JSON import." : "Importing Unified HMI JSON into TIA Portal.",
+                55,
+                dryRun ? "preflight-hmi-json" : "import-hmi-json");
             var importResult = await _hmiService.ImportJsonAsync(
                 inputPath,
                 HasAnyFilter(filters) ? filters : null,
@@ -89,6 +101,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 ? $"Unified HMI JSON {verb} completed with a safety block."
                 : $"Unified HMI JSON {verb} completed.";
 
+            context.CompleteCommand(Name, message);
             return CommandResult.CreateSuccess(importResult, message);
         }
 

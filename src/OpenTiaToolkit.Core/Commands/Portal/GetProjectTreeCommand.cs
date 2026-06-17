@@ -11,7 +11,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
     /// <summary>
     /// Command to get the hierarchical tree structure of the current project.
     /// </summary>
-    public class GetProjectTreeCommand : ICommand
+    public class GetProjectTreeCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -45,9 +45,15 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Reading TIA Portal project tree.");
 
             try
             {
@@ -57,12 +63,15 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                 }
 
                 var depth = args.GetInt("depth");
+                context.Checkpoint("Traversing project tree.", 50, "get-project-tree");
                 var tree = await _portalService.GetProjectTreeAsync(depth);
 
                 if (tree != null)
                 {
+                    context.Checkpoint("Serializing project tree result.", 85, "serialize-tree");
                     var treeData = SerializeTreeNode(tree);
 
+                    context.CompleteCommand(Name, "Project tree retrieved successfully");
                     return CommandResult.CreateSuccess(
                         data: new
                         {

@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to export multiple types (UDT) to XML.
     /// </summary>
-    public class ExportTypesCommand : ICommand
+    public class ExportTypesCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -50,9 +50,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC types export inputs.");
 
             try
             {
@@ -73,9 +79,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Exporting PLC types from TIA Portal.", 55, "export-types");
                 var result = await _plcService.ExportTypesAsync(filterRegex, exportPath);
 
                 // Build human-readable summary message
@@ -85,6 +93,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     message += $" ({result.FailedCount} failed)";
                 }
 
+                context.CompleteCommand(Name, message);
                 return CommandResult.CreateSuccess(
                     data: new
                     {

@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to get detailed information about a specific block.
     /// </summary>
-    public class GetBlockInfoCommand : ICommand
+    public class GetBlockInfoCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -46,12 +46,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Reading PLC block information.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
@@ -67,17 +73,21 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint($"Reading block information: {blockName}.", 65, "read-block");
                 var blockInfo = await _plcService.GetBlockInfoAsync(blockName);
 
                 if (blockInfo == null)
                 {
+                    context.CompleteCommand(Name, $"Block not found: {blockName}");
                     return CommandResult.CreateFailure($"Block not found: {blockName}");
                 }
 
                 // Return BlockInfoDetail directly for proper formatting
+                context.CompleteCommand(Name, $"Block: {blockInfo.Name} ({blockInfo.Type})");
                 return CommandResult.CreateSuccess(
                     data: blockInfo,
                     message: $"Block: {blockInfo.Name} ({blockInfo.Type})"

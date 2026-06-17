@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to compare PLC software against the online target.
     /// </summary>
-    public class CompareSoftwareCommand : ICommand
+    public class CompareSoftwareCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -29,9 +29,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for compare results", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC software compare inputs.");
 
             try
             {
@@ -49,9 +55,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Comparing PLC software to online target.", 55, "compare-software");
                 var result = await _plcService.CompareSoftwareToOnlineAsync();
                 if (!result.Success)
                 {
@@ -60,6 +68,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(result, result.Message))
                 {
+                    context.Checkpoint("Writing PLC software compare artifact.", 85, "write-artifact");
                     var outputPath = PlcCommandSupport.ResolveOutputPath(
                         args.Has("output-path")
                             ? args.GetString("output-path")
@@ -78,9 +87,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                             result.DifferenceCount
                         });
 
+                    context.CompleteCommand(Name, $"{result.Message} JSON written to: {outputPath}");
                     return CommandResult.CreateSuccess(artifact, $"{result.Message} JSON written to: {outputPath}");
                 }
 
+                context.CompleteCommand(Name, result.Message);
                 return CommandResult.CreateSuccess(result, result.Message);
             }
             catch (System.Exception ex)

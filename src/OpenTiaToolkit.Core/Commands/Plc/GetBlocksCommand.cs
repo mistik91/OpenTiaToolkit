@@ -9,7 +9,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to list blocks from PLC software.
     /// </summary>
-    public class GetBlocksCommand : ICommand
+    public class GetBlocksCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -52,12 +52,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Listing PLC blocks.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
@@ -69,14 +75,17 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 20, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Reading PLC blocks.", 55, "read-blocks");
                 var blocks = await _plcService.GetBlocksAsync(filter);
                 var message = $"Found {blocks.Count} block(s) in {plcName}";
 
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(blocks, message))
                 {
+                    context.Checkpoint("Writing PLC block CSV artifact.", 85, "write-artifact");
                     var outputPath = PlcCommandSupport.ResolveOutputPath(
                         args.Has("output-path")
                             ? args.GetString("output-path")
@@ -96,6 +105,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                             filter
                         });
 
+                    context.CompleteCommand(Name, $"{message}. CSV written to: {outputPath}");
                     return CommandResult.CreateSuccess(
                         data: artifact,
                         message: $"{message}. CSV written to: {outputPath}"
@@ -103,6 +113,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 // Return blocks directly as data for proper formatting
+                context.CompleteCommand(Name, message);
                 return CommandResult.CreateSuccess(
                     data: blocks,
                     message: message

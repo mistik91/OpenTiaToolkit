@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to create a new block in PLC software.
     /// </summary>
-    public class CreateBlockCommand : ICommand
+    public class CreateBlockCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -56,12 +56,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Creating PLC block.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
@@ -106,10 +112,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint($"Creating PLC block: {blockName}.", 65, "create-block");
                 var success = await _plcService.CreateBlockAsync(blockName, blockType, language);
+                context.CompleteCommand(Name, success ? $"Block '{blockName}' created successfully" : $"Failed to create block '{blockName}'");
 
                 return success
                     ? CommandResult.CreateSuccess(

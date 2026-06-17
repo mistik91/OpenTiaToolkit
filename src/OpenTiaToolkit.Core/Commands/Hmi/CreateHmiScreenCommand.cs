@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to create a Unified HMI screen.
     /// </summary>
-    public class CreateHmiScreenCommand : ICommand
+    public class CreateHmiScreenCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -31,8 +31,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("height", CommandParameterType.Integer, "Optional screen height", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Creating Unified HMI screen.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
 
@@ -48,6 +54,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -57,8 +64,10 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             var width = args.Has("width") ? (int?)args.GetInt("width") : null;
             var height = args.Has("height") ? (int?)args.GetInt("height") : null;
+            context.Checkpoint($"Ensuring Unified HMI screen: {screenPath}.", 65, "create-screen");
             var screenInfo = await _hmiService.CreateScreenAsync(screenPath, width, height);
 
+            context.CompleteCommand(Name, screenInfo != null ? $"Unified HMI screen ensured: {screenPath}" : $"Failed to create Unified HMI screen: {screenPath}");
             return screenInfo != null
                 ? CommandResult.CreateSuccess(screenInfo, $"Unified HMI screen ensured: {screenPath}")
                 : CommandResult.CreateFailure($"Failed to create Unified HMI screen: {screenPath}");

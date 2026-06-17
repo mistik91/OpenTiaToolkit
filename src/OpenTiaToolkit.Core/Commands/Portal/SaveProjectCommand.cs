@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
     /// <summary>
     /// Command to save the current TIA Portal project.
     /// </summary>
-    public class SaveProjectCommand : ICommand
+    public class SaveProjectCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -30,9 +30,15 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         public CommandSchema Schema => new CommandSchema(Description);
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Saving current TIA Portal project.");
 
             try
             {
@@ -45,6 +51,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
 
                 if (success)
                 {
+                    context.CompleteCommand(Name, "Project saved successfully");
                     return CommandResult.CreateSuccess(
                         data: new
                         {

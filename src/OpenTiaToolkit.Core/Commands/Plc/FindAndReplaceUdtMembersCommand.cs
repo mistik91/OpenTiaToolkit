@@ -13,7 +13,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to find and replace UDT member names with nested struct support.
     /// </summary>
-    public class FindAndReplaceUdtMembersCommand : ICommand
+    public class FindAndReplaceUdtMembersCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -71,12 +71,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Finding and replacing UDT members.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
@@ -115,9 +121,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 20, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint(dryRun ? "Previewing UDT member replacements." : "Applying UDT member replacements.", 55, "find-replace");
                 var result = await _plcService.FindAndReplaceUdtMembersAsync(renameMap, caseInsensitive, dryRun, targetTypes);
 
                 // Build summary message
@@ -133,6 +141,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(data, message))
                 {
+                    context.Checkpoint("Writing UDT member find/replace CSV artifact.", 85, "write-artifact");
                     var explicitOutputPath = args.Has("output-path");
                     var outputPath = PlcCommandSupport.ResolveOutputPath(
                         explicitOutputPath
@@ -158,6 +167,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                             summary
                         });
 
+                    context.CompleteCommand(Name, $"{message}. CSV written to: {outputPath}");
                     return CommandResult.CreateSuccess(
                         data: artifact,
                         message: $"{message}. CSV written to: {outputPath}"
@@ -165,6 +175,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 // Return result with data
+                context.CompleteCommand(Name, message);
                 return CommandResult.CreateSuccess(
                     data: data,
                     message: message

@@ -18,7 +18,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to audit nearest-label matching before bulk HMI edits.
     /// </summary>
-    public class AuditHmiLabelProximityCommand : ICommand
+    public class AuditHmiLabelProximityCommand : IContextualCommand
     {
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -45,8 +45,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON report output path", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Auditing HMI label proximity.");
             var inputPath = args.GetString("input-path");
             if (string.IsNullOrWhiteSpace(inputPath))
             {
@@ -61,6 +67,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             HmiJsonDocument? document;
             try
             {
+                context.Checkpoint("Reading Unified HMI JSON input file.", 25, "read-json");
                 document = JsonSerializer.Deserialize<HmiJsonDocument>(File.ReadAllText(inputPath), JsonOptions);
             }
             catch (Exception ex)
@@ -73,9 +80,11 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 return CommandResult.CreateFailure($"Unified HMI JSON input file is empty or invalid: {inputPath}");
             }
 
+            context.Checkpoint("Building HMI label proximity report.", 60, "audit");
             var report = BuildReport(document, inputPath, args);
             if (args.Has("output-path"))
             {
+                context.Checkpoint("Writing HMI label proximity report.", 85, "write-artifact");
                 var outputPath = args.GetString("output-path");
                 if (string.IsNullOrWhiteSpace(outputPath))
                 {
@@ -87,6 +96,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 report.OutputPath = outputPath;
             }
 
+            context.CompleteCommand(Name, $"HMI label proximity audit completed: {report.MappingCount} mapping(s), {report.DuplicateLabelMatchCount} duplicate label match(es).");
             return await Task.FromResult(CommandResult.CreateSuccess(
                 report,
                 $"HMI label proximity audit completed: {report.MappingCount} mapping(s), {report.DuplicateLabelMatchCount} duplicate label match(es)."));

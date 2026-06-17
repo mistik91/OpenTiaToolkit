@@ -11,7 +11,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to export one Unified HMI screen as canonical JSON for agent editing.
     /// </summary>
-    public class GetHmiScreenJsonCommand : ICommand
+    public class GetHmiScreenJsonCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -36,8 +36,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("include-screen", CommandParameterType.Boolean, "Include the full screen object inline when it stays below the spill threshold", required: false, defaultValue: true)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating Unified HMI screen JSON inputs.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
 
@@ -53,6 +59,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 20, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -60,7 +67,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint("Building screen JSON filters.", 35, "prepare-filters");
             var filters = HmiJsonCommandSupport.BuildFilters(args);
+            context.Checkpoint($"Exporting screen JSON: {screenPath}.", 55, "get-screen-json");
             var result = await _hmiService.GetScreenJsonAsync(
                 screenPath,
                 HasAgentFilters(filters) ? filters : null,
@@ -71,12 +80,15 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 var message = $"Unified HMI screen JSON exported: {result.ScreenPath}";
                 if (ShouldSuppressInlineScreen(args, result, message))
                 {
+                    context.CompleteCommand(Name, $"{message}. Full JSON written to: {result.ExportPath}");
                     return CommandResult.CreateSuccess(CreateArtifactResult(result, args), $"{message}. Full JSON written to: {result.ExportPath}");
                 }
 
+                context.CompleteCommand(Name, message);
                 return CommandResult.CreateSuccess(result, message);
             }
 
+            context.Checkpoint("Screen JSON was not found; collecting path suggestions.", 85, "screen-lookup-suggestions");
             var failureMessage = await CreateScreenNotFoundMessageAsync(screenPath);
             return CommandResult.CreateFailure(failureMessage);
         }

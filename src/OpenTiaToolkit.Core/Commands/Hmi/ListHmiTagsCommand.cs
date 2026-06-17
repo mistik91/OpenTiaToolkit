@@ -12,7 +12,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to list Unified HMI tags.
     /// </summary>
-    public class ListHmiTagsCommand : ICommand
+    public class ListHmiTagsCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -40,8 +40,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for large tag lists", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Listing Unified HMI tags.");
             var hmiName = args.GetString("hmi-name");
             if (string.IsNullOrWhiteSpace(hmiName))
             {
@@ -50,6 +56,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 20, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -96,6 +103,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 IncludeLoggingCounts = args.GetBool("include-logging-counts", false)
             };
 
+            context.Checkpoint("Reading Unified HMI tags.", 55, "list-tags");
             var tags = await _hmiService.GetTagsAsync(options);
             var limitNote = tags.Count >= options.MaxResults.GetValueOrDefault(int.MaxValue)
                 ? $" (limited to {options.MaxResults})"
@@ -104,6 +112,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (ShouldWriteCsvArtifact(args, tags, message))
             {
+                context.Checkpoint("Writing Unified HMI tags CSV artifact.", 85, "write-artifact");
                 var outputPath = CommandArtifactSupport.ResolveOutputPath(args.Has("output-path")
                     ? args.GetString("output-path")
                     : CommandArtifactSupport.CreateDefaultArtifactPath(Name, ".csv"),
@@ -128,9 +137,11 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                         limited = tags.Count >= options.MaxResults.GetValueOrDefault(int.MaxValue)
                     });
 
+                context.CompleteCommand(Name, $"{message}. CSV written to: {outputPath}");
                 return CommandResult.CreateSuccess(artifact, $"{message}. CSV written to: {outputPath}");
             }
 
+            context.CompleteCommand(Name, $"Found {tags.Count} Unified HMI tag(s){limitNote}");
             return CommandResult.CreateSuccess(tags, $"Found {tags.Count} Unified HMI tag(s){limitNote}");
         }
 

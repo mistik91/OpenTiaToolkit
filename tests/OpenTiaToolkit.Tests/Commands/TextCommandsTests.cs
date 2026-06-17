@@ -8,6 +8,8 @@ using OpenTiaToolkit.Core.Models;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Tests.Commands
@@ -136,6 +138,77 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task ExportTexts_ContextualExecution_ReportsProgressStages()
+        {
+            var service = new Mock<ITextService>();
+            service.Setup(s => s.ExportTextsAsync(
+                    It.IsAny<string>(),
+                    "en-US",
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<IReadOnlyList<string>?>(),
+                    It.IsAny<IReadOnlyList<string>?>()))
+                .ReturnsAsync((string outputPath, string _, IReadOnlyList<string> targetCultures, IReadOnlyList<string>? categories, IReadOnlyList<string>? objects) =>
+                    new ProjectTextExportResult
+                    {
+                        OutputPath = outputPath,
+                        BytesWritten = 42,
+                        SourceCulture = "en-US",
+                        TargetCultures = targetCultures.ToList(),
+                        CategoryIdentifiers = categories?.ToList() ?? new List<string>(),
+                        ObjectNames = objects?.ToList() ?? new List<string>()
+                    });
+            var command = new ExportTextsCommand(service.Object);
+            var updates = new List<CommandProgressUpdate>();
+
+            var result = await command.ExecuteAsync(
+                new CommandArgs(new Dictionary<string, object?>
+                {
+                    ["output-path"] = Path.Combine(Path.GetTempPath(), "OpenTiaToolkitTests"),
+                    ["source-culture"] = "en-US",
+                    ["target-cultures"] = new[] { "de-DE" },
+                    ["objects"] = new[] { "PLC_1" }
+                }),
+                NullLogger.Instance,
+                new CommandExecutionContext(CancellationToken.None, new InlineProgress(update => updates.Add(update))));
+
+            Assert.IsTrue(result.Success);
+            Assert.IsTrue(updates.Any(update => update.Stage == "starting"));
+            Assert.IsTrue(updates.Any(update => update.Stage == "prepare-artifact"));
+            Assert.IsTrue(updates.Any(update => update.Stage == "export-texts"));
+            Assert.IsTrue(updates.Any(update => update.Stage == "completed"));
+        }
+
+        [TestMethod]
+        public async Task ExportTexts_ContextualExecution_HonorsCancellationBeforeServiceCall()
+        {
+            var service = new Mock<ITextService>();
+            var command = new ExportTextsCommand(service.Object);
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+
+            await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () =>
+                await command.ExecuteAsync(
+                    new CommandArgs(new Dictionary<string, object?>
+                    {
+                        ["output-path"] = "texts.xlsx",
+                        ["source-culture"] = "en-US",
+                        ["target-cultures"] = new[] { "de-DE" },
+                        ["objects"] = new[] { "PLC_1" }
+                    }),
+                    NullLogger.Instance,
+                    new CommandExecutionContext(cancellation.Token)));
+
+            service.Verify(
+                s => s.ExportTextsAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<IReadOnlyList<string>?>(),
+                    It.IsAny<IReadOnlyList<string>?>()),
+                Times.Never);
+        }
+
+        [TestMethod]
         public async Task ImportTexts_DefaultsToDryRun()
         {
             var service = new Mock<ITextService>();
@@ -156,6 +229,21 @@ namespace OpenTiaToolkit.Tests.Commands
             Assert.IsTrue(result.Success);
             StringAssert.Contains(result.Message, "validated");
             service.Verify(s => s.ImportTextsAsync("texts.xlsx", false, true), Times.Once);
+        }
+
+        private sealed class InlineProgress : IProgress<CommandProgressUpdate>
+        {
+            private readonly Action<CommandProgressUpdate> _report;
+
+            public InlineProgress(Action<CommandProgressUpdate> report)
+            {
+                _report = report;
+            }
+
+            public void Report(CommandProgressUpdate value)
+            {
+                _report(value);
+            }
         }
     }
 }

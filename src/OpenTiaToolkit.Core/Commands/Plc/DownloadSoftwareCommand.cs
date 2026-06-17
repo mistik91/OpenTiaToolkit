@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to download PLC software through a guarded simulator-only path.
     /// </summary>
-    public class DownloadSoftwareCommand : ICommand
+    public class DownloadSoftwareCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -31,9 +31,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("confirm", CommandParameterType.Boolean, "Explicitly confirm a non-dry-run download", required: false, defaultValue: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC download inputs.");
 
             try
             {
@@ -50,10 +56,16 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint(
+                    dryRun ? "Planning guarded PLC software download." : "Executing guarded PLC software download.",
+                    55,
+                    dryRun ? "plan-download" : "download-software");
                 var result = await _plcService.DownloadSoftwareAsync(toSimulator, dryRun, confirm, onlyChanges);
+                context.CompleteCommand(Name, result.Message);
                 return result.Success
                     ? CommandResult.CreateSuccess(result, result.Message)
                     : CommandResult.CreateFailure(result.Message, result);

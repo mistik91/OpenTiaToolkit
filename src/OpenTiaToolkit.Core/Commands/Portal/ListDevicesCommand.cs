@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
     /// <summary>
     /// Command to list all devices in the currently open project.
     /// </summary>
-    public class ListDevicesCommand : ICommand
+    public class ListDevicesCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -30,9 +30,15 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         public CommandSchema Schema => new CommandSchema(Description);
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Listing project devices.");
 
             try
             {
@@ -40,6 +46,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
 
                 if (devices.Count == 0)
                 {
+                    context.CompleteCommand(Name, "No devices found (project may not be open)");
                     return CommandResult.CreateSuccess(
                         data: devices,
                         message: "No devices found (project may not be open)"
@@ -47,6 +54,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                 }
                 else
                 {
+                    context.CompleteCommand(Name, $"Found {devices.Count} device(s)");
                     return CommandResult.CreateSuccess(
                         data: devices,
                         message: $"Found {devices.Count} device(s)"

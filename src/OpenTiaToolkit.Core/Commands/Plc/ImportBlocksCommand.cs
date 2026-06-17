@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to import multiple blocks from XML files in a directory.
     /// </summary>
-    public class ImportBlocksCommand : ICommand
+    public class ImportBlocksCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -55,9 +55,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC blocks import inputs.");
 
             try
             {
@@ -79,11 +85,16 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Importing PLC blocks into TIA Portal.", 55, "import-blocks");
                 var result = await _plcService.ImportBlocksAsync(importDirectory, filterRegex, groupPath);
 
+                context.CompleteCommand(Name, result.SuccessCount > 0
+                    ? $"Successfully imported {result.SuccessCount}/{result.TotalCount} blocks"
+                    : "Failed to import any blocks");
                 return CommandResult.CreateSuccess(
                     data: new
                     {

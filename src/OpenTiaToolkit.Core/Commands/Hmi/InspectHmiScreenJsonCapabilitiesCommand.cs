@@ -13,7 +13,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to inspect agent-oriented Unified HMI screen JSON capabilities.
     /// </summary>
-    public class InspectHmiScreenJsonCapabilitiesCommand : ICommand
+    public class InspectHmiScreenJsonCapabilitiesCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -40,8 +40,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("working-path", CommandParameterType.Path, "Optional artifact root path", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Inspecting Unified HMI screen JSON capabilities.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
 
@@ -57,6 +63,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 20, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -65,6 +72,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             }
 
             var filters = HmiJsonCommandSupport.BuildFilters(args);
+            context.Checkpoint($"Reading Unified HMI screen JSON snapshot: {screenPath}.", 40, "read-snapshot");
             var snapshot = await _hmiService.GetScreenJsonAsync(
                 screenPath,
                 HasAgentFilters(filters) ? filters : null,
@@ -82,9 +90,11 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 : new List<HmiItemTypeInfo>();
             var items = new List<HmiScreenJsonItemCapability>();
             var warnings = new List<string>();
+            context.Checkpoint("Inspecting Unified HMI item capabilities.", 65, "inspect-items");
 
             foreach (var item in snapshot.Screen.Items.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
             {
+                context.ThrowIfCancellationRequested();
                 var writableProperties = new List<HmiItemPropertyInfo>();
                 if (includeWritableProperties)
                 {
@@ -138,6 +148,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                     .ToList()
             };
 
+            context.CompleteCommand(Name, $"Inspected Unified HMI screen JSON capabilities: {snapshot.ScreenPath}");
             return CommandResult.CreateSuccess(result, $"Inspected Unified HMI screen JSON capabilities: {snapshot.ScreenPath}");
         }
 

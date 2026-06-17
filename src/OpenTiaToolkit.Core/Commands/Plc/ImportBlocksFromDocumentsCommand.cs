@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to import multiple blocks from SIMATIC SD documents (.s7dcl/.s7res) - V20+ only.
     /// </summary>
-    public class ImportBlocksFromDocumentsCommand : ICommand
+    public class ImportBlocksFromDocumentsCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -60,9 +60,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC blocks document import inputs.");
 
             try
             {
@@ -85,11 +91,16 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Importing PLC blocks from SIMATIC SD documents.", 55, "import-blocks-docs");
                 var result = await _plcService.ImportBlocksFromDocumentsAsync(importDirectory, filterRegex, groupPath, importOption);
 
+                context.CompleteCommand(Name, result.SuccessCount > 0
+                    ? $"Successfully imported {result.SuccessCount}/{result.TotalCount} blocks from documents"
+                    : "Failed to import any blocks from documents");
                 return CommandResult.CreateSuccess(
                     data: new
                     {

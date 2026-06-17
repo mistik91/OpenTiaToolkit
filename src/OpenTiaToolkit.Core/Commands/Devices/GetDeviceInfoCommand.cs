@@ -9,7 +9,7 @@ namespace OpenTiaToolkit.Core.Commands.Devices
     /// <summary>
     /// Command to get detailed information about a device.
     /// </summary>
-    public class GetDeviceInfoCommand : ICommand
+    public class GetDeviceInfoCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -42,9 +42,15 @@ namespace OpenTiaToolkit.Core.Commands.Devices
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Reading device information.");
 
             try
             {
@@ -59,10 +65,12 @@ namespace OpenTiaToolkit.Core.Commands.Devices
                     return CommandResult.CreateFailure("Missing required parameter: device-name");
                 }
 
+                context.Checkpoint($"Looking up device: {deviceName}.", 50, "get-device-info");
                 var deviceInfo = await _portalService.GetDeviceInfoAsync(deviceName);
 
                 if (deviceInfo != null)
                 {
+                    context.CompleteCommand(Name, $"Device info retrieved for: {deviceName}");
                     return CommandResult.CreateSuccess(
                         data: new
                         {

@@ -9,7 +9,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to generate a minimal Unified HMI JSON patch from two exports.
     /// </summary>
-    public class DiffHmiJsonCommand : ICommand
+    public class DiffHmiJsonCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -34,8 +34,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("properties", CommandParameterType.String, "Optional comma-separated property paths", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Creating Unified HMI JSON patch.");
             var basePath = args.GetString("base-path");
             var modifiedPath = args.GetString("modified-path");
             var patchPath = args.GetString("patch-path");
@@ -56,12 +62,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             }
 
             var filters = HmiJsonCommandSupport.BuildFilters(args);
+            context.Checkpoint("Diffing Unified HMI JSON exports.", 55, "diff-json");
             var diffResult = await _hmiService.DiffJsonAsync(
                 basePath,
                 modifiedPath,
                 patchPath,
                 HasAnyFilter(filters) ? filters : null);
 
+            context.CompleteCommand(Name, diffResult != null ? $"Unified HMI JSON patch written to: {diffResult.OutputPath}" : "Failed to create Unified HMI JSON patch.");
             return diffResult != null
                 ? CommandResult.CreateSuccess(diffResult, $"Unified HMI JSON patch written to: {diffResult.OutputPath}")
                 : CommandResult.CreateFailure("Failed to create Unified HMI JSON patch.");

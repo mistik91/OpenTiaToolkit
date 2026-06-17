@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
     /// <summary>
     /// Command to get information about the currently open project.
     /// </summary>
-    public class GetProjectInfoCommand : ICommand
+    public class GetProjectInfoCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -31,22 +31,30 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         public CommandSchema Schema => new CommandSchema(Description);
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Reading current project information.");
                 var projectInfo = await _portalService.GetProjectInfoAsync();
 
                 if (projectInfo == null)
                 {
+                    context.CompleteCommand(Name, "No project is currently open");
                     return CommandResult.CreateFailure(
                         "No project is currently open"
                     );
                 }
                 else
                 {
+                    context.CompleteCommand(Name, $"Project: {projectInfo.Name}");
                     return CommandResult.CreateSuccess(
                         data: projectInfo,
                         message: $"Project: {projectInfo.Name}"

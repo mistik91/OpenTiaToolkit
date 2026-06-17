@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to compile PLC software.
     /// </summary>
-    public class CompileSoftwareCommand : ICommand
+    public class CompileSoftwareCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -46,9 +46,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC compile inputs.");
 
             try
             {
@@ -63,10 +69,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Compiling PLC software in TIA Portal.", 50, "compile-software");
                 var result = await _plcService.CompileSoftwareAsync(password);
+                context.CompleteCommand(Name, result.Success ? "PLC software compile completed." : "PLC software compile completed with errors.");
 
                 return CommandResult.CreateSuccess(
                     data: new

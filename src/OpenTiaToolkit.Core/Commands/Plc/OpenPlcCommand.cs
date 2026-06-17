@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to open a PLC device software.
     /// </summary>
-    public class OpenPlcCommand : ICommand
+    public class OpenPlcCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -41,22 +41,30 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Opening PLC software.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
                     return CommandResult.CreateFailure("Missing required parameter: plc-name");
                 }
 
+                context.Checkpoint($"Opening PLC software: {plcName}.", 50, "open-plc");
                 var success = await _plcService.OpenPlcAsync(plcName);
 
                 if (success)
                 {
+                    context.CompleteCommand(Name, $"PLC software opened: {plcName}");
                     return CommandResult.CreateSuccess(
                         data: new
                         {
@@ -68,6 +76,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
                 else
                 {
+                    context.CompleteCommand(Name, $"Failed to open PLC software: {plcName}");
                     return CommandResult.CreateFailure(
                         $"Failed to open PLC software: {plcName}"
                     );

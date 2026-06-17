@@ -12,7 +12,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to summarize a Unified HMI screen without returning full property payloads.
     /// </summary>
-    public class GetHmiScreenSummaryCommand : ICommand
+    public class GetHmiScreenSummaryCommand : IContextualCommand
     {
         private static readonly string[] SummaryProperties =
         {
@@ -51,8 +51,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("working-path", CommandParameterType.Path, "Optional artifact root path", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating Unified HMI screen summary inputs.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
 
@@ -68,6 +74,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 20, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -75,11 +82,13 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint("Preparing compact screen summary filters.", 35, "prepare-summary");
             var includeFaceplates = args.Has("include-faceplates") && args.GetBool("include-faceplates");
             var filters = new HmiJsonFilterOptions
             {
                 Properties = includeFaceplates ? FaceplateSummaryProperties : SummaryProperties
             };
+            context.Checkpoint($"Reading screen summary JSON: {screenPath}.", 55, "get-screen-summary");
             var snapshot = await _hmiService.GetScreenJsonAsync(
                 screenPath,
                 filters,
@@ -90,7 +99,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             }
 
             var includeItems = args.Has("include-items") && args.GetBool("include-items");
+            context.Checkpoint("Computing compact screen summary.", 85, "summarize-screen");
             var summary = HmiScreenSummaryResult.FromSnapshot(snapshot, includeItems, includeFaceplates);
+            context.CompleteCommand(Name, $"Unified HMI screen summarized: {screenPath}");
             return CommandResult.CreateSuccess(summary, $"Unified HMI screen summarized: {screenPath}");
         }
     }

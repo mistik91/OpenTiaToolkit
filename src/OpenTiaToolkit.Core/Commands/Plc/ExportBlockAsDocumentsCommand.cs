@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// Command to export a single block as SIMATIC SD documents (.s7dcl + .s7res).
     /// Requires TIA Portal V20 or newer.
     /// </summary>
-    public class ExportBlockAsDocumentsCommand : ICommand
+    public class ExportBlockAsDocumentsCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -51,9 +51,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC block document export inputs.");
 
             try
             {
@@ -78,10 +84,17 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint($"Exporting PLC block as SIMATIC SD documents: {blockName}.", 55, "export-block-docs");
                 var success = await _plcService.ExportBlockAsDocumentsAsync(blockName, exportPath);
+
+                if (success)
+                {
+                    context.CompleteCommand(Name, $"Successfully exported block as SIMATIC SD documents: {blockName}");
+                }
 
                 return success
                     ? CommandResult.CreateSuccess(

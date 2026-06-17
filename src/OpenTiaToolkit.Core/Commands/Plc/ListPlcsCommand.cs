@@ -11,7 +11,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to list all PLC devices in the current project.
     /// </summary>
-    public class ListPlcsCommand : ICommand
+    public class ListPlcsCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -34,21 +34,29 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         public CommandSchema Schema => new CommandSchema(Description);
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Listing PLC devices.");
                 if (!_portalService.IsConnected)
                 {
                     return CommandResult.CreateFailure("Not connected to TIA Portal");
                 }
 
+                context.Checkpoint("Scanning project PLC devices.", 50, "list-plcs");
                 var plcs = await _portalService.GetPlcsAsync();
 
                 if (plcs == null || !plcs.Any())
                 {
+                    context.CompleteCommand(Name, "No PLC devices found in the project");
                     return CommandResult.CreateSuccess(
                         data: Array.Empty<PlcInfo>(),
                         message: "No PLC devices found in the project"
@@ -56,6 +64,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 var plcList = plcs.ToList();
+                context.CompleteCommand(Name, $"Found {plcList.Count} PLC device(s)");
                 return CommandResult.CreateSuccess(
                     data: plcList,
                     message: $"Found {plcList.Count} PLC device(s)"

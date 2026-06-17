@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to set a Unified HMI item property.
     /// </summary>
-    public class SetHmiItemPropertyCommand : ICommand
+    public class SetHmiItemPropertyCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -32,8 +32,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("value", CommandParameterType.String, "The new property value", required: true)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Updating Unified HMI item property.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
             var itemName = args.GetString("item-name");
@@ -67,6 +73,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -74,7 +81,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint($"Updating Unified HMI item property: {itemName}.{propertyName}.", 65, "set-property");
             var success = await _hmiService.SetItemPropertyAsync(screenPath, itemName, propertyName, value);
+            context.CompleteCommand(Name, success ? $"Updated Unified HMI item property: {itemName}.{propertyName}" : $"Failed to update Unified HMI item property: {itemName}.{propertyName}");
             return success
                 ? CommandResult.CreateSuccess(new { updated = true, itemName, propertyName }, $"Updated Unified HMI item property: {itemName}.{propertyName}")
                 : CommandResult.CreateFailure($"Failed to update Unified HMI item property: {itemName}.{propertyName}");

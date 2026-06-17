@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to copy a Unified HMI screen from a template screen.
     /// </summary>
-    public class CopyHmiScreenFromTemplateCommand : ICommand
+    public class CopyHmiScreenFromTemplateCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -32,8 +32,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("replace-text", CommandParameterType.String, "Optional replacement text", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Copying Unified HMI screen from template.");
             var hmiName = args.GetString("hmi-name");
             var templateScreenPath = args.GetString("template-screen-path");
             var targetScreenPath = args.GetString("target-screen-path");
@@ -68,6 +74,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -75,7 +82,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint($"Copying Unified HMI screen: {templateScreenPath} -> {targetScreenPath}.", 65, "copy-screen");
             var copyResult = await _hmiService.CopyScreenFromTemplateAsync(templateScreenPath, targetScreenPath, findText, replaceText);
+            context.CompleteCommand(Name, copyResult != null ? $"Unified HMI screen copied: {copyResult.TargetPath}" : $"Failed to copy Unified HMI screen from template: {templateScreenPath}");
             return copyResult != null
                 ? CommandResult.CreateSuccess(copyResult, $"Unified HMI screen copied: {copyResult.TargetPath}")
                 : CommandResult.CreateFailure($"Failed to copy Unified HMI screen from template: {templateScreenPath}");

@@ -59,7 +59,7 @@ internal static class LibraryCommandSupport
     }
 }
 
-public sealed class ListGlobalLibrariesCommand : ICommand
+public sealed class ListGlobalLibrariesCommand : IContextualCommand
 {
     private readonly ILibraryService _service;
     public ListGlobalLibrariesCommand(ILibraryService service) => _service = service;
@@ -70,18 +70,23 @@ public sealed class ListGlobalLibrariesCommand : ICommand
         new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for library rows")
     });
 
-    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
     {
         try
         {
+            context.StartCommand(Name, "Listing TIA Portal global libraries.");
             var libraries = await _service.ListGlobalLibrariesAsync();
-            return LibraryCommandSupport.ListResult($"Found {libraries.Count} global library/libraries.", libraries, args, Name, "global-libraries");
+            var result = LibraryCommandSupport.ListResult($"Found {libraries.Count} global library/libraries.", libraries, args, Name, "global-libraries");
+            context.CompleteCommand(Name, result.Message);
+            return result;
         }
         catch (Exception ex) { return LibraryCommandSupport.Failure("Listing global libraries", ex, logger); }
     }
 }
 
-public sealed class OpenGlobalLibraryCommand : ICommand
+public sealed class OpenGlobalLibraryCommand : IContextualCommand
 {
     private readonly ILibraryService _service;
     public OpenGlobalLibraryCommand(ILibraryService service) => _service = service;
@@ -94,21 +99,25 @@ public sealed class OpenGlobalLibraryCommand : ICommand
         new CommandParameter("upgrade", CommandParameterType.Boolean, "Open with upgrade", false, false)
     });
 
-    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
     {
         try
         {
+            context.StartCommand(Name, "Opening TIA Portal global library.");
             var library = await _service.OpenGlobalLibraryAsync(
                 LibraryCommandSupport.Required(args, "path"),
                 args.GetBool("read-only", true),
                 args.GetBool("upgrade"));
+            context.CompleteCommand(Name, $"Opened global library: {library?.Name ?? args.GetString("path")}");
             return CommandResult.CreateSuccess(library, $"Opened global library: {library?.Name ?? args.GetString("path")}");
         }
         catch (Exception ex) { return LibraryCommandSupport.Failure("Opening global library", ex, logger); }
     }
 }
 
-public sealed class CloseGlobalLibraryCommand : ICommand
+public sealed class CloseGlobalLibraryCommand : IContextualCommand
 {
     private readonly ILibraryService _service;
     public CloseGlobalLibraryCommand(ILibraryService service) => _service = service;
@@ -119,12 +128,16 @@ public sealed class CloseGlobalLibraryCommand : ICommand
         new CommandParameter("global-library", CommandParameterType.String, "Open global library name or path", true)
     });
 
-    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
     {
         try
         {
+            context.StartCommand(Name, "Closing global library.");
             var name = LibraryCommandSupport.Required(args, "global-library");
             var closed = await _service.CloseGlobalLibraryAsync(name);
+            context.CompleteCommand(Name, closed ? $"Closed global library: {name}" : $"Global library was not found or cannot be closed: {name}");
             return closed
                 ? CommandResult.CreateSuccess(message: $"Closed global library: {name}")
                 : CommandResult.CreateFailure($"Global library was not found or cannot be closed: {name}");
@@ -133,7 +146,7 @@ public sealed class CloseGlobalLibraryCommand : ICommand
     }
 }
 
-public sealed class ListMasterCopiesCommand : ICommand
+public sealed class ListMasterCopiesCommand : IContextualCommand
 {
     private readonly ILibraryService _service;
     public ListMasterCopiesCommand(ILibraryService service) => _service = service;
@@ -148,22 +161,27 @@ public sealed class ListMasterCopiesCommand : ICommand
         new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for master copy rows")
     });
 
-    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
     {
         try
         {
+            context.StartCommand(Name, "Listing library master copies.");
             var items = await _service.ListMasterCopiesAsync(
                 args.GetString("library-scope", "project"),
                 LibraryCommandSupport.Optional(args, "global-library"),
                 LibraryCommandSupport.Optional(args, "folder-path"),
                 args.GetBool("recursive", true));
-            return LibraryCommandSupport.ListResult($"Found {items.Count} master copy/copies.", items, args, Name, "library-master-copies");
+            var result = LibraryCommandSupport.ListResult($"Found {items.Count} master copy/copies.", items, args, Name, "library-master-copies");
+            context.CompleteCommand(Name, result.Message);
+            return result;
         }
         catch (Exception ex) { return LibraryCommandSupport.Failure("Listing master copies", ex, logger); }
     }
 }
 
-public sealed class CopyFromMasterCopyCommand : ICommand
+public sealed class CopyFromMasterCopyCommand : IContextualCommand
 {
     private readonly ILibraryService _service;
     public CopyFromMasterCopyCommand(ILibraryService service) => _service = service;
@@ -180,10 +198,13 @@ public sealed class CopyFromMasterCopyCommand : ICommand
         new CommandParameter("confirm", CommandParameterType.Boolean, "Explicitly confirm a non-dry-run copy", false, false)
     });
 
-    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
     {
         try
         {
+            context.StartCommand(Name, "Copying library master copy into PLC block group.");
             var result = await _service.CopyFromMasterCopyAsync(
                 args.GetString("library-scope", "project"),
                 LibraryCommandSupport.Required(args, "master-copy-path"),
@@ -192,6 +213,7 @@ public sealed class CopyFromMasterCopyCommand : ICommand
                 LibraryCommandSupport.Optional(args, "global-library"),
                 args.GetBool("dry-run", true),
                 args.GetBool("confirm"));
+            context.CompleteCommand(Name, result.Message);
             return result.Success
                 ? CommandResult.CreateSuccess(result, result.Message)
                 : CommandResult.CreateFailure(result.Message, result);
@@ -200,7 +222,7 @@ public sealed class CopyFromMasterCopyCommand : ICommand
     }
 }
 
-public sealed class ListLibraryTypesCommand : ICommand
+public sealed class ListLibraryTypesCommand : IContextualCommand
 {
     private readonly ILibraryService _service;
     public ListLibraryTypesCommand(ILibraryService service) => _service = service;
@@ -215,22 +237,27 @@ public sealed class ListLibraryTypesCommand : ICommand
         new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for library type rows")
     });
 
-    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
     {
         try
         {
+            context.StartCommand(Name, "Listing library types.");
             var items = await _service.ListLibraryTypesAsync(
                 args.GetString("library-scope", "project"),
                 LibraryCommandSupport.Optional(args, "global-library"),
                 LibraryCommandSupport.Optional(args, "folder-path"),
                 args.GetBool("recursive", true));
-            return LibraryCommandSupport.ListResult($"Found {items.Count} library type(s).", items, args, Name, "library-types");
+            var result = LibraryCommandSupport.ListResult($"Found {items.Count} library type(s).", items, args, Name, "library-types");
+            context.CompleteCommand(Name, result.Message);
+            return result;
         }
         catch (Exception ex) { return LibraryCommandSupport.Failure("Listing library types", ex, logger); }
     }
 }
 
-public sealed class GetLibraryTypeVersionsCommand : ICommand
+public sealed class GetLibraryTypeVersionsCommand : IContextualCommand
 {
     private readonly ILibraryService _service;
     public GetLibraryTypeVersionsCommand(ILibraryService service) => _service = service;
@@ -244,21 +271,26 @@ public sealed class GetLibraryTypeVersionsCommand : ICommand
         new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for version rows")
     });
 
-    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
     {
         try
         {
+            context.StartCommand(Name, "Listing library type versions.");
             var items = await _service.GetLibraryTypeVersionsAsync(
                 args.GetString("library-scope", "project"),
                 LibraryCommandSupport.Required(args, "type-path"),
                 LibraryCommandSupport.Optional(args, "global-library"));
-            return LibraryCommandSupport.ListResult($"Found {items.Count} library type version(s).", items, args, Name, "library-type-versions");
+            var result = LibraryCommandSupport.ListResult($"Found {items.Count} library type version(s).", items, args, Name, "library-type-versions");
+            context.CompleteCommand(Name, result.Message);
+            return result;
         }
         catch (Exception ex) { return LibraryCommandSupport.Failure("Getting library type versions", ex, logger); }
     }
 }
 
-public sealed class CheckLibraryUpdatesCommand : ICommand
+public sealed class CheckLibraryUpdatesCommand : IContextualCommand
 {
     private readonly ILibraryService _service;
     public CheckLibraryUpdatesCommand(ILibraryService service) => _service = service;
@@ -272,10 +304,13 @@ public sealed class CheckLibraryUpdatesCommand : ICommand
         new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for update messages")
     });
 
-    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
     {
         try
         {
+            context.StartCommand(Name, "Checking library instance update status.");
             var result = await _service.CheckLibraryUpdatesAsync(
                 args.GetString("library-scope", "project"),
                 LibraryCommandSupport.Optional(args, "global-library"),
@@ -283,6 +318,7 @@ public sealed class CheckLibraryUpdatesCommand : ICommand
 
             if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(result, result.Message))
             {
+                context.Checkpoint("Writing library update check JSON artifact.", 85, "write-artifact");
                 var outputPath = CommandArtifactSupport.ResolveOutputPath(
                     args.Has("output-path")
                         ? args.GetString("output-path")
@@ -294,9 +330,11 @@ public sealed class CheckLibraryUpdatesCommand : ICommand
                     "library-update-check",
                     result.Messages.Count,
                     args.Has("output-path"));
+                context.CompleteCommand(Name, $"{result.Message} JSON written to: {outputPath}");
                 return CommandResult.CreateSuccess(artifact, $"{result.Message} JSON written to: {outputPath}");
             }
 
+            context.CompleteCommand(Name, result.Message);
             return CommandResult.CreateSuccess(result, result.Message);
         }
         catch (Exception ex) { return LibraryCommandSupport.Failure("Checking library updates", ex, logger); }

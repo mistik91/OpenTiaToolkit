@@ -11,7 +11,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to get the hierarchical tree structure of PLC software.
     /// </summary>
-    public class GetSoftwareTreeCommand : ICommand
+    public class GetSoftwareTreeCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -55,12 +55,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Reading PLC software tree.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
@@ -73,9 +79,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 20, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Traversing PLC software tree.", 55, "read-tree");
                 var tree = await _plcService.GetSoftwareTreeAsync(maxDepth);
 
                 if (tree != null)
@@ -90,6 +98,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
                     if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(resultData, message))
                     {
+                        context.Checkpoint("Writing PLC software tree JSON artifact.", 85, "write-artifact");
                         var outputPath = PlcCommandSupport.ResolveOutputPath(
                             args.Has("output-path")
                                 ? args.GetString("output-path")
@@ -107,12 +116,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                                 maxDepth
                             });
 
+                        context.CompleteCommand(Name, $"{message}. JSON written to: {outputPath}");
                         return CommandResult.CreateSuccess(
                             data: artifact,
                             message: $"{message}. JSON written to: {outputPath}"
                         );
                     }
 
+                    context.CompleteCommand(Name, message);
                     return CommandResult.CreateSuccess(
                         data: resultData,
                         message: message
@@ -120,6 +131,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
                 else
                 {
+                    context.CompleteCommand(Name, "Failed to get software tree");
                     return CommandResult.CreateFailure(
                         "Failed to get software tree"
                     );

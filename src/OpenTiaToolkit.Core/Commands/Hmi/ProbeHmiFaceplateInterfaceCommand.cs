@@ -9,7 +9,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to inspect a faceplate container interface and optionally probe one reversible write.
     /// </summary>
-    public class ProbeHmiFaceplateInterfaceCommand : ICommand
+    public class ProbeHmiFaceplateInterfaceCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -36,8 +36,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("restore", CommandParameterType.Boolean, "Restore the original value after a write probe", required: false, defaultValue: true)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Probing Unified HMI faceplate interface.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
             var itemName = TryGetItemName(args, out var itemNameError);
@@ -76,6 +82,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -83,6 +90,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint($"Probing Unified HMI faceplate interface: {screenPath}/{itemName}.", 65, "probe-faceplate");
             var result = await _hmiService.ProbeFaceplateInterfaceAsync(
                 screenPath,
                 itemName!,
@@ -93,14 +101,17 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (result == null)
             {
+                context.CompleteCommand(Name, $"Failed to probe Unified HMI faceplate interface: {screenPath}/{itemName}");
                 return CommandResult.CreateFailure($"Failed to probe Unified HMI faceplate interface: {screenPath}/{itemName}");
             }
 
             if (write && !result.WriteSucceeded)
             {
+                context.CompleteCommand(Name, "Unified HMI faceplate interface write probe failed.");
                 return CommandResult.CreateFailure("Unified HMI faceplate interface write probe failed.", result);
             }
 
+            context.CompleteCommand(Name, $"Unified HMI faceplate interface probed: {screenPath}/{itemName}");
             return CommandResult.CreateSuccess(result, $"Unified HMI faceplate interface probed: {screenPath}/{itemName}");
         }
 

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Text
 {
-    public sealed class ListProjectLanguagesCommand : ICommand
+    public sealed class ListProjectLanguagesCommand : IContextualCommand
     {
         private readonly ITextService _textService;
 
@@ -22,16 +22,24 @@ namespace OpenTiaToolkit.Core.Commands.Text
 
         public CommandSchema Schema => new CommandSchema(Description);
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Listing project languages.");
                 var result = await _textService.GetProjectLanguagesAsync();
                 if (result == null)
                 {
+                    context.CompleteCommand(Name, "No project is currently open");
                     return CommandResult.CreateFailure("No project is currently open");
                 }
 
+                context.CompleteCommand(Name, $"Found {result.Languages.Count} project language(s), {result.ActiveLanguages.Count} active");
                 return CommandResult.CreateSuccess(
                     result,
                     $"Found {result.Languages.Count} project language(s), {result.ActiveLanguages.Count} active");
@@ -44,7 +52,7 @@ namespace OpenTiaToolkit.Core.Commands.Text
         }
     }
 
-    public sealed class ExportTextsCommand : ICommand
+    public sealed class ExportTextsCommand : IContextualCommand
     {
         private readonly ITextService _textService;
 
@@ -68,8 +76,14 @@ namespace OpenTiaToolkit.Core.Commands.Text
                 new CommandParameter("objects", CommandParameterType.StringArray, "Top-level device or device-item names to export", required: true)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating project text export inputs.");
             var outputPath = args.GetString("output-path");
             if (string.IsNullOrWhiteSpace(outputPath))
             {
@@ -96,7 +110,9 @@ namespace OpenTiaToolkit.Core.Commands.Text
 
             try
             {
+                context.Checkpoint("Resolving project text export artifact path.", 20, "prepare-artifact");
                 var resolvedOutputPath = CommandArtifactSupport.ResolveOutputPath(outputPath, "project_texts.xlsx");
+                context.Checkpoint("Exporting project texts from TIA Portal.", 45, "export-texts");
                 var result = await _textService.ExportTextsAsync(
                     resolvedOutputPath,
                     sourceCulture,
@@ -109,6 +125,7 @@ namespace OpenTiaToolkit.Core.Commands.Text
                     return CommandResult.CreateFailure("No project is currently open");
                 }
 
+                context.Checkpoint("Creating project text export artifact manifest.", 90, "artifact-manifest");
                 var artifact = new CommandArtifactResult
                 {
                     OutputPath = result.OutputPath,
@@ -127,6 +144,7 @@ namespace OpenTiaToolkit.Core.Commands.Text
                     }
                 };
 
+                context.CompleteCommand(Name, $"Project texts exported to: {result.OutputPath}");
                 return CommandResult.CreateSuccess(artifact, $"Project texts exported to: {result.OutputPath}");
             }
             catch (Exception ex)
@@ -137,7 +155,7 @@ namespace OpenTiaToolkit.Core.Commands.Text
         }
     }
 
-    public sealed class ImportTextsCommand : ICommand
+    public sealed class ImportTextsCommand : IContextualCommand
     {
         private readonly ITextService _textService;
 
@@ -159,8 +177,14 @@ namespace OpenTiaToolkit.Core.Commands.Text
                 new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate inputs without invoking Siemens text import", required: false, defaultValue: true)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating project text import inputs.");
             var inputPath = args.GetString("input-path");
             if (string.IsNullOrWhiteSpace(inputPath))
             {
@@ -169,6 +193,7 @@ namespace OpenTiaToolkit.Core.Commands.Text
 
             try
             {
+                context.Checkpoint("Importing project texts through TIA Portal.", 45, "import-texts");
                 var result = await _textService.ImportTextsAsync(
                     inputPath,
                     args.GetBool("update-source-language", false),
@@ -179,6 +204,7 @@ namespace OpenTiaToolkit.Core.Commands.Text
                 }
 
                 var action = result.DryRun ? "validated" : "imported";
+                context.CompleteCommand(Name, $"Project texts {action} from: {result.InputPath}");
                 return CommandResult.CreateSuccess(result, $"Project texts {action} from: {result.InputPath}");
             }
             catch (FileNotFoundException ex)

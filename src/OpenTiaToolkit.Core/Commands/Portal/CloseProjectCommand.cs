@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
     /// <summary>
     /// Command to close the currently open TIA Portal project.
     /// </summary>
-    public class CloseProjectCommand : ICommand
+    public class CloseProjectCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -42,20 +42,28 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Closing current project.");
                 var saveChanges = args.GetBool("save", false);
 
                 logger.LogInformation("Closing project (save: {SaveChanges})", saveChanges);
 
+                context.Checkpoint(saveChanges ? "Saving and closing current project." : "Closing current project without saving.", 55, "close-project");
                 var success = await _portalService.CloseProjectAsync(saveChanges);
 
                 if (success)
                 {
+                    context.CompleteCommand(Name, saveChanges ? "Project saved and closed" : "Project closed (changes not saved)");
                     return CommandResult.CreateSuccess(
                         message: saveChanges
                             ? "Project saved and closed"
@@ -64,6 +72,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                 }
                 else
                 {
+                    context.CompleteCommand(Name, "Failed to close project");
                     return CommandResult.CreateFailure(
                         "Failed to close project"
                     );

@@ -10,7 +10,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to dry-run or apply an agent-provided single-screen JSON edit.
     /// </summary>
-    public class ApplyHmiScreenJsonEditCommand : ICommand
+    public class ApplyHmiScreenJsonEditCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -42,8 +42,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("working-path", CommandParameterType.Path, "Optional artifact root path", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating Unified HMI screen edit inputs.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
 
@@ -57,6 +63,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 return CommandResult.CreateFailure("Missing required parameter: screen-path");
             }
 
+            context.Checkpoint("Parsing edited Unified HMI screen JSON.", 20, "parse-edited-screen");
             if (!HmiJsonCommandSupport.TryGetScreenArgument(args, "edited-screen", out var editedScreen, out var parseError))
             {
                 return CommandResult.CreateFailure(parseError ?? "Missing required parameter: edited-screen");
@@ -64,6 +71,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 30, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -71,6 +79,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint("Preparing Unified HMI screen edit safety options.", 45, "prepare-edit");
             var dryRun = !args.Has("dry-run") || args.GetBool("dry-run", true);
             var filters = HmiJsonCommandSupport.BuildFilters(args);
             var executionOptions = new HmiJsonImportExecutionOptions
@@ -81,6 +90,10 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 BackupPath = args.Has("backup-path") ? args.GetString("backup-path") : null
             };
 
+            context.Checkpoint(
+                dryRun ? "Preflighting Unified HMI screen edit." : "Applying Unified HMI screen edit.",
+                60,
+                dryRun ? "preflight-screen-edit" : "apply-screen-edit");
             var result = await _hmiService.ApplyScreenJsonEditAsync(
                 screenPath,
                 editedScreen!,
@@ -97,6 +110,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             }
 
             var action = dryRun ? "preflighted" : result.Applied ? "applied" : "blocked";
+            context.CompleteCommand(Name, $"Unified HMI screen JSON edit {action}: {screenPath}");
             return CommandResult.CreateSuccess(result, $"Unified HMI screen JSON edit {action}: {screenPath}");
         }
 

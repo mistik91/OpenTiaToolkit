@@ -141,37 +141,51 @@ namespace OpenTiaToolkit.Core.Commands.Vci
         };
     }
 
-    public sealed class ListVciWorkspacesCommand : ICommand
+    public sealed class ListVciWorkspacesCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public ListVciWorkspacesCommand(IVciService service) => _service = service;
         public string Name => "list-vci-workspaces";
         public string Description => "Lists Version Control Interface workspaces in the open project";
         public CommandSchema Schema => new CommandSchema(Description);
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Listing VCI workspaces.");
                 var workspaces = await _service.ListWorkspacesAsync();
+                context.CompleteCommand(Name, $"Found {workspaces.Count} VCI workspace(s).");
                 return CommandResult.CreateSuccess(workspaces, $"Found {workspaces.Count} VCI workspace(s).");
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Listing VCI workspaces", ex, logger); }
         }
     }
 
-    public sealed class GetVciWorkspaceCommand : ICommand
+    public sealed class GetVciWorkspaceCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public GetVciWorkspaceCommand(IVciService service) => _service = service;
         public string Name => "get-vci-workspace";
         public string Description => "Gets details for a Version Control Interface workspace";
         public CommandSchema Schema => new CommandSchema(Description, new[] { new CommandParameter("workspace-name", CommandParameterType.String, "Workspace name", true) });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Reading VCI workspace details.");
                 var name = VciCommandSupport.Required(args, "workspace-name");
                 var workspace = await _service.GetWorkspaceAsync(name);
+                context.CompleteCommand(Name, workspace == null ? $"VCI workspace was not found: {name}" : $"VCI workspace found: {name}");
                 return workspace == null
                     ? CommandResult.CreateFailure($"VCI workspace was not found: {name}")
                     : CommandResult.CreateSuccess(workspace, $"VCI workspace found: {name}");
@@ -180,7 +194,7 @@ namespace OpenTiaToolkit.Core.Commands.Vci
         }
     }
 
-    public sealed class CreateVciWorkspaceCommand : ICommand
+    public sealed class CreateVciWorkspaceCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public CreateVciWorkspaceCommand(IVciService service) => _service = service;
@@ -192,21 +206,28 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("root-path", CommandParameterType.Path, "Workspace filesystem root", true),
             new CommandParameter("workspace-language", CommandParameterType.String, "Optional culture such as en-US")
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Creating VCI workspace.");
                 var workspace = await _service.CreateWorkspaceAsync(
                     VciCommandSupport.Required(args, "workspace-name"),
                     VciCommandSupport.Required(args, "root-path"),
                     VciCommandSupport.Optional(args, "workspace-language"));
+                context.CompleteCommand(Name, $"Created VCI workspace: {workspace.Name}");
                 return CommandResult.CreateSuccess(workspace, $"Created VCI workspace: {workspace.Name}");
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Creating VCI workspace", ex, logger); }
         }
     }
 
-    public sealed class DeleteVciWorkspaceCommand : ICommand
+    public sealed class DeleteVciWorkspaceCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public DeleteVciWorkspaceCommand(IVciService service) => _service = service;
@@ -217,20 +238,27 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("workspace-name", CommandParameterType.String, "Workspace name", true),
             new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm deletion", true)
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Deleting VCI workspace.");
                 var name = VciCommandSupport.Required(args, "workspace-name");
                 if (!args.GetBool("confirm")) return CommandResult.CreateFailure("Deletion requires confirm=true.");
                 var deleted = await _service.DeleteWorkspaceAsync(name);
+                context.CompleteCommand(Name, deleted ? $"Deleted VCI workspace: {name}" : $"VCI workspace was not found: {name}");
                 return deleted ? CommandResult.CreateSuccess(message: $"Deleted VCI workspace: {name}") : CommandResult.CreateFailure($"VCI workspace was not found: {name}");
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Deleting VCI workspace", ex, logger); }
         }
     }
 
-    public sealed class ListVciMappingsCommand : ICommand
+    public sealed class ListVciMappingsCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public ListVciMappingsCommand(IVciService service) => _service = service;
@@ -241,15 +269,22 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("workspace-name", CommandParameterType.String, "Workspace name", true),
             new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for VCI mapping rows")
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Reading VCI workspace mappings.");
                 var workspaceName = VciCommandSupport.Required(args, "workspace-name");
                 var mappings = await _service.ListMappingsAsync(workspaceName);
                 var message = $"Found {mappings.Count} VCI mapping(s).";
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(mappings, message))
                 {
+                    context.Checkpoint("Writing VCI mappings CSV artifact.", 85, "write-artifact");
                     var outputPath = VciCommandSupport.ResolveOutputPath(
                         args.Has("output-path")
                             ? args.GetString("output-path")
@@ -264,31 +299,40 @@ namespace OpenTiaToolkit.Core.Commands.Vci
                         args.Has("output-path"),
                         VciCommandSupport.MappingCsvColumns,
                         new { workspaceName });
+                    context.CompleteCommand(Name, $"{message} CSV written to: {outputPath}");
                     return CommandResult.CreateSuccess(artifact, $"{message} CSV written to: {outputPath}");
                 }
 
+                context.CompleteCommand(Name, message);
                 return CommandResult.CreateSuccess(mappings, message);
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Listing VCI mappings", ex, logger); }
         }
     }
 
-    public sealed class GetVciBlockFormatsCommand : ICommand
+    public sealed class GetVciBlockFormatsCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public GetVciBlockFormatsCommand(IVciService service) => _service = service;
         public string Name => "get-vci-block-formats";
         public string Description => "Gets VCI-supported workspace file formats for one PLC block";
         public CommandSchema Schema => BlockTargetSchema(Description);
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Reading supported VCI block formats.");
                 var formats = await _service.GetSupportedBlockFormatsAsync(
                     VciCommandSupport.Required(args, "plc-name"),
                     VciCommandSupport.Required(args, "block-name"),
                     VciCommandSupport.Optional(args, "block-type"),
                     VciCommandSupport.Optional(args, "group-path"));
+                context.CompleteCommand(Name, $"Found {formats.Count} supported VCI format(s).");
                 return CommandResult.CreateSuccess(formats, $"Found {formats.Count} supported VCI format(s).");
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Getting VCI block formats", ex, logger); }
@@ -306,7 +350,7 @@ namespace OpenTiaToolkit.Core.Commands.Vci
         }
     }
 
-    public sealed class ExportVciBlockCommand : ICommand
+    public sealed class ExportVciBlockCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public ExportVciBlockCommand(IVciService service) => _service = service;
@@ -323,18 +367,25 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("block-type", CommandParameterType.String, "Optional block type such as FC or DB"),
             new CommandParameter("group-path", CommandParameterType.String, "Optional block group path")
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Exporting PLC block to VCI workspace.");
                 var mapping = await _service.ExportBlockAsync(VciCommandSupport.Required(args, "workspace-name"), VciCommandSupport.Required(args, "plc-name"), VciCommandSupport.Required(args, "block-name"), VciCommandSupport.Required(args, "relative-directory"), VciCommandSupport.Optional(args, "file-name"), VciCommandSupport.Required(args, "file-format"), VciCommandSupport.Optional(args, "block-type"), VciCommandSupport.Optional(args, "group-path"));
+                context.CompleteCommand(Name, $"Exported and mapped VCI block: {mapping.ObjectName}");
                 return CommandResult.CreateSuccess(mapping, $"Exported and mapped VCI block: {mapping.ObjectName}");
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Exporting VCI block", ex, logger); }
         }
     }
 
-    public sealed class ConnectVciBlockCommand : ICommand
+    public sealed class ConnectVciBlockCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public ConnectVciBlockCommand(IVciService service) => _service = service;
@@ -351,18 +402,25 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("block-type", CommandParameterType.String, "Optional block type such as FC or DB"),
             new CommandParameter("group-path", CommandParameterType.String, "Optional block group path")
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Connecting PLC block to VCI workspace files.");
                 var mapping = await _service.ConnectBlockAsync(VciCommandSupport.Required(args, "workspace-name"), VciCommandSupport.Required(args, "plc-name"), VciCommandSupport.Required(args, "block-name"), VciCommandSupport.Required(args, "relative-directory"), VciCommandSupport.Required(args, "file-name"), VciCommandSupport.Required(args, "file-format"), VciCommandSupport.Optional(args, "block-type"), VciCommandSupport.Optional(args, "group-path"));
+                context.CompleteCommand(Name, $"Connected VCI block: {mapping.ObjectName}");
                 return CommandResult.CreateSuccess(mapping, $"Connected VCI block: {mapping.ObjectName}");
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Connecting VCI block", ex, logger); }
         }
     }
 
-    public sealed class GetVciBlockStatusCommand : ICommand
+    public sealed class GetVciBlockStatusCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public GetVciBlockStatusCommand(IVciService service) => _service = service;
@@ -376,18 +434,25 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("block-type", CommandParameterType.String, "Optional block type"),
             new CommandParameter("group-path", CommandParameterType.String, "Optional block group path")
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Reading VCI block status.");
                 var status = await _service.GetBlockStatusAsync(VciCommandSupport.Required(args, "workspace-name"), VciCommandSupport.Required(args, "plc-name"), VciCommandSupport.Required(args, "block-name"), VciCommandSupport.Optional(args, "block-type"), VciCommandSupport.Optional(args, "group-path"));
+                context.CompleteCommand(Name, status.Message ?? "VCI block status retrieved.");
                 return CommandResult.CreateSuccess(status, status.Message ?? "VCI block status retrieved.");
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Getting VCI block status", ex, logger); }
         }
     }
 
-    public sealed class SyncVciBlockCommand : ICommand
+    public sealed class SyncVciBlockCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public SyncVciBlockCommand(IVciService service) => _service = service;
@@ -406,18 +471,25 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("block-type", CommandParameterType.String, "Optional block type"),
             new CommandParameter("group-path", CommandParameterType.String, "Optional block group path")
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Synchronizing one VCI block.");
                 var result = await _service.SynchronizeBlockAsync(VciCommandSupport.Required(args, "workspace-name"), VciCommandSupport.Required(args, "plc-name"), VciCommandSupport.Required(args, "block-name"), VciCommandSupport.Direction(args), args.GetBool("create-mapping"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-name"), VciCommandSupport.Optional(args, "file-format"), VciCommandSupport.Optional(args, "block-type"), VciCommandSupport.Optional(args, "group-path"));
+                context.CompleteCommand(Name, result.Message ?? "VCI block synchronized.");
                 return result.Success ? CommandResult.CreateSuccess(result, result.Message ?? "VCI block synchronized.") : CommandResult.CreateFailure(result.Message ?? "VCI block was not synchronized.", result);
             }
             catch (Exception ex) { return VciCommandSupport.Failure("Synchronizing VCI block", ex, logger); }
         }
     }
 
-    public sealed class SyncVciBlocksCommand : ICommand
+    public sealed class SyncVciBlocksCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public SyncVciBlocksCommand(IVciService service) => _service = service;
@@ -436,14 +508,22 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("include-skipped", CommandParameterType.Boolean, "Include per-item results for skipped unmapped objects", false, false),
             new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the bulk sync result")
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Synchronizing selected VCI blocks.");
                 var workspaceName = VciCommandSupport.Required(args, "workspace-name");
                 var plcName = VciCommandSupport.Required(args, "plc-name");
                 var direction = VciCommandSupport.Direction(args);
                 var result = await _service.SynchronizeBlocksAsync(workspaceName, plcName, direction, VciCommandSupport.Optional(args, "filter-regex"), args.GetStringArray("block-types"), args.GetBool("create-mappings"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-format"), args.GetBool("include-skipped"));
+                context.Checkpoint("Preparing VCI block synchronization result.", 85, "prepare-result");
+                context.CompleteCommand(Name, "VCI block synchronization completed.");
                 return VciCommandSupport.BulkResult("VCI block synchronization", result, args, Name, new
                 {
                     workspaceName,
@@ -461,7 +541,7 @@ namespace OpenTiaToolkit.Core.Commands.Vci
         }
     }
 
-    public sealed class SyncVciPlcCommand : ICommand
+    public sealed class SyncVciPlcCommand : IContextualCommand
     {
         private readonly IVciService _service;
         public SyncVciPlcCommand(IVciService service) => _service = service;
@@ -479,15 +559,23 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("include-skipped", CommandParameterType.Boolean, "Include per-item results for skipped unmapped objects", false, false),
             new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the PLC sync result")
         });
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             try
             {
+                context.StartCommand(Name, "Synchronizing PLC objects with VCI workspace.");
                 var workspaceName = VciCommandSupport.Required(args, "workspace-name");
                 var plcName = VciCommandSupport.Required(args, "plc-name");
                 var direction = VciCommandSupport.Direction(args);
                 var scope = VciCommandSupport.Scope(args);
                 var result = await _service.SynchronizePlcAsync(workspaceName, plcName, direction, scope, args.GetBool("create-mappings"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-format"), args.GetBool("include-skipped"));
+                context.Checkpoint("Preparing VCI PLC synchronization result.", 85, "prepare-result");
+                context.CompleteCommand(Name, "VCI PLC synchronization completed.");
                 return VciCommandSupport.BulkResult("VCI PLC synchronization", result, args, Name, new
                 {
                     workspaceName,

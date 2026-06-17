@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Plc
 {
-    public sealed class ExportTagsCommand : ICommand
+    public sealed class ExportTagsCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -29,21 +29,28 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for exported PLC tags", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating PLC tag export inputs.");
             var plcName = args.GetString("plc-name");
             if (string.IsNullOrWhiteSpace(plcName))
             {
                 return CommandResult.CreateFailure("Missing required parameter: plc-name");
             }
 
-            await OpenPlcIfNeeded(_plcService, plcName);
+            await OpenPlcIfNeeded(_plcService, plcName, context);
             var culture = args.GetString("culture");
             if (string.IsNullOrWhiteSpace(culture))
             {
                 culture = "en-US";
             }
 
+            context.Checkpoint("Exporting PLC tags from TIA Portal.", 50, "export-tags");
             var result = await _plcService.ExportTagsAsync(culture);
             if (!result.Success)
             {
@@ -53,6 +60,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
             var message = $"Exported {result.TagCount} PLC tag(s) from {plcName}";
             if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(result, message))
             {
+                context.Checkpoint("Writing PLC tag export CSV artifact.", 85, "write-artifact");
                 var explicitOutputPath = args.Has("output-path");
                 var outputPath = PlcCommandSupport.ResolveOutputPath(
                     explicitOutputPath
@@ -69,24 +77,27 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     PlcCommandSupport.TagExportCsvColumns,
                     new { plcName, culture });
 
+                context.CompleteCommand(Name, $"{message}. CSV written to: {outputPath}");
                 return CommandResult.CreateSuccess(artifact, $"{message}. CSV written to: {outputPath}");
             }
 
+            context.CompleteCommand(Name, message);
             return CommandResult.CreateSuccess(result, message);
         }
 
         private static CommandParameter RequiredPlcName() => new CommandParameter("plc-name", CommandParameterType.String, "The name of the PLC device", required: true);
 
-        private static async Task OpenPlcIfNeeded(IPlcService plcService, string plcName)
+        private static async Task OpenPlcIfNeeded(IPlcService plcService, string plcName, CommandExecutionContext context)
         {
             if (!plcService.IsSoftwareOpen || plcService.CurrentPlcName != plcName)
             {
+                context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                 await plcService.OpenPlcAsync(plcName);
             }
         }
     }
 
-    public sealed class GetCrossReferencesCommand : ICommand
+    public sealed class GetCrossReferencesCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -108,8 +119,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for cross-reference rows", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating PLC cross-reference inputs.");
             var plcName = args.GetString("plc-name");
             if (string.IsNullOrWhiteSpace(plcName))
             {
@@ -122,7 +139,8 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 return CommandResult.CreateFailure("Missing required parameter: name");
             }
 
-            await OpenPlcIfNeeded(_plcService, plcName);
+            await OpenPlcIfNeeded(_plcService, plcName, context);
+            context.Checkpoint($"Reading PLC cross references for: {name}.", 55, "get-cross-references");
             var result = await _plcService.GetCrossReferencesAsync(name);
             if (!result.Success)
             {
@@ -132,6 +150,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
             var message = $"Found {result.ReferenceCount} cross-reference(s) for {name}";
             if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(result, message))
             {
+                context.Checkpoint("Writing PLC cross-reference CSV artifact.", 85, "write-artifact");
                 var explicitOutputPath = args.Has("output-path");
                 var outputPath = PlcCommandSupport.ResolveOutputPath(
                     explicitOutputPath
@@ -148,24 +167,27 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     PlcCommandSupport.CrossReferenceCsvColumns,
                     new { plcName, name });
 
+                context.CompleteCommand(Name, $"{message}. CSV written to: {outputPath}");
                 return CommandResult.CreateSuccess(artifact, $"{message}. CSV written to: {outputPath}");
             }
 
+            context.CompleteCommand(Name, message);
             return CommandResult.CreateSuccess(result, message);
         }
 
         private static CommandParameter RequiredPlcName() => new CommandParameter("plc-name", CommandParameterType.String, "The name of the PLC device", required: true);
 
-        private static async Task OpenPlcIfNeeded(IPlcService plcService, string plcName)
+        private static async Task OpenPlcIfNeeded(IPlcService plcService, string plcName, CommandExecutionContext context)
         {
             if (!plcService.IsSoftwareOpen || plcService.CurrentPlcName != plcName)
             {
+                context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                 await plcService.OpenPlcAsync(plcName);
             }
         }
     }
 
-    public abstract class ListPlcSurfaceItemsCommand : ICommand
+    public abstract class ListPlcSurfaceItemsCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -190,8 +212,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("output-path", CommandParameterType.Path, "Optional CSV file or folder path for rows", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, $"Validating {Description.ToLowerInvariant()} list inputs.");
             var plcName = args.GetString("plc-name");
             if (string.IsNullOrWhiteSpace(plcName))
             {
@@ -200,13 +228,16 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
             if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
             {
+                context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                 await _plcService.OpenPlcAsync(plcName);
             }
 
+            context.Checkpoint($"Reading {Description.ToLowerInvariant()} from TIA Portal.", 55, "list-plc-surface-items");
             var rows = await ListAsync(_plcService);
             var message = $"Found {rows.Count} {Description.ToLowerInvariant()} item(s) in {plcName}";
             if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(rows, message))
             {
+                context.Checkpoint("Writing PLC surface list CSV artifact.", 85, "write-artifact");
                 var explicitOutputPath = args.Has("output-path");
                 var outputPath = PlcCommandSupport.ResolveOutputPath(
                     explicitOutputPath
@@ -223,9 +254,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     PlcCommandSupport.SurfaceItemCsvColumns,
                     new { plcName });
 
+                context.CompleteCommand(Name, $"{message}. CSV written to: {outputPath}");
                 return CommandResult.CreateSuccess(artifact, $"{message}. CSV written to: {outputPath}");
             }
 
+            context.CompleteCommand(Name, message);
             return CommandResult.CreateSuccess(rows, message);
         }
 
@@ -292,7 +325,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         protected override Task<IReadOnlyList<PlcSurfaceItem>> ListAsync(IPlcService plcService) => plcService.ListPlcAlarmTextListsAsync();
     }
 
-    public sealed class ImportSourceCommand : ICommand
+    public sealed class ImportSourceCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -315,8 +348,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("confirm", CommandParameterType.Boolean, "Required for non-dry-run imports", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating PLC source import inputs.");
             var plcName = args.GetString("plc-name");
             if (string.IsNullOrWhiteSpace(plcName))
             {
@@ -331,17 +370,20 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
             if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
             {
+                context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                 await _plcService.OpenPlcAsync(plcName);
             }
 
+            context.Checkpoint("Importing PLC external source.", 55, "import-source");
             var result = await _plcService.ImportSourceAsync(sourcePath, args.GetBool("dry-run", true), args.GetBool("confirm", false));
+            context.CompleteCommand(Name, result.Message);
             return result.Success
                 ? CommandResult.CreateSuccess(result, result.Message)
                 : CommandResult.CreateFailure(result.Message, result);
         }
     }
 
-    public sealed class GenerateBlocksFromSourceCommand : ICommand
+    public sealed class GenerateBlocksFromSourceCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -364,8 +406,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("confirm", CommandParameterType.Boolean, "Required for non-dry-run generation", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating PLC source generation inputs.");
             var plcName = args.GetString("plc-name");
             if (string.IsNullOrWhiteSpace(plcName))
             {
@@ -380,17 +428,20 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
             if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
             {
+                context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                 await _plcService.OpenPlcAsync(plcName);
             }
 
+            context.Checkpoint("Generating PLC blocks from external source.", 55, "generate-blocks-from-source");
             var result = await _plcService.GenerateBlocksFromSourceAsync(sourceName, args.GetBool("dry-run", true), args.GetBool("confirm", false));
+            context.CompleteCommand(Name, result.Message);
             return result.Success
                 ? CommandResult.CreateSuccess(result, result.Message)
                 : CommandResult.CreateFailure(result.Message, result);
         }
     }
 
-    public sealed class ExportBlockAsSourceCommand : ICommand
+    public sealed class ExportBlockAsSourceCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -412,8 +463,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("output-path", CommandParameterType.Path, "Output source file or folder path", required: true)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Validating PLC source export inputs.");
             var plcName = args.GetString("plc-name");
             if (string.IsNullOrWhiteSpace(plcName))
             {
@@ -434,10 +491,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
             if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
             {
+                context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                 await _plcService.OpenPlcAsync(plcName);
             }
 
+            context.Checkpoint($"Exporting PLC block as external source: {blockName}.", 55, "export-block-as-source");
             var result = await _plcService.ExportBlockAsSourceAsync(blockName, outputPath);
+            context.CompleteCommand(Name, result.Message);
             return result.Success
                 ? CommandResult.CreateSuccess(result, result.Message)
                 : CommandResult.CreateFailure(result.Message, result);

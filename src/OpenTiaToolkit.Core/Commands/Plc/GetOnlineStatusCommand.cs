@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to get or establish PLC online status.
     /// </summary>
-    public class GetOnlineStatusCommand : ICommand
+    public class GetOnlineStatusCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -28,12 +28,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 new CommandParameter("go-online", CommandParameterType.Boolean, "Attempt to go online before reading status", required: false, defaultValue: true)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Reading PLC online status.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
@@ -42,10 +48,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Reading PLC online status.", 65, "read-online-status");
                 var result = await _plcService.GetOnlineStatusAsync(args.GetBool("go-online", true));
+                context.CompleteCommand(Name, result.Message);
                 return result.Success
                     ? CommandResult.CreateSuccess(result, result.Message)
                     : CommandResult.CreateFailure(result.Message, result);

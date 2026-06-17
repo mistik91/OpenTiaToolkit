@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to create a Unified HMI screen item.
     /// </summary>
-    public class CreateHmiItemCommand : ICommand
+    public class CreateHmiItemCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -35,8 +35,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("height", CommandParameterType.Integer, "Optional item height", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Creating Unified HMI item.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
             var itemType = args.GetString("item-type");
@@ -64,6 +70,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -71,6 +78,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint($"Ensuring Unified HMI item: {itemName}.", 65, "create-item");
             var itemInfo = await _hmiService.CreateScreenItemAsync(
                 screenPath,
                 itemType,
@@ -80,6 +88,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 args.Has("width") ? (int?)args.GetInt("width") : null,
                 args.Has("height") ? (int?)args.GetInt("height") : null);
 
+            context.CompleteCommand(Name, itemInfo != null ? $"Unified HMI item ensured: {itemName}" : $"Failed to create Unified HMI item: {itemName}");
             return itemInfo != null
                 ? CommandResult.CreateSuccess(itemInfo, $"Unified HMI item ensured: {itemName}")
                 : CommandResult.CreateFailure($"Failed to create Unified HMI item: {itemName}");

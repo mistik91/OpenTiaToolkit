@@ -11,7 +11,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to list all HMI devices in the current project.
     /// </summary>
-    public class ListHmisCommand : ICommand
+    public class ListHmisCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -34,21 +34,29 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         public CommandSchema Schema => new CommandSchema(Description);
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Listing HMI devices.");
                 if (!_portalService.IsConnected)
                 {
                     return CommandResult.CreateFailure("Not connected to TIA Portal");
                 }
 
+                context.Checkpoint("Scanning project HMI devices.", 50, "list-hmis");
                 var hmis = await _portalService.GetHmisAsync();
 
                 if (hmis == null || !hmis.Any())
                 {
+                    context.CompleteCommand(Name, "No HMI devices found in the project");
                     return CommandResult.CreateSuccess(
                         data: Array.Empty<HmiInfo>(),
                         message: "No HMI devices found in the project"
@@ -56,6 +64,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
 
                 var hmiList = hmis.ToList();
+                context.CompleteCommand(Name, $"Found {hmiList.Count} HMI device(s)");
                 return CommandResult.CreateSuccess(
                     data: hmiList,
                     message: $"Found {hmiList.Count} HMI device(s)"

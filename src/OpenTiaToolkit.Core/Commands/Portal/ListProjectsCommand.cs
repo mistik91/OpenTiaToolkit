@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
     /// <summary>
     /// Command to list all open TIA Portal projects.
     /// </summary>
-    public class ListProjectsCommand : ICommand
+    public class ListProjectsCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -30,16 +30,23 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         public CommandSchema Schema => new CommandSchema(Description);
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Listing open TIA Portal projects.");
                 var projects = await _portalService.GetOpenProjectsAsync();
 
                 if (projects.Count == 0)
                 {
+                    context.CompleteCommand(Name, "No projects are currently open");
                     return CommandResult.CreateSuccess(
                         data: projects,
                         message: "No projects are currently open"
@@ -47,6 +54,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                 }
                 else
                 {
+                    context.CompleteCommand(Name, $"Found {projects.Count} open project(s)");
                     return CommandResult.CreateSuccess(
                         data: projects,
                         message: $"Found {projects.Count} open project(s)"

@@ -18,8 +18,10 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         public static async Task<CommandResult?> EnsureHmiOpenAsync(
             IHmiService service,
             string hmiName,
-            string operation)
+            string operation,
+            CommandExecutionContext? context = null)
         {
+            context?.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(hmiName))
             {
                 return CommandResult.CreateFailure("Missing required parameter: hmi-name");
@@ -27,6 +29,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!service.IsHmiOpen || !string.Equals(service.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context?.ReportProgress($"Opening Unified HMI for {operation}: {hmiName}.", 25, "open-hmi");
                 var opened = await service.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -84,7 +87,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
         }
     }
 
-    public sealed class CreateHmiTrendsCommand : ICommand
+    public sealed class CreateHmiTrendsCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -104,9 +107,15 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate and report planned configurations without applying them", required: false, defaultValue: true)
         });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
-            var openFailure = await HmiTrendBulkCommandSupport.EnsureHmiOpenAsync(_hmiService, args.GetString("hmi-name"), Name);
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Configuring Unified HMI trends.");
+            var openFailure = await HmiTrendBulkCommandSupport.EnsureHmiOpenAsync(_hmiService, args.GetString("hmi-name"), Name, context);
             if (openFailure != null)
             {
                 return openFailure;
@@ -117,12 +126,15 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 return CommandResult.CreateFailure(error);
             }
 
+            context.Checkpoint(args.GetBool("dry-run", true) ? "Planning Unified HMI trend configurations." : "Applying Unified HMI trend configurations.", 60, "configure-trends");
             var result = await _hmiService.CreateTrendsAsync(configs, args.GetBool("dry-run", true));
-            return HmiTrendBulkCommandSupport.Result("Unified HMI trend batch configuration", result);
+            var commandResult = HmiTrendBulkCommandSupport.Result("Unified HMI trend batch configuration", result);
+            context.CompleteCommand(Name, commandResult.Message);
+            return commandResult;
         }
     }
 
-    public sealed class RemoveHmiLoggingTagsCommand : ICommand
+    public sealed class RemoveHmiLoggingTagsCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -143,15 +155,21 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm deletion when dry-run is false", required: false, defaultValue: false)
         });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Removing Unified HMI logging tags.");
             var dryRun = args.GetBool("dry-run", true);
             if (!dryRun && !args.GetBool("confirm"))
             {
                 return CommandResult.CreateFailure("Deletion requires confirm=true when dry-run=false.");
             }
 
-            var openFailure = await HmiTrendBulkCommandSupport.EnsureHmiOpenAsync(_hmiService, args.GetString("hmi-name"), Name);
+            var openFailure = await HmiTrendBulkCommandSupport.EnsureHmiOpenAsync(_hmiService, args.GetString("hmi-name"), Name, context);
             if (openFailure != null)
             {
                 return openFailure;
@@ -162,12 +180,15 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 return CommandResult.CreateFailure(error);
             }
 
+            context.Checkpoint(dryRun ? "Planning Unified HMI logging tag removals." : "Applying Unified HMI logging tag removals.", 60, "remove-logging-tags");
             var result = await _hmiService.RemoveLoggingTagsAsync(configs, args.GetBool("confirm"), dryRun);
-            return HmiTrendBulkCommandSupport.Result("Unified HMI logging tag batch removal", result);
+            var commandResult = HmiTrendBulkCommandSupport.Result("Unified HMI logging tag batch removal", result);
+            context.CompleteCommand(Name, commandResult.Message);
+            return commandResult;
         }
     }
 
-    public sealed class DeleteHmiDataLogsCommand : ICommand
+    public sealed class DeleteHmiDataLogsCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -188,15 +209,21 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm deletion when dry-run is false", required: false, defaultValue: false)
         });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Deleting Unified HMI data logs.");
             var dryRun = args.GetBool("dry-run", true);
             if (!dryRun && !args.GetBool("confirm"))
             {
                 return CommandResult.CreateFailure("Deletion requires confirm=true when dry-run=false.");
             }
 
-            var openFailure = await HmiTrendBulkCommandSupport.EnsureHmiOpenAsync(_hmiService, args.GetString("hmi-name"), Name);
+            var openFailure = await HmiTrendBulkCommandSupport.EnsureHmiOpenAsync(_hmiService, args.GetString("hmi-name"), Name, context);
             if (openFailure != null)
             {
                 return openFailure;
@@ -207,8 +234,11 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 return CommandResult.CreateFailure(error);
             }
 
+            context.Checkpoint(dryRun ? "Planning Unified HMI data log deletions." : "Applying Unified HMI data log deletions.", 60, "delete-data-logs");
             var result = await _hmiService.DeleteDataLogsAsync(configs, args.GetBool("confirm"), dryRun);
-            return HmiTrendBulkCommandSupport.Result("Unified HMI data log batch deletion", result);
+            var commandResult = HmiTrendBulkCommandSupport.Result("Unified HMI data log batch deletion", result);
+            context.CompleteCommand(Name, commandResult.Message);
+            return commandResult;
         }
     }
 }

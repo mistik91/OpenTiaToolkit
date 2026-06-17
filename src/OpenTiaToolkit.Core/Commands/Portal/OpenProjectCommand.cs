@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Portal
     /// <summary>
     /// Command to open a TIA Portal project file.
     /// </summary>
-    public class OpenProjectCommand : ICommand
+    public class OpenProjectCommand : IContextualCommand
     {
         private readonly IPortalService _portalService;
 
@@ -45,9 +45,15 @@ namespace OpenTiaToolkit.Core.Commands.Portal
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating project open inputs.");
 
             try
             {
@@ -60,14 +66,17 @@ namespace OpenTiaToolkit.Core.Commands.Portal
 
                 logger.LogInformation("Opening project: {ProjectPath}", projectPath);
 
+                context.Checkpoint($"Opening TIA Portal project: {projectPath}.", 45, "open-project");
                 var success = await _portalService.OpenProjectAsync(
                     projectPath,
                     ProjectCommandSupport.GetAuthenticationOptions(args));
 
                 if (success)
                 {
+                    context.Checkpoint("Reading opened project information.", 85, "get-project-info");
                     var projectInfo = await _portalService.GetProjectInfoAsync();
 
+                    context.CompleteCommand(Name, $"Project opened: {projectInfo?.Name}");
                     return CommandResult.CreateSuccess(
                         data: projectInfo is null ? new { path = projectPath } : (object)projectInfo,
                         message: $"Project opened: {projectInfo?.Name}"

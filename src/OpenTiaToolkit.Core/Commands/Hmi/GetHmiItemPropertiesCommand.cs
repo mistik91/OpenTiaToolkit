@@ -9,7 +9,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to get Unified HMI item properties.
     /// </summary>
-    public class GetHmiItemPropertiesCommand : ICommand
+    public class GetHmiItemPropertiesCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -32,8 +32,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("properties", CommandParameterType.StringArray, "Optional property names", required: false)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Reading Unified HMI item properties.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
             var itemName = args.GetString("item-name");
@@ -55,6 +61,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -72,11 +79,13 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                     .ToArray();
             }
 
+            context.Checkpoint($"Reading properties for Unified HMI item: {itemName}.", 65, "read-properties");
             var properties = await _hmiService.GetItemPropertiesAsync(
                 screenPath,
                 itemName,
                 requestedProperties.Length == 0 ? null : requestedProperties);
 
+            context.CompleteCommand(Name, properties.Count == 0 ? "No properties found for the Unified HMI item" : $"Found {properties.Count} property value(s)");
             return CommandResult.CreateSuccess(
                 data: properties.ToList(),
                 message: properties.Count == 0 ? "No properties found for the Unified HMI item" : $"Found {properties.Count} property value(s)");

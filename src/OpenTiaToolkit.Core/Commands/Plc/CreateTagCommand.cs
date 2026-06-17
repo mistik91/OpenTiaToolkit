@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to create a new PLC tag.
     /// </summary>
-    public class CreateTagCommand : ICommand
+    public class CreateTagCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -61,12 +61,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Creating PLC tag.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
@@ -94,9 +100,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint($"Creating PLC tag: {tagName}.", 65, "create-tag");
                 var result = await _plcService.CreateTagAsync(tagName, dataType, logicalAddress, tagTable);
 
                 if (!result.Success)
@@ -104,6 +112,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     var errorMsg = result.Error?.Error ?? "Unknown error";
                     var details = result.Error?.Details;
                     var fullMessage = string.IsNullOrEmpty(details) ? errorMsg : $"{errorMsg}: {details}";
+                    context.CompleteCommand(Name, fullMessage);
                     return CommandResult.CreateFailure(fullMessage);
                 }
 
@@ -112,6 +121,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                             $"(Type: {result.DataType}, Address: {result.LogicalAddress ?? "(auto-assigned)"})";
 
                 // Return result with data
+                context.CompleteCommand(Name, message);
                 return CommandResult.CreateSuccess(
                     data: new
                     {

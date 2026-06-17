@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to import a single type (UDT) from XML file.
     /// </summary>
-    public class ImportTypeCommand : ICommand
+    public class ImportTypeCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -50,9 +50,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC type import inputs.");
 
             try
             {
@@ -73,10 +79,17 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint($"Importing PLC type from: {importPath}.", 55, "import-type");
                 var success = await _plcService.ImportTypeAsync(importPath, groupPath);
+
+                if (success)
+                {
+                    context.CompleteCommand(Name, $"Successfully imported type from: {importPath}");
+                }
 
                 return success
                     ? CommandResult.CreateSuccess(

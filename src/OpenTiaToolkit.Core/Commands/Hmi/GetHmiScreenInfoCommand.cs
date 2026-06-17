@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
     /// <summary>
     /// Command to get detailed Unified HMI screen information.
     /// </summary>
-    public class GetHmiScreenInfoCommand : ICommand
+    public class GetHmiScreenInfoCommand : IContextualCommand
     {
         private readonly IHmiService _hmiService;
 
@@ -29,8 +29,14 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("screen-path", CommandParameterType.String, "The slash-delimited screen path", required: true)
             });
 
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            context.StartCommand(Name, "Reading Unified HMI screen information.");
             var hmiName = args.GetString("hmi-name");
             var screenPath = args.GetString("screen-path");
 
@@ -46,6 +52,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
+                context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
                 var opened = await _hmiService.OpenUnifiedHmiAsync(hmiName);
                 if (!opened)
                 {
@@ -53,7 +60,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 }
             }
 
+            context.Checkpoint($"Reading Unified HMI screen: {screenPath}.", 65, "read-screen");
             var screenInfo = await _hmiService.GetScreenInfoAsync(screenPath);
+            context.CompleteCommand(Name, screenInfo != null ? $"Retrieved screen info for: {screenPath}" : $"Unified HMI screen not found: {screenPath}");
             return screenInfo != null
                 ? CommandResult.CreateSuccess(screenInfo, $"Retrieved screen info for: {screenPath}")
                 : CommandResult.CreateFailure($"Unified HMI screen not found: {screenPath}");

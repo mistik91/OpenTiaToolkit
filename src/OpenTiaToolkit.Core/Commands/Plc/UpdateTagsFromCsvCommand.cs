@@ -12,7 +12,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// Tags with page &gt;= 100 are matched by base name (can change both name and address).
     /// Tags with page &lt; 100 are matched by full name (address only).
     /// </summary>
-    public class UpdateTagsFromCsvCommand : ICommand
+    public class UpdateTagsFromCsvCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -65,9 +65,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC tag CSV update inputs.");
 
             try
             {
@@ -92,12 +98,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 20, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
                 SafetyLoginResult? safetyLogin = null;
                 if (!dryRun && !string.IsNullOrEmpty(safetyPassword))
                 {
+                    context.Checkpoint("Logging into offline safety program.", 35, "safety-login");
                     safetyLogin = await _plcService.LoginToSafetyOfflineProgramAsync(safetyPassword);
                     if (!safetyLogin.Success && safetyLogin.PasswordRequired)
                     {
@@ -105,6 +113,10 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     }
                 }
 
+                context.Checkpoint(
+                    dryRun ? "Preflighting PLC tag CSV update." : "Applying PLC tag CSV update.",
+                    55,
+                    dryRun ? "preflight-tag-csv" : "apply-tag-csv");
                 var result = await _plcService.UpdateTagsFromCsvAsync(csvPath, dryRun);
 
                 // Build summary message
@@ -122,6 +134,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
                 if (args.Has("output-path") || CommandArtifactSupport.ExceedsInlineThreshold(data, message))
                 {
+                    context.Checkpoint("Writing PLC tag update CSV artifact.", 85, "write-artifact");
                     var explicitOutputPath = args.Has("output-path");
                     var outputPath = PlcCommandSupport.ResolveOutputPath(
                         explicitOutputPath
@@ -167,6 +180,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 // Return result with data
+                context.CompleteCommand(Name, message);
                 return CommandResult.CreateSuccess(
                     data: data,
                     message: message

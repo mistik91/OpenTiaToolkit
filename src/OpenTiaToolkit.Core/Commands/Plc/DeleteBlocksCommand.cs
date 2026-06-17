@@ -8,7 +8,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to delete blocks from PLC software.
     /// </summary>
-    public class DeleteBlocksCommand : ICommand
+    public class DeleteBlocksCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -51,12 +51,18 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
 
             try
             {
+                context.StartCommand(Name, "Deleting PLC blocks.");
                 var plcName = args.GetString("plc-name");
                 if (string.IsNullOrEmpty(plcName))
                 {
@@ -74,10 +80,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint("Applying PLC block deletion.", 65, "delete-blocks");
                 var success = await _plcService.DeleteBlocksAsync(filter, confirm);
+                context.CompleteCommand(Name, success ? "Blocks deleted successfully" : "PLC block deletion did not complete.");
 
                 return success
                     ? CommandResult.CreateSuccess(

@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
     /// <summary>
     /// Command to import a single block from SIMATIC SD documents (.s7dcl/.s7res) - V20+ only.
     /// </summary>
-    public class ImportBlockFromDocumentsCommand : ICommand
+    public class ImportBlockFromDocumentsCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;
 
@@ -60,9 +60,15 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         );
 
         /// <inheritdoc/>
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
         {
             logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating PLC block document import inputs.");
 
             try
             {
@@ -90,10 +96,17 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 // Open PLC if not already open
                 if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
                 {
+                    context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
                     await _plcService.OpenPlcAsync(plcName);
                 }
 
+                context.Checkpoint($"Importing PLC block from SIMATIC SD documents: {fileName}.", 55, "import-block-docs");
                 var success = await _plcService.ImportBlockFromDocumentsAsync(importDirectory, fileName, groupPath, importOption);
+
+                if (success)
+                {
+                    context.CompleteCommand(Name, $"Successfully imported block from documents: {fileName}");
+                }
 
                 return success
                     ? CommandResult.CreateSuccess(
