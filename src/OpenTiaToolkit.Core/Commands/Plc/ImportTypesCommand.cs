@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Models;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Plc
@@ -96,19 +97,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     ? $"Successfully imported {result.SuccessCount}/{result.TotalCount} types"
                     : "Failed to import any types");
                 return CommandResult.CreateSuccess(
-                    data: new
-                    {
-                        plcName,
-                        importDirectory,
-                        filterRegex,
-                        groupPath,
-                        result.TotalCount,
-                        result.SuccessCount,
-                        result.FailedCount,
-                        result.ImportedItems,
-                        result.FailedItems,
-                        result.Errors
-                    },
+                    data: PlcImportCommandResult.From(plcName, importDirectory, filterRegex, groupPath, result),
                     message: result.SuccessCount > 0
                         ? $"Successfully imported {result.SuccessCount}/{result.TotalCount} types"
                         : "Failed to import any types"

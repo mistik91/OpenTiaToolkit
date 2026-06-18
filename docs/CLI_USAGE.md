@@ -16,7 +16,7 @@ Complete guide for using the OpenTiaToolkit CLI application.
 ### Invocation
 
 ```bash
-OpenTiaToolkit.CLI.exe <command> [options]
+OpenTiaToolkit.CLI.exe <command> [options] [--format table|json]
 ```
 
 ### Getting Help
@@ -2050,6 +2050,26 @@ MyProject (Project)
 ```
 
 ## Output Formats
+
+### JSON Output
+
+Use the global `--format json` option to emit a machine-readable result envelope:
+
+```bash
+OpenTiaToolkit.CLI.exe list-devices --format json
+OpenTiaToolkit.CLI.exe --format=json list-devices
+```
+
+The JSON shape is stable across commands:
+
+```json
+{
+  "success": true,
+  "message": "Found 2 device(s)",
+  "error": null,
+  "data": {}
+}
+```
 
 ### Success Messages
 

@@ -235,7 +235,7 @@ namespace OpenTiaToolkit.CLI.Routing
                 {
                     "OpenTiaToolkit CLI - TIA Portal Automation Tool",
                     "",
-                    "Usage: OpenTiaToolkit.CLI.exe <command> [options]",
+                    "Usage: OpenTiaToolkit.CLI.exe <command> [options] [--format table|json]",
                     "",
                     "Available commands:"
                 };
@@ -255,12 +255,16 @@ namespace OpenTiaToolkit.CLI.Routing
                 }
 
                 lines.Add("");
+                lines.Add("Global options:");
+                lines.Add("  --format table|json       Select table output for humans or JSON output for scripts.");
+                lines.Add("");
                 lines.Add("Use 'help <command>' or '<command> --help' for more information about a specific command.");
                 lines.Add("");
                 lines.Add("Examples:");
                 lines.Add("  OpenTiaToolkit.CLI.exe connect-portal");
                 lines.Add("  OpenTiaToolkit.CLI.exe open-project --project-path=\"C:\\Projects\\My.ap21\"");
                 lines.Add("  OpenTiaToolkit.CLI.exe list-devices");
+                lines.Add("  OpenTiaToolkit.CLI.exe list-devices --format json");
 
                 return string.Join(Environment.NewLine, lines);
             }

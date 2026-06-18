@@ -25,4 +25,43 @@ namespace OpenTiaToolkit.Core.Models
         /// <summary>Gets or sets the list of error messages encountered during export.</summary>
         public List<string> Errors { get; set; } = new();
     }
+
+    /// <summary>
+    /// Represents the command-level result for PLC bulk export operations.
+    /// </summary>
+    public class PlcExportCommandResult
+    {
+        public PlcExportSummary Summary { get; set; } = new();
+
+        public List<string> Exported { get; set; } = new();
+
+        public List<string> Failed { get; set; } = new();
+
+        public List<string> Errors { get; set; } = new();
+
+        public static PlcExportCommandResult From(ExportResult result)
+        {
+            return new PlcExportCommandResult
+            {
+                Summary = new PlcExportSummary
+                {
+                    Total = result.TotalCount,
+                    Succeeded = result.SuccessCount,
+                    Failed = result.FailedCount
+                },
+                Exported = result.ExportedItems,
+                Failed = result.FailedItems,
+                Errors = result.Errors
+            };
+        }
+    }
+
+    public class PlcExportSummary
+    {
+        public int Total { get; set; }
+
+        public int Succeeded { get; set; }
+
+        public int Failed { get; set; }
+    }
 }

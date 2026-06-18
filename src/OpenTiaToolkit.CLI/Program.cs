@@ -49,6 +49,14 @@ namespace OpenTiaToolkit.CLI
             // Set up dependency injection
             var serviceProvider = BuildServiceProvider();
 
+            if (!CliOutputOptions.TryParse(args, out var outputOptions, out var outputError))
+            {
+                Console.Error.WriteLine(outputError);
+                return 2;
+            }
+
+            args = outputOptions.CommandArgs;
+
             // Handle help command
             if (args.Length > 0 && (args[0] == "help" || args[0] == "--help" || args[0] == "-h"))
             {
@@ -75,7 +83,7 @@ namespace OpenTiaToolkit.CLI
                 var result = await router.ExecuteAsync(args);
 
                 // Format and display the result
-                var formattedOutput = TableOutputFormatter.Format(result);
+                var formattedOutput = CliOutputFormatter.Format(result, outputOptions.Format);
                 Console.WriteLine(formattedOutput);
 
                 // Return exit code based on success
@@ -172,6 +180,15 @@ namespace OpenTiaToolkit.CLI
                         continue;
                     }
 
+                    if (!CliOutputOptions.TryParse(args, out var outputOptions, out var outputError))
+                    {
+                        Console.Error.WriteLine(outputError);
+                        lastExitCode = 2;
+                        continue;
+                    }
+
+                    args = outputOptions.CommandArgs;
+
                     // Handle help command
                     if (args.Length > 0 && (args[0] == "help" || args[0] == "?"))
                     {
@@ -192,7 +209,7 @@ namespace OpenTiaToolkit.CLI
                     var result = await router.ExecuteAsync(args);
 
                     // Format and display the result
-                    var formattedOutput = TableOutputFormatter.Format(result);
+                    var formattedOutput = CliOutputFormatter.Format(result, outputOptions.Format);
                     Console.WriteLine(formattedOutput);
 
                     // Track exit code

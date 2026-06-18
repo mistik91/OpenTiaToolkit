@@ -269,6 +269,57 @@ namespace OpenTiaToolkit.Tests.Output
         }
 
         [TestMethod]
+        public void FormatPlcImportCommandResult_UsesTypedPayload()
+        {
+            var payload = new PlcImportCommandResult
+            {
+                PlcName = "PLC_1",
+                ImportDirectory = @"C:\Import",
+                TotalCount = 3,
+                SuccessCount = 2,
+                FailedCount = 1,
+                ImportedItems = new List<string> { "FB_One", "FC_Two" },
+                FailedItems = new List<string> { "DB_Bad" },
+                Errors = new List<string> { "Failed to import: DB_Bad" }
+            };
+
+            var formatted = TableOutputFormatter.Format(CommandResult.CreateSuccess(payload, "Done"));
+
+            StringAssert.Contains(formatted, "Total Items: 3");
+            StringAssert.Contains(formatted, "Imported: 2");
+            StringAssert.Contains(formatted, "Failed: 1");
+            StringAssert.Contains(formatted, "FB_One");
+            StringAssert.Contains(formatted, "DB_Bad");
+            StringAssert.Contains(formatted, "Failed to import: DB_Bad");
+        }
+
+        [TestMethod]
+        public void FormatPlcExportCommandResult_UsesTypedPayload()
+        {
+            var payload = new PlcExportCommandResult
+            {
+                Summary = new PlcExportSummary
+                {
+                    Total = 3,
+                    Succeeded = 2,
+                    Failed = 1
+                },
+                Exported = new List<string> { "FB_One", "FC_Two" },
+                Failed = new List<string> { "DB_Bad" },
+                Errors = new List<string> { "Failed to export: DB_Bad" }
+            };
+
+            var formatted = TableOutputFormatter.Format(CommandResult.CreateSuccess(payload, "Done"));
+
+            StringAssert.Contains(formatted, "Total Items: 3");
+            StringAssert.Contains(formatted, "Exported: 2");
+            StringAssert.Contains(formatted, "Failed: 1");
+            StringAssert.Contains(formatted, "FB_One");
+            StringAssert.Contains(formatted, "DB_Bad");
+            StringAssert.Contains(formatted, "Failed to export: DB_Bad");
+        }
+
+        [TestMethod]
         public void FormatHmiScreens_ReturnsTable_WhenScreensExist()
         {
             // Arrange

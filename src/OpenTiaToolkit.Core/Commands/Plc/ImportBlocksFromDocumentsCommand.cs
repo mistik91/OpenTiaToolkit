@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Models;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Plc
@@ -102,20 +103,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     ? $"Successfully imported {result.SuccessCount}/{result.TotalCount} blocks from documents"
                     : "Failed to import any blocks from documents");
                 return CommandResult.CreateSuccess(
-                    data: new
-                    {
-                        plcName,
-                        importDirectory,
-                        filterRegex,
-                        groupPath,
-                        importOption,
-                        result.TotalCount,
-                        result.SuccessCount,
-                        result.FailedCount,
-                        result.ImportedItems,
-                        result.FailedItems,
-                        result.Errors
-                    },
+                    data: PlcImportCommandResult.From(plcName, importDirectory, filterRegex, groupPath, result, importOption),
                     message: result.SuccessCount > 0
                         ? $"Successfully imported {result.SuccessCount}/{result.TotalCount} blocks from documents"
                         : "Failed to import any blocks from documents"

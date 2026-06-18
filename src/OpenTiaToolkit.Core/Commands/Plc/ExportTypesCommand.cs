@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Models;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Commands.Plc
@@ -95,18 +96,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
                 context.CompleteCommand(Name, message);
                 return CommandResult.CreateSuccess(
-                    data: new
-                    {
-                        summary = new
-                        {
-                            total = result.TotalCount,
-                            succeeded = result.SuccessCount,
-                            failed = result.FailedCount
-                        },
-                        exported = result.ExportedItems,
-                        failed = result.FailedItems,
-                        errors = result.Errors
-                    },
+                    data: PlcExportCommandResult.From(result),
                     message: message
                 );
             }

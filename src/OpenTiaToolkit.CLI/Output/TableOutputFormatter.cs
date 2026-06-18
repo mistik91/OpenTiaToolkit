@@ -84,8 +84,11 @@ namespace OpenTiaToolkit.CLI.Output
                 FindReplaceResult findReplace => FormatFindReplaceResult(findReplace),
                 TagUpdateCommandResult tagUpdate => FormatTagUpdateResult(tagUpdate),
                 TagUpdateResult tagUpdate => FormatTagUpdateResult(tagUpdate),
+                PlcExportCommandResult export => FormatExportResult(export),
+                ExportResult export => FormatExportResult(export),
+                PlcImportCommandResult import => FormatImportResult(import),
+                ImportResult import => FormatImportResult(import),
                 // Anonymous objects (status objects, etc.)
-                _ when IsImportResult(result.Data) => FormatImportResult(result.Data),
                 _ when result.Data.GetType().Name.Contains("AnonymousType") => FormatAnonymousObject(result.Data),
                 _ => result.ToTable() // Fallback to default formatting
             };
@@ -942,27 +945,6 @@ namespace OpenTiaToolkit.CLI.Output
         }
 
         /// <summary>
-        /// Detects if the anonymous object is an import result.
-        /// </summary>
-        private static bool IsImportResult(object data)
-        {
-            if (data == null) return false;
-
-            var type = data.GetType();
-            if (!type.Name.Contains("AnonymousType")) return false;
-
-            // Check for signature properties of import results
-            var hasTotalCount = type.GetProperty("TotalCount") != null;
-            var hasSuccessCount = type.GetProperty("SuccessCount") != null;
-            var hasFailedCount = type.GetProperty("FailedCount") != null;
-            var hasImportedItems = type.GetProperty("ImportedItems") != null;
-            var hasFailedItems = type.GetProperty("FailedItems") != null;
-            var hasErrors = type.GetProperty("Errors") != null;
-
-            return hasTotalCount && hasSuccessCount && hasFailedCount;
-        }
-
-        /// <summary>
         /// Formats a find-replace result object.
         /// </summary>
         private static string FormatFindReplaceResult(FindReplaceResult result)
@@ -1127,88 +1109,76 @@ namespace OpenTiaToolkit.CLI.Output
             return string.Join(Environment.NewLine, lines);
         }
 
-        /// <summary>
-        /// Formats an import result object.
-        /// </summary>
-        private static string FormatImportResult(object data)
+        private static string FormatImportResult(ImportResult result)
         {
-            var lines = new List<string>();
-
-            var totalCountProp = data.GetType().GetProperty("TotalCount");
-            var successCountProp = data.GetType().GetProperty("SuccessCount");
-            var failedCountProp = data.GetType().GetProperty("FailedCount");
-            var importedItemsProp = data.GetType().GetProperty("ImportedItems");
-            var failedItemsProp = data.GetType().GetProperty("FailedItems");
-            var errorsProp = data.GetType().GetProperty("Errors");
-
-            var totalCount = totalCountProp?.GetValue(data);
-            var successCount = successCountProp?.GetValue(data);
-            var failedCount = failedCountProp?.GetValue(data);
-            var importedItems = importedItemsProp?.GetValue(data);
-            var failedItems = failedItemsProp?.GetValue(data);
-            var errors = errorsProp?.GetValue(data);
-
-            // Format summary
-            lines.Add("Summary:");
-            lines.Add($"  Total Items: {totalCount ?? 0}");
-            lines.Add($"  Imported: {successCount ?? 0}");
-            lines.Add($"  Failed: {failedCount ?? 0}");
-
-            // Format imported items
-            if (importedItems != null && importedItems.GetType().IsGenericType && importedItems.GetType().GetGenericTypeDefinition() == typeof(List<>))
+            return FormatImportResult(new PlcImportCommandResult
             {
-                var importedList = (System.Collections.IList)importedItems;
-                if (importedList.Count > 0)
-                {
-                    lines.Add("");
-                    lines.Add("Imported Items:");
-                    foreach (var item in importedList)
-                    {
-                        if (item != null)
-                        {
-                            lines.Add($"  - {item}");
-                        }
-                    }
-                }
-            }
+                TotalCount = result.TotalCount,
+                SuccessCount = result.SuccessCount,
+                FailedCount = result.FailedCount,
+                ImportedItems = result.ImportedItems,
+                FailedItems = result.FailedItems,
+                Errors = result.Errors
+            });
+        }
 
-            // Format failed items
-            if (failedItems != null && failedItems.GetType().IsGenericType && failedItems.GetType().GetGenericTypeDefinition() == typeof(List<>))
+        private static string FormatImportResult(PlcImportCommandResult result)
+        {
+            var lines = new List<string>
             {
-                var failedList = (System.Collections.IList)failedItems;
-                if (failedList.Count > 0)
-                {
-                    lines.Add("");
-                    lines.Add("Failed Items:");
-                    foreach (var item in failedList)
-                    {
-                        if (item != null)
-                        {
-                            lines.Add($"  - {item}");
-                        }
-                    }
-                }
-            }
+                "Summary:",
+                $"  Total Items: {result.TotalCount}",
+                $"  Imported: {result.SuccessCount}",
+                $"  Failed: {result.FailedCount}"
+            };
 
-            // Format errors
-            if (errors != null && errors.GetType().IsGenericType && errors.GetType().GetGenericTypeDefinition() == typeof(List<>))
-            {
-                var errorsList = (System.Collections.IList)errors;
-                if (errorsList.Count > 0)
-                {
-                    lines.Add("");
-                    lines.Add("Errors:");
-                    foreach (var error in errorsList)
-                    {
-                        if (error != null)
-                        {
-                            lines.Add($"  - {error}");
-                        }
-                    }
-                }
-            }
+            AddImportList(lines, "Imported Items:", result.ImportedItems);
+            AddImportList(lines, "Failed Items:", result.FailedItems);
+            AddImportList(lines, "Errors:", result.Errors);
 
             return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatExportResult(ExportResult result)
+        {
+            return FormatExportResult(PlcExportCommandResult.From(result));
+        }
+
+        private static string FormatExportResult(PlcExportCommandResult result)
+        {
+            var lines = new List<string>
+            {
+                "Summary:",
+                $"  Total Items: {result.Summary.Total}",
+                $"  Exported: {result.Summary.Succeeded}",
+                $"  Failed: {result.Summary.Failed}"
+            };
+
+            AddResultList(lines, "Exported Items:", result.Exported);
+            AddResultList(lines, "Failed Items:", result.Failed);
+            AddResultList(lines, "Errors:", result.Errors);
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static void AddImportList(List<string> lines, string title, IReadOnlyCollection<string> items)
+        {
+            AddResultList(lines, title, items);
+        }
+
+        private static void AddResultList(List<string> lines, string title, IReadOnlyCollection<string> items)
+        {
+            if (items.Count == 0)
+            {
+                return;
+            }
+
+            lines.Add("");
+            lines.Add(title);
+            foreach (var item in items)
+            {
+                lines.Add($"  - {item}");
+            }
         }
     }
 }
