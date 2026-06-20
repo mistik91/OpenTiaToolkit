@@ -272,14 +272,14 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <summary>
-        /// Parses TIA Portal version string (e.g., "V21", "V20") to System.Version.
+        /// Parses TIA Portal version string (e.g., "V21", "V22") to System.Version.
         /// </summary>
         /// <param name="versionString">The version string to parse.</param>
         /// <returns>The parsed version, or null if parsing fails.</returns>
         public static Version? ParseTiaVersion(string? versionString)
         {
             if (string.IsNullOrEmpty(versionString)) return null;
-            // Extract number from "V21", "V20", etc.
+            // Extract number from "V21", "V22", etc.
             var match = Regex.Match(versionString, @"V(\d+)");
             if (match.Success && int.TryParse(match.Groups[1].Value, out int major))
                 return new Version(major, 0);

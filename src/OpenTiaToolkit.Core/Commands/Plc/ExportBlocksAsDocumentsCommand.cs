@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 {
     /// <summary>
     /// Command to export multiple blocks as SIMATIC SD documents (.s7dcl + .s7res).
-    /// Requires TIA Portal V20 or newer.
+    /// Requires a supported TIA Portal version.
     /// </summary>
     public class ExportBlocksAsDocumentsCommand : IContextualCommand
     {
@@ -26,7 +26,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         public string Name => "export-blocks-as-docs";
 
         /// <inheritdoc/>
-        public string Description => "Exports multiple blocks as SIMATIC SD documents (.s7dcl + .s7res) - requires V20+";
+        public string Description => "Exports multiple blocks as SIMATIC SD documents (.s7dcl + .s7res)";
 
         /// <inheritdoc/>
         public CommandSchema Schema => new CommandSchema(

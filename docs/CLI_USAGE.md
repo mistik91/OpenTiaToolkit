@@ -1221,11 +1221,11 @@ FC_Motor      Function              STL         10        Motor control
 FB_MotorCtrl  Function Block        FBD         1        Motor controller
 ```
 
-### SIMATIC SD Export (V20+)
+### SIMATIC SD Export
 
 #### export-block-as-docs
 
-Exports a single PLC block as SIMATIC SD documents (.s7dcl + .s7res) - requires TIA Portal V20 or newer.
+Exports a single PLC block as SIMATIC SD documents (.s7dcl + .s7res) in the supported TIA Portal V21 workflow.
 
 ```bash
 OpenTiaToolkit.CLI.exe export-block-as-docs --plc-name="PLC_1" --block-name="Motor" --export-path="C:\Exports"
@@ -1241,8 +1241,7 @@ OpenTiaToolkit.CLI.exe export-block-as-docs --plc-name="PLC_1" --block-name="Mot
 - `{block-name}.s7res` - Resource file
 
 **Version Requirements**:
-- Requires TIA Portal V20 or newer
-- Throws error if used with V19 or earlier
+- Requires a supported TIA Portal version
 
 **Output**:
 ```
@@ -1253,7 +1252,7 @@ Format: SIMATIC SD (.s7dcl + .s7res)
 
 #### export-blocks-as-docs
 
-Exports multiple PLC blocks as SIMATIC SD documents with optional regex filtering - requires TIA Portal V20 or newer.
+Exports multiple PLC blocks as SIMATIC SD documents with optional regex filtering in the supported TIA Portal V21 workflow.
 
 ```bash
 # Export all blocks
@@ -1528,7 +1527,7 @@ Failed:
 
 #### import-block-from-docs
 
-Imports a single PLC block from SIMATIC SD documents (.s7dcl + .s7res) - requires TIA Portal V20 or newer.
+Imports a single PLC block from SIMATIC SD documents (.s7dcl + .s7res) in the supported TIA Portal V21 workflow.
 
 ```bash
 # Import to root of PLC program
@@ -1558,11 +1557,11 @@ Format: SIMATIC SD (.s7dcl + .s7res)
 - `SkipInactiveCultures`: Skips inactive language versions
 - `ActivateInactiveCultures`: Activates all language versions
 
-**Note**: This command requires TIA Portal V20 or newer. The directory must contain both .s7dcl and .s7res files with matching names.
+**Note**: This command requires a supported TIA Portal version. The directory must contain both .s7dcl and .s7res files with matching names.
 
 #### import-blocks-from-docs
 
-Imports multiple PLC blocks from SIMATIC SD documents (.s7dcl + .s7res) with optional regex filtering - requires TIA Portal V20 or newer.
+Imports multiple PLC blocks from SIMATIC SD documents (.s7dcl + .s7res) with optional regex filtering in the supported TIA Portal V21 workflow.
 
 ```bash
 # Import all blocks from directory
@@ -1601,7 +1600,7 @@ Failed:
   - Motor_Test (version mismatch)
 ```
 
-**Note**: This command requires TIA Portal V20 or newer. Each block requires paired .s7dcl and .s7res files.
+**Note**: This command requires a supported TIA Portal version. Each block requires paired .s7dcl and .s7res files.
 
 ### Find and Replace Operations (Phase 5)
 
@@ -2291,10 +2290,10 @@ OpenTiaToolkit.CLI.exe export-block --plc-name="PLC_1" --block-name="FB_Motor" -
 OpenTiaToolkit.CLI.exe get-block-info --plc-name="PLC_1" --block-name="Main"
 ```
 
-### Example 9: SIMATIC SD Export (V20+)
+### Example 9: SIMATIC SD Export
 
 ```bash
-# Connect and open project (requires TIA Portal V20 or newer)
+# Connect and open project with a supported TIA Portal version
 OpenTiaToolkit.CLI.exe connect-portal
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 
@@ -2313,7 +2312,7 @@ OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --filter-regex="
 OpenTiaToolkit.CLI.exe export-blocks-as-docs --plc-name="PLC_1" --export-path="C:\Exports\AllBlocks"
 ```
 
-**Note**: SIMATIC SD export requires TIA Portal V20 or newer. The .s7dcl + .s7res format is the official multi-language document format used by TIA Portal.
+**Note**: SIMATIC SD export requires a supported TIA Portal version. The .s7dcl + .s7res format is the official multi-language document format used by TIA Portal.
 
 ### Example 10: Type Export (UDT)
 

@@ -742,7 +742,7 @@ namespace OpenTiaToolkit.Core.Services
                         _logger?.LogError(
                             "Could not import block documents from {ImportDirectory}: {FailureReason}",
                             importDirectory,
-                            failureReason ?? "ImportFromDocuments method not found (requires TIA Portal V20+)");
+                            failureReason ?? "ImportFromDocuments method not found in the current TIA Portal Openness API");
                         return false;
                     }
 
@@ -850,9 +850,9 @@ namespace OpenTiaToolkit.Core.Services
         private void EnsureDocumentsSupported(string operation)
         {
             var tiaVersion = TiaReflectionHelper.ParseTiaVersion(_portalService.Version);
-            if (tiaVersion == null || tiaVersion.Major < 20)
+            if (tiaVersion == null || tiaVersion.Major < 21)
             {
-                throw new InvalidOperationException($"{operation} requires TIA Portal V20 or newer. Current version: {_portalService.Version ?? "Unknown"}");
+                throw new InvalidOperationException($"{operation} requires a supported TIA Portal version. Current version: {_portalService.Version ?? "Unknown"}");
             }
         }
 

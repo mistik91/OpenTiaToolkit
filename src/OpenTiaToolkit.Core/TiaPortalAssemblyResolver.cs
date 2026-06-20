@@ -72,12 +72,8 @@ namespace OpenTiaToolkit.Core
                 // Try multiple locations where assemblies might be
                 string[] searchPaths = new string[]
                 {
-                    // PublicAPI assemblies (main Openness API) - V21 first (primary)
-                    // Note: V19 doesn't have a net48 subfolder, V21+ does
+                    // PublicAPI assemblies (main Openness API) - V21 is the current supported target.
                     Path.Combine(_opennessFolder, "PublicAPI", "V21", "net48"),
-                    Path.Combine(_opennessFolder, "PublicAPI", "V20", "net48"),
-                    // Fallback to V19 for backward compatibility
-                    Path.Combine(_opennessFolder, "PublicAPI", "V19"),
                     // Infrastructure assemblies in Bin\PublicAPI
                     Path.Combine(_opennessFolder, "Bin", "PublicAPI"),
                     Path.Combine(_opennessFolder, "Bin", "PublicAPI", "Client"),
@@ -147,24 +143,11 @@ namespace OpenTiaToolkit.Core
                 return path;
             }
 
-            // Try V20-V19 for backward compatibility (descending order)
-            for (int v = 20; v >= 19; v--)
-            {
-                path = TryGetTiaPortalRoot($"V{v}");
-                if (path != null)
-                {
-                    Trace.TraceInformation($"[TiaPortalAssemblyResolver] Found V{v} in registry: {path}");
-                    return path;
-                }
-            }
-
             // Fallback: Try common installation paths for V21 (primary)
             string[] commonPaths = new[]
             {
                 @"C:\Program Files\Siemens\Automation\Portal V21",
                 @"C:\Program Files (x86)\Siemens\Automation\Portal V21",
-                @"C:\Program Files\Siemens\Automation\Portal V19",
-                @"C:\Program Files (x86)\Siemens\Automation\Portal V19",
             };
 
             foreach (string testPath in commonPaths)

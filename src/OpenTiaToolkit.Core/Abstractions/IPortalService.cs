@@ -17,7 +17,7 @@ public interface IPortalService : IDisposable
     bool IsConnected { get; }
 
     /// <summary>
-    /// Gets the TIA Portal version (e.g., "V21", "V20").
+        /// Gets the TIA Portal version (e.g., "V21", "V22").
     /// </summary>
     string? Version { get; }
 

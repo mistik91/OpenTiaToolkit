@@ -29,7 +29,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Shared command architecture for portal, project, device, PLC, and Unified HMI workflows.
 - Interactive CLI REPL mode plus single-shot command execution.
 - MCP server exposing the same command surface for agent and harness integrations.
-- TIA Portal V21-first Openness integration with best-effort compatibility paths for older versions.
+- TIA Portal V21 Openness integration as the current supported and validated target.
 - PLC operations for browse, compile, import/export, tag management, block operations, and rename workflows.
 - Unified HMI operations for screen/item browse and mutation, JSON export/diff/import, targeted JSON patches, capability inspection, faceplate interface probing, health checks, and label proximity auditing.
 - Codex plugin package with the OpenTiaToolkit MCP configuration and HMI Unified editing skill.

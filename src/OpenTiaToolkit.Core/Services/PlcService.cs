@@ -418,7 +418,7 @@ namespace OpenTiaToolkit.Core.Services
             return await _tagService.UpdateTagsFromCsvAsync(csvFilePath, dryRun);
         }
 
-        #region SIMATIC SD Export and Type Export (V20+)
+        #region SIMATIC SD Export and Type Export
 
         /// <inheritdoc/>
         public async Task<bool> ExportBlockAsDocumentsAsync(string blockName, string exportPath)

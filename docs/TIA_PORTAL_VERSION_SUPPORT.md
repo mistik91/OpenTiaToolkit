@@ -2,7 +2,7 @@
 
 ## Overview
 
-OpenTiaToolkit is primarily developed and validated against **TIA Portal V21**.
+OpenTiaToolkit targets **TIA Portal V21 and forward**. Current development and validation are performed against V21.
 
 That is the version assumed by:
 
@@ -11,15 +11,13 @@ That is the version assumed by:
 - the default integration-test paths
 - the current assembly resolver preference order
 
-Older TIA versions may still work for some reflection-based operations, but they are considered **best-effort compatibility paths**, not the main supported target.
-
 ## Support Levels
 
 | Version | Status | Notes |
 |---------|--------|-------|
-| **V21** | Primary supported version | Main development target and expected runtime environment |
-| **V20** | Limited / best effort | Some reflection-based paths may work; SIMATIC SD document features are V20+ |
-| **V19 and earlier** | Legacy / best effort | Not the primary validation target; expect gaps and less coverage |
+| **V21** | Supported | Current development target and validated runtime environment |
+| **Future TIA Portal versions** | Intended support | Validate against each new Siemens Openness release before claiming support |
+| **V20 and earlier** | Not supported | Not a target for development or validation |
 
 ## V21 API Surface Used By This Repo
 
@@ -84,7 +82,7 @@ During V21 validation on the current test project, the loaded `PlcBlockCompositi
 
 ### SIMATIC SD document import/export
 
-Document-based block import/export requires **V20 or newer**. In practice, this repo is mainly validated on V21.
+Document-based block import/export is available in the supported V21 workflow.
 
 ### Version Control Interface (VCI)
 
@@ -138,11 +136,9 @@ dotnet build OpenTiaToolkit.sln /p:TiaPortalPublicApiPath="D:\Siemens\Portal V21
 `TiaPortalAssemblyResolver` is V21-first:
 
 1. V21 PublicAPI
-2. V20 PublicAPI
-3. V19 fallback locations
-4. TIA `Bin` infrastructure folders
+2. TIA `Bin` infrastructure folders
 
-This matches the repo's current V21-first support stance.
+This matches the repo's current V21 support stance.
 
 ## Testing Guidance
 

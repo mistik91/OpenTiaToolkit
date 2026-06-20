@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace OpenTiaToolkit.Core.Commands.Plc
 {
     /// <summary>
-    /// Command to import multiple blocks from SIMATIC SD documents (.s7dcl/.s7res) - V20+ only.
+    /// Command to import multiple blocks from SIMATIC SD documents (.s7dcl/.s7res).
     /// </summary>
     public class ImportBlocksFromDocumentsCommand : IContextualCommand
     {
@@ -25,7 +25,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         public string Name => "import-blocks-from-docs";
 
         /// <inheritdoc/>
-        public string Description => "Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res) - V20+ only";
+        public string Description => "Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res)";
 
         /// <inheritdoc/>
         public CommandSchema Schema => new CommandSchema(
