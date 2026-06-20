@@ -97,6 +97,12 @@ Single command:
 .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe help
 ```
 
+Script file:
+
+```powershell
+.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
+```
+
 Example session:
 
 ```text

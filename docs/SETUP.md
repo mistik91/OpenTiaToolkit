@@ -58,6 +58,12 @@ Single command mode:
 .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe help
 ```
 
+Script mode:
+
+```powershell
+.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
+```
+
 ## Configure MCP Clients
 
 Ready-to-adapt snippets live in `docs/mcp-client-configs`.

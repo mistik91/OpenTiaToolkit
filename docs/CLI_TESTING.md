@@ -67,7 +67,7 @@ artifacts/cli-tests/<timestamp>/
 |------|---------|-------------------|-----------------|
 | `Help` | Validates `help`, `--help`, `-h`, and `help <command>` across the exposed CLI surface | No | No |
 | `Negative` | Validates unknown commands and missing/invalid arguments | No | No |
-| `ReadOnly` | Exercises portal/project/PLC flows and export commands in one REPL session | Yes | No |
+| `ReadOnly` | Exercises portal/project/PLC flows and export commands in one stateful CLI process | Yes | No |
 | `Mutation` | Exercises mutation commands against a disposable project copy | Yes | Only the disposable copy |
 | `All` | Runs `Help`, `ReadOnly`, `Mutation`, and `Negative` in sequence | Mixed | Only the disposable copy |
 
@@ -120,7 +120,7 @@ Optional harness switches:
 
 ### ReadOnly
 
-The `ReadOnly` suite is designed to keep state alive inside one CLI REPL session so the test matches real operator workflows.
+The `ReadOnly` suite is designed to keep state alive inside one CLI process so the test matches real operator workflows and `--script`-style automation.
 
 It covers:
 

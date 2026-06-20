@@ -17,7 +17,25 @@ Complete guide for using the OpenTiaToolkit CLI application.
 
 ```bash
 OpenTiaToolkit.CLI.exe <command> [options] [--format table|json]
+OpenTiaToolkit.CLI.exe --script <file>|-
 ```
+
+### Session State
+
+Single-command invocations are stateless. Each `OpenTiaToolkit.CLI.exe <command>` call starts a new process, so portal attachment, open project, selected PLC, and selected HMI state do not carry over from a previous call.
+
+Run multi-step workflows in one interactive CLI session, use `--script <file>` for shell/CI automation, or use the MCP server for stateful agent automation. Command examples in the reference show command syntax; dependent commands must be entered in the same session or script process.
+
+### Script Mode
+
+Script mode executes REPL-shaped commands from a file in one process, so state persists for the duration of the script without the interactive banner or `tia>` prompt. Use `--script -` to read commands from stdin.
+
+```powershell
+OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
+Get-Content .\inspect-project.commands.txt | OpenTiaToolkit.CLI.exe --script -
+```
+
+Script files support blank lines and full-line comments beginning with `#`. Execution stops at the first parse or command failure and the process returns that failure exit code.
 
 ### Getting Help
 
@@ -2112,77 +2130,89 @@ Project2             C:\Path2.ap21        V21        2025-01-02
 
 ## Examples
 
+The examples below are session command sequences. Start the CLI with no command first, then enter stateful commands in that same session. Some examples keep the executable prefix to show normal CLI syntax; do not run dependent steps as separate single-command processes.
+
+```powershell
+OpenTiaToolkit.CLI.exe
+```
+
 ### Example 1: Connect and Explore
 
 ```bash
 # Connect to TIA Portal
-OpenTiaToolkit.CLI.exe connect-portal
+connect-portal
 
 # Check status
-OpenTiaToolkit.CLI.exe portal-status
+portal-status
 
 # List open projects
-OpenTiaToolkit.CLI.exe list-projects
+list-projects
 ```
 
 ### Example 2: Project Workflow
 
 ```bash
+# Connect to TIA Portal
+connect-portal
+
 # Open a project
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
+open-project --project-path="C:\Projects\Line1.ap21"
 
 # Get project info
-OpenTiaToolkit.CLI.exe get-project-info
+get-project-info
 
 # List all devices
-OpenTiaToolkit.CLI.exe list-devices
+list-devices
 
 # Close when done
-OpenTiaToolkit.CLI.exe close-project
+close-project
 
 # Disconnect
-OpenTiaToolkit.CLI.exe disconnect-portal
+disconnect-portal
 ```
 
 ### Example 3: Batch Processing
 
-```powershell
-# PowerShell script to process multiple projects
-$projects = @(
-    "C:\Projects\Line1.ap21",
-    "C:\Projects\Line2.ap21",
-    "C:\Projects\Line3.ap21"
-)
+Put repeatable batch work in a command file and run it with `--script`.
 
-foreach ($project in $projects) {
-    Write-Host "Processing: $project"
-    OpenTiaToolkit.CLI.exe open-project --project-path="$project"
-    OpenTiaToolkit.CLI.exe list-devices
-    OpenTiaToolkit.CLI.exe close-project
-}
+```powershell
+OpenTiaToolkit.CLI.exe --script .\inspect-lines.commands.txt
+```
+
+`inspect-lines.commands.txt`:
+
+```text
+connect-portal
+open-project --project-path="C:\Projects\Line1.ap21"
+list-devices --format json
+close-project
+open-project --project-path="C:\Projects\Line2.ap21"
+list-devices --format json
+close-project
+disconnect-portal
 ```
 
 ### Example 4: PLC Operations Workflow
 
 ```bash
 # Connect and open project
-OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
+connect-portal
+open-project --project-path="C:\Projects\Line1.ap21"
 
 # Open PLC software
-OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
+open-plc --plc-name="PLC_1"
 
 # Get software structure
-OpenTiaToolkit.CLI.exe get-software-tree --plc-name="PLC_1" --depth=2
+get-software-tree --plc-name="PLC_1" --depth=2
 
 # List blocks
-OpenTiaToolkit.CLI.exe get-blocks --plc-name="PLC_1"
+get-blocks --plc-name="PLC_1"
 
 # Compile the software
-OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1"
+compile-software --plc-name="PLC_1"
 
 # Export all blocks to XML
-OpenTiaToolkit.CLI.exe export-plc --plc-name="PLC_1" --export-path="C:\Exports\PLC_1"
+export-plc --plc-name="PLC_1" --export-path="C:\Exports\PLC_1"
 ```
 
 ### Example 5: Multi-Instance Management
@@ -2332,28 +2362,16 @@ OpenTiaToolkit.CLI.exe get-blocks --plc-name="PLC_1"
 
 ### Example 12: Complete PLC Backup Workflow
 
-```powershell
-# PowerShell script to backup all PLCs in a project
-$project = "C:\Projects\Line1.ap21"
-$exportBase = "C:\Backups\$(Get-Date -Format 'yyyyMMdd')"
+Run the backup commands in one stateful session so the project remains open between exports.
 
-OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="$project"
-
-# Get all devices
-# (Parse list-devices output to find PLCs)
-
-# For each PLC, export blocks
-$plcs = @("PLC_1", "PLC_2", "PLC_3")
-
-foreach ($plc in $plcs) {
-    $exportPath = "$exportBase\$plc"
-    New-Item -ItemType Directory -Force -Path $exportPath
-    OpenTiaToolkit.CLI.exe export-plc --plc-name="$plc" --export-path="$exportPath"
-}
-
-OpenTiaToolkit.CLI.exe close-project
-OpenTiaToolkit.CLI.exe disconnect-portal
+```text
+connect-portal
+open-project --project-path="C:\Projects\Line1.ap21"
+export-plc --plc-name="PLC_1" --export-path="C:\Backups\20250115\PLC_1"
+export-plc --plc-name="PLC_2" --export-path="C:\Backups\20250115\PLC_2"
+export-plc --plc-name="PLC_3" --export-path="C:\Backups\20250115\PLC_3"
+close-project
+disconnect-portal
 ```
 
 ### Example 13: Tag Renaming Workflow (Find and Replace)
@@ -2484,12 +2502,20 @@ OpenTiaToolkit.CLI.exe save-project
 
 ### Example 19: Batch Tag Creation from CSV
 
+Generate REPL-shaped commands from CSV, then run them in the same stateful CLI session after connecting and opening the project.
+
 ```powershell
-# PowerShell script to create tags from CSV file
 $csvFile = "C:\Tags\new_tags.csv"
+$commandFile = "C:\Tags\create_tags.commands.txt"
 # CSV format: TagName,DataType,LogicalAddress,TagTable
 
-Import-Csv $csvFile | ForEach-Object {
+$commands = @(
+    'connect-portal',
+    'open-project --project-path="C:\Projects\Line1.ap21"',
+    'open-plc --plc-name="PLC_1"'
+)
+
+$commands += Import-Csv $csvFile | ForEach-Object {
     $params = @{
         "plc-name" = "PLC_1"
         "tag-name" = $_.TagName
@@ -2508,33 +2534,32 @@ Import-Csv $csvFile | ForEach-Object {
         "--$key=$($params[$key])"
     }
 
-    OpenTiaToolkit.CLI.exe create-tag @paramList
+    "create-tag $($paramList -join ' ')"
 }
+
+$commands += @('save-project', 'close-project', 'disconnect-portal')
+$commands | Set-Content -Path $commandFile
 ```
 
 ### Example 20: Batch Tag Rename from CSV File
 
-```powershell
-# Create CSV file with rename mappings
-# File: rename_tags.csv
-# Content:
-# OldName,NewName
-# Motor_Speed,MotorSpeed
-# Valve_Open,ValveOpen
-# Sensor_Temp1,SensorTemperature1
+Create `C:\Tags\rename_tags.csv`:
 
-# Connect and open project
-OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
+```csv
+OldName,NewName
+Motor_Speed,MotorSpeed
+Valve_Open,ValveOpen
+Sensor_Temp1,SensorTemperature1
+```
 
-# Preview changes from CSV
-OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map="C:\Tags\rename_tags.csv" --dry-run=true
+Then run the rename commands in one stateful session:
 
-# Apply changes
-OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map="C:\Tags\rename_tags.csv" --dry-run=false
-
-# Save project
-OpenTiaToolkit.CLI.exe save-project
+```text
+connect-portal
+open-project --project-path="C:\Projects\Line1.ap21"
+find-replace-tags --plc-name="PLC_1" --rename-map="C:\Tags\rename_tags.csv" --dry-run=true
+find-replace-tags --plc-name="PLC_1" --rename-map="C:\Tags\rename_tags.csv" --dry-run=false
+save-project
 ```
 
 **CSV Format Notes**:
@@ -2650,30 +2675,28 @@ Fatal error: Cannot load Siemens.Engineering assembly
 
 ### Create Aliases
 
-Create batch files or aliases for common workflows:
+Create aliases for one-off commands or to start an interactive session. Do not put stateful multi-step workflows in a batch file as repeated `OpenTiaToolkit.CLI.exe <command>` calls, because each call starts a new process.
 
 ```batch
-@REM dev-open.bat
-OpenTiaToolkit.CLI.exe connect-portal
-OpenTiaToolkit.CLI.exe open-project --project-path="C:\Dev\Current.ap21"
-OpenTiaToolkit.CLI.exe list-devices
+@REM tia-session.bat
+OpenTiaToolkit.CLI.exe
 ```
 
 ### Pipe Output
 
 ```bash
-# Export device list to file
-OpenTiaToolkit.CLI.exe list-devices > devices.txt
+# Export stateless command output to a file
+OpenTiaToolkit.CLI.exe list-instances --format json > instances.json
 
-# Count devices
-OpenTiaToolkit.CLI.exe list-devices | find /c "Device"
+# Count running TIA Portal instances in table output
+OpenTiaToolkit.CLI.exe list-instances | find /c "Instance"
 ```
 
 ### Error Handling
 
 ```bash
 # Check exit code
-OpenTiaToolkit.CLI.exe list-devices
+OpenTiaToolkit.CLI.exe list-instances
 echo %ERRORLEVEL%
 
 # 0 = success, 1 = failure
@@ -2681,55 +2704,62 @@ echo %ERRORLEVEL%
 
 ## Best Practices
 
-1. **Always check connection** before project operations:
+1. **Keep dependent commands in one session**:
    ```bash
-   OpenTiaToolkit.CLI.exe connect-portal
-   OpenTiaToolkit.CLI.exe portal-status
+   connect-portal
+   open-project --project-path="C:\Projects\Line1.ap21"
+   list-devices
    ```
 
-2. **Close projects when done** to avoid locking files:
+2. **Always check connection** before project operations:
    ```bash
-   OpenTiaToolkit.CLI.exe close-project
+   connect-portal
+   portal-status
    ```
 
-3. **Use `--save`** when making changes you want to keep:
+3. **Close projects when done** to avoid locking files:
    ```bash
-   OpenTiaToolkit.CLI.exe close-project --save
+   close-project
    ```
 
-4. **Test with small projects** first before production use
+4. **Use `--save`** when making changes you want to keep:
+   ```bash
+   close-project --save
+   ```
+
+5. **Test with small projects** first before production use
 
 ## Advanced Usage
 
 ### Integration with Scripts
 
-PowerShell example:
+For stateful shell automation, put dependent commands in a script file and run them with `--script`. Repeated single-command invocations are useful for stateless operations such as help, list-instances, and command syntax checks, but they do not preserve portal/project state.
+
+REPL-shaped command sequence:
+
+```text
+connect-portal
+open-project --project-path="C:\Projects\MyProject.ap21"
+list-devices --format json
+close-project
+disconnect-portal
+```
+
+Run it:
 
 ```powershell
-# Open, inspect, close
-$project = "C:\Projects\MyProject.ap21"
-OpenTiaToolkit.CLI.exe connect-portal | Out-Null
-OpenTiaToolkit.CLI.exe open-project --project-path="$project" | Out-Null
-
-$devices = OpenTiaToolkit.CLI.exe list-devices
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Project has devices!"
-}
-
-OpenTiaToolkit.CLI.exe close-project | Out-Null
-OpenTiaToolkit.CLI.exe disconnect-portal | Out-Null
+OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
 ```
 
 ### Error Handling in Scripts
 
-```powershell
-$ErrorActionPreference = "Stop"
+Script mode stops on the first failed command and returns a non-zero exit code:
 
-try {
-    OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap21"
-}
-catch {
-    Write-Host "Failed to open project"
+```powershell
+OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Script failed"
     exit 1
 }
 ```

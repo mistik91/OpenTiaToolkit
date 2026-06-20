@@ -273,7 +273,7 @@ Use [Test-CLI.ps1](../scripts/Test-CLI.ps1) for end-to-end CLI automation agains
 See [CLI_TESTING.md](CLI_TESTING.md) for the full suite matrix, artifact layout, expected skips, and current V21 coverage notes.
 
 - `Help` validates general help plus `help <command>` for every command currently exposed by the CLI host
-- `ReadOnly` drives the real CLI through scripted REPL batches so project and PLC state stay alive inside one process
+- `ReadOnly` drives the real CLI through scripted command batches so project and PLC state stay alive inside one process
 - `Mutation` creates a disposable project copy under `artifacts/cli-tests/` before running block/tag/import-export roundtrips
 - `Negative` covers argument validation and unknown-command behavior
 
