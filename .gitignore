@@ -54,6 +54,8 @@ ScaffoldingReadMe.txt
 StyleCopReport.xml
 _ReSharper*/
 *.ReSharper*
+report.md
+suggestions.md
 
 # TIA Portal temporary and archive files
 *.ap19_*

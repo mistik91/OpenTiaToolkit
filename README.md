@@ -66,7 +66,13 @@ Most TIA Portal V21 installations use this path. Non-standard installs can overr
 
 ### Install
 
-For an installed-product setup, build the Inno Setup installer:
+For a normal installed-product setup, download the latest Windows installer from the [GitHub releases page](https://github.com/mistik91/OpenTiaToolkit/releases):
+
+```text
+OpenTiaToolkit-0.1.0-Setup.exe
+```
+
+For local development or release packaging, build the Inno Setup installer:
 
 ```powershell
 .\scripts\Build-Installer.ps1

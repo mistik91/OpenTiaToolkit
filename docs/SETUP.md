@@ -20,7 +20,9 @@ Most users who installed TIA Portal in the default location do not need to chang
 
 ## Installed Product Setup
 
-Build the installer from the repo root:
+For normal use, download the latest Windows installer from the [GitHub releases page](https://github.com/mistik91/OpenTiaToolkit/releases).
+
+For local development or release packaging, build the installer from the repo root:
 
 ```powershell
 .\scripts\Build-Installer.ps1
