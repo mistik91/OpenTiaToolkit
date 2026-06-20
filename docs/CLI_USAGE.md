@@ -51,11 +51,11 @@ OpenTiaToolkit.CLI.exe help open-project
 
 All commands use **kebab-case** (lowercase with hyphens):
 
-- ✅ `open-project`
-- ✅ `list-devices`
-- ✅ `close-project`
-- ❌ `OpenProject`
-- ❌ `List_Devices`
+- Good: `open-project`
+- Good: `list-devices`
+- Good: `close-project`
+- Not valid: `OpenProject`
+- Not valid: `List_Devices`
 
 ### Large Output Artifacts
 
@@ -117,7 +117,7 @@ Opens a TIA Portal project file (.ap21 for local projects, .als21 for multiuser 
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap21"
 
 # Protected projects: keep the password out of shell history
-$env:OPENTIA_UMAC_PASSWORD = "secret"
+$env:OPENTIA_UMAC_PASSWORD = "<your-project-password>"
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Protected.ap21" --umac-user="Engineer"
 ```
 
@@ -184,7 +184,7 @@ Retrieves an archived project and selects it as the current project.
 OpenTiaToolkit.CLI.exe retrieve-project --archive-path="C:\Backups\MyProject.zap21" --target-directory="C:\Projects"
 
 # Protected archive/project
-$env:OPENTIA_UMAC_PASSWORD = "secret"
+$env:OPENTIA_UMAC_PASSWORD = "<your-project-password>"
 OpenTiaToolkit.CLI.exe retrieve-project --archive-path="C:\Backups\Protected.zap21" --target-directory="C:\Projects" --umac-user="Engineer"
 ```
 
@@ -499,7 +499,7 @@ Performs a transactional sequence of generic hardware operations. It defaults to
 ```bash
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=true
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=false
-OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\drive-patch.json" --dry-run=true --plc-name="PLC_1" --safety-password="secret"
+OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\drive-patch.json" --dry-run=true --plc-name="PLC_1" --safety-password="<safety-password>"
 ```
 
 Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, PROFINET identity configuration (`configure-profinet-device` for IP address, station name, and device number), process-image relocation (`set-io-address-start`), Startdrive telegram number/address/size/insert/erase changes, subnet and IO-system connection, and explicitly confirmed disconnect/delete/telegram-erase operations. `targetRef` may be combined with a relative `target.itemPath` to address children of newly created items in the same transaction. `plug-item` verifies the actual path TIA assigned to the created item and fails by default if TIA placed it somewhere other than the requested parent path; set `allowDisplacedPlacement=true` only when you want to accept and report that actual placement. For GSD/GSDML subslots that TIA displaces, prefer `allowDisplacedPlacement=true` plus a `resultId` on `plug-item`, then use that `resultId` for follow-up IO address or parameter operations instead of adding device-specific commands. For new PROFINET drives, connect the drive interface to the subnet and IO system before assigning Startdrive telegram addresses. PROFINET station name (`pnDeviceName`) is separate from TIA's display `Name`, which can be written with guarded `set-attributes`. Use `--plc-name` and `--safety-password` when hardware mutations touch fail-safe drive/project data, including dry-runs.
@@ -942,14 +942,14 @@ When `--output-path` is provided, the PLC software tree is written as JSON. With
 PLC Software Tree for PLC_1:
 
 PLC_1 (PlcSoftware)
-├── Blocks
-│   ├── OB1 (Organization Block)
-│   ├── FC1 (Function)
-│   └── FB1 (Function Block)
-├── Types
-│   └── MotorType (User Defined Type)
-└── Source Files
-    └── Main.xml
++-- Blocks
+|   +-- OB1 (Organization Block)
+|   +-- FC1 (Function)
+|   +-- FB1 (Function Block)
++-- Types
+|   +-- MotorType (User Defined Type)
++-- Source Files
+    +-- Main.xml
 ```
 
 #### compile-software
@@ -958,12 +958,14 @@ Compiles PLC software.
 
 ```bash
 OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1"
-OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1" --password="secret"
+OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1" --password="<block-password>"
 ```
 
 **Parameters**:
 - `plc-name` (required): Name of the PLC device
 - `password` (optional): Password for protected blocks
+
+For the current V21 implementation, the password argument is accepted for command compatibility. See [TIA Portal version support](TIA_PORTAL_VERSION_SUPPORT.md#plc-compilation) for the current validation notes.
 
 **Output**:
 ```
@@ -1700,16 +1702,16 @@ When `substring-match=true`, the command will find and replace substrings within
 
 Examples:
 - Mapping `{"Speed":"RPM"}` with `--substring-match=true`:
-  - `Motor_Speed_Setpoint` → `Motor_RPM_Setpoint`
-  - `Valve_Speed_Actual` → `Valve_RPM_Actual`
-  - `Speed_Setpoint` → `RPM_Setpoint`
-  - `Pump_Speed_RPM` → `Pump_RPM_RPM` ⚠️ (note: double replacement!)
+  - `Motor_Speed_Setpoint` -> `Motor_RPM_Setpoint`
+  - `Valve_Speed_Actual` -> `Valve_RPM_Actual`
+  - `Speed_Setpoint` -> `RPM_Setpoint`
+  - `Pump_Speed_RPM` -> `Pump_RPM_RPM` (warning: double replacement!)
 
 - Mapping `{"_":"-"}` with `--substring-match=true`:
-  - `Motor_Speed_Setpoint` → `Motor-Speed-Setpoint`
-  - `Valve_Open_Status` → `Valve-Open-Status`
+  - `Motor_Speed_Setpoint` -> `Motor-Speed-Setpoint`
+  - `Valve_Open_Status` -> `Valve-Open-Status`
 
-**⚠️ Warning**: Substring matching can cause unintended replacements:
+**Warning**: Substring matching can cause unintended replacements:
 - Common substrings like `"Speed"` will match in many tags
 - Existing instances of the replacement text will be replaced again
 - Always use `--dry-run=true` first to see all affected tags
@@ -1794,7 +1796,7 @@ OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Ta
 OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false
 
 # Apply changes after logging into the offline safety program
-OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false --safety-password="secret"
+OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false --safety-password="<safety-password>"
 
 # Write preview rows to CSV
 OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=true --output-path="C:\Reports\tag-update-results.csv"
@@ -2058,12 +2060,12 @@ OpenTiaToolkit.CLI.exe get-project-tree --depth=2
 Project Tree:
 
 MyProject (Project)
-├── PLC_1 (Device)
-│   └── CPU (DeviceItem)
-├── HMI_1 (Device)
-│   └── HMI_Application (DeviceItem)
-└── IO_System (Device)
-    └── Interface (DeviceItem)
++-- PLC_1 (Device)
+|   +-- CPU (DeviceItem)
++-- HMI_1 (Device)
+|   +-- HMI_Application (DeviceItem)
++-- IO_System (Device)
+    +-- Interface (DeviceItem)
 ```
 
 ## Output Formats
@@ -2091,13 +2093,13 @@ The JSON shape is stable across commands:
 ### Success Messages
 
 ```
-✓ Command completed successfully
+Command completed successfully
 ```
 
 ### Error Messages
 
 ```
-✗ Error: Failed to open project
+Error: Failed to open project
 Details: Project file not found
 ```
 
@@ -2625,7 +2627,7 @@ OpenTiaToolkit.CLI.exe open-project --project-path="C:\My Projects\Project.ap21"
 ### Command Not Found
 
 ```
-✗ Unknown command: 'opn-project'. Available commands: close-project, connect-portal, ...
+Unknown command: 'opn-project'. Available commands: close-project, connect-portal, ...
 ```
 
 **Solution**: Check for typos in command name. Use kebab-case.
@@ -2633,7 +2635,7 @@ OpenTiaToolkit.CLI.exe open-project --project-path="C:\My Projects\Project.ap21"
 ### Missing Required Argument
 
 ```
-✗ Error: project-path is required
+Error: project-path is required
 ```
 
 **Solution**: Provide the required parameter:
@@ -2644,7 +2646,7 @@ OpenTiaToolkit.CLI.exe open-project --project-path="C:\Project.ap21"
 ### TIA Portal Not Running
 
 ```
-✗ Error: Failed to connect to TIA Portal
+Error: Failed to connect to TIA Portal
 Details: No TIA Portal instance found
 ```
 
@@ -2653,7 +2655,7 @@ Details: No TIA Portal instance found
 ### Project Already Open
 
 ```
-✗ Error: Failed to open project: C:\Project.ap21
+Error: Failed to open project: C:\Project.ap21
 Details: Project is already open
 ```
 

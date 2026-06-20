@@ -1,6 +1,6 @@
 # Examples
 
-These examples are starting points for beta testers. Replace project paths, PLC names, HMI names, and screen names with values from your own TIA Portal project.
+These examples are starting points for users evaluating OpenTiaToolkit. Replace project paths, PLC names, HMI names, and screen names with values from your own TIA Portal project.
 
 ## CLI
 

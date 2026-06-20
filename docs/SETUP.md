@@ -1,6 +1,6 @@
 # Setup
 
-This guide covers a normal beta setup for OpenTiaToolkit on Windows with TIA Portal V21.
+This guide covers a normal OpenTiaToolkit setup on Windows with TIA Portal V21.
 
 ## Prerequisites
 

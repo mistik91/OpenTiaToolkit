@@ -208,7 +208,7 @@ Integration tests require TIA Portal V21, allow-list registration, and local tes
 
 ## Status
 
-OpenTiaToolkit is in private beta. The CLI, MCP server, plugin packages, and core TIA/HMI workflows are actively being validated against real TIA Portal V21 projects.
+OpenTiaToolkit is being prepared for open beta and public release. The CLI, MCP server, plugin packages, and core TIA/HMI workflows are actively validated against real TIA Portal V21 projects. Treat mutation workflows as engineering tools: start on disposable project copies, review dry-run output, and keep project backups.
 
 ## License
 
