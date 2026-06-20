@@ -64,6 +64,22 @@ C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48
 
 Most TIA Portal V21 installations use this path. Non-standard installs can override it with `TiaPortalPublicApiPath`; see [setup](docs/SETUP.md).
 
+### Install
+
+For an installed-product setup, build the Inno Setup installer:
+
+```powershell
+.\scripts\Build-Installer.ps1
+```
+
+The installer places the product under:
+
+```text
+C:\Program Files\OpenTiaToolkit
+```
+
+It also sets `OPEN_TIA_MCP_EXE` and can register the installed MCP executable with Siemens Openness. After installation, ask your agent to install or configure the local plugin from `C:\Program Files\OpenTiaToolkit\plugins`; see [agent plugin setup](docs/INSTALL_AGENT_PLUGINS.md).
+
 ### Build
 
 ```powershell
@@ -146,6 +162,7 @@ For development checkouts and client-specific snippets, use [docs/mcp-client-con
 | Topic | Link |
 |-------|------|
 | Setup and Openness registration | [docs/SETUP.md](docs/SETUP.md) |
+| Installed agent plugin setup | [docs/INSTALL_AGENT_PLUGINS.md](docs/INSTALL_AGENT_PLUGINS.md) |
 | Full CLI command reference | [docs/CLI_USAGE.md](docs/CLI_USAGE.md) |
 | CLI automation harness | [docs/CLI_TESTING.md](docs/CLI_TESTING.md) |
 | MCP client/plugin setup | [docs/mcp-client-configs/README.md](docs/mcp-client-configs/README.md) |

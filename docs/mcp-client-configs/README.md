@@ -13,6 +13,15 @@ C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
 
 For end users, an installer or first-run setup helper should register that stable executable with Siemens Openness once. Developers who rebuild the MCP executable must refresh the Siemens Openness allow-list because the entry is tied to the executable hash and path.
 
+The Windows installer also copies all plugin packages and canonical skills under:
+
+```text
+C:\Program Files\OpenTiaToolkit\plugins
+C:\Program Files\OpenTiaToolkit\skills
+```
+
+After installation, users can ask their agent to install or configure OpenTiaToolkit from that local plugin folder. See [`../INSTALL_AGENT_PLUGINS.md`](../INSTALL_AGENT_PLUGINS.md) for suggested prompts.
+
 The MCP executable is produced by the `OpenTiaToolkit.MCP` project:
 
 ```text
@@ -43,6 +52,8 @@ If you switch to a Release build, replace `Debug` with `Release` in the snippets
 - `antigravity.installed.mcp_config.json`: Google Antigravity raw MCP config snippet.
 - `vscode.installed.mcp.json`: VS Code / GitHub Copilot workspace `.vscode/mcp.json` snippet.
 - `vscode-user-settings.installed.json`: VS Code user settings snippet.
+
+These snippets are manual fallbacks for clients or environments where installing the local plugin package is not preferred.
 
 ## Codex Plugin
 

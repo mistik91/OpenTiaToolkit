@@ -8,6 +8,7 @@ This guide covers a normal beta setup for OpenTiaToolkit on Windows with TIA Por
 - TIA Portal V21 with Openness enabled
 - .NET SDK
 - Git
+- Inno Setup 6, only when building the installer
 
 The default Siemens Openness reference path is:
 
@@ -16,6 +17,30 @@ C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48
 ```
 
 Most users who installed TIA Portal in the default location do not need to change anything.
+
+## Installed Product Setup
+
+Build the installer from the repo root:
+
+```powershell
+.\scripts\Build-Installer.ps1
+```
+
+To validate the payload without compiling an installer, stage the product layout:
+
+```powershell
+.\scripts\Build-Installer.ps1 -StageOnly
+```
+
+The installer places OpenTiaToolkit under:
+
+```text
+C:\Program Files\OpenTiaToolkit
+```
+
+It installs the MCP and CLI executables, `plugins\`, `skills\`, docs, MCP client snippets, and `scripts\Register-OpennessAllowList.ps1`. Setup runs elevated, sets `OPEN_TIA_MCP_EXE`, and can register `OpenTiaToolkit.MCP.exe` with Siemens Openness. CLI registration is available as an optional setup task.
+
+After installation, ask your agent to install or configure the local plugin from the installed folder. See [INSTALL_AGENT_PLUGINS.md](INSTALL_AGENT_PLUGINS.md).
 
 ## Clone And Build
 
@@ -73,6 +98,14 @@ Use the development checkout snippets when running from this repository. Use the
 ```text
 C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
 ```
+
+For installed-product setups, the recommended path is to ask your agent to install the local plugin or configure the MCP server from:
+
+```text
+C:\Program Files\OpenTiaToolkit\plugins
+```
+
+See [INSTALL_AGENT_PLUGINS.md](INSTALL_AGENT_PLUGINS.md) for suggested prompts and manual fallbacks.
 
 The Codex plugin package lives in `plugins/opentia-toolkit`. It runs `scripts/run-opentia-mcp.ps1`, which uses `OPEN_TIA_MCP_EXE` when set or falls back to this repo's Debug/Release MCP build output. It includes the top-level `opentia-toolkit-workflow` router plus specialized TIA interaction, HMI editing, hardware, PLC, library, trend logging, VCI, and repo development skills.
 
