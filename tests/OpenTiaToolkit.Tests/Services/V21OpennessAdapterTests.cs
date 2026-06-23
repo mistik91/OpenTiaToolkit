@@ -162,6 +162,9 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsTrue(setComment);
             Assert.AreEqual("Motor ready", commentText);
             Assert.AreEqual(1, tagTable.Tags.Count);
+
+            adapter.SetDataType(createdTag!, "DInt");
+            Assert.AreEqual("DInt", createdFakeTag.DataTypeName);
         }
 
         [TestMethod]
@@ -384,7 +387,7 @@ namespace OpenTiaToolkit.Tests.Services
                 var tag = new FakeTag
                 {
                     Name = name,
-                    DataType = dataType,
+                    DataTypeName = dataType,
                     LogicalAddress = logicalAddress
                 };
 
@@ -397,7 +400,7 @@ namespace OpenTiaToolkit.Tests.Services
         {
             public string Name { get; set; } = string.Empty;
 
-            public string DataType { get; set; } = string.Empty;
+            public string DataTypeName { get; set; } = string.Empty;
 
             public string LogicalAddress { get; set; } = string.Empty;
 

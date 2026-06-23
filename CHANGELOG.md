@@ -8,6 +8,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Changed
+- Replaced `create-tag` and the page-based `update-tags-from-csv` workflow with `modify-tags`, an explicit JSON/CSV batch surface for guarded create, update, delete, and replace operations.
 - Prepared the repository for beta distribution and future open-source publication.
 - Added TIA Portal V21 VCI workspace management, S7DCL block mapping, surgical synchronization, filtered bulk synchronization, and whole-PLC traversal through the shared CLI/MCP surface.
 - Added compact bulk VCI results by default with `include-skipped=true` available for full audit output.

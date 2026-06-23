@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.Core.Services;
+using OpenTiaToolkit.Core.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -430,6 +431,58 @@ namespace OpenTiaToolkit.Tests.Services
             {
                 File.Delete(csvPath);
             }
+        }
+
+        [TestMethod]
+        public async Task ModifyTagsAsync_DryRunTracksSequentialRenameAndCreate()
+        {
+            var service = CreateService(new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags = { new FakeTag { Name = "Signal", DataType = "Bool", LogicalAddress = "%I0.0" } }
+            });
+            var operations = TagModificationInputParser.ParseJson(
+                "[" +
+                "{\"action\":\"update\",\"match\":{\"tagTable\":\"INPUT\",\"name\":\"Signal\"},\"set\":{\"name\":\"SignalOld\"}}," +
+                "{\"action\":\"create\",\"set\":{\"tagTable\":\"INPUT\",\"name\":\"Signal\",\"dataType\":\"Bool\",\"logicalAddress\":\"%I0.1\"}}" +
+                "]");
+
+            var result = await service.ModifyTagsAsync(operations, dryRun: true);
+
+            Assert.AreEqual(0, result.Summary.Failed);
+            Assert.AreEqual(2, result.Summary.Planned);
+            Assert.AreEqual("SignalOld", result.Operations[0].After!.Name);
+            Assert.AreEqual("Signal", result.Operations[1].After!.Name);
+        }
+
+        [TestMethod]
+        public async Task ModifyTagsAsync_ReplaceDeletesAndRecreatesWithInheritedValues()
+        {
+            var oldTag = new FakeTag
+            {
+                Name = "OldSignal",
+                DataType = "Bool",
+                LogicalAddress = "%I0.0"
+            };
+            oldTag.Comment.Items[0].Text = "Original";
+            var table = new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags = { oldTag }
+            };
+            var service = CreateService(table);
+            var operations = TagModificationInputParser.ParseJson(
+                "[{\"action\":\"replace\",\"match\":{\"tagTable\":\"INPUT\",\"name\":\"OldSignal\"},\"set\":{\"name\":\"NewSignal\"}}]");
+
+            var result = await service.ModifyTagsAsync(operations, dryRun: false);
+
+            Assert.AreEqual(0, result.Summary.Failed);
+            Assert.AreEqual(1, result.Summary.Applied);
+            Assert.IsTrue(oldTag.IsDeleted);
+            var replacement = table.Tags.Single(tag => !tag.IsDeleted && tag.Name == "NewSignal");
+            Assert.AreEqual("Bool", replacement.DataType);
+            Assert.AreEqual("%I0.0", replacement.LogicalAddress);
+            Assert.AreEqual("Original", replacement.Comment.Items[0].Text);
         }
 
         private static PlcTagService CreateService(params FakeTagTable[] tagTables)

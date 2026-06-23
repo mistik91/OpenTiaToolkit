@@ -401,21 +401,11 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
-        public async Task<CreateTagResult> CreateTagAsync(
-            string tagName,
-            string dataType,
-            string? logicalAddress = null,
-            string? tagTableName = null)
-        {
-            return await _tagService.CreateTagAsync(tagName, dataType, logicalAddress, tagTableName);
-        }
-
-        /// <inheritdoc/>
-        public async Task<TagUpdateResult> UpdateTagsFromCsvAsync(
-            string csvFilePath,
+        public async Task<TagModificationResult> ModifyTagsAsync(
+            IReadOnlyList<TagModificationOperation> operations,
             bool dryRun = true)
         {
-            return await _tagService.UpdateTagsFromCsvAsync(csvFilePath, dryRun);
+            return await _tagService.ModifyTagsAsync(operations, dryRun);
         }
 
         #region SIMATIC SD Export and Type Export

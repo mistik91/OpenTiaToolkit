@@ -109,12 +109,19 @@ namespace OpenTiaToolkit.Tests.Server
             var tagRenameAdapter = new ToolAdapter(new FindAndReplaceTagsCommand(plcService), Mock.Of<ILogger>());
             var dbRenameAdapter = new ToolAdapter(new FindAndReplaceDbMembersCommand(plcService), Mock.Of<ILogger>());
             var udtRenameAdapter = new ToolAdapter(new FindAndReplaceUdtMembersCommand(plcService), Mock.Of<ILogger>());
-            var csvUpdateAdapter = new ToolAdapter(new UpdateTagsFromCsvCommand(plcService), Mock.Of<ILogger>());
+            var modifyTagsAdapter = new ToolAdapter(new ModifyTagsCommand(plcService), Mock.Of<ILogger>());
 
             AssertOutputPathSchema(tagRenameAdapter.ProtocolTool.InputSchema, "CSV");
             AssertOutputPathSchema(dbRenameAdapter.ProtocolTool.InputSchema, "CSV");
             AssertOutputPathSchema(udtRenameAdapter.ProtocolTool.InputSchema, "CSV");
-            AssertOutputPathSchema(csvUpdateAdapter.ProtocolTool.InputSchema, "CSV");
+            AssertOutputPathSchema(modifyTagsAdapter.ProtocolTool.InputSchema, "JSON");
+            Assert.AreEqual(
+                "array",
+                modifyTagsAdapter.ProtocolTool.InputSchema
+                    .GetProperty("properties")
+                    .GetProperty("operations")
+                    .GetProperty("type")
+                    .GetString());
         }
 
         [TestMethod]

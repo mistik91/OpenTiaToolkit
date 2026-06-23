@@ -435,6 +435,520 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
+        public async Task<TagModificationResult> ModifyTagsAsync(
+            IReadOnlyList<TagModificationOperation> operations,
+            bool dryRun = true)
+        {
+            if (operations == null)
+            {
+                throw new ArgumentNullException(nameof(operations));
+            }
+
+            return await Task.Run(() =>
+            {
+                var result = new TagModificationResult
+                {
+                    DryRun = dryRun
+                };
+                result.Summary.Total = operations.Count;
+
+                var plcSoftware = _sessionContext.PlcSoftware;
+                if (plcSoftware == null || string.IsNullOrEmpty(_sessionContext.CurrentPlcName))
+                {
+                    AddModificationFailure(result, 0, null, string.Empty, "No PLC software is currently open");
+                    return result;
+                }
+
+                var tagTables = _v21Adapter.GetTagTables(plcSoftware);
+                if (tagTables == null)
+                {
+                    AddModificationFailure(result, 0, null, string.Empty, "PLC software does not expose accessible tag tables");
+                    return result;
+                }
+
+                var tables = tagTables
+                    .Select(table => new TagTableState
+                    {
+                        TableObject = table,
+                        Name = _v21Adapter.GetName(table) ?? "Unknown"
+                    })
+                    .ToList();
+                var tags = new List<MutableTagState>();
+                foreach (var table in tables)
+                {
+                    var tableTags = _v21Adapter.GetTags(table.TableObject);
+                    if (tableTags == null)
+                    {
+                        continue;
+                    }
+
+                    tags.AddRange(tableTags
+                        .Select(tag => new MutableTagState
+                        {
+                            TagObject = tag,
+                            Table = table,
+                            Name = _v21Adapter.GetName(tag) ?? string.Empty,
+                            DataType = _v21Adapter.GetDataType(tag) ?? string.Empty,
+                            LogicalAddress = TagUpdateCsvParser.NormalizeLogicalAddress(
+                                _v21Adapter.GetLogicalAddress(tag) ?? string.Empty),
+                            Comment = GetCommentText(tag)
+                        })
+                        .Where(tag => tag.Name.Length > 0));
+                }
+
+                for (var index = 0; index < operations.Count; index++)
+                {
+                    var operation = operations[index];
+                    try
+                    {
+                        ExecuteTagModification(operation, index + 1, tables, tags, result, dryRun);
+                    }
+                    catch (Exception ex)
+                    {
+                        AddModificationFailure(
+                            result,
+                            index + 1,
+                            operation.SourceLine,
+                            operation.Action,
+                            AddSafetyLoginReminder(ex.Message));
+                    }
+                }
+
+                return result;
+            });
+        }
+
+        private void ExecuteTagModification(
+            TagModificationOperation operation,
+            int index,
+            IReadOnlyList<TagTableState> tables,
+            List<MutableTagState> tags,
+            TagModificationResult result,
+            bool dryRun)
+        {
+            var action = (operation.Action ?? string.Empty).Trim().ToLowerInvariant();
+            switch (action)
+            {
+                case "create":
+                    ExecuteCreateOperation(operation, index, tables, tags, result, dryRun);
+                    return;
+                case "update":
+                    ExecuteUpdateOperation(operation, index, tags, result, dryRun);
+                    return;
+                case "delete":
+                    ExecuteDeleteOperation(operation, index, tags, result, dryRun);
+                    return;
+                case "replace":
+                    ExecuteReplaceOperation(operation, index, tables, tags, result, dryRun);
+                    return;
+                default:
+                    throw new InvalidOperationException(
+                        $"Unsupported tag modification action '{operation.Action}'. Expected create, update, delete, or replace.");
+            }
+        }
+
+        private void ExecuteCreateOperation(
+            TagModificationOperation operation,
+            int index,
+            IReadOnlyList<TagTableState> tables,
+            List<MutableTagState> tags,
+            TagModificationResult result,
+            bool dryRun)
+        {
+            RequirePatchValue(operation.Set.HasTagTable, operation.Set.TagTable, "create requires set.tagTable");
+            RequirePatchValue(operation.Set.HasName, operation.Set.Name, "create requires set.name");
+            RequirePatchValue(operation.Set.HasDataType, operation.Set.DataType, "create requires set.dataType");
+
+            var table = FindTable(tables, operation.Set.TagTable!);
+            var snapshot = new TagSnapshot
+            {
+                TagTable = table.Name,
+                Name = operation.Set.Name!,
+                DataType = operation.Set.DataType!,
+                LogicalAddress = operation.Set.HasLogicalAddress
+                    ? TagUpdateCsvParser.NormalizeLogicalAddress(operation.Set.LogicalAddress ?? string.Empty)
+                    : string.Empty,
+                Comment = operation.Set.HasComment ? operation.Set.Comment : null
+            };
+
+            EnsureNoNameCollision(tags, snapshot.TagTable, snapshot.Name);
+            var created = CreateTagState(table, snapshot, dryRun);
+            tags.Add(created);
+            AddModificationSuccess(result, index, operation, before: null, snapshot, dryRun);
+        }
+
+        private void ExecuteUpdateOperation(
+            TagModificationOperation operation,
+            int index,
+            List<MutableTagState> tags,
+            TagModificationResult result,
+            bool dryRun)
+        {
+            if (!operation.Set.HasAnyValue)
+            {
+                throw new InvalidOperationException("update requires at least one set value");
+            }
+
+            var tag = FindSingleTag(tags, operation.Match);
+            var before = tag.ToSnapshot();
+            if (operation.Set.HasTagTable &&
+                !string.Equals(operation.Set.TagTable, tag.Table.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("update cannot move a tag to another tag table; use replace");
+            }
+
+            var after = ApplyPatch(before, operation.Set);
+            if (!string.Equals(before.Name, after.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                EnsureNoNameCollision(tags, after.TagTable, after.Name, tag);
+            }
+
+            if (!dryRun)
+            {
+                ApplyUpdate(tag, before, after, operation.Set);
+            }
+
+            tag.Apply(after);
+            AddModificationSuccess(result, index, operation, before, after, dryRun);
+        }
+
+        private void ExecuteDeleteOperation(
+            TagModificationOperation operation,
+            int index,
+            List<MutableTagState> tags,
+            TagModificationResult result,
+            bool dryRun)
+        {
+            var tag = FindSingleTag(tags, operation.Match);
+            var before = tag.ToSnapshot();
+            if (!dryRun && !_v21Adapter.TryDelete(tag.TagObject!))
+            {
+                throw new InvalidOperationException($"Could not delete tag '{before.Name}'");
+            }
+
+            tag.IsDeleted = true;
+            AddModificationSuccess(result, index, operation, before, after: null, dryRun);
+        }
+
+        private void ExecuteReplaceOperation(
+            TagModificationOperation operation,
+            int index,
+            IReadOnlyList<TagTableState> tables,
+            List<MutableTagState> tags,
+            TagModificationResult result,
+            bool dryRun)
+        {
+            var source = FindSingleTag(tags, operation.Match);
+            var before = source.ToSnapshot();
+            var after = ApplyPatch(before, operation.Set);
+            var targetTable = FindTable(tables, after.TagTable);
+            EnsureNoNameCollision(tags, after.TagTable, after.Name, source);
+
+            MutableTagState replacement;
+            if (dryRun)
+            {
+                source.IsDeleted = true;
+                replacement = CreateTagState(targetTable, after, dryRun: true);
+            }
+            else
+            {
+                if (!_v21Adapter.TryDelete(source.TagObject!))
+                {
+                    throw new InvalidOperationException($"Could not delete tag '{before.Name}' before replacement");
+                }
+
+                source.IsDeleted = true;
+                try
+                {
+                    replacement = CreateTagState(targetTable, after, dryRun: false);
+                }
+                catch (Exception createException)
+                {
+                    TryRestoreReplacedTag(source.Table, before);
+                    source.IsDeleted = false;
+                    throw new InvalidOperationException(
+                        $"Replacement creation failed after deleting '{before.Name}'. A rollback was attempted. {createException.Message}",
+                        createException);
+                }
+            }
+
+            tags.Add(replacement);
+            AddModificationSuccess(result, index, operation, before, after, dryRun);
+        }
+
+        private MutableTagState CreateTagState(TagTableState table, TagSnapshot snapshot, bool dryRun)
+        {
+            object? createdTag = null;
+            if (!dryRun)
+            {
+                if (!_v21Adapter.TryCreateTag(
+                    table.TableObject,
+                    snapshot.Name,
+                    snapshot.DataType,
+                    snapshot.LogicalAddress,
+                    out createdTag,
+                    out var failureReason))
+                {
+                    throw new InvalidOperationException(failureReason ?? "Tag creation failed");
+                }
+
+                if (snapshot.Comment != null && !SetTagComment(createdTag!, snapshot.Comment))
+                {
+                    _v21Adapter.TryDelete(createdTag!);
+                    throw new InvalidOperationException(
+                        $"Tag '{snapshot.Name}' was created, but its comment could not be applied.");
+                }
+            }
+
+            return new MutableTagState
+            {
+                TagObject = createdTag,
+                Table = table,
+                Name = snapshot.Name,
+                DataType = snapshot.DataType,
+                LogicalAddress = snapshot.LogicalAddress,
+                Comment = snapshot.Comment,
+                IsVirtual = dryRun
+            };
+        }
+
+        private void ApplyUpdate(
+            MutableTagState tag,
+            TagSnapshot before,
+            TagSnapshot after,
+            TagValuePatch patch)
+        {
+            try
+            {
+                if (patch.HasName && !string.Equals(before.Name, after.Name, StringComparison.Ordinal))
+                {
+                    _v21Adapter.SetName(tag.TagObject!, after.Name);
+                }
+
+                if (patch.HasDataType && !string.Equals(before.DataType, after.DataType, StringComparison.Ordinal))
+                {
+                    _v21Adapter.SetDataType(tag.TagObject!, after.DataType);
+                }
+
+                if (patch.HasLogicalAddress &&
+                    !string.Equals(before.LogicalAddress, after.LogicalAddress, StringComparison.Ordinal))
+                {
+                    _v21Adapter.SetLogicalAddress(tag.TagObject!, after.LogicalAddress);
+                }
+
+                if (patch.HasComment && !SetTagComment(tag.TagObject!, after.Comment ?? string.Empty))
+                {
+                    throw new InvalidOperationException($"Could not apply comment for tag '{after.Name}'");
+                }
+            }
+            catch
+            {
+                TryRestoreUpdatedTag(tag.TagObject!, before);
+                throw;
+            }
+        }
+
+        private void TryRestoreUpdatedTag(object tag, TagSnapshot snapshot)
+        {
+            try
+            {
+                _v21Adapter.SetName(tag, snapshot.Name);
+                _v21Adapter.SetDataType(tag, snapshot.DataType);
+                _v21Adapter.SetLogicalAddress(tag, snapshot.LogicalAddress);
+                if (snapshot.Comment != null)
+                {
+                    SetTagComment(tag, snapshot.Comment);
+                }
+            }
+            catch
+            {
+                // Best-effort rollback; the original failure remains the primary error.
+            }
+        }
+
+        private void TryRestoreReplacedTag(TagTableState table, TagSnapshot snapshot)
+        {
+            try
+            {
+                if (_v21Adapter.TryCreateTag(
+                    table.TableObject,
+                    snapshot.Name,
+                    snapshot.DataType,
+                    snapshot.LogicalAddress,
+                    out var restored,
+                    out _) &&
+                    restored != null &&
+                    snapshot.Comment != null)
+                {
+                    SetTagComment(restored, snapshot.Comment);
+                }
+            }
+            catch
+            {
+                // Best-effort rollback; the original failure remains the primary error.
+            }
+        }
+
+        private static TagSnapshot ApplyPatch(TagSnapshot source, TagValuePatch patch)
+        {
+            var snapshot = new TagSnapshot
+            {
+                TagTable = patch.HasTagTable ? patch.TagTable ?? string.Empty : source.TagTable,
+                Name = patch.HasName ? patch.Name ?? string.Empty : source.Name,
+                DataType = patch.HasDataType ? patch.DataType ?? string.Empty : source.DataType,
+                LogicalAddress = patch.HasLogicalAddress
+                    ? TagUpdateCsvParser.NormalizeLogicalAddress(patch.LogicalAddress ?? string.Empty)
+                    : source.LogicalAddress,
+                Comment = patch.HasComment ? patch.Comment ?? string.Empty : source.Comment
+            };
+
+            if (string.IsNullOrWhiteSpace(snapshot.TagTable))
+            {
+                throw new InvalidOperationException("Resulting tag table cannot be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(snapshot.Name))
+            {
+                throw new InvalidOperationException("Resulting tag name cannot be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(snapshot.DataType))
+            {
+                throw new InvalidOperationException("Resulting data type cannot be empty");
+            }
+
+            return snapshot;
+        }
+
+        private static MutableTagState FindSingleTag(
+            IEnumerable<MutableTagState> tags,
+            TagMatchCriteria match)
+        {
+            if (string.IsNullOrWhiteSpace(match.TagTable) &&
+                string.IsNullOrWhiteSpace(match.Name) &&
+                string.IsNullOrWhiteSpace(match.LogicalAddress))
+            {
+                throw new InvalidOperationException(
+                    "Tag match must specify at least one of tagTable, name, or logicalAddress");
+            }
+
+            var normalizedAddress = match.LogicalAddress == null
+                ? null
+                : TagUpdateCsvParser.NormalizeLogicalAddress(match.LogicalAddress);
+            var matches = tags
+                .Where(tag => !tag.IsDeleted)
+                .Where(tag => match.TagTable == null ||
+                              string.Equals(tag.Table.Name, match.TagTable, StringComparison.OrdinalIgnoreCase))
+                .Where(tag => match.Name == null ||
+                              string.Equals(tag.Name, match.Name, StringComparison.OrdinalIgnoreCase))
+                .Where(tag => normalizedAddress == null ||
+                              string.Equals(tag.LogicalAddress, normalizedAddress, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (matches.Count == 0)
+            {
+                throw new InvalidOperationException("No existing tag matches the supplied criteria");
+            }
+
+            if (matches.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Tag match is ambiguous. Matched: {string.Join("; ", matches.Select(tag => $"[{tag.Table.Name}] {tag.Name}"))}");
+            }
+
+            return matches[0];
+        }
+
+        private static TagTableState FindTable(IEnumerable<TagTableState> tables, string name)
+        {
+            var matches = tables
+                .Where(table => string.Equals(table.Name, name, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (matches.Count == 0)
+            {
+                throw new InvalidOperationException($"Tag table '{name}' was not found");
+            }
+
+            if (matches.Count > 1)
+            {
+                throw new InvalidOperationException($"Tag table name '{name}' is ambiguous");
+            }
+
+            return matches[0];
+        }
+
+        private static void EnsureNoNameCollision(
+            IEnumerable<MutableTagState> tags,
+            string tableName,
+            string tagName,
+            MutableTagState? allowed = null)
+        {
+            var collision = tags.Any(tag =>
+                !tag.IsDeleted &&
+                !ReferenceEquals(tag, allowed) &&
+                string.Equals(tag.Table.Name, tableName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(tag.Name, tagName, StringComparison.OrdinalIgnoreCase));
+            if (collision)
+            {
+                throw new InvalidOperationException(
+                    $"Tag '{tagName}' already exists in tag table '{tableName}'");
+            }
+        }
+
+        private static void RequirePatchValue(bool isPresent, string? value, string message)
+        {
+            if (!isPresent || string.IsNullOrWhiteSpace(value))
+            {
+                throw new InvalidOperationException(message);
+            }
+        }
+
+        private static void AddModificationSuccess(
+            TagModificationResult result,
+            int index,
+            TagModificationOperation operation,
+            TagSnapshot? before,
+            TagSnapshot? after,
+            bool dryRun)
+        {
+            result.Operations.Add(new TagModificationEntry
+            {
+                Index = index,
+                SourceLine = operation.SourceLine,
+                Action = operation.Action,
+                Status = dryRun ? "Planned" : "Applied",
+                Before = before,
+                After = after
+            });
+
+            if (dryRun)
+            {
+                result.Summary.Planned++;
+            }
+            else
+            {
+                result.Summary.Applied++;
+            }
+        }
+
+        private static void AddModificationFailure(
+            TagModificationResult result,
+            int index,
+            int? sourceLine,
+            string action,
+            string message)
+        {
+            result.Operations.Add(new TagModificationEntry
+            {
+                Index = index,
+                SourceLine = sourceLine,
+                Action = action,
+                Status = "Failed",
+                Message = message
+            });
+            result.Summary.Failed++;
+        }
+
         public async Task<TagUpdateResult> UpdateTagsFromCsvAsync(string csvFilePath, bool dryRun = true)
         {
             var result = new TagUpdateResult();
@@ -1437,6 +1951,52 @@ namespace OpenTiaToolkit.Core.Services
             public string BaseName { get; set; } = string.Empty;
 
             public int PageNumber { get; set; }
+        }
+
+        private sealed class TagTableState
+        {
+            public object TableObject { get; set; } = null!;
+
+            public string Name { get; set; } = string.Empty;
+        }
+
+        private sealed class MutableTagState
+        {
+            public object? TagObject { get; set; }
+
+            public TagTableState Table { get; set; } = null!;
+
+            public string Name { get; set; } = string.Empty;
+
+            public string DataType { get; set; } = string.Empty;
+
+            public string LogicalAddress { get; set; } = string.Empty;
+
+            public string? Comment { get; set; }
+
+            public bool IsDeleted { get; set; }
+
+            public bool IsVirtual { get; set; }
+
+            public TagSnapshot ToSnapshot()
+            {
+                return new TagSnapshot
+                {
+                    TagTable = Table.Name,
+                    Name = Name,
+                    DataType = DataType,
+                    LogicalAddress = LogicalAddress,
+                    Comment = Comment
+                };
+            }
+
+            public void Apply(TagSnapshot snapshot)
+            {
+                Name = snapshot.Name;
+                DataType = snapshot.DataType;
+                LogicalAddress = snapshot.LogicalAddress;
+                Comment = snapshot.Comment;
+            }
         }
 
         private struct AddressLocation

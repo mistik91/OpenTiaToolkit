@@ -9,6 +9,8 @@ param(
 
     [string]$PlcName = $env:OPEN_TIA_TEST_PLC_NAME,
 
+    [string]$TagTableName = $(if ($env:OPEN_TIA_TEST_TAG_TABLE_NAME) { $env:OPEN_TIA_TEST_TAG_TABLE_NAME } else { 'Default tag table' }),
+
     [string]$ProbeBlockName,
 
     [string]$ProbeTypeName,
@@ -842,15 +844,16 @@ function Run-MutationSuite {
     $typeXmlBulkRoot = Join-Path $typeXmlRoot 'bulk'
     $typeXmlFile = if ([string]::IsNullOrWhiteSpace($ProbeTypeName)) { $null } else { Join-Path $typeXmlSingleRoot ($ProbeTypeName + '.xml') }
     $existingBlockXmlFile = if ([string]::IsNullOrWhiteSpace($ProbeBlockName)) { $null } else { Join-Path $existingBlockXmlRoot ($ProbeBlockName + '.xml') }
-    $tagCsvPath = Join-Path $script:GeneratedRoot 'tag-update.csv'
+    $tagCsvPath = Join-Path $script:GeneratedRoot 'tag-operations.csv'
 
     foreach ($path in @($blockXmlRoot, $blockDocsSingleRoot, $blockDocsMultiRoot, $existingBlockXmlRoot, $existingBlockDocsSingleRoot, $existingBlockDocsMultiRoot, $typeXmlRoot, $typeXmlSingleRoot, $typeXmlBulkRoot)) {
         New-Item -ItemType Directory -Path $path -Force | Out-Null
     }
 
     @(
-        'TagName,Address,DataType,Comment',
-        ('{0},{1},{2},{3}' -f $testTagName3, '%M12.0', 'Bool', 'Updated by CLI harness')
+        'Action,MatchTagTable,MatchName,MatchLogicalAddress,TagTable,Name,DataType,LogicalAddress,Comment',
+        ('create,,,,{0},{1},{2},{3},{4}' -f $TagTableName, $testTagName1, 'Bool', '%M10.0', 'Created by CLI harness'),
+        ('create,,,,{0},{1},{2},{3},{4}' -f $TagTableName, $testTagName3, 'Bool', '%M12.0', 'Created by CLI harness')
     ) | Set-Content -Path $tagCsvPath -Encoding UTF8
 
     Invoke-TestCase -SuiteName $suiteName -CaseName 'block-tag-roundtrip' -Body {
@@ -860,9 +863,8 @@ function Run-MutationSuite {
             (New-CliCommandString -Name 'create-block' -Arguments @{ 'plc-name' = $PlcName; 'block-name' = $testBlockName; 'block-type' = 'FB'; 'language' = 'ProDiag' }),
             (New-CliCommandString -Name 'get-block-info' -Arguments @{ 'plc-name' = $PlcName; 'block-name' = $testBlockName }),
             (New-CliCommandString -Name 'search-blocks' -Arguments @{ 'plc-name' = $PlcName; 'pattern' = $testBlockName; 'search-in' = 'name' }),
-            (New-CliCommandString -Name 'create-tag' -Arguments @{ 'plc-name' = $PlcName; 'tag-name' = $testTagName1; 'data-type' = 'Bool'; 'logical-address' = '%M10.0' }),
+            (New-CliCommandString -Name 'modify-tags' -Arguments @{ 'plc-name' = $PlcName; 'input-path' = $tagCsvPath; 'dry-run' = $false }),
             (New-CliCommandString -Name 'find-replace-tags' -Arguments @{ 'plc-name' = $PlcName; 'rename-map' = ('{' + $testTagName1 + ':' + $testTagName2 + '}'); 'dry-run' = $false }),
-            (New-CliCommandString -Name 'update-tags-from-csv' -Arguments @{ 'plc-name' = $PlcName; 'csv-path' = $tagCsvPath; 'dry-run' = $false }),
             (New-CliCommandString -Name 'find-replace-db-members' -Arguments @{ 'plc-name' = $PlcName; 'rename-map' = '{NoSuchMember:RenamedMember}'; 'dry-run' = $true }),
             (New-CliCommandString -Name 'find-replace-udt-members' -Arguments @{ 'plc-name' = $PlcName; 'rename-map' = '{NoSuchMember:RenamedMember}'; 'dry-run' = $true }),
             (New-CliCommandString -Name 'delete-blocks' -Arguments @{ 'plc-name' = $PlcName; 'filter' = $blockRegex; 'confirm' = $true })
@@ -1032,14 +1034,13 @@ function Run-NegativeSuite {
         return $result
     } | Out-Null
 
-    Invoke-TestCase -SuiteName $suiteName -CaseName 'create-tag-missing-type' -Body {
-        $result = Invoke-CliCommand -CaseName 'negative-create-tag-missing-type' -Arguments @(
-            'create-tag',
-            '--plc-name=DummyPlc',
-            '--tag-name=DummyTag'
+    Invoke-TestCase -SuiteName $suiteName -CaseName 'modify-tags-missing-input' -Body {
+        $result = Invoke-CliCommand -CaseName 'negative-modify-tags-missing-input' -Arguments @(
+            'modify-tags',
+            '--plc-name=DummyPlc'
         )
-        Assert-True ($result.ExitCode -ne 0) 'create-tag without data-type unexpectedly returned exit code 0.'
-        Assert-Contains -Text $result.Output -Needle 'Missing required parameter: data-type' -Message 'create-tag missing arg did not report the expected text.'
+        Assert-True ($result.ExitCode -ne 0) 'modify-tags without operations unexpectedly returned exit code 0.'
+        Assert-Contains -Text $result.Output -Needle 'Provide exactly one of operations or input-path' -Message 'modify-tags missing input did not report the expected text.'
         return $result
     } | Out-Null
 

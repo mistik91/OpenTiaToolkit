@@ -1606,64 +1606,72 @@ Failed:
 
 ### Find and Replace Operations (Phase 5)
 
-#### create-tag
+#### modify-tags
 
-Creates a new PLC tag in the specified tag table with support for various data types and optional logical address assignment.
+Plans or applies an explicit list of PLC tag operations. Supported actions are `create`, `update`, `delete`, and `replace`.
 
 ```bash
-# Create tag with logical address in default tag table
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Motor_Status" --data-type="Bool" --logical-address="%M10.0"
+# Inline JSON preview
+OpenTiaToolkit.CLI.exe modify-tags --plc-name="PLC_1" --operations='[
+  {
+    "action": "update",
+    "match": { "tagTable": "INPUT", "name": "OldSignal" },
+    "set": { "name": "NewSignal", "logicalAddress": "%I10.0", "comment": "Updated signal" }
+  },
+  {
+    "action": "create",
+    "set": { "tagTable": "INPUT", "name": "Ready", "dataType": "Bool", "logicalAddress": "%I10.1" }
+  }
+]' --dry-run=true
 
-# Create tag with specific tag table
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Temperature" --data-type="Int" --logical-address="%MW12" --tag-table="MyTags"
+# Apply a JSON or CSV operation file
+OpenTiaToolkit.CLI.exe modify-tags --plc-name="PLC_1" --input-path="C:\Tags\operations.json" --dry-run=false
 
-# Create tag without address (auto-assigned by TIA Portal)
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Counter" --data-type="DInt"
-
-# Create Real (floating point) tag
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Setpoint" --data-type="Real" --logical-address="%MD20"
-
-# Create String tag
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Message" --data-type="String" --logical-address="%MB100"
+# Delete and replace operations require confirmation when applying
+OpenTiaToolkit.CLI.exe modify-tags --plc-name="PLC_1" --input-path="C:\Tags\operations.csv" --dry-run=false --confirm=true
 ```
 
-**Parameters**:
-- `plc-name` (required): Name of the PLC device
-- `tag-name` (required): Name of the tag to create
-- `data-type` (required): Data type (e.g., 'Bool', 'Int', 'DInt', 'Real', 'String', 'Word', 'DWord', 'Byte', 'S5Time', 'Time')
-- `logical-address` (optional): Logical address (e.g., '%M10.0', '%MW12', '%DB1.DBD0', '%Q0.0', '%I0.0')
-- `tag-table` (optional): Tag table name (default: first/default table)
+JSON operations use:
 
-**Supported Data Types**:
-- Boolean: `Bool`
-- Integers: `SInt`, `Int`, `DInt`, `USInt`, `UInt`, `UDInt`
-- Floating-point: `Real`, `LReal`
-- Strings/Bytes: `String`, `Char`, `Byte`, `Word`, `DWord`, `LWord`
-- Timers/Counters: `S5Time`, `Time`, `LTime`, `Date`, `Date_and_Time`, `TimeOfDay`
-- Hardware: `Timer`, `Counter`
-
-**Logical Address Format**:
-- Memory bits: `%M10.0`, `%MX10.0`
-- Memory words: `%MW12`, `%MD20`
-- Inputs: `%I0.0`, `%IW0`, `%ID0`
-- Outputs: `%Q0.0`, `%QW0`, `%QD0`
-- DB addresses: `%DB1.DBD0`, `%DB1.DBW0`, `%DB1.DBB0`
-
-**Output**:
-```
-Tag 'Motor_Status' created successfully in 'PLC tags' (Type: Bool, Address: %M10.0)
-
-Tag Name:      Motor_Status
-Tag Table:     PLC tags
-Data Type:     Bool
-Logical Address: %M10.0
+```json
+{
+  "action": "create|update|delete|replace",
+  "match": {
+    "tagTable": "INPUT",
+    "name": "ExistingTag",
+    "logicalAddress": "%I0.0"
+  },
+  "set": {
+    "tagTable": "INPUT",
+    "name": "ResultTag",
+    "dataType": "Bool",
+    "logicalAddress": "%I0.1",
+    "comment": "Result comment"
+  }
+}
 ```
 
-**Error Handling**:
-- Duplicate tag names are detected and reported
-- Invalid tag table names return descriptive errors
-- Invalid data types are caught with clear messages
-- TIA Portal API limitations are documented
+- Match fields are exact, case-insensitive, and combined with AND.
+- `update`, `delete`, and `replace` must resolve to exactly one existing tag.
+- `create` requires `set.tagTable`, `set.name`, and `set.dataType`.
+- `update` changes only fields present in `set`. Use JSON `null` for `set.comment` to clear the comment.
+- `replace` deletes and recreates the matched tag. Unspecified replacement fields inherit their values from the original tag.
+- `update` cannot move a tag between tables; use `replace`.
+- Name collisions fail instead of being auto-suffixed.
+- German `%E`/`%A` addresses are normalized to `%I`/`%Q`.
+- Operations are processed sequentially, including during dry-run planning.
+
+CSV columns are:
+
+```csv
+Action,MatchTagTable,MatchName,MatchLogicalAddress,TagTable,Name,DataType,LogicalAddress,Comment,ClearComment
+update,INPUT,OldSignal,,INPUT,NewSignal,,%E10.0,Updated signal,false
+create,,,,INPUT,Ready,Bool,%E10.1,Ready input,false
+replace,INPUT,Obsolete,,,,,,Replacement comment,false
+delete,INPUT,Unused,,,,,,,false
+```
+
+Use exactly one of `operations` or `input-path`. `dry-run` defaults to `true`. Applying a batch containing `delete` or `replace` requires `confirm=true`. `safety-password` and JSON `output-path` are optional.
 
 #### find-replace-tags
 
@@ -1783,77 +1791,6 @@ Changes:
    - Consider using `--case-insensitive` carefully - it catches more variations
    - Preview the results carefully - substring matching can affect many tags
    - Order matters: only the first matching rule in the rename map is applied
-
-#### update-tags-from-csv
-
-Updates existing PLC tags or creates new ones from a CSV file using page-based naming rules.
-
-```bash
-# Preview changes
-OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=true
-
-# Apply changes
-OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false
-
-# Apply changes after logging into the offline safety program
-OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=false --safety-password="<safety-password>"
-
-# Write preview rows to CSV
-OpenTiaToolkit.CLI.exe update-tags-from-csv --plc-name="PLC_1" --csv-path="C:\Tags\tag-update.csv" --dry-run=true --output-path="C:\Reports\tag-update-results.csv"
-```
-
-**CSV File Format**:
-```csv
-TagName,Address,DataType,Comment
-23F1,%M0.0,Bool,Address/comment update only
-101MotorRun,%M2.0,Bool,Page can change
-RESERVE,%E10.7,,Updates existing non-page tag by unique address
-```
-
-- `TagName`, `Address`, and `DataType` columns are required.
-- `Comment` is optional.
-- Comma and semicolon delimiters are auto-detected.
-- Empty `Comment` values leave the existing comment unchanged.
-- `DataType` is required for rows that create new tags only when it cannot be inferred from the address.
-- Addresses may use international notation (`%I`, `%Q`) or German notation (`%E`, `%A`); German input/output prefixes are normalized before matching and applying.
-- `safety-password` is optional. When provided with `dry-run=false`, the command attempts `SafetyAdministration.LoginToSafetyOfflineProgram` before editing tags. If Openness cannot log in, log into the safety program manually in TIA Portal before applying fail-safe tag changes.
-
-**Page Matching Rules**:
-- A unique address match is treated as the strongest match. If the old tag name also appears elsewhere in the CSV, it is treated as shifted and left for its own row.
-- If a unique address match uses an old tag name that no longer appears in the CSV, the old tag is deleted and a new tag is created at the same address. This intentionally breaks old PLC references so stale logic is found at compile time.
-- Page `< 100`: when there is no address match, the command matches by full tag name and updates address/comment only.
-- Page `>= 100`: the command matches by base name after the numeric page prefix. This lets the page prefix change, so the tag may be renamed.
-- Non-page tag names are updated when the CSV address uniquely matches an existing tag; otherwise they can be created in a tag table inferred from neighboring addresses.
-- Repeated CSV tag names are allowed when their addresses differ. TIA may auto-suffix duplicates such as `RESERVE(1)` or `30_EMERGENCY(1)`.
-- If a row would match multiple existing tags across tag tables, it is skipped as ambiguous.
-- Duplicate CSV addresses are skipped because they would target the same logical point twice.
-
-**Parameters**:
-- `plc-name` (required): Name of the PLC device
-- `csv-path` (required): Path to the CSV file containing tag updates
-- `dry-run` (optional): Preview changes without applying (default: true)
-- `safety-password` (optional): Safety program password used before applying fail-safe tag edits
-- `output-path` (optional): CSV file or folder path for update result rows. If omitted, large inline results automatically spill to a temporary CSV artifact.
-
-**Output**:
-```
-CSV rows processed: 2, Existing tags scanned: 45, Tags updated: previewed: 1, Tags created: previewed: 1, Skipped: 0, Warnings: 0, Errors: 0
-
-Summary:
-  CSV Rows: 2
-  Existing Tags Scanned: 45
-  Tags Updated: 1
-  Tags Created: 1
-  Tags Skipped: 0
-```
-
-For CSV artifacts, rows use `Kind,LineNumber,TagTableName,MatchedBy,OldName,NewName,OldAddress,NewAddress,DataType,Reason,OldComment,NewComment,Item,Error,Details`. `Kind` is one of `Updated`, `Created`, `Deleted`, `Warning`, or `Error`.
-
-**Best Practices**:
-1. Run with `dry-run=true` first.
-2. Resolve ambiguous matches before applying changes.
-3. Keep one canonical tag table owner for each page/base-name family.
-4. Review errors in multi-table projects before assuming missing rows should be created.
 
 #### find-replace-db-members
 
@@ -2427,7 +2364,7 @@ OpenTiaToolkit.CLI.exe save-project
 OpenTiaToolkit.CLI.exe compile-software --plc-name="PLC_1"
 ```
 
-### Example 16: PLC Tag Creation Workflow
+### Example 16: PLC Tag Modification Workflow
 
 ```bash
 # Connect and open project
@@ -2437,17 +2374,11 @@ OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Line1.ap21"
 # Open PLC software
 OpenTiaToolkit.CLI.exe open-plc --plc-name="PLC_1"
 
-# Create individual tags with specific addresses
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Motor_Run" --data-type="Bool" --logical-address="%M10.0"
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Motor_Speed" --data-type="Int" --logical-address="%MW12"
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Temperature" --data-type="Real" --logical-address="%MD20"
+# Preview an explicit batch
+OpenTiaToolkit.CLI.exe modify-tags --plc-name="PLC_1" --input-path="C:\Tags\operations.json" --dry-run=true
 
-# Create tags in a specific tag table
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Alarm_Text" --data-type="String" --tag-table="HMI_Tags"
-
-# Create tags with auto-assigned addresses
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Status_ID" --data-type="DInt"
-OpenTiaToolkit.CLI.exe create-tag --plc-name="PLC_1" --tag-name="Error_Code" --data-type="Int"
+# Apply after reviewing the before/after snapshots
+OpenTiaToolkit.CLI.exe modify-tags --plc-name="PLC_1" --input-path="C:\Tags\operations.json" --dry-run=false --confirm=true
 
 # Save the project
 OpenTiaToolkit.CLI.exe save-project
@@ -2516,27 +2447,20 @@ $commands = @(
     'open-plc --plc-name="PLC_1"'
 )
 
-$commands += Import-Csv $csvFile | ForEach-Object {
-    $params = @{
-        "plc-name" = "PLC_1"
-        "tag-name" = $_.TagName
-        "data-type" = $_.DataType
+$operationFile = "C:\Tags\tag-operations.json"
+$operations = Import-Csv $csvFile | ForEach-Object {
+    @{
+        action = "create"
+        set = @{
+            tagTable = $_.TagTable
+            name = $_.TagName
+            dataType = $_.DataType
+            logicalAddress = $_.LogicalAddress
+        }
     }
-
-    if ($_.LogicalAddress) {
-        $params["logical-address"] = $_.LogicalAddress
-    }
-
-    if ($_.TagTable) {
-        $params["tag-table"] = $_.TagTable
-    }
-
-    $paramList = foreach ($key in $params.Keys) {
-        "--$key=$($params[$key])"
-    }
-
-    "create-tag $($paramList -join ' ')"
 }
+$operations | ConvertTo-Json -Depth 5 | Set-Content $operationFile
+$commands += "modify-tags --plc-name=PLC_1 --input-path=`"$operationFile`" --dry-run=false"
 
 $commands += @('save-project', 'close-project', 'disconnect-portal')
 $commands | Set-Content -Path $commandFile

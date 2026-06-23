@@ -54,7 +54,7 @@ Use dry-runs, previews, or status reads before applying changes when the command
 - `import-texts`: start with the default `dry-run=true`; apply project text workbook changes only with explicit user intent and `dry-run=false`.
 - `copy-from-master-copy`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true` after confirming the master copy matches the target domain.
 - `import-source`, `generate-blocks-from-source`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true`, then verify with `get-block-info`/`get-blocks` and `compile-software`.
-- `find-replace-tags`, `find-replace-db-members`, `find-replace-udt-members`, `update-tags-from-csv`: start with `dry-run=true`.
+- `modify-tags`, `find-replace-tags`, `find-replace-db-members`, `find-replace-udt-members`: start with `dry-run=true`.
 - Deletions require explicit confirmation from the user or an explicit `confirm=true` request.
 
 Prefer backups for HMI applies and disposable project copies for broad hardware/PLC/HMI mutation workflows. Save the project only when the user asked to persist changes or the workflow clearly requires persistence after successful verification.

@@ -243,29 +243,10 @@ public interface IPlcService
         bool substringMatch = false);
 
     /// <summary>
-    /// Creates a new PLC tag in the specified tag table.
+    /// Plans or applies explicit PLC tag create, update, delete, and replace operations.
     /// </summary>
-    /// <param name="tagName">The name of the tag to create.</param>
-    /// <param name="dataType">The data type (e.g., "Bool", "Int", "DInt").</param>
-    /// <param name="logicalAddress">Optional logical address (e.g., "%M10.0", "%MW12").</param>
-    /// <param name="tagTableName">Optional tag table name (default: first/default table).</param>
-    /// <returns>Result containing success status, created tag info, warnings, and errors.</returns>
-    Task<CreateTagResult> CreateTagAsync(
-        string tagName,
-        string dataType,
-        string? logicalAddress = null,
-        string? tagTableName = null);
-
-    /// <summary>
-    /// Updates PLC tags from a CSV file based on page-based naming rules.
-    /// Tags with page &gt;= 100 are matched by base name (can change both name and address).
-    /// Tags with page &lt; 100 are matched by full name (address only).
-    /// </summary>
-    /// <param name="csvFilePath">Path to the CSV file containing tag updates.</param>
-    /// <param name="dryRun">Preview changes without applying (default: true).</param>
-    /// <returns>Result containing summary, updated tags, created tags, warnings, and errors.</returns>
-    Task<TagUpdateResult> UpdateTagsFromCsvAsync(
-        string csvFilePath,
+    Task<TagModificationResult> ModifyTagsAsync(
+        IReadOnlyList<TagModificationOperation> operations,
         bool dryRun = true);
 
     /// <summary>

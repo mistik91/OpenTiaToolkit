@@ -428,7 +428,9 @@ namespace OpenTiaToolkit.Core.Services
         {
             if (engineeringObject == null) throw new ArgumentNullException(nameof(engineeringObject));
 
-            return TiaReflectionHelper.GetProperty(engineeringObject, "DataType")?.ToString();
+            return (TiaReflectionHelper.GetProperty(engineeringObject, "DataTypeName")
+                    ?? TiaReflectionHelper.GetProperty(engineeringObject, "DataType"))
+                ?.ToString();
         }
 
         public string? GetLogicalAddress(object engineeringObject)
@@ -452,6 +454,17 @@ namespace OpenTiaToolkit.Core.Services
             if (value == null) throw new ArgumentNullException(nameof(value));
 
             TiaReflectionHelper.SetProperty(engineeringObject, "LogicalAddress", value);
+        }
+
+        public void SetDataType(object engineeringObject, string value)
+        {
+            if (engineeringObject == null) throw new ArgumentNullException(nameof(engineeringObject));
+            if (value == null) throw new ArgumentNullException(nameof(value));
+
+            var propertyName = engineeringObject.GetType().GetProperty("DataTypeName") != null
+                ? "DataTypeName"
+                : "DataType";
+            TiaReflectionHelper.SetProperty(engineeringObject, propertyName, value);
         }
 
         public string? GetTagCommentText(object tag, string culture = "en-US")

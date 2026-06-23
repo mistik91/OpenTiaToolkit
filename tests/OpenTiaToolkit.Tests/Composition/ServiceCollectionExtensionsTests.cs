@@ -184,7 +184,9 @@ namespace OpenTiaToolkit.Tests.Composition
             CollectionAssert.Contains(commands, "list-watch-tables");
             CollectionAssert.Contains(commands, "list-technology-objects");
             CollectionAssert.Contains(commands, "list-plc-alarm-text-lists");
-            CollectionAssert.Contains(commands, "update-tags-from-csv");
+            CollectionAssert.Contains(commands, "modify-tags");
+            CollectionAssert.DoesNotContain(commands, "create-tag");
+            CollectionAssert.DoesNotContain(commands, "update-tags-from-csv");
             CollectionAssert.Contains(commands, "list-vci-workspaces");
             CollectionAssert.Contains(commands, "create-vci-workspace");
             CollectionAssert.Contains(commands, "export-vci-block");

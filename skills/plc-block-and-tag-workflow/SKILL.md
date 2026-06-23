@@ -76,11 +76,11 @@ Use the online/simulator loop after intentional PLC software changes when the us
 
 Treat `start-cpu` and `stop-cpu` as optional guarded follow-ups. Some TIA Portal online providers expose connection state but no CPU RUN/STOP operation through Openness; report the structured not-supported result instead of trying an unsafe workaround.
 
-## Tag Creation And CSV Updates
+## Tag Modification
 
-For individual tags, use `create-tag` with explicit `plc-name`, `tag-name`, `data-type`, optional `logical-address`, and optional `tag-table`.
+Use `modify-tags` for explicit `create`, `update`, `delete`, and `replace` operations. Prefer inline JSON `operations` for precise agent-driven changes and `input-path` for reviewed JSON or CSV batches. Start with `dry-run=true`, require exact selectors that resolve to one tag, and review every planned before/after snapshot.
 
-For CSV-driven tag updates, use `update-tags-from-csv` with `dry-run=true` first. Review created, renamed, skipped, ambiguous, and failed entries before applying with `dry-run=false`. Pass `output-path` when the preview should be reviewed as a CSV file, or read the returned artifact path when the command auto-spills a large result.
+Use `replace` when the intent is to delete and recreate a tag so stale PLC references are exposed. Applying `delete` or `replace` requires `confirm=true`. Do not infer page-number, base-name, address-shift, table-selection, or auto-suffix behavior; inspect tags and encode the intended operations explicitly.
 
 If safety program access is required, use the provided `safety-password` only when the user supplied it for this task. Do not ask for or persist passwords unless the operation blocks without one.
 

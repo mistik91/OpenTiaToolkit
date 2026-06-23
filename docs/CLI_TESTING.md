@@ -143,9 +143,8 @@ The `Mutation` suite starts by creating a disposable copy with `save-as-project`
 It covers:
 
 - `create-block`
-- `create-tag`
+- `modify-tags`
 - `find-replace-tags`
-- `update-tags-from-csv`
 - `find-replace-db-members`
 - `find-replace-udt-members`
 - `delete-blocks`
