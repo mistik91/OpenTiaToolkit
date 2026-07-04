@@ -1,5 +1,7 @@
 using OpenTiaToolkit.Core.Models;
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Abstractions;
@@ -235,19 +237,30 @@ public interface IPlcService
     /// <param name="caseInsensitive">Enable case-insensitive matching (default: false).</param>
     /// <param name="dryRun">Preview changes without applying (default: true).</param>
     /// <param name="substringMatch">Enable substring matching instead of exact matching (default: false).</param>
+    /// <param name="cancellationToken">Cancellation token for host-driven stop requests.</param>
+    /// <param name="progress">Optional progress reporter for batch processing.</param>
     /// <returns>Result containing summary, changes, skipped items, warnings, and errors.</returns>
     Task<FindReplaceResult> FindAndReplaceTagsAsync(
         Dictionary<string, string> renameMap,
         bool caseInsensitive = false,
         bool dryRun = true,
-        bool substringMatch = false);
+        bool substringMatch = false,
+        CancellationToken cancellationToken = default,
+        IProgress<BatchOperationProgress>? progress = null);
 
     /// <summary>
     /// Plans or applies explicit PLC tag create, update, delete, and replace operations.
     /// </summary>
+    /// <param name="operations">Ordered tag modification operations to plan or apply.</param>
+    /// <param name="dryRun">Preview changes without applying.</param>
+    /// <param name="cancellationToken">Cancellation token for host-driven stop requests.</param>
+    /// <param name="progress">Optional progress reporter for batch processing.</param>
+    /// <returns>Result containing summary and per-operation outcomes.</returns>
     Task<TagModificationResult> ModifyTagsAsync(
         IReadOnlyList<TagModificationOperation> operations,
-        bool dryRun = true);
+        bool dryRun = true,
+        CancellationToken cancellationToken = default,
+        IProgress<BatchOperationProgress>? progress = null);
 
     /// <summary>
     /// Finds and replaces GlobalDB member names with nested struct support.
@@ -256,12 +269,16 @@ public interface IPlcService
     /// <param name="caseInsensitive">Enable case-insensitive matching.</param>
     /// <param name="dryRun">Preview changes without applying.</param>
     /// <param name="targetBlocks">Optional list of specific GlobalDB names (null = all).</param>
+    /// <param name="cancellationToken">Cancellation token for host-driven stop requests.</param>
+    /// <param name="progress">Optional progress reporter for batch processing.</param>
     /// <returns>Result containing summary, changes, skipped items, warnings, and errors.</returns>
     Task<FindReplaceResult> FindAndReplaceDbMembersAsync(
         Dictionary<string, string> renameMap,
         bool caseInsensitive = false,
         bool dryRun = true,
-        string[]? targetBlocks = null);
+        string[]? targetBlocks = null,
+        CancellationToken cancellationToken = default,
+        IProgress<BatchOperationProgress>? progress = null);
 
     /// <summary>
     /// Finds and replaces UDT member names with nested struct support.
@@ -270,12 +287,16 @@ public interface IPlcService
     /// <param name="caseInsensitive">Enable case-insensitive matching.</param>
     /// <param name="dryRun">Preview changes without applying.</param>
     /// <param name="targetTypes">Optional list of specific UDT names (null = all).</param>
+    /// <param name="cancellationToken">Cancellation token for host-driven stop requests.</param>
+    /// <param name="progress">Optional progress reporter for batch processing.</param>
     /// <returns>Result containing summary, changes, skipped items, warnings, and errors.</returns>
     Task<FindReplaceResult> FindAndReplaceUdtMembersAsync(
         Dictionary<string, string> renameMap,
         bool caseInsensitive = false,
         bool dryRun = true,
-        string[]? targetTypes = null);
+        string[]? targetTypes = null,
+        CancellationToken cancellationToken = default,
+        IProgress<BatchOperationProgress>? progress = null);
 
     /// <summary>
     /// Imports a single block from XML.

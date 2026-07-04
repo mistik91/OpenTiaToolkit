@@ -126,7 +126,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 context.Checkpoint(dryRun ? "Previewing DB member replacements." : "Applying DB member replacements.", 55, "find-replace");
-                var result = await _plcService.FindAndReplaceDbMembersAsync(renameMap, caseInsensitive, dryRun, targetBlocks);
+                var result = await _plcService.FindAndReplaceDbMembersAsync(
+                    renameMap,
+                    caseInsensitive,
+                    dryRun,
+                    targetBlocks,
+                    context.CancellationToken,
+                    new BatchProgressBridge(context, 55, 80));
 
                 // Build summary message
                 var summary = result.Summary;
@@ -180,6 +186,10 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     data: data,
                     message: message
                 );
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

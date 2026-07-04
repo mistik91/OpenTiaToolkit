@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -375,9 +376,11 @@ namespace OpenTiaToolkit.Core.Services
             Dictionary<string, string> renameMap,
             bool caseInsensitive = false,
             bool dryRun = true,
-            bool substringMatch = false)
+            bool substringMatch = false,
+            CancellationToken cancellationToken = default,
+            IProgress<BatchOperationProgress>? progress = null)
         {
-            return await _tagService.FindAndReplaceTagsAsync(renameMap, caseInsensitive, dryRun, substringMatch);
+            return await _tagService.FindAndReplaceTagsAsync(renameMap, caseInsensitive, dryRun, substringMatch, cancellationToken, progress);
         }
 
         /// <inheritdoc/>
@@ -385,9 +388,11 @@ namespace OpenTiaToolkit.Core.Services
             Dictionary<string, string> renameMap,
             bool caseInsensitive = false,
             bool dryRun = true,
-            string[]? targetBlocks = null)
+            string[]? targetBlocks = null,
+            CancellationToken cancellationToken = default,
+            IProgress<BatchOperationProgress>? progress = null)
         {
-            return await _memberRenameService.FindAndReplaceDbMembersAsync(renameMap, caseInsensitive, dryRun, targetBlocks);
+            return await _memberRenameService.FindAndReplaceDbMembersAsync(renameMap, caseInsensitive, dryRun, targetBlocks, cancellationToken, progress);
         }
 
         /// <inheritdoc/>
@@ -395,17 +400,21 @@ namespace OpenTiaToolkit.Core.Services
             Dictionary<string, string> renameMap,
             bool caseInsensitive = false,
             bool dryRun = true,
-            string[]? targetTypes = null)
+            string[]? targetTypes = null,
+            CancellationToken cancellationToken = default,
+            IProgress<BatchOperationProgress>? progress = null)
         {
-            return await _memberRenameService.FindAndReplaceUdtMembersAsync(renameMap, caseInsensitive, dryRun, targetTypes);
+            return await _memberRenameService.FindAndReplaceUdtMembersAsync(renameMap, caseInsensitive, dryRun, targetTypes, cancellationToken, progress);
         }
 
         /// <inheritdoc/>
         public async Task<TagModificationResult> ModifyTagsAsync(
             IReadOnlyList<TagModificationOperation> operations,
-            bool dryRun = true)
+            bool dryRun = true,
+            CancellationToken cancellationToken = default,
+            IProgress<BatchOperationProgress>? progress = null)
         {
-            return await _tagService.ModifyTagsAsync(operations, dryRun);
+            return await _tagService.ModifyTagsAsync(operations, dryRun, cancellationToken, progress);
         }
 
         #region SIMATIC SD Export and Type Export

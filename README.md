@@ -159,7 +159,7 @@ A typical installed-product config uses:
 }
 ```
 
-The MCP server also exposes infrastructure tools for long-running TIA operations: `operation-status`, `cancel-operation`, and `reset-session`. Use `operation-status` after a timeout or busy response, and `reset-session` only when the current TIA attachment needs to be discarded.
+The MCP server also exposes infrastructure tools for long-running TIA operations: `operation-status`, `cancel-operation`, and `reset-session`. Use `operation-status` after a timeout or busy response, and `reset-session` only when the current TIA attachment needs to be discarded. PLC batch tag commands report per-operation or per-item progress and honor cooperative cancellation between items and before TIA write calls.
 
 For development checkouts and client-specific snippets, use [docs/mcp-client-configs](docs/mcp-client-configs/README.md).
 

@@ -107,7 +107,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     dryRun ? "Planning PLC tag modifications." : "Applying PLC tag modifications.",
                     60,
                     dryRun ? "plan-tag-modifications" : "apply-tag-modifications");
-                var result = await _plcService.ModifyTagsAsync(operations, dryRun);
+                var result = await _plcService.ModifyTagsAsync(
+                    operations,
+                    dryRun,
+                    context.CancellationToken,
+                    new BatchProgressBridge(context, 60, 80));
                 var message =
                     $"Tag operations: {result.Summary.Total}, planned: {result.Summary.Planned}, " +
                     $"applied: {result.Summary.Applied}, failed: {result.Summary.Failed}";
@@ -146,6 +150,10 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 return result.Summary.Failed == 0
                     ? CommandResult.CreateSuccess(data, message)
                     : CommandResult.CreateFailure(message, data);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

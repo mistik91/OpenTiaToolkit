@@ -29,7 +29,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
 
 ## Shared MCP Rules
 
-Keep OpenTiaToolkit MCP calls serial. If the server reports an active operation or a client timeout hides a result, call `operation-status` to inspect the active operation and latest progress, then wait for the in-flight operation to finish and verify the target state before retrying. Use `cancel-operation` for cooperative cancellation when a tool supports it, and reserve `reset-session` for recovery when the MCP gate or TIA attachment must be discarded.
+Keep OpenTiaToolkit MCP calls serial. If the server reports an active operation or a client timeout hides a result, call `operation-status` to inspect the active operation and latest progress, then wait for the in-flight operation to finish and verify the target state before retrying. Use `cancel-operation` for cooperative cancellation when a tool supports it, and reserve `reset-session` for recovery when the MCP gate or TIA attachment must be discarded. PLC batch tag commands (`modify-tags`, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members`) report item progress and honor cancellation between items and before TIA write calls.
 
 Prefer read-only discovery before mutation:
 

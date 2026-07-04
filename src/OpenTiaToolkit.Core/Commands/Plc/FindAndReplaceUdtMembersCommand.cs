@@ -126,7 +126,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 context.Checkpoint(dryRun ? "Previewing UDT member replacements." : "Applying UDT member replacements.", 55, "find-replace");
-                var result = await _plcService.FindAndReplaceUdtMembersAsync(renameMap, caseInsensitive, dryRun, targetTypes);
+                var result = await _plcService.FindAndReplaceUdtMembersAsync(
+                    renameMap,
+                    caseInsensitive,
+                    dryRun,
+                    targetTypes,
+                    context.CancellationToken,
+                    new BatchProgressBridge(context, 55, 80));
 
                 // Build summary message
                 var summary = result.Summary;
@@ -180,6 +186,10 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     data: data,
                     message: message
                 );
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

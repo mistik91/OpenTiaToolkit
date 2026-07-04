@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Services
@@ -36,12 +37,15 @@ namespace OpenTiaToolkit.Core.Services
             Dictionary<string, string> renameMap,
             bool caseInsensitive = false,
             bool dryRun = true,
-            bool substringMatch = false)
+            bool substringMatch = false,
+            CancellationToken cancellationToken = default,
+            IProgress<BatchOperationProgress>? progress = null)
         {
             var result = new FindReplaceResult();
 
             return await Task.Run(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var plcSoftware = _sessionContext.PlcSoftware;
                 var plcName = _sessionContext.CurrentPlcName;
                 if (plcSoftware == null || string.IsNullOrEmpty(plcName))
@@ -64,6 +68,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
+                    ReportProgress(progress, "Reading PLC tag tables.", 0, null, "read-tag-tables");
                     var tagTables = _v21Adapter.GetTagTables(plcSoftware);
                     if (tagTables == null)
                     {
@@ -76,21 +81,30 @@ namespace OpenTiaToolkit.Core.Services
                         return result;
                     }
 
-                    var existingTagNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
+                    var tagBatches = new List<Tuple<string, IReadOnlyList<object>>>();
                     foreach (var tagTable in tagTables)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         var tagTableName = _v21Adapter.GetName(tagTable) ?? "Unknown";
+                        var tableTags = _v21Adapter.GetTags(tagTable);
+                        if (tableTags != null)
+                        {
+                            tagBatches.Add(Tuple.Create(tagTableName, tableTags));
+                        }
+                    }
+
+                    var totalTags = tagBatches.Sum(batch => batch.Item2.Count);
+                    var existingTagNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var tagBatch in tagBatches)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var tagTableName = tagBatch.Item1;
                         _logger?.LogDebug("Processing tag table: {TagTableName}", tagTableName);
 
-                        var tags = _v21Adapter.GetTags(tagTable);
-                        if (tags == null)
+                        foreach (var tag in tagBatch.Item2)
                         {
-                            continue;
-                        }
-
-                        foreach (var tag in tags)
-                        {
+                            cancellationToken.ThrowIfCancellationRequested();
                             result.Summary.TotalProcessed++;
 
                             var oldName = _v21Adapter.GetName(tag) ?? "Unknown";
@@ -184,9 +198,14 @@ namespace OpenTiaToolkit.Core.Services
 
                                     try
                                     {
+                                        cancellationToken.ThrowIfCancellationRequested();
                                         _v21Adapter.SetName(tag, newName);
                                         existingTagNames.Add(newName);
                                         result.Summary.ChangesApplied++;
+                                    }
+                                    catch (OperationCanceledException)
+                                    {
+                                        throw;
                                     }
                                     catch (Exception ex)
                                     {
@@ -211,6 +230,10 @@ namespace OpenTiaToolkit.Core.Services
                                     After = newName
                                 });
                             }
+                            catch (OperationCanceledException)
+                            {
+                                throw;
+                            }
                             catch (Exception ex)
                             {
                                 result.Errors.Add(new ErrorEntry
@@ -223,6 +246,13 @@ namespace OpenTiaToolkit.Core.Services
                                 });
                                 result.Summary.Errors++;
                             }
+
+                            ReportProgress(
+                                progress,
+                                $"Processed PLC tag {tagPath}.",
+                                result.Summary.TotalProcessed,
+                                totalTags,
+                                "find-replace-tags");
                         }
                     }
 
@@ -244,6 +274,10 @@ namespace OpenTiaToolkit.Core.Services
 
                     return result;
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Error during FindAndReplaceTagsAsync operation");
@@ -256,7 +290,7 @@ namespace OpenTiaToolkit.Core.Services
                     });
                     return result;
                 }
-            });
+            }, cancellationToken);
         }
 
         public async Task<CreateTagResult> CreateTagAsync(
@@ -437,7 +471,9 @@ namespace OpenTiaToolkit.Core.Services
 
         public async Task<TagModificationResult> ModifyTagsAsync(
             IReadOnlyList<TagModificationOperation> operations,
-            bool dryRun = true)
+            bool dryRun = true,
+            CancellationToken cancellationToken = default,
+            IProgress<BatchOperationProgress>? progress = null)
         {
             if (operations == null)
             {
@@ -446,6 +482,7 @@ namespace OpenTiaToolkit.Core.Services
 
             return await Task.Run(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var result = new TagModificationResult
                 {
                     DryRun = dryRun
@@ -459,6 +496,7 @@ namespace OpenTiaToolkit.Core.Services
                     return result;
                 }
 
+                ReportProgress(progress, "Reading PLC tag tables.", 0, operations.Count, "read-tag-tables");
                 var tagTables = _v21Adapter.GetTagTables(plcSoftware);
                 if (tagTables == null)
                 {
@@ -476,6 +514,7 @@ namespace OpenTiaToolkit.Core.Services
                 var tags = new List<MutableTagState>();
                 foreach (var table in tables)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var tableTags = _v21Adapter.GetTags(table.TableObject);
                     if (tableTags == null)
                     {
@@ -498,10 +537,21 @@ namespace OpenTiaToolkit.Core.Services
 
                 for (var index = 0; index < operations.Count; index++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var operation = operations[index];
+                    ReportProgress(
+                        progress,
+                        $"Processing tag operation {index + 1} of {operations.Count}: {operation.Action}.",
+                        index,
+                        operations.Count,
+                        dryRun ? "plan-tag-modifications" : "apply-tag-modifications");
                     try
                     {
-                        ExecuteTagModification(operation, index + 1, tables, tags, result, dryRun);
+                        ExecuteTagModification(operation, index + 1, tables, tags, result, dryRun, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -512,10 +562,17 @@ namespace OpenTiaToolkit.Core.Services
                             operation.Action,
                             AddSafetyLoginReminder(ex.Message));
                     }
+
+                    ReportProgress(
+                        progress,
+                        $"Processed tag operation {index + 1} of {operations.Count}: {operation.Action}.",
+                        index + 1,
+                        operations.Count,
+                        dryRun ? "plan-tag-modifications" : "apply-tag-modifications");
                 }
 
                 return result;
-            });
+            }, cancellationToken);
         }
 
         private void ExecuteTagModification(
@@ -524,22 +581,24 @@ namespace OpenTiaToolkit.Core.Services
             IReadOnlyList<TagTableState> tables,
             List<MutableTagState> tags,
             TagModificationResult result,
-            bool dryRun)
+            bool dryRun,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var action = (operation.Action ?? string.Empty).Trim().ToLowerInvariant();
             switch (action)
             {
                 case "create":
-                    ExecuteCreateOperation(operation, index, tables, tags, result, dryRun);
+                    ExecuteCreateOperation(operation, index, tables, tags, result, dryRun, cancellationToken);
                     return;
                 case "update":
-                    ExecuteUpdateOperation(operation, index, tags, result, dryRun);
+                    ExecuteUpdateOperation(operation, index, tags, result, dryRun, cancellationToken);
                     return;
                 case "delete":
-                    ExecuteDeleteOperation(operation, index, tags, result, dryRun);
+                    ExecuteDeleteOperation(operation, index, tags, result, dryRun, cancellationToken);
                     return;
                 case "replace":
-                    ExecuteReplaceOperation(operation, index, tables, tags, result, dryRun);
+                    ExecuteReplaceOperation(operation, index, tables, tags, result, dryRun, cancellationToken);
                     return;
                 default:
                     throw new InvalidOperationException(
@@ -553,8 +612,10 @@ namespace OpenTiaToolkit.Core.Services
             IReadOnlyList<TagTableState> tables,
             List<MutableTagState> tags,
             TagModificationResult result,
-            bool dryRun)
+            bool dryRun,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             RequirePatchValue(operation.Set.HasTagTable, operation.Set.TagTable, "create requires set.tagTable");
             RequirePatchValue(operation.Set.HasName, operation.Set.Name, "create requires set.name");
             RequirePatchValue(operation.Set.HasDataType, operation.Set.DataType, "create requires set.dataType");
@@ -572,6 +633,7 @@ namespace OpenTiaToolkit.Core.Services
             };
 
             EnsureNoNameCollision(tags, snapshot.TagTable, snapshot.Name);
+            cancellationToken.ThrowIfCancellationRequested();
             var created = CreateTagState(table, snapshot, dryRun);
             tags.Add(created);
             AddModificationSuccess(result, index, operation, before: null, snapshot, dryRun);
@@ -582,8 +644,10 @@ namespace OpenTiaToolkit.Core.Services
             int index,
             List<MutableTagState> tags,
             TagModificationResult result,
-            bool dryRun)
+            bool dryRun,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!operation.Set.HasAnyValue)
             {
                 throw new InvalidOperationException("update requires at least one set value");
@@ -605,6 +669,7 @@ namespace OpenTiaToolkit.Core.Services
 
             if (!dryRun)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ApplyUpdate(tag, before, after, operation.Set);
             }
 
@@ -617,8 +682,10 @@ namespace OpenTiaToolkit.Core.Services
             int index,
             List<MutableTagState> tags,
             TagModificationResult result,
-            bool dryRun)
+            bool dryRun,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var tag = FindSingleTag(tags, operation.Match);
             var before = tag.ToSnapshot();
             if (!dryRun && !_v21Adapter.TryDelete(tag.TagObject!))
@@ -636,8 +703,10 @@ namespace OpenTiaToolkit.Core.Services
             IReadOnlyList<TagTableState> tables,
             List<MutableTagState> tags,
             TagModificationResult result,
-            bool dryRun)
+            bool dryRun,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var source = FindSingleTag(tags, operation.Match);
             var before = source.ToSnapshot();
             var after = ApplyPatch(before, operation.Set);
@@ -652,6 +721,7 @@ namespace OpenTiaToolkit.Core.Services
             }
             else
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!_v21Adapter.TryDelete(source.TagObject!))
                 {
                     throw new InvalidOperationException($"Could not delete tag '{before.Name}' before replacement");
@@ -660,6 +730,7 @@ namespace OpenTiaToolkit.Core.Services
                 source.IsDeleted = true;
                 try
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     replacement = CreateTagState(targetTable, after, dryRun: false);
                 }
                 catch (Exception createException)
@@ -1902,6 +1973,16 @@ namespace OpenTiaToolkit.Core.Services
                 "Culture '{Culture}' is not enabled in the TIA Portal Project Languages. Cannot set comment.",
                 culture);
             return false;
+        }
+
+        private static void ReportProgress(
+            IProgress<BatchOperationProgress>? progress,
+            string message,
+            int completed,
+            int? total,
+            string stage)
+        {
+            progress?.Report(new BatchOperationProgress(message, completed, total, stage));
         }
 
         private static string BuildPath(params string?[] segments)

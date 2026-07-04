@@ -177,5 +177,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps
 - Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.
 - `OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS` can be set to a positive number to make long tool calls return a structured timeout result. Timed-out calls are asked to cancel; use `operation-status` to inspect the active operation and `reset-session` if the TIA attachment remains busy.
 - The MCP server exposes built-in infrastructure tools: `operation-status` reports the active operation and latest progress, `cancel-operation` requests cooperative cancellation, and `reset-session` clears the MCP gate and disposes the current TIA attachment.
+- PLC batch tag commands (`modify-tags`, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members`) report per-operation or per-item progress and honor cooperative cancellation between items and before TIA write calls.
 - `OPEN_TIA_ARTIFACT_RETENTION_DAYS` controls best-effort cleanup for temporary command artifacts written under `%TEMP%\OpenTiaToolkit\CommandArtifacts`; the default is 7 days.
 - Do not enable parallel MCP tool calls for this server. TIA Portal sessions are stateful and should be driven serially.

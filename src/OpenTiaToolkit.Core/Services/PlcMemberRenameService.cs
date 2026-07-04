@@ -4,6 +4,7 @@ using OpenTiaToolkit.Core.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Services
@@ -28,12 +29,15 @@ namespace OpenTiaToolkit.Core.Services
             Dictionary<string, string> renameMap,
             bool caseInsensitive = false,
             bool dryRun = true,
-            string[]? targetBlocks = null)
+            string[]? targetBlocks = null,
+            CancellationToken cancellationToken = default,
+            IProgress<BatchOperationProgress>? progress = null)
         {
             var result = new FindReplaceResult();
 
             return await Task.Run(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var plcSoftware = _sessionContext.PlcSoftware;
                 var plcName = _sessionContext.CurrentPlcName;
                 if (plcSoftware == null || string.IsNullOrEmpty(plcName))
@@ -56,6 +60,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
+                    ReportProgress(progress, "Finding target GlobalDB blocks.", 0, null, "find-global-dbs");
                     var targetBlockList = _v21Adapter.FindGlobalDbs(plcSoftware, targetBlocks);
                     if (targetBlockList == null)
                     {
@@ -68,10 +73,19 @@ namespace OpenTiaToolkit.Core.Services
                         return result;
                     }
 
+                    var processedBlocks = 0;
                     foreach (var block in targetBlockList)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        processedBlocks++;
                         var blockName = _v21Adapter.GetName(block) ?? "Unknown";
                         _logger?.LogInformation("Processing GlobalDB: {BlockName}", blockName);
+                        ReportProgress(
+                            progress,
+                            $"Processing GlobalDB {processedBlocks} of {targetBlockList.Count}: {blockName}.",
+                            processedBlocks - 1,
+                            targetBlockList.Count,
+                            "find-replace-db-members");
 
                         try
                         {
@@ -81,7 +95,11 @@ namespace OpenTiaToolkit.Core.Services
                                 continue;
                             }
 
-                            ProcessMembers(members, renameMap, caseInsensitive, dryRun, blockName, "DB Member", result);
+                            ProcessMembers(members, renameMap, caseInsensitive, dryRun, blockName, "DB Member", result, cancellationToken, progress);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
                         }
                         catch (Exception ex)
                         {
@@ -95,6 +113,13 @@ namespace OpenTiaToolkit.Core.Services
                             });
                             result.Summary.Errors++;
                         }
+
+                        ReportProgress(
+                            progress,
+                            $"Processed GlobalDB {processedBlocks} of {targetBlockList.Count}: {blockName}.",
+                            processedBlocks,
+                            targetBlockList.Count,
+                            "find-replace-db-members");
                     }
 
                     _logger?.LogInformation(
@@ -108,6 +133,10 @@ namespace OpenTiaToolkit.Core.Services
 
                     return result;
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Error during FindAndReplaceDbMembersAsync operation");
@@ -120,19 +149,22 @@ namespace OpenTiaToolkit.Core.Services
                     });
                     return result;
                 }
-            });
+            }, cancellationToken);
         }
 
         public async Task<FindReplaceResult> FindAndReplaceUdtMembersAsync(
             Dictionary<string, string> renameMap,
             bool caseInsensitive = false,
             bool dryRun = true,
-            string[]? targetTypes = null)
+            string[]? targetTypes = null,
+            CancellationToken cancellationToken = default,
+            IProgress<BatchOperationProgress>? progress = null)
         {
             var result = new FindReplaceResult();
 
             return await Task.Run(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var plcSoftware = _sessionContext.PlcSoftware;
                 var plcName = _sessionContext.CurrentPlcName;
                 if (plcSoftware == null || string.IsNullOrEmpty(plcName))
@@ -155,6 +187,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
+                    ReportProgress(progress, "Finding target UDT types.", 0, null, "find-udts");
                     var targetTypeList = _v21Adapter.FindUdts(plcSoftware, targetTypes);
                     if (targetTypeList == null)
                     {
@@ -167,10 +200,19 @@ namespace OpenTiaToolkit.Core.Services
                         return result;
                     }
 
+                    var processedTypes = 0;
                     foreach (var type in targetTypeList)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        processedTypes++;
                         var typeName = _v21Adapter.GetName(type) ?? "Unknown";
                         _logger?.LogInformation("Processing UDT: {TypeName}", typeName);
+                        ReportProgress(
+                            progress,
+                            $"Processing UDT {processedTypes} of {targetTypeList.Count}: {typeName}.",
+                            processedTypes - 1,
+                            targetTypeList.Count,
+                            "find-replace-udt-members");
 
                         try
                         {
@@ -180,7 +222,11 @@ namespace OpenTiaToolkit.Core.Services
                                 continue;
                             }
 
-                            ProcessMembers(members, renameMap, caseInsensitive, dryRun, typeName, "UDT Member", result);
+                            ProcessMembers(members, renameMap, caseInsensitive, dryRun, typeName, "UDT Member", result, cancellationToken, progress);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
                         }
                         catch (Exception ex)
                         {
@@ -194,6 +240,13 @@ namespace OpenTiaToolkit.Core.Services
                             });
                             result.Summary.Errors++;
                         }
+
+                        ReportProgress(
+                            progress,
+                            $"Processed UDT {processedTypes} of {targetTypeList.Count}: {typeName}.",
+                            processedTypes,
+                            targetTypeList.Count,
+                            "find-replace-udt-members");
                     }
 
                     _logger?.LogInformation(
@@ -207,6 +260,10 @@ namespace OpenTiaToolkit.Core.Services
 
                     return result;
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Error during FindAndReplaceUdtMembersAsync operation");
@@ -219,7 +276,7 @@ namespace OpenTiaToolkit.Core.Services
                     });
                     return result;
                 }
-            });
+            }, cancellationToken);
         }
 
         private void ProcessMembers(
@@ -229,11 +286,14 @@ namespace OpenTiaToolkit.Core.Services
             bool dryRun,
             string parentPath,
             string itemType,
-            FindReplaceResult result)
+            FindReplaceResult result,
+            CancellationToken cancellationToken,
+            IProgress<BatchOperationProgress>? progress)
         {
             foreach (var member in members)
             {
-                ProcessMember(member, renameMap, caseInsensitive, dryRun, parentPath, itemType, result);
+                cancellationToken.ThrowIfCancellationRequested();
+                ProcessMember(member, renameMap, caseInsensitive, dryRun, parentPath, itemType, result, cancellationToken, progress);
             }
         }
 
@@ -244,8 +304,11 @@ namespace OpenTiaToolkit.Core.Services
             bool dryRun,
             string parentPath,
             string itemType,
-            FindReplaceResult result)
+            FindReplaceResult result,
+            CancellationToken cancellationToken,
+            IProgress<BatchOperationProgress>? progress)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             result.Summary.TotalProcessed++;
 
             var memberName = _v21Adapter.GetName(member) ?? "Unknown";
@@ -278,6 +341,7 @@ namespace OpenTiaToolkit.Core.Services
 
                     if (!dryRun)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         _v21Adapter.SetName(member, newName);
                         result.Summary.ChangesApplied++;
                     }
@@ -304,8 +368,12 @@ namespace OpenTiaToolkit.Core.Services
                 var nestedMembers = _v21Adapter.GetNestedMembers(member);
                 if (nestedMembers != null)
                 {
-                    ProcessMembers(nestedMembers, renameMap, caseInsensitive, dryRun, memberPath, itemType, result);
+                    ProcessMembers(nestedMembers, renameMap, caseInsensitive, dryRun, memberPath, itemType, result, cancellationToken, progress);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -319,6 +387,25 @@ namespace OpenTiaToolkit.Core.Services
                 });
                 result.Summary.Errors++;
             }
+
+            ReportProgress(
+                progress,
+                $"Processed {itemType.ToLowerInvariant()} {memberPath}.",
+                result.Summary.TotalProcessed,
+                null,
+                itemType.Equals("DB Member", StringComparison.OrdinalIgnoreCase)
+                    ? "find-replace-db-members"
+                    : "find-replace-udt-members");
+        }
+
+        private static void ReportProgress(
+            IProgress<BatchOperationProgress>? progress,
+            string message,
+            int completed,
+            int? total,
+            string stage)
+        {
+            progress?.Report(new BatchOperationProgress(message, completed, total, stage));
         }
 
         private static string BuildPath(params string?[] segments)

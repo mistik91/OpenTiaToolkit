@@ -82,6 +82,8 @@ Use `modify-tags` for explicit `create`, `update`, `delete`, and `replace` opera
 
 Use `replace` when the intent is to delete and recreate a tag so stale PLC references are exposed. Applying `delete` or `replace` requires `confirm=true`. Do not infer page-number, base-name, address-shift, table-selection, or auto-suffix behavior; inspect tags and encode the intended operations explicitly.
 
+Over MCP, `modify-tags` reports operation-level progress and can be cancelled cooperatively between operations and before TIA write calls. For long batches, check `operation-status` before retrying and use `cancel-operation` when the user wants to stop.
+
 If safety program access is required, use the provided `safety-password` only when the user supplied it for this task. Do not ask for or persist passwords unless the operation blocks without one.
 
 ## Rename Workflows
@@ -97,6 +99,8 @@ Use `target-blocks` or `target-types` when the user intended a limited scope. Us
 When a rename targets a concrete tag, block, DB member container, UDT, or source name, run `get-cross-references` first and include the impact summary in the preview.
 
 For broad rename previews, prefer `output-path` so `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members` write tabular CSV rows. If omitted, large rename results auto-spill to CSV artifacts once inline JSON would exceed the toolkit threshold.
+
+Over MCP, the find/replace commands report item progress and can be cancelled cooperatively between processed tags or members and before TIA write calls.
 
 After applying renames, verify candidate objects and compile the PLC. If the preview shows ambiguous matches, stop and ask for a narrower mapping or scope.
 

@@ -1673,6 +1673,8 @@ delete,INPUT,Unused,,,,,,,false
 
 Use exactly one of `operations` or `input-path`. `dry-run` defaults to `true`. Applying a batch containing `delete` or `replace` requires `confirm=true`. `safety-password` and JSON `output-path` are optional.
 
+When invoked through MCP, `modify-tags` reports operation-level progress to `operation-status` and honors `cancel-operation` between operations and before TIA write calls.
+
 #### find-replace-tags
 
 Finds and replaces PLC tag names across all tag tables with optional case-insensitive matching, substring matching, and dry-run preview.
@@ -1704,6 +1706,8 @@ OpenTiaToolkit.CLI.exe find-replace-tags --plc-name="PLC_1" --rename-map='{"Moto
 - `dry-run` (optional): Preview changes without applying (default: true)
 - `substring-match` (optional): Enable substring matching instead of exact matching (default: false)
 - `output-path` (optional): CSV file or folder path for result rows. If omitted, large inline results automatically spill to a temporary CSV artifact.
+
+When invoked through MCP, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members` report batch progress to `operation-status` and honor `cancel-operation` between processed tags, DB members, UDT members, and before TIA write calls.
 
 **Substring Matching**:
 When `substring-match=true`, the command will find and replace substrings within tag names rather than requiring exact matches. This is useful for bulk renaming operations.

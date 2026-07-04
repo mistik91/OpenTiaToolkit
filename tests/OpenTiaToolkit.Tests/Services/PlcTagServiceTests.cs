@@ -1,10 +1,12 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services;
 using OpenTiaToolkit.Core.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Tests.Services
@@ -485,6 +487,70 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.AreEqual("Original", replacement.Comment.Items[0].Text);
         }
 
+        [TestMethod]
+        public async Task ModifyTagsAsync_ReportsProgressAndCancelsBetweenOperations()
+        {
+            var service = CreateService(new FakeTagTable
+            {
+                Name = "INPUT"
+            });
+            var operations = TagModificationInputParser.ParseJson(
+                "[" +
+                "{\"action\":\"create\",\"set\":{\"tagTable\":\"INPUT\",\"name\":\"Signal1\",\"dataType\":\"Bool\"}}," +
+                "{\"action\":\"create\",\"set\":{\"tagTable\":\"INPUT\",\"name\":\"Signal2\",\"dataType\":\"Bool\"}}" +
+                "]");
+            using var cancellation = new CancellationTokenSource();
+            var updates = new List<BatchOperationProgress>();
+
+            await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () =>
+                await service.ModifyTagsAsync(
+                    operations,
+                    dryRun: true,
+                    cancellation.Token,
+                    new InlineProgress<BatchOperationProgress>(update =>
+                    {
+                        updates.Add(update);
+                        if (update.Completed == 1 && update.Total == 2)
+                        {
+                            cancellation.Cancel();
+                        }
+                    })));
+
+            Assert.IsTrue(updates.Any(update => update.Stage == "plan-tag-modifications" && update.Completed == 1 && update.Total == 2));
+        }
+
+        [TestMethod]
+        public async Task FindAndReplaceTagsAsync_ReportsProgressAndCancelsBetweenTags()
+        {
+            var service = CreateService(new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags =
+                {
+                    new FakeTag { Name = "Signal1", DataType = "Bool", LogicalAddress = "%I0.0" },
+                    new FakeTag { Name = "Signal2", DataType = "Bool", LogicalAddress = "%I0.1" }
+                }
+            });
+            using var cancellation = new CancellationTokenSource();
+            var updates = new List<BatchOperationProgress>();
+
+            await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () =>
+                await service.FindAndReplaceTagsAsync(
+                    new Dictionary<string, string> { ["Signal1"] = "SignalA", ["Signal2"] = "SignalB" },
+                    dryRun: true,
+                    cancellationToken: cancellation.Token,
+                    progress: new InlineProgress<BatchOperationProgress>(update =>
+                    {
+                        updates.Add(update);
+                        if (update.Stage == "find-replace-tags" && update.Completed == 1 && update.Total == 2)
+                        {
+                            cancellation.Cancel();
+                        }
+                    })));
+
+            Assert.IsTrue(updates.Any(update => update.Stage == "find-replace-tags" && update.Completed == 1 && update.Total == 2));
+        }
+
         private static PlcTagService CreateService(params FakeTagTable[] tagTables)
         {
             var plcSoftware = new FakePlcSoftware
@@ -507,6 +573,21 @@ namespace OpenTiaToolkit.Tests.Services
             var csvPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.csv");
             File.WriteAllLines(csvPath, lines);
             return csvPath;
+        }
+
+        private sealed class InlineProgress<T> : IProgress<T>
+        {
+            private readonly Action<T> _report;
+
+            public InlineProgress(Action<T> report)
+            {
+                _report = report;
+            }
+
+            public void Report(T value)
+            {
+                _report(value);
+            }
         }
 
         private sealed class FakePlcSoftware

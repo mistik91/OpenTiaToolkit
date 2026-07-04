@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Tests.Commands
@@ -51,7 +52,9 @@ namespace OpenTiaToolkit.Tests.Commands
                         It.Is<Dictionary<string, string>>(map => map["Motor_Speed"] == "MotorSpeed"),
                         false,
                         true,
-                        false))
+                        false,
+                        It.IsAny<CancellationToken>(),
+                        It.IsAny<IProgress<BatchOperationProgress>>()))
                     .ReturnsAsync(serviceResult);
 
                 var command = new FindAndReplaceTagsCommand(plcService.Object);
@@ -106,7 +109,9 @@ namespace OpenTiaToolkit.Tests.Commands
                     It.Is<Dictionary<string, string>>(map => map["Motor_Speed"] == "MotorSpeed"),
                     false,
                     true,
-                    false))
+                    false,
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<IProgress<BatchOperationProgress>>()))
                 .ReturnsAsync(serviceResult);
 
             var command = new FindAndReplaceTagsCommand(plcService.Object);
@@ -151,7 +156,9 @@ namespace OpenTiaToolkit.Tests.Commands
                     It.IsAny<Dictionary<string, string>>(),
                     false,
                     true,
-                    It.IsAny<string[]>()))
+                    It.IsAny<string[]>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<IProgress<BatchOperationProgress>>()))
                 .ReturnsAsync(serviceResult);
 
             var command = new FindAndReplaceDbMembersCommand(plcService.Object);
