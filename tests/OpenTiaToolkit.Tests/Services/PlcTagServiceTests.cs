@@ -488,6 +488,54 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public async Task ModifyTagsAsync_AppliedCreateFailureIncludesAfterIdentity()
+        {
+            var table = new FakeTagTable { Name = "SAFETY" };
+            table.Tags.CreateFailureMessage = "permission to modify the safety program is missing";
+            var service = CreateService(table);
+            var operations = TagModificationInputParser.ParseJson(
+                "[{\"action\":\"create\",\"set\":{\"tagTable\":\"SAFETY\",\"name\":\"SafeProbe\",\"dataType\":\"Bool\",\"logicalAddress\":\"%I1900.3\"}}]");
+
+            var result = await service.ModifyTagsAsync(operations, dryRun: false);
+
+            Assert.AreEqual(1, result.Summary.Failed);
+            Assert.AreEqual(0, result.Summary.Applied);
+            var entry = result.Operations.Single();
+            Assert.AreEqual("Failed", entry.Status);
+            Assert.IsNull(entry.Before);
+            Assert.IsNotNull(entry.After);
+            Assert.AreEqual("SAFETY", entry.After!.TagTable);
+            Assert.AreEqual("SafeProbe", entry.After.Name);
+            Assert.AreEqual("Bool", entry.After.DataType);
+            Assert.AreEqual("%I1900.3", entry.After.LogicalAddress);
+            StringAssert.Contains(entry.Message, "permission to modify the safety program");
+        }
+
+        [TestMethod]
+        public async Task ModifyTagsAsync_CreateCollisionIncludesAfterIdentity()
+        {
+            var service = CreateService(new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags = { new FakeTag { Name = "Signal", DataType = "Bool", LogicalAddress = "%I0.0" } }
+            });
+            var operations = TagModificationInputParser.ParseJson(
+                "[{\"action\":\"create\",\"set\":{\"tagTable\":\"INPUT\",\"name\":\"Signal\",\"dataType\":\"Bool\",\"logicalAddress\":\"%I0.1\"}}]");
+
+            var result = await service.ModifyTagsAsync(operations, dryRun: false);
+
+            Assert.AreEqual(1, result.Summary.Failed);
+            var entry = result.Operations.Single();
+            Assert.AreEqual("Failed", entry.Status);
+            Assert.IsNull(entry.Before);
+            Assert.IsNotNull(entry.After);
+            Assert.AreEqual("INPUT", entry.After!.TagTable);
+            Assert.AreEqual("Signal", entry.After.Name);
+            Assert.AreEqual("%I0.1", entry.After.LogicalAddress);
+            StringAssert.Contains(entry.Message, "already exists");
+        }
+
+        [TestMethod]
         public async Task ModifyTagsAsync_ReportsProgressAndCancelsBetweenOperations()
         {
             var service = CreateService(new FakeTagTable
@@ -609,8 +657,15 @@ namespace OpenTiaToolkit.Tests.Services
 
         private sealed class FakeTagCollection : List<FakeTag>
         {
+            public string? CreateFailureMessage { get; set; }
+
             public FakeTag Create(string name, string dataType, string logicalAddress)
             {
+                if (CreateFailureMessage != null)
+                {
+                    throw new InvalidOperationException(CreateFailureMessage);
+                }
+
                 if (this.Any(tag => !tag.IsDeleted && string.Equals(tag.Name, name, StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new InvalidOperationException($"Tag '{name}' already exists.");

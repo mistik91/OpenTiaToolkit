@@ -43,7 +43,10 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 return CommandResult.CreateFailure("Missing required parameter: plc-name");
             }
 
-            await OpenPlcIfNeeded(_plcService, plcName, context);
+            if (!await OpenPlcIfNeeded(_plcService, plcName, context))
+            {
+                return CommandResult.CreateFailure($"Failed to open PLC software: {plcName}");
+            }
             var culture = args.GetString("culture");
             if (string.IsNullOrWhiteSpace(culture))
             {
@@ -87,13 +90,16 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
         private static CommandParameter RequiredPlcName() => new CommandParameter("plc-name", CommandParameterType.String, "The name of the PLC device", required: true);
 
-        private static async Task OpenPlcIfNeeded(IPlcService plcService, string plcName, CommandExecutionContext context)
+        private static async Task<bool> OpenPlcIfNeeded(IPlcService plcService, string plcName, CommandExecutionContext context)
         {
-            if (!plcService.IsSoftwareOpen || plcService.CurrentPlcName != plcName)
+            if (!plcService.IsSoftwareOpen ||
+                !string.Equals(plcService.CurrentPlcName, plcName, StringComparison.OrdinalIgnoreCase))
             {
                 context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
-                await plcService.OpenPlcAsync(plcName);
+                return await plcService.OpenPlcAsync(plcName);
             }
+
+            return true;
         }
     }
 
@@ -139,7 +145,11 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 return CommandResult.CreateFailure("Missing required parameter: name");
             }
 
-            await OpenPlcIfNeeded(_plcService, plcName, context);
+            if (!await OpenPlcIfNeeded(_plcService, plcName, context))
+            {
+                return CommandResult.CreateFailure($"Failed to open PLC software: {plcName}");
+            }
+
             context.Checkpoint($"Reading PLC cross references for: {name}.", 55, "get-cross-references");
             var result = await _plcService.GetCrossReferencesAsync(name);
             if (!result.Success)
@@ -177,13 +187,16 @@ namespace OpenTiaToolkit.Core.Commands.Plc
 
         private static CommandParameter RequiredPlcName() => new CommandParameter("plc-name", CommandParameterType.String, "The name of the PLC device", required: true);
 
-        private static async Task OpenPlcIfNeeded(IPlcService plcService, string plcName, CommandExecutionContext context)
+        private static async Task<bool> OpenPlcIfNeeded(IPlcService plcService, string plcName, CommandExecutionContext context)
         {
-            if (!plcService.IsSoftwareOpen || plcService.CurrentPlcName != plcName)
+            if (!plcService.IsSoftwareOpen ||
+                !string.Equals(plcService.CurrentPlcName, plcName, StringComparison.OrdinalIgnoreCase))
             {
                 context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
-                await plcService.OpenPlcAsync(plcName);
+                return await plcService.OpenPlcAsync(plcName);
             }
+
+            return true;
         }
     }
 
@@ -226,10 +239,14 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 return CommandResult.CreateFailure("Missing required parameter: plc-name");
             }
 
-            if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName)
+            if (!_plcService.IsSoftwareOpen ||
+                !string.Equals(_plcService.CurrentPlcName, plcName, StringComparison.OrdinalIgnoreCase))
             {
                 context.Checkpoint($"Opening PLC software: {plcName}.", 25, "open-plc");
-                await _plcService.OpenPlcAsync(plcName);
+                if (!await _plcService.OpenPlcAsync(plcName))
+                {
+                    return CommandResult.CreateFailure($"Failed to open PLC software: {plcName}");
+                }
             }
 
             context.Checkpoint($"Reading {Description.ToLowerInvariant()} from TIA Portal.", 55, "list-plc-surface-items");

@@ -632,11 +632,29 @@ namespace OpenTiaToolkit.Core.Services
                 Comment = operation.Set.HasComment ? operation.Set.Comment : null
             };
 
-            EnsureNoNameCollision(tags, snapshot.TagTable, snapshot.Name);
-            cancellationToken.ThrowIfCancellationRequested();
-            var created = CreateTagState(table, snapshot, dryRun);
-            tags.Add(created);
-            AddModificationSuccess(result, index, operation, before: null, snapshot, dryRun);
+            try
+            {
+                EnsureNoNameCollision(tags, snapshot.TagTable, snapshot.Name);
+                cancellationToken.ThrowIfCancellationRequested();
+                var created = CreateTagState(table, snapshot, dryRun);
+                tags.Add(created);
+                AddModificationSuccess(result, index, operation, before: null, snapshot, dryRun);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                AddModificationFailure(
+                    result,
+                    index,
+                    operation.SourceLine,
+                    operation.Action,
+                    AddSafetyLoginReminder(ex.Message),
+                    before: null,
+                    after: snapshot);
+            }
         }
 
         private void ExecuteUpdateOperation(
@@ -669,8 +687,27 @@ namespace OpenTiaToolkit.Core.Services
 
             if (!dryRun)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                ApplyUpdate(tag, before, after, operation.Set);
+                try
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ApplyUpdate(tag, before, after, operation.Set);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    AddModificationFailure(
+                        result,
+                        index,
+                        operation.SourceLine,
+                        operation.Action,
+                        AddSafetyLoginReminder(ex.Message),
+                        before,
+                        after);
+                    return;
+                }
             }
 
             tag.Apply(after);
@@ -690,7 +727,15 @@ namespace OpenTiaToolkit.Core.Services
             var before = tag.ToSnapshot();
             if (!dryRun && !_v21Adapter.TryDelete(tag.TagObject!))
             {
-                throw new InvalidOperationException($"Could not delete tag '{before.Name}'");
+                AddModificationFailure(
+                    result,
+                    index,
+                    operation.SourceLine,
+                    operation.Action,
+                    $"Could not delete tag '{before.Name}'",
+                    before,
+                    after: null);
+                return;
             }
 
             tag.IsDeleted = true;
@@ -724,7 +769,15 @@ namespace OpenTiaToolkit.Core.Services
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!_v21Adapter.TryDelete(source.TagObject!))
                 {
-                    throw new InvalidOperationException($"Could not delete tag '{before.Name}' before replacement");
+                    AddModificationFailure(
+                        result,
+                        index,
+                        operation.SourceLine,
+                        operation.Action,
+                        $"Could not delete tag '{before.Name}' before replacement",
+                        before,
+                        after);
+                    return;
                 }
 
                 source.IsDeleted = true;
@@ -733,13 +786,24 @@ namespace OpenTiaToolkit.Core.Services
                     cancellationToken.ThrowIfCancellationRequested();
                     replacement = CreateTagState(targetTable, after, dryRun: false);
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception createException)
                 {
                     TryRestoreReplacedTag(source.Table, before);
                     source.IsDeleted = false;
-                    throw new InvalidOperationException(
-                        $"Replacement creation failed after deleting '{before.Name}'. A rollback was attempted. {createException.Message}",
-                        createException);
+                    AddModificationFailure(
+                        result,
+                        index,
+                        operation.SourceLine,
+                        operation.Action,
+                        AddSafetyLoginReminder(
+                            $"Replacement creation failed after deleting '{before.Name}'. A rollback was attempted. {createException.Message}"),
+                        before,
+                        after);
+                    return;
                 }
             }
 
@@ -1007,7 +1071,9 @@ namespace OpenTiaToolkit.Core.Services
             int index,
             int? sourceLine,
             string action,
-            string message)
+            string message,
+            TagSnapshot? before = null,
+            TagSnapshot? after = null)
         {
             result.Operations.Add(new TagModificationEntry
             {
@@ -1015,6 +1081,8 @@ namespace OpenTiaToolkit.Core.Services
                 SourceLine = sourceLine,
                 Action = action,
                 Status = "Failed",
+                Before = before,
+                After = after,
                 Message = message
             });
             result.Summary.Failed++;

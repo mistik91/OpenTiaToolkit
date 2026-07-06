@@ -61,6 +61,24 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task ExportTags_FailsWhenRequestedPlcCannotBeOpened()
+        {
+            var plcService = new Mock<IPlcService>();
+            plcService.SetupGet(service => service.IsSoftwareOpen).Returns(true);
+            plcService.SetupGet(service => service.CurrentPlcName).Returns("PLC_1");
+            plcService
+                .Setup(service => service.OpenPlcAsync("RemoteIo_1"))
+                .ReturnsAsync(false);
+
+            var command = new ExportTagsCommand(plcService.Object);
+            var result = await command.ExecuteAsync(Args(("plc-name", "RemoteIo_1")), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "Failed to open PLC software: RemoteIo_1");
+            plcService.Verify(service => service.ExportTagsAsync(It.IsAny<string>()), Times.Never);
+        }
+
+        [TestMethod]
         public async Task GetCrossReferences_ReturnsFailureWhenServiceDoesNotSupportLookup()
         {
             var serviceResult = new PlcCrossReferenceResult(
