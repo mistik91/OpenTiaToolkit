@@ -1,151 +1,154 @@
 <p align="center">
-  <img src="docs/assets/opentia-toolkit-logo.png" alt="OpenTiaToolkit logo" width="720">
+  <img src="docs/assets/opentia-toolkit-logo.png" alt="OpenTiaToolkit" width="720">
 </p>
 
-# OpenTiaToolkit
+<p align="center">
+  Safety-first automation for Siemens TIA Portal V21 through one shared CLI, MCP, and blueprint surface.
+</p>
 
-OpenTiaToolkit is a Windows automation toolkit for Siemens TIA Portal Openness. It provides one shared command surface through a human-friendly CLI and an MCP server for agent/harness workflows.
+<p align="center">
+  <img alt="TIA Portal V21" src="https://img.shields.io/badge/TIA_Portal-V21_only-0078D4">
+  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.1-orange">
+  <img alt="Platform Windows" src="https://img.shields.io/badge/platform-Windows-0078D6">
+  <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-2ea44f">
+</p>
 
-Phase 3 adds versioned worker manifests, API migration contracts, state-bound declarative blueprints, and bounded official V21 insight commands. See [engineering blueprints](docs/BLUEPRINTS.md), [API compatibility](docs/API_COMPATIBILITY.md), and [official API insights](docs/OFFICIAL_API_INSIGHTS.md).
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#what-you-can-automate">Capabilities</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="docs/generated/COMMAND_REFERENCE.md">142 commands</a> ·
+  <a href="docs/BLUEPRINTS.md">Blueprints</a> ·
+  <a href="docs/SETUP.md">Documentation</a>
+</p>
 
-The project supports **TIA Portal V21 only**. Other TIA Portal major versions, including V20 and the future V22 release, are unsupported until a dedicated worker package and compatibility profile have been implemented and validated.
+---
 
-## What It Does
+OpenTiaToolkit is an open-source Windows engineering automation platform for Siemens TIA Portal Openness. It exposes the same versioned command catalog through a human-friendly CLI, an MCP server for coding agents, and declarative blueprints for repeatable engineering outcomes.
 
-- Connects to running TIA Portal instances or opens a new one.
-- Opens, inspects, saves, and closes TIA Portal projects.
-- Lists project languages and exports/imports Siemens project text workbooks for translation workflows.
-- Lists devices, PLCs, HMI devices, project trees, and PLC software trees.
-- Runs PLC workflows such as compile, online compare, guarded PLCSIM Advanced download, online status checks, block browse, import/export, VCI workspace synchronization, search, delete, tag creation, CSV tag updates, and rename operations.
-- Works with project and global libraries: open/list/close global libraries, list master copies and library types, copy approved master copies into PLC block groups, and report library update status before mutation.
-- Supports generic hardware catalog discovery, module/submodule composition, PROFINET IO identity/wiring, process-image address assignment, Startdrive telegram configuration, and transactional GSD/GSDML parameter changes.
-- Supports Unified HMI browse, screen/item mutation, tag/trend setup, JSON export/diff/import, focused screen patches, faceplate interface probes, and safety preflights.
-- Exposes the same worker catalog through vendor-free CLI and MCP hosts; Siemens session ownership remains isolated in the V21 worker.
-- Ships agent-ready workflow guidance for common TIA/HMI interaction patterns.
+The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and later require a dedicated worker package, compatibility profile, and live validation before support is claimed.
 
-For workflows and examples, see [CLI usage](docs/CLI_USAGE.md). The complete generated surfaces are the [command reference](docs/generated/COMMAND_REFERENCE.md), [MCP tool reference](docs/generated/MCP_TOOL_REFERENCE.md), and [machine-readable catalog](docs/generated/command-catalog.json).
+> [!IMPORTANT]
+> The current public build is [`1.0.0-preview.1`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.1) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
 
-See the [1.0.0 release notes](docs/RELEASE_NOTES_1.0.0.md) for compatibility, validation evidence, and operational guidance.
+## Why OpenTiaToolkit
 
-## Integrations
+| Capability | What it provides |
+|---|---|
+| One shared surface | 142 commands implemented once and exposed consistently through CLI and MCP |
+| Safe mutations | Central policy, previews, explicit confirmation, typed outcomes, read-back checks, and redacted audit records |
+| Process isolation | Siemens objects stay inside a disposable V21 worker with a serialized request queue |
+| Declarative automation | State-bound blueprints turn reviewed PLC, HMI, and hardware intent into previewable plans |
+| Explicit compatibility | `doctor`, assembly hashes, API self-description, capability probes, and migration diffs |
+| Agent-ready workflows | Packaged skills and client configurations for Codex, Claude, OpenCode, VS Code, and other MCP clients |
 
-OpenTiaToolkit includes ready-to-use plugin or bundle packages for:
+## What You Can Automate
 
-| Harness | Package |
-|---------|---------|
-| Codex | [plugins/opentia-toolkit](plugins/opentia-toolkit) |
-| Claude Code | [plugins/opentia-toolkit-claude-code](plugins/opentia-toolkit-claude-code) |
-| Claude Desktop | [plugins/opentia-toolkit-claude-desktop](plugins/opentia-toolkit-claude-desktop) |
-| OpenCode | [plugins/opentia-toolkit-opencode](plugins/opentia-toolkit-opencode) |
+| Domain | Representative workflows |
+|---|---|
+| Projects and sessions | Discover or launch TIA, connect to instances, create/open/retrieve/archive projects, inspect project trees |
+| PLC engineering | Browse software, compile, import/export blocks and sources, manage tags, cross-references, online compare, guarded PLCSIM Advanced operations |
+| Unified HMI | Browse and edit screens, tags, trends and logging; JSON snapshot/diff/patch/import; alarms, runtime settings, text lists and faceplate probes |
+| Hardware and drives | Catalog discovery, module placement, PROFINET identity and wiring, IO addressing, Startdrive telegrams and parameters, GSD/GSDML changes |
+| VCI | Create workspaces, map S7DCL content, inspect status, and synchronize individual objects or complete PLC selections |
+| Libraries and texts | Project/global library inspection, master-copy workflows, update checks, project-language workbook import/export |
+| Safety and operations | Safety validation insight, multiuser/security inspection, credential references, paging, cancellation, recovery and audit trails |
 
-It also ships MCP config snippets for users who do not want a plugin package or are using a plain MCP client:
+Browse the [generated command reference](docs/generated/COMMAND_REFERENCE.md), [MCP tool reference](docs/generated/MCP_TOOL_REFERENCE.md), or [machine-readable catalog](docs/generated/command-catalog.json) for the complete surface.
 
-| MCP Client | Configs |
-|------------|---------|
-| Codex | `codex.config.toml`, `codex.installed.config.toml` |
-| Claude Desktop | `claude-desktop.installed.json` |
-| Claude Code | `claude-code.mcp.json`, `claude-code.installed.mcp.json`, `claude-code-add.ps1` |
-| OpenCode | `opencode.jsonc`, `opencode.installed.jsonc` |
-| Google Antigravity | `antigravity.mcp_config.json`, `antigravity.installed.mcp_config.json` |
-| VS Code / GitHub Copilot | `vscode.mcp.json`, `vscode.installed.mcp.json`, user settings snippets |
+## Architecture
 
-See [MCP client configs](docs/mcp-client-configs/README.md) for the full matrix and connection sequence.
+```mermaid
+flowchart LR
+    U["Engineer or automation agent"]
+    CLI["CLI"]
+    MCP["MCP server — 145 tools"]
+    APP["Vendor-free application host<br/>validation · policy · typed results"]
+    W["Isolated V21 worker<br/>single request queue"]
+    TIA["TIA Portal V21<br/>Siemens Openness API"]
+
+    U --> CLI
+    U --> MCP
+    CLI --> APP
+    MCP --> APP
+    APP -->|"versioned IPC"| W
+    W --> TIA
+```
+
+CLI and MCP do not load Siemens assemblies. They validate requests, enforce centralized mutation policy, and communicate with a version-specific worker over private IPC. The worker owns every Siemens portal, project, PLC, and HMI object and executes one logical request at a time. If a Siemens operation becomes unhealthy, the worker is recoverable without sharing vendor objects across process boundaries.
+
+See [production architecture and recovery](docs/PRODUCTION_ARCHITECTURE.md) for the complete design.
+
+## Safety Model
+
+- Mutations are classified centrally and require explicit confirmation.
+- Previewable commands default to dry-run where practical.
+- Blueprint apply tokens are random, single-use, expire after ten minutes, and are bound to both desired state and the live project fingerprint.
+- Command results distinguish success, blocked operations, partial outcomes, cancellation, rollback failure, and transport errors.
+- Safety credentials are referenced indirectly rather than passed as normal command-line secrets.
+- MCP file access is constrained by allowed roots, size, and overwrite policy.
+- Mutation audit records carry correlation IDs and redact secrets and apply tokens.
+
+Always review previews and keep project backups before applying engineering changes.
 
 ## Quick Start
 
-### Prerequisites
+### Requirements
 
 - Windows
-- TIA Portal V21 with Openness enabled
-- .NET SDK
-- Git
+- Siemens TIA Portal V21 with Openness enabled
+- Administrator access for the Siemens Openness allow-list registration
+- A supported MCP client only if you want agent integration
 
-The default Siemens Openness reference path is:
+### Install the public preview
+
+1. Download `OpenTiaToolkit-1.0.0-preview.1-Setup.exe` and `INSTALLER-SHA256SUMS.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.1).
+2. Verify the installer:
+
+```powershell
+$expected = (Get-Content .\INSTALLER-SHA256SUMS.txt).Split()[0]
+$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.1-Setup.exe -Algorithm SHA256).Hash
+$actual.ToLowerInvariant() -eq $expected.ToLowerInvariant()
+```
+
+3. Run the installer and keep **Register the isolated OpenTiaToolkit V21 worker with Siemens Openness** selected.
+4. Open a new terminal and run the installation checks:
+
+```powershell
+& "C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe" version
+& "C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe" doctor
+```
+
+The installer places isolated `cli`, `mcp`, and `worker-v21` payloads under `C:\Program Files\OpenTiaToolkit` and configures the installed executable paths. See [setup](docs/SETUP.md) for non-standard TIA installations and troubleshooting.
+
+### Try the CLI
+
+Start an interactive session:
+
+```powershell
+& "C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe"
+```
+
+Then connect to an existing TIA session and inspect the project:
 
 ```text
-C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48
-```
-
-Most TIA Portal V21 installations use this path. Non-standard installs can override it with `TiaPortalPublicApiPath`; see [setup](docs/SETUP.md).
-
-### Install
-
-For a normal installed-product setup, download the latest Windows installer from the [GitHub releases page](https://github.com/mistik91/OpenTiaToolkit/releases):
-
-```text
-OpenTiaToolkit-1.0.0-Setup.exe
-```
-
-For local development or release packaging, build the Inno Setup installer:
-
-```powershell
-.\scripts\Build-Installer.ps1
-```
-
-The installer places the product under:
-
-```text
-C:\Program Files\OpenTiaToolkit
-```
-
-It sets `OPEN_TIA_MCP_EXE` and `OPEN_TIA_WORKER_EXE` and can register the isolated V21 worker with Siemens Openness. After installation, ask your agent to install or configure the local plugin from `C:\Program Files\OpenTiaToolkit\plugins`; see [agent plugin setup](docs/INSTALL_AGENT_PLUGINS.md).
-
-### Build
-
-```powershell
-git clone https://github.com/mistik91/OpenTiaToolkit.git
-cd OpenTiaToolkit
-dotnet build OpenTiaToolkit.sln
-```
-
-### Register Openness Allow-List Entries
-
-Siemens Openness allow-list entries are tied to executable path and hash. After building, register the exact V21 worker; CLI and MCP no longer load Siemens assemblies:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe
-```
-
-Repeat this after rebuilding or signing the worker.
-
-### Run The CLI
-
-Interactive session:
-
-```powershell
-.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe
-```
-
-Single command:
-
-```powershell
-.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe help
-```
-
-Script file:
-
-```powershell
-.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
-```
-
-Example session:
-
-```text
-connect-portal
-open-project --project-path="C:\Projects\MyProject.ap21"
+list-instances
+connect-instance --instance-id=<process-id>
+list-projects
 list-devices
 portal-status
 ```
 
-## MCP Server
+Commands can also run individually or as a stateful script:
 
-The MCP server is built at:
-
-```text
-src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
+```powershell
+OpenTiaToolkit.CLI.exe list-instances
+OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
 ```
 
-A typical installed-product config uses:
+### Connect an MCP client
+
+A typical installed-product configuration is:
 
 ```json
 {
@@ -162,61 +165,84 @@ A typical installed-product config uses:
 }
 ```
 
-The MCP server also exposes infrastructure tools for long-running TIA operations: `operation-status`, `cancel-operation`, and `reset-session`. Use `operation-status` after a timeout or busy response, and `reset-session` only when the current TIA attachment needs to be discarded. Reset requests cancellation and waits for quiescence before disposing Siemens objects; if the configured grace period expires, reset fails closed and the MCP process must be restarted. PLC batch tag commands report per-operation or per-item progress and honor cooperative cancellation between items and before TIA write calls.
+Ready-to-use configurations are included for Codex, Claude Desktop, Claude Code, OpenCode, Google Antigravity, and VS Code/GitHub Copilot. See the [MCP client configuration matrix](docs/mcp-client-configs/README.md).
 
-For development checkouts and client-specific snippets, use [docs/mcp-client-configs](docs/mcp-client-configs/README.md).
+## Declarative Blueprints
+
+Blueprints package a reviewed multi-command engineering intent into one validate → plan → apply workflow. The plan token is bound to the blueprint content and current TIA project state, so it cannot be reused after the project or desired state changes.
+
+Included examples:
+
+- [Create a Unified HMI screen](examples/blueprints/create-unified-screen.json)
+- [Ensure PLC tags exist](examples/blueprints/ensure-plc-tags.json)
+- [Configure a PROFINET device](examples/blueprints/configure-profinet-device.json)
+
+See [engineering blueprints](docs/BLUEPRINTS.md) and the [JSON Schema](schemas/engineering-blueprint.schema.json).
+
+## Build From Source
+
+```powershell
+git clone https://github.com/mistik91/OpenTiaToolkit.git
+cd OpenTiaToolkit
+dotnet restore .\OpenTiaToolkit.sln --locked-mode
+dotnet build .\OpenTiaToolkit.sln
+```
+
+The default Siemens reference path is `C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48`. Override `TiaPortalPublicApiPath` for a non-standard installation.
+
+After rebuilding the worker, register its exact path and hash:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 `
+  -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe
+```
+
+See the [developer guide](docs/DEV_GUIDE.md) for repository architecture and contribution workflows.
+
+## Integrations
+
+| Client or harness | Included package/configuration |
+|---|---|
+| Codex | [`plugins/opentia-toolkit`](plugins/opentia-toolkit) |
+| Claude Code | [`plugins/opentia-toolkit-claude-code`](plugins/opentia-toolkit-claude-code) |
+| Claude Desktop | [`plugins/opentia-toolkit-claude-desktop`](plugins/opentia-toolkit-claude-desktop) |
+| OpenCode | [`plugins/opentia-toolkit-opencode`](plugins/opentia-toolkit-opencode) |
+| Other MCP clients | [`docs/mcp-client-configs`](docs/mcp-client-configs/README.md) |
 
 ## Documentation
 
-| Topic | Link |
-|-------|------|
-| Setup and Openness registration | [docs/SETUP.md](docs/SETUP.md) |
-| Installed agent plugin setup | [docs/INSTALL_AGENT_PLUGINS.md](docs/INSTALL_AGENT_PLUGINS.md) |
-| CLI workflows and examples | [docs/CLI_USAGE.md](docs/CLI_USAGE.md) |
-| Generated CLI/MCP command references | [docs/generated/COMMAND_REFERENCE.md](docs/generated/COMMAND_REFERENCE.md), [docs/generated/MCP_TOOL_REFERENCE.md](docs/generated/MCP_TOOL_REFERENCE.md) |
-| CLI automation harness | [docs/CLI_TESTING.md](docs/CLI_TESTING.md) |
-| MCP client/plugin setup | [docs/mcp-client-configs/README.md](docs/mcp-client-configs/README.md) |
-| TIA Portal version support | [docs/TIA_PORTAL_VERSION_SUPPORT.md](docs/TIA_PORTAL_VERSION_SUPPORT.md) |
-| Production architecture and recovery | [docs/PRODUCTION_ARCHITECTURE.md](docs/PRODUCTION_ARCHITECTURE.md) |
-| Supply chain, signing, SBOM, and provenance | [docs/SUPPLY_CHAIN.md](docs/SUPPLY_CHAIN.md) |
-| Security policy | [SECURITY.md](SECURITY.md) |
-| Development notes | [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md) |
-| Generic hardware automation | [docs/HARDWARE_AUTOMATION.md](docs/HARDWARE_AUTOMATION.md) |
-| Examples | [examples/README.md](examples/README.md) |
-| Third-party notices | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
-
-## Examples
-
-The [examples](examples/README.md) folder contains:
-
-- read-only CLI project inspection
-- PLC export through the CLI
-- MCP project/device discovery
-- VCI workspace creation and bidirectional S7DCL synchronization through MCP
-- safe Unified HMI screen patch flow
-
-Use disposable project copies for mutation workflows until you are comfortable with the behavior.
+| Start here | Reference and operations |
+|---|---|
+| [Setup and Openness registration](docs/SETUP.md) | [Generated CLI reference](docs/generated/COMMAND_REFERENCE.md) |
+| [CLI workflows and examples](docs/CLI_USAGE.md) | [Generated MCP reference](docs/generated/MCP_TOOL_REFERENCE.md) |
+| [Install agent plugins](docs/INSTALL_AGENT_PLUGINS.md) | [TIA V21 compatibility](docs/TIA_PORTAL_VERSION_SUPPORT.md) |
+| [Blueprint workflow](docs/BLUEPRINTS.md) | [API compatibility and migration](docs/API_COMPATIBILITY.md) |
+| [Hardware automation](docs/HARDWARE_AUTOMATION.md) | [Production architecture and recovery](docs/PRODUCTION_ARCHITECTURE.md) |
+| [Repository examples](examples/README.md) | [Supply chain and release integrity](docs/SUPPLY_CHAIN.md) |
+| [1.0 release notes](docs/RELEASE_NOTES_1.0.0.md) | [Security policy](SECURITY.md) |
 
 ## Validation
 
-Fast tests:
+The `1.0.0-preview.1` release passed:
+
+- Release build with zero warnings and errors
+- 328 fast tests and 10 architecture tests
+- all 142 CLI help cases and six negative CLI cases
+- worker, MCP, disposable-project, blueprint and archive integration suites
+- generated-reference, packaged-skill, formatting, locked-restore, and vulnerability checks
+- staged MCP initialization with 145 tools
+- live V21 end-to-end workflows and independent-machine use
+
+Run the vendor-free fast suite locally with:
 
 ```powershell
 dotnet test .\tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
 ```
 
-Live TIA integration tests:
+## Project Status
 
-```powershell
-dotnet test .\tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --filter "TestCategory=Integration"
-```
-
-Integration tests require TIA Portal V21, allow-list registration, and local test project paths. See [setup](docs/SETUP.md#run-tests).
-
-## Status
-
-OpenTiaToolkit 1.0 is a stable, V21-only engineering automation release. The CLI, MCP server, versioned worker, plugin packages, and representative PLC/HMI/hardware workflows have passed automated release validation, live V21 end-to-end validation, and independent-machine use. Treat mutation workflows as engineering tools: review preview output, use explicit confirmation, and keep project backups.
+The engineering surface and safety architecture are release-ready for TIA Portal V21. The current public artifact remains a deliberately unsigned preview while trusted code signing is established. Large Siemens-facing adapters remain known maintainability debt, but Siemens ownership and failure isolation are contained inside the disposable worker boundary.
 
 ## License
 
-OpenTiaToolkit is licensed under the [MIT License](LICENSE).
+OpenTiaToolkit is available under the [MIT License](LICENSE). Siemens and TIA Portal are trademarks of Siemens AG. OpenTiaToolkit is an independent open-source project and is not affiliated with or endorsed by Siemens AG.
