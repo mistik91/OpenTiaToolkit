@@ -118,7 +118,10 @@ namespace OpenTiaToolkit.MCP
         {
             return new McpRuntimeOptions
             {
-                ToolTimeout = ResolveToolTimeout()
+                ToolTimeout = ResolveToolTimeout(),
+                SessionResetGracePeriod = ResolvePositiveDuration(
+                    "OPEN_TIA_MCP_RESET_GRACE_SECONDS",
+                    TimeSpan.FromSeconds(5))
             };
         }
 
@@ -141,6 +144,25 @@ namespace OpenTiaToolkit.MCP
             return null;
         }
 
+        private static TimeSpan ResolvePositiveDuration(string variableName, TimeSpan defaultValue)
+        {
+            var configuredSeconds = Environment.GetEnvironmentVariable(variableName);
+            if (string.IsNullOrWhiteSpace(configuredSeconds))
+            {
+                return defaultValue;
+            }
+
+            if (double.TryParse(configuredSeconds, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) &&
+                seconds > 0)
+            {
+                return TimeSpan.FromSeconds(seconds);
+            }
+
+            Console.Error.WriteLine(
+                $"Ignoring invalid {variableName} value '{configuredSeconds}'. Use a positive number of seconds.");
+            return defaultValue;
+        }
+
         private static string GetHelpText()
         {
             return string.Join(Environment.NewLine, new[]
@@ -154,12 +176,13 @@ namespace OpenTiaToolkit.MCP
                 "Environment:",
                 "  OPEN_TIA_MCP_LOG_LEVEL             Trace, Debug, Information, Warning, Error, Critical, or None. Default: Warning.",
                 "  OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS  Optional positive timeout for one tool call. Timed-out calls are asked to cancel; use reset-session if the attachment stays busy.",
+                "  OPEN_TIA_MCP_RESET_GRACE_SECONDS   Seconds reset-session waits for cooperative quiescence. Default: 5. A still-running call is never disposed in-process.",
                 "  OPEN_TIA_ARTIFACT_RETENTION_DAYS   Optional retention window for temporary command artifacts. Default: 7.",
                 "",
                 "Built-in MCP tools:",
                 "  operation-status                    Reports active operation details and latest progress.",
                 "  cancel-operation                    Requests cancellation of the active operation.",
-                "  reset-session                       Cancels the active operation, clears the MCP gate, and disposes the current TIA attachment.",
+                "  reset-session                       Cancels and waits for the active operation, then disposes the TIA attachment only after it is quiescent.",
                 "",
                 "After rebuilding this executable, refresh the Siemens Openness allow-list for this exact path and hash."
             });

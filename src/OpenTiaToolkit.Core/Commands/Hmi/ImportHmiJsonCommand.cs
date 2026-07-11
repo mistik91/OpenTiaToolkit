@@ -29,10 +29,12 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             {
                 new CommandParameter("hmi-name", CommandParameterType.String, "The Unified HMI name", required: true),
                 new CommandParameter("input-path", CommandParameterType.Path, "Source folder or .json file path", required: true),
-                new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate changes without applying them", required: false, defaultValue: false),
-                new CommandParameter("fail-on-warning", CommandParameterType.Boolean, "Treat warnings as a safety block", required: false, defaultValue: false),
-                new CommandParameter("require-clean-preflight", CommandParameterType.Boolean, "Run a blocking clean preflight before apply", required: false, defaultValue: false),
-                new CommandParameter("backup", CommandParameterType.Boolean, "Create a backup export before applying changes", required: false, defaultValue: false),
+                new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate changes without applying them", required: false, defaultValue: true),
+                new CommandParameter("apply", CommandParameterType.Boolean, "Explicitly request an import apply; requires dry-run=false and confirm=true", required: false, defaultValue: false),
+                new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm the reviewed import apply", required: false, defaultValue: false),
+                new CommandParameter("fail-on-warning", CommandParameterType.Boolean, "Treat warnings as a safety block", required: false, defaultValue: true),
+                new CommandParameter("require-clean-preflight", CommandParameterType.Boolean, "Run a blocking clean preflight before apply", required: false, defaultValue: true),
+                new CommandParameter("backup", CommandParameterType.Boolean, "Create a backup export before applying changes", required: false, defaultValue: true),
                 new CommandParameter("backup-path", CommandParameterType.Path, "Optional backup folder or .json file path", required: false),
                 new CommandParameter("screens", CommandParameterType.String, "Optional comma-separated screen paths", required: false),
                 new CommandParameter("item-names", CommandParameterType.String, "Optional comma-separated item names", required: false),
@@ -60,6 +62,20 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 return CommandResult.CreateFailure("Missing required parameter: input-path");
             }
 
+            var dryRun = !args.Has("dry-run") || args.GetBool("dry-run", true);
+            var apply = args.Has("apply") && args.GetBool("apply");
+            var confirm = args.Has("confirm") && args.GetBool("confirm");
+            if (dryRun && apply)
+            {
+                return CommandResult.CreateFailure("Parameter apply=true requires dry-run=false.");
+            }
+
+            if (!dryRun && (!apply || !confirm))
+            {
+                return CommandResult.CreateFailure(
+                    "Applying Unified HMI JSON requires dry-run=false, apply=true, and confirm=true after reviewing a dry-run result.");
+            }
+
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
                 context.Checkpoint($"Opening Unified HMI: {hmiName}.", 20, "open-hmi");
@@ -74,13 +90,12 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             var filters = HmiJsonCommandSupport.BuildFilters(args);
             var executionOptions = new HmiJsonImportExecutionOptions
             {
-                FailOnWarning = args.Has("fail-on-warning") && args.GetBool("fail-on-warning"),
-                RequireCleanPreflight = args.Has("require-clean-preflight") && args.GetBool("require-clean-preflight"),
-                BackupBeforeImport = args.Has("backup") && args.GetBool("backup"),
+                FailOnWarning = !args.Has("fail-on-warning") || args.GetBool("fail-on-warning", true),
+                RequireCleanPreflight = !args.Has("require-clean-preflight") || args.GetBool("require-clean-preflight", true),
+                BackupBeforeImport = !dryRun && (!args.Has("backup") || args.GetBool("backup", true)),
                 BackupPath = args.Has("backup-path") ? args.GetString("backup-path") : null
             };
 
-            var dryRun = args.Has("dry-run") && args.GetBool("dry-run");
             context.Checkpoint(
                 dryRun ? "Preflighting Unified HMI JSON import." : "Importing Unified HMI JSON into TIA Portal.",
                 55,
@@ -102,7 +117,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 : $"Unified HMI JSON {verb} completed.";
 
             context.CompleteCommand(Name, message);
-            return CommandResult.CreateSuccess(importResult, message);
+            return importResult.SafetyBlocked
+                ? CommandResult.CreateFailure(message, importResult)
+                : CommandResult.CreateSuccess(importResult, message);
         }
 
         private static bool HasAnyFilter(HmiJsonFilterOptions filters)

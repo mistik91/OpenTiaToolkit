@@ -8,7 +8,7 @@ There are two config families:
 - Product-install snippets point at the stable installed executable:
 
 ```text
-C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
+C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 ```
 
 For end users, an installer or first-run setup helper should register that stable executable with Siemens Openness once. Developers who rebuild the MCP executable must refresh the Siemens Openness allow-list because the entry is tied to the executable hash and path.
@@ -176,7 +176,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps
 - OpenCode local MCP configs use a `command` array and `environment` object inside an `mcp.<server-name>` entry.
 - Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.
 - `OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS` can be set to a positive number to make long tool calls return a structured timeout result. Timed-out calls are asked to cancel; use `operation-status` to inspect the active operation and `reset-session` if the TIA attachment remains busy.
-- The MCP server exposes built-in infrastructure tools: `operation-status` reports the active operation and latest progress, `cancel-operation` requests cooperative cancellation, and `reset-session` clears the MCP gate and disposes the current TIA attachment.
+- `OPEN_TIA_MCP_RESET_GRACE_SECONDS` controls how long `reset-session` waits for the active operation to become quiescent (default 5 seconds).
+- The MCP server exposes built-in infrastructure tools: `operation-status` reports the active operation and latest progress, `cancel-operation` requests cooperative cancellation, and `reset-session` cancels and waits before disposing the TIA attachment. If the operation does not quiesce during the grace period, reset fails without disposing or releasing the gate; terminate and restart the MCP process to recover safely.
 - PLC batch tag commands (`modify-tags`, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members`) report per-operation or per-item progress and honor cooperative cancellation between items and before TIA write calls.
 - `OPEN_TIA_ARTIFACT_RETENTION_DAYS` controls best-effort cleanup for temporary command artifacts written under `%TEMP%\OpenTiaToolkit\CommandArtifacts`; the default is 7 days.
 - Do not enable parallel MCP tool calls for this server. TIA Portal sessions are stateful and should be driven serially.

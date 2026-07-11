@@ -98,7 +98,7 @@ Ready-to-adapt snippets live in `docs/mcp-client-configs`.
 Use the development checkout snippets when running from this repository. Use the installed-product snippets only when an installer or your own deployment has placed the MCP executable at:
 
 ```text
-C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
+C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 ```
 
 For installed-product setups, the recommended path is to ask your agent to install the local plugin or configure the MCP server from:

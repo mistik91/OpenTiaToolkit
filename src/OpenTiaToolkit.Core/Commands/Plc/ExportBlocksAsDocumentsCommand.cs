@@ -96,10 +96,10 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 context.CompleteCommand(Name, message);
-                return CommandResult.CreateSuccess(
-                    data: PlcExportCommandResult.From(result),
-                    message: message
-                );
+                var data = PlcExportCommandResult.From(result);
+                return result.SuccessCount > 0 && result.FailedCount == 0
+                    ? CommandResult.CreateSuccess(data, message)
+                    : CommandResult.CreateFailure(message, data);
             }
             catch (System.InvalidOperationException ex)
             {

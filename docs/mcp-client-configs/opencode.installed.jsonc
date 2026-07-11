@@ -3,7 +3,7 @@
 //   User scope:    C:\Users\<you>\.config\opencode\opencode.json
 //
 // This snippet assumes the product installer placed the MCP executable at:
-//   C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
+//   C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 
 {
   "$schema": "https://opencode.ai/config.json",

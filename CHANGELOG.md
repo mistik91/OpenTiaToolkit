@@ -8,6 +8,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Changed
+- Completed the Phase 0 stop-ship remediation: isolated CLI/MCP installer dependencies, added exact staged stdio smoke testing, and verified the staged CLI/MCP against an open V21 project.
+- Made MCP session reset wait for operation quiescence and fail closed with process-restart guidance instead of releasing the gate and disposing a live Siemens session.
+- Made Unified HMI JSON import dry-run by default and require explicit `dry-run=false`, `apply=true`, and `confirm=true`; blocked HMI operations now return command failures with structured data.
+- Made PLC compile and zero/partial bulk import/export outcomes return command failures, preserving structured diagnostics for CLI and MCP callers.
+- Made PLC tag replacement cancellation-safe across its delete/create window and report whether original-tag restoration failed.
+- Pinned `Microsoft.Bcl.Memory` to patched version 9.0.14 and added an unconditional transitive vulnerability scan to CI.
 - Added service-level progress reporting and cooperative cancellation checks for `modify-tags`, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members` when hosted through MCP.
 - Replaced `create-tag` and the page-based `update-tags-from-csv` workflow with `modify-tags`, an explicit JSON/CSV batch surface for guarded create, update, delete, and replace operations.
 - Prepared the repository for beta distribution and future open-source publication.
@@ -21,7 +27,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Raised supplied OpenCode MCP timeout defaults to 600 seconds for long-running TIA Portal reads.
 - Added confirmed `remove-hmi-logging-tag` and `delete-hmi-data-log` tools, with reference checks that prevent deletion of an in-use Unified HMI data log.
 - Added batch Unified HMI trend lifecycle tools for previewable creation, logging-tag removal, and safe unreferenced data-log deletion.
-- Made CI fail loudly when Siemens PublicAPI references are missing instead of reporting a green build with restore, build, and tests skipped.
+- Made CI report when Siemens-dependent build/format/tests are skipped while still running restore, dependency vulnerability, config, documentation, and skill-sync validation.
 - Centralized repository build metadata, pinned the C# language version, added an `.editorconfig` and CI format check, removed unused build packages, and added a cleanup script for generated artifacts and test deployment folders.
 
 ## [0.1.0] - 2026-05-07

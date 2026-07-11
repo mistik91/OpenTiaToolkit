@@ -26,7 +26,7 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
-        public async Task ExportBlocksAsDocuments_ReturnsTypedCommandResult()
+        public async Task ExportBlocksAsDocuments_PartialResultFailsAndPreservesTypedData()
         {
             _plcService
                 .Setup(service => service.ExportBlocksAsDocumentsAsync("FB_.*", @"C:\Export"))
@@ -41,7 +41,7 @@ namespace OpenTiaToolkit.Tests.Commands
                 ["filter-regex"] = "FB_.*"
             }), _logger.Object);
 
-            Assert.IsTrue(result.Success);
+            Assert.IsFalse(result.Success);
             var payload = result.Data as PlcExportCommandResult;
             Assert.IsNotNull(payload);
             Assert.AreEqual(2, payload!.Summary.Total);
@@ -52,7 +52,7 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
-        public async Task ExportTypes_ReturnsTypedCommandResult()
+        public async Task ExportTypes_PartialResultFailsAndPreservesTypedData()
         {
             _plcService
                 .Setup(service => service.ExportTypesAsync("UDT_.*", @"C:\Types"))
@@ -67,7 +67,7 @@ namespace OpenTiaToolkit.Tests.Commands
                 ["filter-regex"] = "UDT_.*"
             }), _logger.Object);
 
-            Assert.IsTrue(result.Success);
+            Assert.IsFalse(result.Success);
             Assert.IsInstanceOfType(result.Data, typeof(PlcExportCommandResult));
         }
 

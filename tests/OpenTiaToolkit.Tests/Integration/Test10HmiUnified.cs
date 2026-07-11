@@ -593,6 +593,9 @@ namespace OpenTiaToolkit.Tests.Integration
                 {
                     { "hmi-name", Settings.UnifiedHmiName },
                     { "input-path", patchPath },
+                    { "dry-run", false },
+                    { "apply", true },
+                    { "confirm", true },
                     { "require-clean-preflight", true },
                     { "backup", true },
                     { "backup-path", backupPath }
@@ -767,6 +770,9 @@ namespace OpenTiaToolkit.Tests.Integration
                 {
                     { "hmi-name", Settings.UnifiedHmiName },
                     { "input-path", patchPath },
+                    { "dry-run", false },
+                    { "apply", true },
+                    { "confirm", true },
                     { "require-clean-preflight", true },
                     { "backup", true },
                     { "backup-path", backupPath }

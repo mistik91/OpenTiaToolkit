@@ -9,7 +9,7 @@ C:\Program Files\OpenTiaToolkit
 It also sets `OPEN_TIA_MCP_EXE` to:
 
 ```text
-C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
+C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 ```
 
 and registers that executable with Siemens Openness during setup when the registration task is selected.
@@ -25,7 +25,7 @@ Install the local OpenTiaToolkit plugin from C:\Program Files\OpenTiaToolkit\plu
 ```
 
 ```text
-Configure OpenTiaToolkit as a local MCP server. Use C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe as the command and use the guidance in C:\Program Files\OpenTiaToolkit\docs\mcp-client-configs.
+Configure OpenTiaToolkit as a local MCP server. Use C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe as the command and use the guidance in C:\Program Files\OpenTiaToolkit\docs\mcp-client-configs.
 ```
 
 ```text
@@ -69,7 +69,7 @@ C:\Program Files\OpenTiaToolkit\docs\mcp-client-configs
 Those snippets point directly at the installed MCP executable:
 
 ```text
-C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe
+C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 ```
 
 Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.

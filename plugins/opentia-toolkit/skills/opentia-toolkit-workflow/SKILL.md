@@ -29,7 +29,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
 
 ## Shared MCP Rules
 
-Keep OpenTiaToolkit MCP calls serial. If the server reports an active operation or a client timeout hides a result, call `operation-status` to inspect the active operation and latest progress, then wait for the in-flight operation to finish and verify the target state before retrying. Use `cancel-operation` for cooperative cancellation when a tool supports it, and reserve `reset-session` for recovery when the MCP gate or TIA attachment must be discarded. PLC batch tag commands (`modify-tags`, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members`) report item progress and honor cancellation between items and before TIA write calls.
+Keep OpenTiaToolkit MCP calls serial. If the server reports an active operation or a client timeout hides a result, call `operation-status` to inspect the active operation and latest progress, then wait for the in-flight operation to finish and verify the target state before retrying. Use `cancel-operation` for cooperative cancellation when a tool supports it, and reserve `reset-session` for recovery when the MCP gate or TIA attachment must be discarded. Reset waits for quiescence and fails closed if a vendor call remains alive; when that happens, terminate and restart the MCP process rather than retrying reset or another TIA command in the same process. PLC batch tag commands (`modify-tags`, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members`) report item progress and honor cancellation between items and before TIA write calls.
 
 Prefer read-only discovery before mutation:
 
@@ -49,7 +49,7 @@ Use dry-runs, previews, or status reads before applying changes when the command
 
 - `apply-hardware-patch`: start with `dry-run=true`.
 - `apply-hmi-screen-json-patch` and `apply-hmi-screen-json-edit`: start with `dry-run=true` and keep `base-hash` filters stable.
-- `import-hmi-json`: start with `dry-run=true`; use `require-clean-preflight=true` before applying broad imports.
+- `import-hmi-json`: dry-run, warning blocking, and clean preflight default to safe values. Apply only with `dry-run=false`, `apply=true`, and `confirm=true` after reviewing the dry-run result; backup also defaults to true on apply.
 - `create-hmi-trends`, `remove-hmi-logging-tags`, `delete-hmi-data-logs`: start with `dry-run=true`.
 - `import-texts`: start with the default `dry-run=true`; apply project text workbook changes only with explicit user intent and `dry-run=false`.
 - `copy-from-master-copy`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true` after confirming the master copy matches the target domain.

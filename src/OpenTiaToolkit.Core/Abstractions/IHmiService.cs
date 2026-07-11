@@ -167,7 +167,7 @@ public interface IHmiService
     Task<HmiJsonImportResult?> ImportJsonAsync(
         string inputPath,
         HmiJsonFilterOptions? filters = null,
-        bool dryRun = false,
+        bool dryRun = true,
         HmiJsonImportExecutionOptions? executionOptions = null);
 
     /// <summary>

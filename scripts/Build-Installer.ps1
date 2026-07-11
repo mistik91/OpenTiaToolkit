@@ -121,8 +121,10 @@ if (Test-Path -LiteralPath $stageRoot) {
 }
 
 New-Item -ItemType Directory -Force -Path $stageRoot | Out-Null
-Copy-BuildOutput -Source $mcpBin -Destination $stageRoot
-Copy-BuildOutput -Source $cliBin -Destination $stageRoot
+$mcpStageRoot = Join-Path $stageRoot 'mcp'
+$cliStageRoot = Join-Path $stageRoot 'cli'
+Copy-BuildOutput -Source $mcpBin -Destination $mcpStageRoot
+Copy-BuildOutput -Source $cliBin -Destination $cliStageRoot
 
 Copy-Directory -Source (Join-Path $repoRoot 'plugins') -Destination (Join-Path $stageRoot 'plugins')
 Copy-Directory -Source (Join-Path $repoRoot 'skills') -Destination (Join-Path $stageRoot 'skills')
@@ -138,13 +140,19 @@ $manifest = [ordered]@{
     Version = $Version
     Configuration = $Configuration
     InstallDirectory = 'C:\Program Files\OpenTiaToolkit'
-    McpExecutable = 'C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe'
-    CliExecutable = 'C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.CLI.exe'
+    McpExecutable = 'C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe'
+    CliExecutable = 'C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe'
     PluginDirectory = 'C:\Program Files\OpenTiaToolkit\plugins'
     SkillDirectory = 'C:\Program Files\OpenTiaToolkit\skills'
 }
 
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $stageRoot 'install-manifest.json') -Encoding UTF8
+
+$stagedMcpExe = Join-Path $mcpStageRoot 'OpenTiaToolkit.MCP.exe'
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\Test-McpStdio.ps1') -ExecutablePath $stagedMcpExe
+if ($LASTEXITCODE -ne 0) {
+    throw "Staged MCP stdio initialization smoke failed with exit code $LASTEXITCODE."
+}
 
 if ($StageOnly) {
     [pscustomobject]@{

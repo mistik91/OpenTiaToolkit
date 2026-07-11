@@ -25,6 +25,7 @@ namespace OpenTiaToolkit.MCP.Server
         private readonly SemaphoreSlim _executionGate = new SemaphoreSlim(1, 1);
         private readonly object _operationLock = new object();
         private ActiveToolOperation? _activeOperation;
+        private bool _resetPending;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ToolRegistry"/> class.
@@ -77,7 +78,7 @@ namespace OpenTiaToolkit.MCP.Server
                 .ToList();
             tools.Add(CreateBuiltInTool("cancel-operation", "Requests cancellation of the active MCP tool operation.", new Dictionary<string, object?>()));
             tools.Add(CreateBuiltInTool("operation-status", "Reports the active MCP tool operation and latest progress.", new Dictionary<string, object?>()));
-            tools.Add(CreateBuiltInTool("reset-session", "Cancels the active operation, clears the MCP gate, and disposes the current TIA session attachment.", new Dictionary<string, object?>()));
+            tools.Add(CreateBuiltInTool("reset-session", "Cancels and waits for the active operation, then disposes the TIA session only after it is quiescent.", new Dictionary<string, object?>()));
             return tools.OrderBy(tool => tool.Name, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
@@ -94,6 +95,12 @@ namespace OpenTiaToolkit.MCP.Server
                 throw new McpException("Missing tool name.");
             }
 
+            if (string.Equals(toolName, "reset-session", StringComparison.OrdinalIgnoreCase))
+            {
+                var resetResult = await ResetSessionAsync(cancellationToken).ConfigureAwait(false);
+                return CreateCallToolResult(ToolExecutionResult.FromCommandResult(resetResult));
+            }
+
             if (TryHandleBuiltInTool(toolName!, out var builtInResult))
             {
                 return builtInResult;
@@ -106,6 +113,17 @@ namespace OpenTiaToolkit.MCP.Server
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+
+            lock (_operationLock)
+            {
+                if (_resetPending)
+                {
+                    var resetPendingResult = CommandResult.CreateFailure(
+                        "TIA Portal session reset is waiting for the current operation to become quiescent.",
+                        CreateOperationStatusData(_activeOperation, busy: true, resetPending: true));
+                    return CreateCallToolResult(ToolExecutionResult.FromCommandResult(resetPendingResult));
+                }
+            }
 
             if (!await _executionGate.WaitAsync(0, cancellationToken))
             {
@@ -133,6 +151,16 @@ namespace OpenTiaToolkit.MCP.Server
             var progress = new Progress<CommandProgressUpdate>(update => ReportProgress(operation, update));
             lock (_operationLock)
             {
+                if (_resetPending)
+                {
+                    operation.Cancellation.Dispose();
+                    _executionGate.Release();
+                    var resetPendingResult = CommandResult.CreateFailure(
+                        "TIA Portal session reset started before this operation could begin.",
+                        CreateOperationStatusData(_activeOperation, busy: true, resetPending: true));
+                    return CreateCallToolResult(ToolExecutionResult.FromCommandResult(resetPendingResult));
+                }
+
                 _activeOperation = operation;
             }
 
@@ -222,54 +250,81 @@ namespace OpenTiaToolkit.MCP.Server
                 return true;
             }
 
-            if (string.Equals(toolName, "reset-session", StringComparison.OrdinalIgnoreCase))
-            {
-                result = CreateCallToolResult(ToolExecutionResult.FromCommandResult(ResetSessionAsync().GetAwaiter().GetResult()));
-                return true;
-            }
-
             result = null!;
             return false;
         }
 
-        private async Task<CommandResult> ResetSessionAsync()
+        private async Task<CommandResult> ResetSessionAsync(CancellationToken cancellationToken)
         {
-            ActiveToolOperation? resetOperation;
-            var releasedGate = false;
+            ActiveToolOperation? activeOperation;
 
             lock (_operationLock)
             {
-                resetOperation = _activeOperation;
-                if (resetOperation != null)
+                if (_resetPending)
                 {
-                    resetOperation.CancelRequested = true;
-                    resetOperation.CancelRequestedAtUtc = DateTime.UtcNow.ToString("o");
-                    resetOperation.ResetRequested = true;
-                    resetOperation.Cancellation.Cancel();
-                    _activeOperation = null;
-                    releasedGate = true;
+                    return CommandResult.CreateFailure(
+                        "A TIA Portal session reset is already pending.",
+                        CreateOperationStatusData(_activeOperation, busy: true, resetPending: true));
+                }
+
+                _resetPending = true;
+                activeOperation = _activeOperation;
+                if (activeOperation != null)
+                {
+                    activeOperation.CancelRequested = true;
+                    activeOperation.CancelRequestedAtUtc = DateTime.UtcNow.ToString("o");
+                    activeOperation.ResetRequested = true;
+                    activeOperation.Cancellation.Cancel();
                 }
             }
 
-            if (releasedGate)
+            try
             {
-                _executionGate.Release();
-            }
-
-            var sessionReset = _sessionResetService == null
-                ? null
-                : await _sessionResetService.ResetAsync().ConfigureAwait(false);
-
-            return CommandResult.CreateSuccess(
-                new
+                if (activeOperation != null)
                 {
-                    reset = true,
-                    releasedGate,
-                    canceledOperationId = resetOperation?.OperationId,
-                    canceledToolName = resetOperation?.ToolName,
-                    session = sessionReset
-                },
-                "MCP session reset completed.");
+                    var graceDelay = Task.Delay(_options.SessionResetGracePeriod, cancellationToken);
+                    var completed = await Task.WhenAny(activeOperation.Completion.Task, graceDelay).ConfigureAwait(false);
+                    if (completed != activeOperation.Completion.Task)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        return CommandResult.CreateFailure(
+                            $"The active MCP operation did not become quiescent within {_options.SessionResetGracePeriod.TotalSeconds:0.###} seconds. The TIA session was not disposed. Terminate and restart the MCP process to recover safely.",
+                            CreateOperationStatusData(activeOperation, busy: true, resetPending: true, resetRefused: true));
+                    }
+
+                    await activeOperation.Completion.Task.ConfigureAwait(false);
+                }
+
+                await _executionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    var sessionReset = _sessionResetService == null
+                        ? null
+                        : await _sessionResetService.ResetAsync().ConfigureAwait(false);
+
+                    return CommandResult.CreateSuccess(
+                        new
+                        {
+                            reset = true,
+                            waitedForOperation = activeOperation != null,
+                            canceledOperationId = activeOperation?.OperationId,
+                            canceledToolName = activeOperation?.ToolName,
+                            session = sessionReset
+                        },
+                        "MCP session reset completed after the execution gate became quiescent.");
+                }
+                finally
+                {
+                    _executionGate.Release();
+                }
+            }
+            finally
+            {
+                lock (_operationLock)
+                {
+                    _resetPending = false;
+                }
+            }
         }
 
         private static CallToolResult CreateCallToolResult(ToolExecutionResult result)
@@ -326,6 +381,8 @@ namespace OpenTiaToolkit.MCP.Server
             {
                 _executionGate.Release();
             }
+
+            operation.Completion.TrySetResult(null);
         }
 
         private void ReportProgress(ActiveToolOperation operation, CommandProgressUpdate update)
@@ -353,7 +410,9 @@ namespace OpenTiaToolkit.MCP.Server
             bool busy = false,
             bool timedOut = false,
             double? timeoutSeconds = null,
-            bool cancelRequested = false)
+            bool cancelRequested = false,
+            bool resetPending = false,
+            bool resetRefused = false)
         {
             return new
             {
@@ -361,6 +420,8 @@ namespace OpenTiaToolkit.MCP.Server
                 active = operation != null,
                 timedOut = timedOut || operation?.TimedOut == true,
                 cancelRequested = cancelRequested || operation?.CancelRequested == true,
+                resetPending,
+                resetRefused,
                 activeOperationId = operation?.OperationId,
                 activeToolName = operation?.ToolName,
                 activeStartedAtUtc = operation?.StartedAtUtc,
@@ -412,6 +473,9 @@ namespace OpenTiaToolkit.MCP.Server
             public bool ResetRequested { get; set; }
 
             public CancellationTokenSource Cancellation { get; set; } = new CancellationTokenSource();
+
+            public TaskCompletionSource<object?> Completion { get; } =
+                new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public OperationProgressSnapshot? LatestProgress { get; set; }
 

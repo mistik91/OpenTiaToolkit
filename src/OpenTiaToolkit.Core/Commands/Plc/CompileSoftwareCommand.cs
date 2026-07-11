@@ -77,20 +77,22 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 var result = await _plcService.CompileSoftwareAsync(password);
                 context.CompleteCommand(Name, result.Success ? "PLC software compile completed." : "PLC software compile completed with errors.");
 
-                return CommandResult.CreateSuccess(
-                    data: new
-                    {
-                        plcName,
-                        success = result.Success,
-                        errorCount = result.ErrorCount,
-                        warningCount = result.WarningCount,
-                        message = result.Message,
-                        diagnostics = result.Diagnostics
-                    },
-                    message: result.Success
-                        ? $"Compilation successful: {result.ErrorCount} errors, {result.WarningCount} warnings"
-                        : $"Compilation failed: {result.Message}"
-                );
+                var data = new
+                {
+                    plcName,
+                    success = result.Success,
+                    errorCount = result.ErrorCount,
+                    warningCount = result.WarningCount,
+                    message = result.Message,
+                    diagnostics = result.Diagnostics
+                };
+                var message = result.Success
+                    ? $"Compilation successful: {result.ErrorCount} errors, {result.WarningCount} warnings"
+                    : $"Compilation failed: {result.Message}";
+
+                return result.Success
+                    ? CommandResult.CreateSuccess(data, message)
+                    : CommandResult.CreateFailure(message, data);
             }
             catch (System.Exception ex)
             {

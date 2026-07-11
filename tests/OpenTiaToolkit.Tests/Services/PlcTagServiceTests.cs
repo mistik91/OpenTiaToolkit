@@ -488,6 +488,62 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public async Task ModifyTagsAsync_ReplaceCompletesAtomicCreateWhenCancellationArrivesAfterDelete()
+        {
+            using var cancellation = new CancellationTokenSource();
+            var oldTag = new FakeTag
+            {
+                Name = "OldSignal",
+                DataType = "Bool",
+                LogicalAddress = "%I0.0",
+                OnDelete = cancellation.Cancel
+            };
+            var table = new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags = { oldTag }
+            };
+            var service = CreateService(table);
+            var operations = TagModificationInputParser.ParseJson(
+                "[{\"action\":\"replace\",\"match\":{\"tagTable\":\"INPUT\",\"name\":\"OldSignal\"},\"set\":{\"name\":\"NewSignal\"}}]");
+
+            var result = await service.ModifyTagsAsync(operations, dryRun: false, cancellation.Token);
+
+            Assert.IsTrue(cancellation.IsCancellationRequested);
+            Assert.AreEqual(1, result.Summary.Applied);
+            Assert.IsTrue(oldTag.IsDeleted);
+            Assert.IsTrue(table.Tags.Any(tag => !tag.IsDeleted && tag.Name == "NewSignal"));
+        }
+
+        [TestMethod]
+        public async Task ModifyTagsAsync_ReplaceFailureRestoresOriginalTag()
+        {
+            var oldTag = new FakeTag
+            {
+                Name = "OldSignal",
+                DataType = "Bool",
+                LogicalAddress = "%I0.0"
+            };
+            var table = new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags = { oldTag }
+            };
+            table.Tags.CreateFailureMessage = "replacement creation failed";
+            table.Tags.CreateFailuresRemaining = 1;
+            var service = CreateService(table);
+            var operations = TagModificationInputParser.ParseJson(
+                "[{\"action\":\"replace\",\"match\":{\"tagTable\":\"INPUT\",\"name\":\"OldSignal\"},\"set\":{\"name\":\"NewSignal\"}}]");
+
+            var result = await service.ModifyTagsAsync(operations, dryRun: false);
+
+            Assert.AreEqual(1, result.Summary.Failed);
+            Assert.IsTrue(oldTag.IsDeleted);
+            Assert.IsTrue(table.Tags.Any(tag => !tag.IsDeleted && tag.Name == "OldSignal"));
+            StringAssert.Contains(result.Operations.Single().Message, "original tag was restored");
+        }
+
+        [TestMethod]
         public async Task ModifyTagsAsync_AppliedCreateFailureIncludesAfterIdentity()
         {
             var table = new FakeTagTable { Name = "SAFETY" };
@@ -659,10 +715,17 @@ namespace OpenTiaToolkit.Tests.Services
         {
             public string? CreateFailureMessage { get; set; }
 
+            public int CreateFailuresRemaining { get; set; } = -1;
+
             public FakeTag Create(string name, string dataType, string logicalAddress)
             {
-                if (CreateFailureMessage != null)
+                if (CreateFailureMessage != null && CreateFailuresRemaining != 0)
                 {
+                    if (CreateFailuresRemaining > 0)
+                    {
+                        CreateFailuresRemaining--;
+                    }
+
                     throw new InvalidOperationException(CreateFailureMessage);
                 }
 
@@ -695,9 +758,12 @@ namespace OpenTiaToolkit.Tests.Services
 
             public bool IsDeleted { get; private set; }
 
+            public Action? OnDelete { get; set; }
+
             public void Delete()
             {
                 IsDeleted = true;
+                OnDelete?.Invoke();
             }
         }
 

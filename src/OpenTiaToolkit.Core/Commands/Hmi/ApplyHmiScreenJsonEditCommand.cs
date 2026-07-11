@@ -111,7 +111,10 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
 
             var action = dryRun ? "preflighted" : result.Applied ? "applied" : "blocked";
             context.CompleteCommand(Name, $"Unified HMI screen JSON edit {action}: {screenPath}");
-            return CommandResult.CreateSuccess(result, $"Unified HMI screen JSON edit {action}: {screenPath}");
+            var message = $"Unified HMI screen JSON edit {action}: {screenPath}";
+            return result.SafetyBlocked || (!dryRun && !result.Applied)
+                ? CommandResult.CreateFailure(message, result)
+                : CommandResult.CreateSuccess(result, message);
         }
 
         private static bool HasAgentFilters(HmiJsonFilterOptions filters)

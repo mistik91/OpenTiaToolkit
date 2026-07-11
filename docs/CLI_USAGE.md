@@ -679,7 +679,7 @@ Preflights or imports a Unified HMI JSON export or patch.
 
 ```bash
 OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Exports\Hmi\Patch" --dry-run=true --fail-on-warning=true
-OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Exports\Hmi\Patch" --require-clean-preflight=true --backup=true --backup-path="C:\Exports\Hmi\Backup"
+OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Exports\Hmi\Patch" --dry-run=false --apply=true --confirm=true --require-clean-preflight=true --backup=true --backup-path="C:\Exports\Hmi\Backup"
 ```
 
 **Parameters**:
@@ -687,13 +687,14 @@ OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Expor
 - `output-path` (export): Target folder or `.json` file
 - `base-path`, `modified-path`, `patch-path` (diff): Export or patch folders/files
 - `input-path` (import): Source export or patch folder/file
-- `dry-run` (import): Validate without applying
-- `fail-on-warning` (import): Treat warnings as blocking
-- `require-clean-preflight` (import): Re-run a clean preflight before applying
-- `backup` and `backup-path` (import): Export a backup before mutation; when screen/item/property filters are supplied, the backup uses the same scope.
+- `dry-run` (import, default `true`): Validate without applying
+- `apply` and `confirm` (import, default `false`): Both are required with `dry-run=false` after reviewing a dry-run result
+- `fail-on-warning` (import, default `true`): Treat warnings as blocking
+- `require-clean-preflight` (import, default `true`): Re-run a clean preflight before applying
+- `backup` (import, default `true` on apply) and `backup-path`: Export a backup before mutation; when screen/item/property filters are supplied, the backup uses the same scope.
 - `screens`, `item-names`, `properties`: Optional filters for export, diff, and import
 
-Applied HMI JSON imports require the target to be offline in TIA Portal before the Siemens Openness transaction is opened. If TIA reports online mode, the import is safety-blocked with `blockedReason: "tia-online-mode"` and agents should take the HMI/project offline manually, then replay the same apply command. The toolkit does not call `GoOffline()` automatically.
+Applied HMI JSON imports require the target to be offline in TIA Portal before the Siemens Openness transaction is opened. If TIA reports online mode, the import is returned as a failed command with the structured result preserved and `blockedReason: "tia-online-mode"`; agents should take the HMI/project offline manually, then replay the same explicitly confirmed apply command. The toolkit does not call `GoOffline()` automatically.
 
 #### get-hmi-screen-json
 

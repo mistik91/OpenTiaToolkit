@@ -5,7 +5,7 @@
 #endif
 #define MyAppPublisher "OpenTiaToolkit Contributors"
 #define MyAppURL "https://github.com/mistik91/OpenTiaToolkit"
-#define MyAppExeName "OpenTiaToolkit.MCP.exe"
+#define MyAppExeName "mcp\OpenTiaToolkit.MCP.exe"
 #define StageDir "..\artifacts\installer\stage"
 
 [Setup]
@@ -42,14 +42,14 @@ Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs c
 [Icons]
 Name: "{group}\OpenTiaToolkit docs"; Filename: "{app}\docs\SETUP.md"
 Name: "{group}\Agent plugin setup"; Filename: "{app}\docs\INSTALL_AGENT_PLUGINS.md"
-Name: "{group}\OpenTiaToolkit CLI"; Filename: "{app}\OpenTiaToolkit.CLI.exe"; WorkingDir: "{app}"
+Name: "{group}\OpenTiaToolkit CLI"; Filename: "{app}\cli\OpenTiaToolkit.CLI.exe"; WorkingDir: "{app}\cli"
 
 [Registry]
-Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "OPEN_TIA_MCP_EXE"; ValueData: "{app}\OpenTiaToolkit.MCP.exe"; Flags: preservestringtype uninsdeletevalue
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "OPEN_TIA_MCP_EXE"; ValueData: "{app}\mcp\OpenTiaToolkit.MCP.exe"; Flags: preservestringtype uninsdeletevalue
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Register-OpennessAllowList.ps1"" -ExecutablePath ""{app}\OpenTiaToolkit.MCP.exe"""; StatusMsg: "Registering OpenTiaToolkit MCP with Siemens Openness..."; Flags: runhidden; Tasks: registermcp
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Register-OpennessAllowList.ps1"" -ExecutablePath ""{app}\OpenTiaToolkit.CLI.exe"""; StatusMsg: "Registering OpenTiaToolkit CLI with Siemens Openness..."; Flags: runhidden; Tasks: registercli
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Register-OpennessAllowList.ps1"" -ExecutablePath ""{app}\mcp\OpenTiaToolkit.MCP.exe"""; StatusMsg: "Registering OpenTiaToolkit MCP with Siemens Openness..."; Flags: runhidden; Tasks: registermcp
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Register-OpennessAllowList.ps1"" -ExecutablePath ""{app}\cli\OpenTiaToolkit.CLI.exe"""; StatusMsg: "Registering OpenTiaToolkit CLI with Siemens Openness..."; Flags: runhidden; Tasks: registercli
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\plugins"

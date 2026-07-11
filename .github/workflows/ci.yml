@@ -46,7 +46,7 @@ jobs:
           if ($available) {
             Write-Host "TIA Portal PublicAPI found at $path"
           } else {
-            Write-Warning "TIA Portal PublicAPI was not found at '$path'. TIA-dependent restore, build, format, and tests will be skipped on this runner. Use a runner with TIA Portal PublicAPI installed, or dispatch the workflow with tiaPortalPublicApiPath, to run the full validation suite."
+            Write-Warning "TIA Portal PublicAPI was not found at '$path'. Build, format, and tests will be skipped on this runner. Restore, dependency vulnerability scanning, config, and documentation checks still run. Use a runner with TIA Portal PublicAPI installed, or dispatch the workflow with tiaPortalPublicApiPath, to run the full validation suite."
             "### TIA-dependent validation skipped" >> $env:GITHUB_STEP_SUMMARY
             "" >> $env:GITHUB_STEP_SUMMARY
             "The Siemens TIA Portal PublicAPI was not found at:" >> $env:GITHUB_STEP_SUMMARY
@@ -55,12 +55,14 @@ jobs:
             $path >> $env:GITHUB_STEP_SUMMARY
             '```' >> $env:GITHUB_STEP_SUMMARY
             "" >> $env:GITHUB_STEP_SUMMARY
-            "Restore, build, format, and test steps require Siemens Openness assemblies and were intentionally skipped. Config and documentation sanity checks still run." >> $env:GITHUB_STEP_SUMMARY
+            "Build, format, and test steps require Siemens Openness assemblies and were intentionally skipped. Restore, dependency vulnerability scanning, config, and documentation sanity checks still run." >> $env:GITHUB_STEP_SUMMARY
           }
 
       - name: Restore
-        if: steps.tia.outputs.available == 'true'
         run: dotnet restore OpenTiaToolkit.sln
+
+      - name: Dependency vulnerability scan
+        run: dotnet list OpenTiaToolkit.sln package --vulnerable --include-transitive --source https://api.nuget.org/v3/index.json
 
       - name: Build
         if: steps.tia.outputs.available == 'true'

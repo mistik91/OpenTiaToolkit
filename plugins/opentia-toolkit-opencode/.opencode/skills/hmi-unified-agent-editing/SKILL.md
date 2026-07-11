@@ -151,7 +151,7 @@ Use `apply-hmi-screen-json-patch` for small, auditable changes: scalar propertie
 
 Use `apply-hmi-screen-json-edit` when the intended change is broad, structural, or easier to express by transforming a screen JSON file. Keep the JSON focused with item/property filters first; avoid full-screen monolith edits unless necessary.
 
-Use lower-level `export-hmi-json` / edit / `diff-hmi-json` / `import-hmi-json` when the user explicitly wants a human-reviewable file diff, especially across multiple screens. In that case, do not recommend patch first; recommend file export, focused edits, diff generation, dry-run import, human review, then import apply.
+Use lower-level `export-hmi-json` / edit / `diff-hmi-json` / `import-hmi-json` when the user explicitly wants a human-reviewable file diff, especially across multiple screens. In that case, do not recommend patch first; recommend file export, focused edits, diff generation, dry-run import, human review, then import apply with `dry-run=false`, `apply=true`, and `confirm=true`.
 
 Use `probe-hmi-faceplate-interface` when a faceplate `Interface` apply fails or when you need CLR metadata/writeability for a specific interface entry. Prefer a read-only probe first; if a write probe is needed, use `restore=true`.
 

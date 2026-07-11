@@ -260,7 +260,7 @@ If the user asks for changes across multiple screens and a human-reviewable file
 1. `export-hmi-json` with screen filters.
 2. Edit the exported JSON files in a focused way.
 3. `diff-hmi-json` to generate a reviewable patch file.
-4. `import-hmi-json` with `dry-run=true`.
+4. `import-hmi-json` with `dry-run=true`; after review, apply only with `dry-run=false`, `apply=true`, and `confirm=true`.
 5. Apply with `dry-run=false` only after review and clean preflight.
 
 `Guidance.RecommendedNextAction` is the first thing an agent should read after `Success`, `SafeToApply`, or `Applied`.

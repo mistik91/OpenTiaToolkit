@@ -26,7 +26,7 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
-        public async Task ImportBlocks_ReturnsTypedCommandResult()
+        public async Task ImportBlocks_PartialResultFailsAndPreservesTypedData()
         {
             _plcService
                 .Setup(service => service.ImportBlocksAsync(@"C:\Import", "FB_.*", "Program blocks"))
@@ -42,7 +42,7 @@ namespace OpenTiaToolkit.Tests.Commands
                 ["group-path"] = "Program blocks"
             }), _logger.Object);
 
-            Assert.IsTrue(result.Success);
+            Assert.IsFalse(result.Success);
             var payload = result.Data as PlcImportCommandResult;
             Assert.IsNotNull(payload);
             Assert.AreEqual("PLC_1", payload!.PlcName);
@@ -54,7 +54,7 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
-        public async Task ImportTypes_ReturnsTypedCommandResult()
+        public async Task ImportTypes_PartialResultFailsAndPreservesTypedData()
         {
             _plcService
                 .Setup(service => service.ImportTypesAsync(@"C:\Types", "UDT_.*", "Types"))
@@ -70,12 +70,12 @@ namespace OpenTiaToolkit.Tests.Commands
                 ["group-path"] = "Types"
             }), _logger.Object);
 
-            Assert.IsTrue(result.Success);
+            Assert.IsFalse(result.Success);
             Assert.IsInstanceOfType(result.Data, typeof(PlcImportCommandResult));
         }
 
         [TestMethod]
-        public async Task ImportBlocksFromDocuments_ReturnsTypedCommandResultWithImportOption()
+        public async Task ImportBlocksFromDocuments_PartialResultFailsAndPreservesTypedData()
         {
             _plcService
                 .Setup(service => service.ImportBlocksFromDocumentsAsync(@"C:\Docs", string.Empty, string.Empty, "SkipInactiveCultures"))
@@ -90,7 +90,7 @@ namespace OpenTiaToolkit.Tests.Commands
                 ["import-option"] = "SkipInactiveCultures"
             }), _logger.Object);
 
-            Assert.IsTrue(result.Success);
+            Assert.IsFalse(result.Success);
             var payload = result.Data as PlcImportCommandResult;
             Assert.IsNotNull(payload);
             Assert.AreEqual("SkipInactiveCultures", payload!.ImportOption);

@@ -783,24 +783,26 @@ namespace OpenTiaToolkit.Core.Services
                 source.IsDeleted = true;
                 try
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
                     replacement = CreateTagState(targetTable, after, dryRun: false);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
                 }
                 catch (Exception createException)
                 {
-                    TryRestoreReplacedTag(source.Table, before);
-                    source.IsDeleted = false;
+                    var restored = TryRestoreReplacedTag(source.Table, before, out var rollbackFailure);
+                    if (restored != null)
+                    {
+                        tags.Add(restored);
+                    }
+
+                    var rollbackMessage = restored != null
+                        ? "The original tag was restored and verified in the in-memory operation state."
+                        : $"CRITICAL: restoring the original tag failed: {rollbackFailure}";
                     AddModificationFailure(
                         result,
                         index,
                         operation.SourceLine,
                         operation.Action,
                         AddSafetyLoginReminder(
-                            $"Replacement creation failed after deleting '{before.Name}'. A rollback was attempted. {createException.Message}"),
+                            $"Replacement creation failed after deleting '{before.Name}'. {rollbackMessage} {createException.Message}"),
                         before,
                         after);
                     return;
@@ -901,26 +903,21 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        private void TryRestoreReplacedTag(TagTableState table, TagSnapshot snapshot)
+        private MutableTagState? TryRestoreReplacedTag(
+            TagTableState table,
+            TagSnapshot snapshot,
+            out string? failureReason)
         {
             try
             {
-                if (_v21Adapter.TryCreateTag(
-                    table.TableObject,
-                    snapshot.Name,
-                    snapshot.DataType,
-                    snapshot.LogicalAddress,
-                    out var restored,
-                    out _) &&
-                    restored != null &&
-                    snapshot.Comment != null)
-                {
-                    SetTagComment(restored, snapshot.Comment);
-                }
+                var restored = CreateTagState(table, snapshot, dryRun: false);
+                failureReason = null;
+                return restored;
             }
-            catch
+            catch (Exception ex)
             {
-                // Best-effort rollback; the original failure remains the primary error.
+                failureReason = ex.Message;
+                return null;
             }
         }
 

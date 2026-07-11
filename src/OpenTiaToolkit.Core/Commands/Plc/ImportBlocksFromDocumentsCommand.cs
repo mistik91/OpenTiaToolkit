@@ -102,12 +102,13 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 context.CompleteCommand(Name, result.SuccessCount > 0
                     ? $"Successfully imported {result.SuccessCount}/{result.TotalCount} blocks from documents"
                     : "Failed to import any blocks from documents");
-                return CommandResult.CreateSuccess(
-                    data: PlcImportCommandResult.From(plcName, importDirectory, filterRegex, groupPath, result, importOption),
-                    message: result.SuccessCount > 0
-                        ? $"Successfully imported {result.SuccessCount}/{result.TotalCount} blocks from documents"
-                        : "Failed to import any blocks from documents"
-                );
+                var data = PlcImportCommandResult.From(plcName, importDirectory, filterRegex, groupPath, result, importOption);
+                var message = result.SuccessCount > 0
+                    ? $"Imported {result.SuccessCount}/{result.TotalCount} blocks from documents ({result.FailedCount} failed)"
+                    : "Failed to import any blocks from documents";
+                return result.SuccessCount > 0 && result.FailedCount == 0
+                    ? CommandResult.CreateSuccess(data, message)
+                    : CommandResult.CreateFailure(message, data);
             }
             catch (System.Exception ex)
             {

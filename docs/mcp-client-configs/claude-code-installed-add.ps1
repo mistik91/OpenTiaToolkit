@@ -5,4 +5,4 @@ claude mcp add `
     --scope user `
     --env OPEN_TIA_MCP_LOG_LEVEL=Error `
     opentia `
-    -- "C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe"
+    -- "C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe"

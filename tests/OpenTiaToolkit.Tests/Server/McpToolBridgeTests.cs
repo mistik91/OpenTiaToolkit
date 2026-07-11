@@ -428,7 +428,7 @@ namespace OpenTiaToolkit.Tests.Server
         }
 
         [TestMethod]
-        public async Task ToolRegistry_ResetSession_ReleasesGateAndResetsSession()
+        public async Task ToolRegistry_ResetSession_WaitsForQuiescenceBeforeResetting()
         {
             var started = new TaskCompletionSource<bool>();
             var release = new TaskCompletionSource<bool>();
@@ -454,21 +454,70 @@ namespace OpenTiaToolkit.Tests.Server
             var registry = new ToolRegistry(
                 new[] { commandMock.Object },
                 Mock.Of<ILogger<ToolRegistry>>(),
+                new McpRuntimeOptions { SessionResetGracePeriod = TimeSpan.FromSeconds(2) },
                 sessionResetService: resetService.Object);
 
             var firstCall = registry.CallToolAsync("blocked-tool", CreateArguments(new { })).AsTask();
             await started.Task;
 
-            var reset = await registry.CallToolAsync("reset-session", CreateArguments(new { }));
-            var secondCall = await registry.CallToolAsync("blocked-tool", CreateArguments(new { }));
+            var resetTask = registry.CallToolAsync("reset-session", CreateArguments(new { })).AsTask();
+            await Task.Delay(50);
 
-            Assert.IsFalse(reset.IsError.GetValueOrDefault());
-            Assert.IsTrue(reset.StructuredContent?["data"]?["releasedGate"]?.GetValue<bool>() ?? false);
-            Assert.IsFalse(secondCall.IsError.GetValueOrDefault());
-            resetService.Verify(service => service.ResetAsync(), Times.Once);
+            Assert.IsFalse(resetTask.IsCompleted);
+            resetService.Verify(service => service.ResetAsync(), Times.Never);
 
             release.SetResult(true);
             await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () => await firstCall);
+            var reset = await resetTask;
+            Assert.IsFalse(reset.IsError.GetValueOrDefault());
+            Assert.IsTrue(reset.StructuredContent?["data"]?["waitedForOperation"]?.GetValue<bool>() ?? false);
+            resetService.Verify(service => service.ResetAsync(), Times.Once);
+
+            var secondCall = await registry.CallToolAsync("blocked-tool", CreateArguments(new { }));
+            Assert.IsFalse(secondCall.IsError.GetValueOrDefault());
+        }
+
+        [TestMethod]
+        public async Task ToolRegistry_ResetSession_RefusesToDisposeWhenOperationDoesNotQuiesce()
+        {
+            var started = new TaskCompletionSource<bool>();
+            var release = new TaskCompletionSource<bool>();
+            var commandMock = CreateCommandMock("stuck-tool", new CommandSchema("Stuck operation"));
+            commandMock
+                .Setup(command => command.ExecuteAsync(It.IsAny<CommandArgs>(), It.IsAny<ILogger>()))
+                .Returns(async () =>
+                {
+                    started.SetResult(true);
+                    await release.Task;
+                    return CommandResult.CreateSuccess(message: "Late complete");
+                });
+            var resetService = new Mock<ISessionResetService>();
+            resetService
+                .Setup(service => service.ResetAsync())
+                .ReturnsAsync(new SessionResetResult(hadPortal: true, hadProject: true, hadPlcSelection: false, hadHmiSelection: false));
+            var registry = new ToolRegistry(
+                new[] { commandMock.Object },
+                Mock.Of<ILogger<ToolRegistry>>(),
+                new McpRuntimeOptions { SessionResetGracePeriod = TimeSpan.FromMilliseconds(20) },
+                resetService.Object);
+
+            var firstCall = registry.CallToolAsync("stuck-tool", CreateArguments(new { })).AsTask();
+            await started.Task;
+
+            var refusedReset = await registry.CallToolAsync("reset-session", CreateArguments(new { }));
+            var stillBusy = await registry.CallToolAsync("stuck-tool", CreateArguments(new { }));
+
+            Assert.IsTrue(refusedReset.IsError.GetValueOrDefault());
+            Assert.IsTrue(refusedReset.StructuredContent?["data"]?["resetRefused"]?.GetValue<bool>() ?? false);
+            Assert.IsTrue(stillBusy.IsError.GetValueOrDefault());
+            resetService.Verify(service => service.ResetAsync(), Times.Never);
+
+            release.SetResult(true);
+            await Assert.ThrowsExceptionAsync<OperationCanceledException>(async () => await firstCall);
+
+            var resetAfterQuiescence = await registry.CallToolAsync("reset-session", CreateArguments(new { }));
+            Assert.IsFalse(resetAfterQuiescence.IsError.GetValueOrDefault());
+            resetService.Verify(service => service.ResetAsync(), Times.Once);
         }
 
         private static Mock<ICommand> CreateCommandMock(string name, CommandSchema schema)
