@@ -129,6 +129,7 @@ Copy-BuildOutput -Source $cliBin -Destination $cliStageRoot
 Copy-Directory -Source (Join-Path $repoRoot 'plugins') -Destination (Join-Path $stageRoot 'plugins')
 Copy-Directory -Source (Join-Path $repoRoot 'skills') -Destination (Join-Path $stageRoot 'skills')
 Copy-Directory -Source (Join-Path $repoRoot 'docs') -Destination (Join-Path $stageRoot 'docs')
+Copy-Directory -Source (Join-Path $repoRoot 'schemas') -Destination (Join-Path $stageRoot 'schemas')
 
 Copy-RequiredFile -Source (Join-Path $repoRoot 'scripts\Register-OpennessAllowList.ps1') -Destination (Join-Path $stageRoot 'scripts\Register-OpennessAllowList.ps1')
 Copy-RequiredFile -Source (Join-Path $repoRoot 'README.md') -Destination (Join-Path $stageRoot 'README.md')
@@ -144,6 +145,7 @@ $manifest = [ordered]@{
     CliExecutable = 'C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe'
     PluginDirectory = 'C:\Program Files\OpenTiaToolkit\plugins'
     SkillDirectory = 'C:\Program Files\OpenTiaToolkit\skills'
+    SchemaDirectory = 'C:\Program Files\OpenTiaToolkit\schemas'
 }
 
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $stageRoot 'install-manifest.json') -Encoding UTF8

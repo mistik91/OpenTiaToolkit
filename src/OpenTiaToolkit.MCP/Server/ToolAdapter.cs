@@ -21,16 +21,18 @@ namespace OpenTiaToolkit.MCP.Server
         private readonly ICommand _command;
         private readonly ILogger _logger;
         private readonly Tool _protocolTool;
+        private readonly McpFileAccessPolicy? _fileAccessPolicy;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ToolAdapter"/> class.
         /// </summary>
         /// <param name="command">The command to adapt.</param>
         /// <param name="logger">Logger instance.</param>
-        public ToolAdapter(ICommand command, ILogger logger)
+        public ToolAdapter(ICommand command, ILogger logger, McpFileAccessPolicy? fileAccessPolicy = null)
         {
             _command = command;
             _logger = logger;
+            _fileAccessPolicy = fileAccessPolicy;
             _protocolTool = new Tool
             {
                 Name = _command.Name,
@@ -106,6 +108,14 @@ namespace OpenTiaToolkit.MCP.Server
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                var filePolicyError = _fileAccessPolicy?.Validate(_command, arguments);
+                if (filePolicyError != null)
+                {
+                    return ToolExecutionResult.FromCommandResult(
+                        CommandResult.CreateFailure(filePolicyError),
+                        Name);
+                }
+
                 var args = ParseArguments(arguments);
                 cancellationToken.ThrowIfCancellationRequested();
                 progress?.Report(new CommandProgressUpdate($"Starting {Name}.", 0, "starting"));

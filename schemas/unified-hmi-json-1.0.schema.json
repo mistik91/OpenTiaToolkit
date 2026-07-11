@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mistik91/OpenTiaToolkit/schemas/unified-hmi-json-1.0.schema.json",
+  "title": "OpenTiaToolkit Unified HMI JSON document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["SchemaVersion", "DocumentKind", "Screens"],
+  "properties": {
+    "SchemaVersion": { "const": "1.0" },
+    "DocumentKind": { "enum": ["Export", "Patch"] },
+    "ExportedAtUtc": { "type": "string" },
+    "PatchGeneratedAtUtc": { "type": ["string", "null"] },
+    "HmiName": { "type": ["string", "null"] },
+    "Filters": { "type": ["object", "null"] },
+    "PatchSummary": { "type": ["object", "null"] },
+    "Warnings": { "type": "array", "items": { "type": "string" } },
+    "Screens": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/screen" }
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": ["string", "null"],
+      "enum": ["Create", "Update", "Delete", null]
+    },
+    "itemAction": {
+      "type": ["string", "null"],
+      "enum": ["Create", "Update", "Delete", "Recreate", null]
+    },
+    "propertyMap": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "null"] }
+    },
+    "screen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Path", "Items"],
+      "properties": {
+        "Path": { "type": "string", "minLength": 1 },
+        "Name": { "type": "string" },
+        "Action": { "$ref": "#/$defs/action" },
+        "Properties": { "$ref": "#/$defs/propertyMap" },
+        "EventHandlers": { "type": ["array", "null"], "items": { "type": "object" } },
+        "PropertyEventHandlers": { "type": ["array", "null"], "items": { "type": "object" } },
+        "Dynamizations": { "type": ["array", "null"], "items": { "type": "object" } },
+        "Items": { "type": "array", "items": { "$ref": "#/$defs/item" } }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Name"],
+      "properties": {
+        "Name": { "type": "string", "minLength": 1 },
+        "Type": { "type": "string" },
+        "Action": { "$ref": "#/$defs/itemAction" },
+        "Properties": { "$ref": "#/$defs/propertyMap" },
+        "EventHandlers": { "type": ["array", "null"], "items": { "type": "object" } },
+        "PropertyEventHandlers": { "type": ["array", "null"], "items": { "type": "object" } },
+        "Dynamizations": { "type": ["array", "null"], "items": { "type": "object" } },
+        "Interface": { "type": ["array", "null"], "items": { "type": "object" } }
+      }
+    }
+  }
+}

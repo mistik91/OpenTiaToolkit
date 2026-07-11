@@ -29,7 +29,7 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
 7. Build `apply-hardware-patch` operations with expected-value guards wherever the operation supports them.
 8. Use `targetRef` for items created earlier in the same patch. When a child item is generated during a plug, combine `targetRef` with a relative `target.itemPath` discovered from the prior dry-run result or from `get-hardware-tree`. If `plug-item` reports that TIA placed a GSD/GSDML subslot at a different actual path, prefer `allowDisplacedPlacement=true` with a `resultId`, then use that `resultId` for follow-up operations instead of adding a new device-specific command.
 9. Run `apply-hardware-patch` with `dry-run=true`.
-10. Pass `plc-name` and `safety-password` when the transaction may touch fail-safe hardware or Startdrive safety telegram configuration. Dry-runs still execute Siemens mutations inside a rolled-back transaction and can require safety authorization.
+10. Put a user-provided safety password in a process environment variable and pass `plc-name` plus `safety-password-env`; never pass or persist the password itself. Dry-runs still execute Siemens mutations inside a rolled-back transaction and can require safety authorization.
 11. Apply with `dry-run=false` only after the dry-run validates and the user has confirmed destructive operations when needed.
 12. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, audit result, or GSD parameter bytes.
 
@@ -83,7 +83,7 @@ For new SINAMICS Startdrive PROFINET drives, the reliable order is:
 
 Use `configure-drive-telegram` when a drive telegram must be changed and assigned process-image starts in one guarded operation. It changes or inserts the requested telegram, verifies that the requested input/output address objects are exposed, then writes the start addresses. Include `expectedTelegramNumber`, `expectedInputStartAddress`, and `expectedOutputStartAddress` when the current state is known.
 
-A verified G120C pattern is main telegram `352` and safety telegram `30`, with the safety telegram usually requiring `plc-name` and `safety-password` on `apply-hardware-patch`. Catalog type identifiers and concrete addresses remain project-specific; discover them from the target TIA installation and check for address collisions before apply.
+A verified G120C pattern is main telegram `352` and safety telegram `30`, with the safety telegram usually requiring `plc-name` and a `safety-password-env` reference on `apply-hardware-patch`. Catalog type identifiers and concrete addresses remain project-specific; discover them from the target TIA installation and check for address collisions before apply.
 
 ## Failure Recovery
 

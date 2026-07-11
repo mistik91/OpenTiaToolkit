@@ -14,7 +14,9 @@ namespace OpenTiaToolkit.Core.Services
         private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            PropertyNameCaseInsensitive = true,
+            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
         };
 
         public static string ResolveExportFilePath(string outputPath)
@@ -80,6 +82,7 @@ namespace OpenTiaToolkit.Core.Services
 
         public static void SaveDocument(HmiJsonDocument document, string outputPath)
         {
+            HmiJsonDocumentValidator.Validate(document);
             EnsureParentDirectory(outputPath);
             File.WriteAllText(outputPath, JsonSerializer.Serialize(document, SerializerOptions));
         }
@@ -88,8 +91,10 @@ namespace OpenTiaToolkit.Core.Services
         {
             var resolvedPath = ResolveImportFilePath(inputPath);
             var json = File.ReadAllText(resolvedPath);
-            return JsonSerializer.Deserialize<HmiJsonDocument>(json, SerializerOptions)
+            var document = JsonSerializer.Deserialize<HmiJsonDocument>(json, SerializerOptions)
                 ?? throw new InvalidOperationException("Unable to deserialize Unified HMI JSON document.");
+            HmiJsonDocumentValidator.Validate(document);
+            return document;
         }
 
         public static void SaveImportReport(HmiJsonImportResult report, string reportPath)

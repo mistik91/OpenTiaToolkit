@@ -133,9 +133,22 @@ namespace OpenTiaToolkit.Core.Commands
                 return string.Empty;
             }
 
-            var mustQuote = value!.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0;
-            var escaped = value.Replace("\"", "\"\"");
+            var nonNullValue = value!;
+            var spreadsheetSafeValue = IsSpreadsheetFormula(nonNullValue) ? "'" + nonNullValue : nonNullValue;
+            var mustQuote = spreadsheetSafeValue.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0;
+            var escaped = spreadsheetSafeValue.Replace("\"", "\"\"");
             return mustQuote ? "\"" + escaped + "\"" : escaped;
+        }
+
+        private static bool IsSpreadsheetFormula(string value)
+        {
+            if (value.Length == 0)
+            {
+                return false;
+            }
+
+            return value[0] == '=' || value[0] == '+' || value[0] == '-' || value[0] == '@' ||
+                   value[0] == '\t' || value[0] == '\r';
         }
 
         public static void EnsureParentDirectory(string path)

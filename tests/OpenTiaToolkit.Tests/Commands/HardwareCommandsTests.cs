@@ -221,59 +221,92 @@ namespace OpenTiaToolkit.Tests.Commands
         [TestMethod]
         public async Task ApplyHardwarePatch_LogsIntoSafetyProgramWhenPasswordProvided()
         {
-            var service = new Mock<IHardwareService>();
-            service.Setup(candidate => candidate.ApplyPatchAsync(
+            const string variableName = "OPENTIA_TEST_SAFETY_PASSWORD";
+            Environment.SetEnvironmentVariable(variableName, "A1");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.ApplyPatchAsync(
+                        It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                        true,
+                        false,
+                        null))
+                    .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+                var plcService = new Mock<IPlcService>();
+                plcService.SetupGet(candidate => candidate.IsSoftwareOpen).Returns(false);
+                plcService.Setup(candidate => candidate.OpenPlcAsync("PLC_1")).ReturnsAsync(true);
+                plcService.Setup(candidate => candidate.LoginToSafetyOfflineProgramAsync("A1"))
+                    .ReturnsAsync(new SafetyLoginResult(
+                        success: true,
+                        serviceAvailable: true,
+                        passwordRequired: true,
+                        alreadyLoggedIn: false,
+                        message: "Logged into the safety offline program."));
+                var command = new ApplyHardwarePatchCommand(service.Object, plcService.Object);
+                var operations = JsonDocument.Parse("[{\"op\":\"create-device\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_3\"}]").RootElement.Clone();
+
+                var result = await command.ExecuteAsync(Args(
+                    ("operations", operations),
+                    ("plc-name", "PLC_1"),
+                    ("safety-password-env", variableName)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success);
+                plcService.Verify(candidate => candidate.OpenPlcAsync("PLC_1"), Times.Once);
+                plcService.Verify(candidate => candidate.LoginToSafetyOfflineProgramAsync("A1"), Times.Once);
+                service.Verify(candidate => candidate.ApplyPatchAsync(
                     It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
                     true,
                     false,
-                    null))
-                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
-            var plcService = new Mock<IPlcService>();
-            plcService.SetupGet(candidate => candidate.IsSoftwareOpen).Returns(false);
-            plcService.Setup(candidate => candidate.OpenPlcAsync("PLC_1")).ReturnsAsync(true);
-            plcService.Setup(candidate => candidate.LoginToSafetyOfflineProgramAsync("A1"))
-                .ReturnsAsync(new SafetyLoginResult(
-                    success: true,
-                    serviceAvailable: true,
-                    passwordRequired: true,
-                    alreadyLoggedIn: false,
-                    message: "Logged into the safety offline program."));
-            var command = new ApplyHardwarePatchCommand(service.Object, plcService.Object);
-            var operations = JsonDocument.Parse("[{\"op\":\"create-device\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_3\"}]").RootElement.Clone();
-
-            var result = await command.ExecuteAsync(Args(
-                ("operations", operations),
-                ("plc-name", "PLC_1"),
-                ("safety-password", "A1")), NullLogger.Instance);
-
-            Assert.IsTrue(result.Success);
-            plcService.Verify(candidate => candidate.OpenPlcAsync("PLC_1"), Times.Once);
-            plcService.Verify(candidate => candidate.LoginToSafetyOfflineProgramAsync("A1"), Times.Once);
-            service.Verify(candidate => candidate.ApplyPatchAsync(
-                It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
-                true,
-                false,
-                null), Times.Once);
+                    null), Times.Once);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, null);
+            }
         }
 
         [TestMethod]
         public async Task ApplyHardwarePatch_RequiresPlcNameWithSafetyPassword()
         {
+            const string variableName = "OPENTIA_TEST_SAFETY_PASSWORD_NO_PLC";
+            Environment.SetEnvironmentVariable(variableName, "A1");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                var plcService = new Mock<IPlcService>();
+                var command = new ApplyHardwarePatchCommand(service.Object, plcService.Object);
+                var operations = JsonDocument.Parse("[{\"op\":\"create-device\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_3\"}]").RootElement.Clone();
+
+                var result = await command.ExecuteAsync(Args(
+                    ("operations", operations),
+                    ("safety-password-env", variableName)), NullLogger.Instance);
+
+                Assert.IsFalse(result.Success);
+                service.Verify(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string?>()), Times.Never);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, null);
+            }
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_RejectsRawSafetyPassword()
+        {
             var service = new Mock<IHardwareService>();
-            var plcService = new Mock<IPlcService>();
-            var command = new ApplyHardwarePatchCommand(service.Object, plcService.Object);
-            var operations = JsonDocument.Parse("[{\"op\":\"create-device\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_3\"}]").RootElement.Clone();
+            var command = new ApplyHardwarePatchCommand(service.Object, Mock.Of<IPlcService>());
+            var operations = JsonDocument.Parse("[{\"op\":\"create-device\"}]").RootElement.Clone();
 
             var result = await command.ExecuteAsync(Args(
                 ("operations", operations),
-                ("safety-password", "A1")), NullLogger.Instance);
+                ("safety-password", "must-not-be-accepted")), NullLogger.Instance);
 
             Assert.IsFalse(result.Success);
-            service.Verify(candidate => candidate.ApplyPatchAsync(
-                It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
-                It.IsAny<bool>(),
-                It.IsAny<bool>(),
-                It.IsAny<string?>()), Times.Never);
+            StringAssert.Contains(result.Message, "Raw safety-password");
         }
 
         [TestMethod]

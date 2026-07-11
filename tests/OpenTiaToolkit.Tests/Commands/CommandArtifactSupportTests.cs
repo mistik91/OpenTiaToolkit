@@ -34,5 +34,16 @@ namespace OpenTiaToolkit.Tests.Commands
                 Path.Combine(Path.GetTempPath(), "OpenTiaToolkitArtifactTest", "result.csv"),
                 outputPath);
         }
+
+        [DataTestMethod]
+        [DataRow("=HYPERLINK(\"https://example.invalid\")", "\"'=HYPERLINK(\"\"https://example.invalid\"\")\"")]
+        [DataRow("+1+1", "'+1+1")]
+        [DataRow("-2+3", "'-2+3")]
+        [DataRow("@SUM(A1:A2)", "'@SUM(A1:A2)")]
+        [DataRow("normal", "normal")]
+        public void EscapeCsv_NeutralizesSpreadsheetFormulas(string value, string expected)
+        {
+            Assert.AreEqual(expected, CommandArtifactSupport.EscapeCsv(value));
+        }
     }
 }

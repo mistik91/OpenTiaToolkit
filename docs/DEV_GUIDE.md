@@ -19,7 +19,7 @@ Guide for developers contributing to OpenTiaToolkit.
 
 1. Install **TIA Portal V21**.
    V21 is the primary supported version for development and integration validation.
-2. Install **Visual Studio 2019+** with:
+2. Install **Visual Studio 2022** (or the current .NET SDK used by CI) with:
    - .NET desktop development workload
    - MSTest adapter
 3. Clone the repository.
@@ -190,15 +190,9 @@ namespace OpenTiaToolkit.Core.Commands.Portal
 }
 ```
 
-### Step 2: Register It Once
+### Step 2: Verify Discovery
 
-Register the command in [ServiceCollectionExtensions.cs](../src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
-
-```csharp
-services.AddSingleton<ICommand, MyNewCommand>();
-```
-
-If the command introduces a new service dependency, register that service in `AddOpenTiaToolkitCoreServices()`.
+Concrete `ICommand` implementations in the Core assembly are discovered and registered automatically by `AddOpenTiaToolkitCommands()`. Do not add a second manual command list. If the command introduces a new service dependency, register that service in `AddOpenTiaToolkitCoreServices()` and add a composition test.
 
 ### Step 3: Add Tests
 
@@ -219,6 +213,7 @@ Typical local verification:
 ```bash
 dotnet build OpenTiaToolkit.sln
 dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
+powershell -ExecutionPolicy Bypass -File .\scripts\Generate-CommandReference.ps1 -CheckOnly
 ```
 
 ## Testing Strategy
@@ -343,5 +338,6 @@ Follow [Semantic Versioning](https://semver.org/):
 - all fast tests pass
 - integration tests pass against a real V21 project
 - documentation reflects the current command surface and architecture
+- generated command and MCP references have no drift
 - version metadata is updated where needed
 - release build completes successfully

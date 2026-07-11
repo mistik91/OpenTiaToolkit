@@ -42,10 +42,11 @@ namespace OpenTiaToolkit.MCP.Server
             _options = options ?? new McpRuntimeOptions();
             _sessionResetService = sessionResetService;
             _tools = new Dictionary<string, ToolAdapter>(StringComparer.OrdinalIgnoreCase);
+            var fileAccessPolicy = new McpFileAccessPolicy(_options);
 
             foreach (var command in commands)
             {
-                var adapter = new ToolAdapter(command, logger);
+                var adapter = new ToolAdapter(command, logger, fileAccessPolicy);
                 _tools[command.Name] = adapter;
                 _logger.LogInformation("Registered MCP tool: {ToolName} - {Description}", command.Name, command.Description);
             }

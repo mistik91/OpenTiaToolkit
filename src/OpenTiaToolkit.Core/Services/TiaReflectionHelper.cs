@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Siemens.Engineering.SW;
 
@@ -38,9 +40,94 @@ namespace OpenTiaToolkit.Core.Services
         /// <param name="value">The value to set.</param>
         public static void SetProperty(object? obj, string propertyName, object value)
         {
-            if (obj == null) return;
+            if (obj == null)
+            {
+                throw new ArgumentNullException(nameof(obj));
+            }
+
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                throw new ArgumentException("Property name cannot be empty.", nameof(propertyName));
+            }
+
             var property = obj.GetType().GetProperty(propertyName);
-            property?.SetValue(obj, value);
+            if (property == null)
+            {
+                throw new MissingMemberException(obj.GetType().FullName, propertyName);
+            }
+
+            if (!property.CanWrite)
+            {
+                throw new InvalidOperationException(
+                    $"Property '{obj.GetType().FullName}.{propertyName}' is not writable.");
+            }
+
+            try
+            {
+                property.SetValue(obj, value);
+                if (property.CanRead)
+                {
+                    var actual = property.GetValue(obj);
+                    if (!PropertyValuesEqual(value, actual))
+                    {
+                        throw new InvalidOperationException(
+                            $"Property '{obj.GetType().FullName}.{propertyName}' did not retain the requested value. " +
+                            $"Requested '{value}', read back '{actual}'.");
+                    }
+                }
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to set property '{obj.GetType().FullName}.{propertyName}': {ex.InnerException.Message}",
+                    ex.InnerException);
+            }
+        }
+
+        /// <summary>
+        /// Reads all non-empty localized text values from a Siemens multilingual object.
+        /// </summary>
+        public static string? GetMultilingualText(object? value)
+        {
+            if (value == null)
+            {
+                return null;
+            }
+
+            var directText = GetProperty(value, "Text")?.ToString();
+            if (!string.IsNullOrWhiteSpace(directText))
+            {
+                return directText;
+            }
+
+            var enumerable = value as IEnumerable ?? GetProperty(value, "Items") as IEnumerable;
+            if (enumerable == null)
+            {
+                return null;
+            }
+
+            var texts = new List<string>();
+            foreach (var item in enumerable)
+            {
+                var text = GetProperty(item, "Text")?.ToString();
+                if (!string.IsNullOrWhiteSpace(text) &&
+                    !texts.Contains(text!, StringComparer.Ordinal))
+                {
+                    texts.Add(text!);
+                }
+            }
+
+            return texts.Count == 0 ? null : string.Join(" | ", texts);
+        }
+
+        private static bool PropertyValuesEqual(object? expected, object? actual)
+        {
+            if (ReferenceEquals(expected, actual) || Equals(expected, actual))
+            {
+                return true;
+            }
+
+            return string.Equals(expected?.ToString(), actual?.ToString(), StringComparison.Ordinal);
         }
 
         /// <summary>

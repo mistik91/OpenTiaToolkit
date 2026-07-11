@@ -56,7 +56,6 @@ _ReSharper*/
 *.ReSharper*
 report.md
 suggestions.md
-docs/RELEASE_CHECKLIST.md
 
 # TIA Portal temporary and archive files
 *.ap19_*

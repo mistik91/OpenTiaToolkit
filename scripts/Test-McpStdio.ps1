@@ -172,12 +172,51 @@ try {
             throw 'The open project did not return any devices.'
         }
 
+        $plcsResponse = Invoke-McpTool -Name 'list-plcs'
+        $plcs = @($plcsResponse.result.structuredContent.data)
+        if ($plcs.Count -lt 1) {
+            throw 'Typed PLC discovery did not return a confirmed PLC.'
+        }
+
+        $plcNames = @($plcs | ForEach-Object { [string]$_.name } | Where-Object { $_ })
+        if (@($plcNames | Select-Object -Unique).Count -ne $plcNames.Count) {
+            throw 'PLC discovery returned duplicate names.'
+        }
+
+        [void](Invoke-McpTool -Name 'open-plc' -Arguments @{ 'plc-name' = $plcNames[0] })
+        $blocksResponse = Invoke-McpTool -Name 'get-blocks' -Arguments @{ 'plc-name' = $plcNames[0] }
+        $blocks = @($blocksResponse.result.structuredContent.data)
+        foreach ($block in $blocks) {
+            if ([string]$block.comment -match '^Siemens\.Engineering\.MultilingualText$') {
+                throw 'PLC block comments still expose the Siemens MultilingualText type name.'
+            }
+        }
+
+        $hmisResponse = Invoke-McpTool -Name 'list-hmis'
+        $hmis = @($hmisResponse.result.structuredContent.data)
+        if ($hmis.Count -lt 1) {
+            throw 'Typed Unified HMI discovery did not return a confirmed HMI.'
+        }
+
+        $hmiNames = @($hmis | ForEach-Object { [string]$_.name } | Where-Object { $_ })
+        if (@($hmiNames | Select-Object -Unique).Count -ne $hmiNames.Count) {
+            throw 'HMI discovery returned duplicate names.'
+        }
+
+        [void](Invoke-McpTool -Name 'open-unified-hmi' -Arguments @{ 'hmi-name' = $hmiNames[0] })
+        $screensResponse = Invoke-McpTool -Name 'list-hmi-screens' -Arguments @{ 'hmi-name' = $hmiNames[0] }
+        $screens = @($screensResponse.result.structuredContent.data)
+
         [void](Invoke-McpTool -Name 'portal-status')
         [void](Invoke-McpTool -Name 'reset-session')
 
         $summary['InstanceCount'] = $instances.Count
         $summary['ProjectCount'] = $projects.Count
         $summary['DeviceCount'] = $devices.Count
+        $summary['PlcCount'] = $plcs.Count
+        $summary['BlockCount'] = $blocks.Count
+        $summary['HmiCount'] = $hmis.Count
+        $summary['ScreenCount'] = $screens.Count
         $summary['ResetVerified'] = $true
     }
 

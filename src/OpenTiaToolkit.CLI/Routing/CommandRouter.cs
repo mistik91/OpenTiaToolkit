@@ -81,6 +81,37 @@ namespace OpenTiaToolkit.CLI.Routing
         public IReadOnlyDictionary<string, ICommand> Commands => _commands;
 
         /// <summary>
+        /// Returns the machine-readable command catalog used to generate CLI and MCP reference documentation.
+        /// </summary>
+        public object GetCommandCatalog()
+        {
+            var commands = _commands.Values
+                .OrderBy(command => command.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(command => new
+                {
+                    name = command.Name,
+                    description = command.Description,
+                    category = GetCommandCategory(command),
+                    parameters = command.Schema.Parameters.Select(parameter => new
+                    {
+                        name = parameter.Name,
+                        type = parameter.Type.ToString(),
+                        required = parameter.Required,
+                        defaultValue = parameter.DefaultValue,
+                        description = parameter.Description
+                    })
+                })
+                .ToList();
+
+            return new
+            {
+                schemaVersion = "1.0",
+                commandCount = commands.Count,
+                commands
+            };
+        }
+
+        /// <summary>
         /// Parses command-line arguments into a CommandArgs dictionary.
         /// Supports both --name=value and --name value formats.
         /// </summary>
@@ -325,6 +356,10 @@ namespace OpenTiaToolkit.CLI.Routing
                     return "Hardware";
                 case "Vci":
                     return "VCI";
+                case "Libraries":
+                    return "Libraries";
+                case "Text":
+                    return "Project Texts";
                 case "Devices":
                     return "Devices";
                 default:

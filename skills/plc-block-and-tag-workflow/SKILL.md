@@ -84,7 +84,7 @@ Use `replace` when the intent is to delete and recreate a tag so stale PLC refer
 
 Over MCP, `modify-tags` reports operation-level progress and can be cancelled cooperatively between operations and before TIA write calls. For long batches, check `operation-status` before retrying and use `cancel-operation` when the user wants to stop.
 
-If safety program access is required, use the provided `safety-password` only when the user supplied it for this task. Do not ask for or persist passwords unless the operation blocks without one.
+If safety program access is required, place a password supplied for this task in a process environment variable and pass only its name through `safety-password-env`. Do not place passwords in command arguments, files, logs, or retained configuration.
 
 ## Rename Workflows
 

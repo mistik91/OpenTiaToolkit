@@ -2,7 +2,7 @@
 
 ## Overview
 
-OpenTiaToolkit targets **TIA Portal V21 and forward**. Current development and validation are performed against V21.
+OpenTiaToolkit targets and is validated against **TIA Portal V21**. Later releases are not claimed as supported until their Siemens Openness assemblies and workflows have been tested.
 
 That is the version assumed by:
 
@@ -16,7 +16,7 @@ That is the version assumed by:
 | Version | Status | Notes |
 |---------|--------|-------|
 | **V21** | Supported | Current development target and validated runtime environment |
-| **Future TIA Portal versions** | Intended support | Validate against each new Siemens Openness release before claiming support |
+| **Future TIA Portal versions** | Unverified | Validate against each new Siemens Openness release before claiming support |
 | **V20 and earlier** | Not supported | Not a target for development or validation |
 
 ## V21 API Surface Used By This Repo
@@ -25,8 +25,8 @@ The repo targets the V21 modular Openness API layout:
 
 - `Siemens.Engineering.Base.dll`
 - `Siemens.Engineering.Step7.dll`
-- `Siemens.Engineering.WinCC.dll`
-- `Siemens.Engineering.WinCC.Extension.dll`
+- `Siemens.Engineering.WinCCUnified.dll`
+- `Siemens.Engineering.Startdrive.dll`
 
 Common V21 PLC surfaces used by the toolkit include:
 
@@ -133,10 +133,11 @@ dotnet build OpenTiaToolkit.sln /p:TiaPortalPublicApiPath="D:\Siemens\Portal V21
 
 ## Assembly Loading
 
-`TiaPortalAssemblyResolver` is V21-first:
+`TiaPortalAssemblyResolver` resolves V21 assemblies in this order:
 
-1. V21 PublicAPI
-2. TIA `Bin` infrastructure folders
+1. the TIA root named by `OPEN_TIA_PORTAL_ROOT` (or the legacy `TiaPortalLocation` variable)
+2. the standard V21 installation or registry location
+3. V21 `PublicAPI` and TIA `Bin` infrastructure folders below that root
 
 This matches the repo's current V21 support stance.
 

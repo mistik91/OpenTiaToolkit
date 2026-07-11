@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,6 +71,16 @@ namespace OpenTiaToolkit.CLI
             }
 
             args = outputOptions.CommandArgs;
+
+            if (args.Length == 1 && string.Equals(args[0], "--command-catalog", StringComparison.OrdinalIgnoreCase))
+            {
+                var router = serviceProvider.GetRequiredService<CommandRouter>();
+                Console.WriteLine(JsonSerializer.Serialize(router.GetCommandCatalog(), new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                }));
+                return 0;
+            }
 
             // Handle help command
             if (args.Length > 0 && (args[0] == "help" || args[0] == "--help" || args[0] == "-h"))

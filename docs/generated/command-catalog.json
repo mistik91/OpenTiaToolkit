@@ -1,0 +1,4130 @@
+﻿{
+  "schemaVersion": "1.0",
+  "commandCount": 124,
+  "commands": [
+    {
+      "name": "add-device",
+      "description": "Adds a device with its primary item to the current project",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "order-number",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "TIA hardware type identifier or order number"
+        },
+        {
+          "name": "version",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional catalog version appended to the order number when needed"
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Name for the device and primary item"
+        }
+      ]
+    },
+    {
+      "name": "apply-hardware-patch",
+      "description": "Dry-runs or applies transactional generic TIA hardware operations",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "operations",
+          "type": "Object",
+          "required": false,
+          "defaultValue": null,
+          "description": "Operations array or { operations: [...] } object"
+        },
+        {
+          "name": "operations-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "JSON file containing operations; CLI-friendly alternative to operations"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate operations in a rolled-back transaction without applying"
+        },
+        {
+          "name": "confirm-destructive",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Permit delete and disconnect operations"
+        },
+        {
+          "name": "transaction-description",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Undo unit description for TIA Portal"
+        },
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional PLC device name used with safety-password-env"
+        },
+        {
+          "name": "safety-password-env",
+          "type": "String",
+          "required": false,
+          "defaultValue": "OPENTIA_SAFETY_PASSWORD",
+          "description": "Environment variable containing the optional safety password; raw passwords are never accepted"
+        }
+      ]
+    },
+    {
+      "name": "apply-hmi-screen-json-edit",
+      "description": "Dry-runs or applies one Unified HMI screen JSON edit with safety checks",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "edited-screen",
+          "type": "Object",
+          "required": true,
+          "defaultValue": null,
+          "description": "The edited HmiJsonScreen object"
+        },
+        {
+          "name": "base-hash",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional expected hash from get-hmi-screen-json"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate changes without applying them"
+        },
+        {
+          "name": "allow-stale-base",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Allow applying when base-hash no longer matches"
+        },
+        {
+          "name": "fail-on-warning",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Treat warnings as a safety block"
+        },
+        {
+          "name": "require-clean-preflight",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Run a blocking clean preflight before apply"
+        },
+        {
+          "name": "backup",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Create a backup export before applying changes"
+        },
+        {
+          "name": "backup-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional backup folder or .json file path"
+        },
+        {
+          "name": "item-names",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional item names to include"
+        },
+        {
+          "name": "properties",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional property/composite names to include"
+        },
+        {
+          "name": "working-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional artifact root path"
+        }
+      ]
+    },
+    {
+      "name": "apply-hmi-screen-json-patch",
+      "description": "Dry-runs or applies compact Unified HMI screen patch operations with safety checks",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "operations",
+          "type": "Object",
+          "required": false,
+          "defaultValue": null,
+          "description": "Patch operations array or { operations: [...] } object"
+        },
+        {
+          "name": "operations-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file containing patch operations array or { operations: [...] } object"
+        },
+        {
+          "name": "base-hash",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional expected hash from get-hmi-screen-json"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate changes without applying them"
+        },
+        {
+          "name": "allow-stale-base",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Allow applying when base-hash no longer matches"
+        },
+        {
+          "name": "fail-on-warning",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Treat warnings as a safety block"
+        },
+        {
+          "name": "require-clean-preflight",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Run a blocking clean preflight before apply"
+        },
+        {
+          "name": "backup",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Create a backup export before applying changes"
+        },
+        {
+          "name": "backup-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional backup folder or .json file path"
+        },
+        {
+          "name": "item-names",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional item names to include; keep identical to the snapshot when using base-hash"
+        },
+        {
+          "name": "properties",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional property/composite names to include; keep identical to the snapshot when using base-hash"
+        },
+        {
+          "name": "working-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional artifact root path"
+        }
+      ]
+    },
+    {
+      "name": "archive-project",
+      "description": "Archives the current project to a .zap21 archive",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "archive-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Target .zap21 archive path"
+        },
+        {
+          "name": "mode",
+          "type": "String",
+          "required": false,
+          "defaultValue": "Compressed",
+          "description": "Archive mode: Compressed, None, DiscardRestorableData, or DiscardRestorableDataAndCompressed"
+        }
+      ]
+    },
+    {
+      "name": "audit-hardware-tag-mappings",
+      "description": "Audits PLC I/Q tag addresses against discovered hardware IO ranges and optional catalog evidence",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name whose tag tables should be scanned"
+        },
+        {
+          "name": "tag-table-filter",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional tag table name/text filter"
+        },
+        {
+          "name": "catalog-search-text",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional hardware catalog search text such as Promag"
+        },
+        {
+          "name": "max-unmatched-tags",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 100,
+          "description": "Maximum unmatched tag entries to include; use -1 for all"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for unmatched PLC tag rows"
+        }
+      ]
+    },
+    {
+      "name": "audit-hmi-label-proximity",
+      "description": "Creates an auditable nearest-label mapping report from an exported Unified HMI JSON file",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Unified HMI JSON export file"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional screen path to audit"
+        },
+        {
+          "name": "target-items",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional target item names"
+        },
+        {
+          "name": "target-types",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional target item types; defaults to HmiFaceplateContainer"
+        },
+        {
+          "name": "label-texts",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional exact label text values to include"
+        },
+        {
+          "name": "label-types",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional label item types; defaults to HmiText,HmiLabel"
+        },
+        {
+          "name": "max-candidates",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 5,
+          "description": "Number of candidates to include per target"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON report output path"
+        }
+      ]
+    },
+    {
+      "name": "can-plug-hardware-item",
+      "description": "Checks whether a hardware module or submodule can be plugged at a target position",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Object",
+          "required": false,
+          "defaultValue": null,
+          "description": "Parent hardware target as a structured hardware target"
+        },
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Parent hardware target device name; CLI-friendly alternative to target"
+        },
+        {
+          "name": "item-path",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Parent hardware target nested item path; use with device-name"
+        },
+        {
+          "name": "expected-type-identifier",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional expected target type identifier guard"
+        },
+        {
+          "name": "type-identifier",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "TIA hardware type identifier"
+        },
+        {
+          "name": "item-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Name for the new hardware item"
+        },
+        {
+          "name": "position-number",
+          "type": "Integer",
+          "required": true,
+          "defaultValue": null,
+          "description": "Target slot or subslot position"
+        }
+      ]
+    },
+    {
+      "name": "check-library-updates",
+      "description": "Reports project instances that are outdated against the project library or an open global library",
+      "category": "Libraries",
+      "parameters": [
+        {
+          "name": "library-scope",
+          "type": "String",
+          "required": false,
+          "defaultValue": "project",
+          "description": "Library scope: project or global"
+        },
+        {
+          "name": "global-library",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Open global library name or path when library-scope=global"
+        },
+        {
+          "name": "include-up-to-date",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Include up-to-date instances in the report"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for update messages"
+        }
+      ]
+    },
+    {
+      "name": "close-global-library",
+      "description": "Closes an open user global library by name or path",
+      "category": "Libraries",
+      "parameters": [
+        {
+          "name": "global-library",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Open global library name or path"
+        }
+      ]
+    },
+    {
+      "name": "close-project",
+      "description": "Closes the currently open project",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "save",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Whether to save changes before closing (default: false)"
+        }
+      ]
+    },
+    {
+      "name": "close-tia-portal",
+      "description": "Closes the current TIA Portal instance",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "compare-software",
+      "description": "Compares PLC software to the online target",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "target",
+          "type": "String",
+          "required": false,
+          "defaultValue": "online",
+          "description": "Compare target. Currently supported: online"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for compare results"
+        }
+      ]
+    },
+    {
+      "name": "compile-software",
+      "description": "Compiles the PLC software",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "password",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional password for protected blocks"
+        }
+      ]
+    },
+    {
+      "name": "connect-instance",
+      "description": "Connects to a specific TIA Portal instance by process ID",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "instance-id",
+          "type": "Integer",
+          "required": true,
+          "defaultValue": null,
+          "description": "The process ID of the TIA Portal instance to connect to"
+        }
+      ]
+    },
+    {
+      "name": "connect-portal",
+      "description": "Connects to a running TIA Portal instance or starts a new one",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "connect-vci-block",
+      "description": "Connects one PLC block to existing VCI workspace files",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact block name"
+        },
+        {
+          "name": "relative-directory",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Path relative to workspace root"
+        },
+        {
+          "name": "file-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Existing file name without extension"
+        },
+        {
+          "name": "file-format",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Format returned by get-vci-block-formats"
+        },
+        {
+          "name": "block-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block type such as FC or DB"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block group path"
+        }
+      ]
+    },
+    {
+      "name": "copy-from-master-copy",
+      "description": "Copies a library master copy into a PLC block group with dry-run and confirmation gates",
+      "category": "Libraries",
+      "parameters": [
+        {
+          "name": "library-scope",
+          "type": "String",
+          "required": false,
+          "defaultValue": "project",
+          "description": "Library scope: project or global"
+        },
+        {
+          "name": "global-library",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Open global library name or path when library-scope=global"
+        },
+        {
+          "name": "master-copy-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Master copy path inside MasterCopyFolder"
+        },
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Target PLC device name"
+        },
+        {
+          "name": "target-group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional target PLC block group path"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate and return the planned copy without applying"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly confirm a non-dry-run copy"
+        }
+      ]
+    },
+    {
+      "name": "copy-hmi-screen-from-template",
+      "description": "Copies a Unified HMI screen from a template screen with optional find/replace",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "template-screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The template screen path"
+        },
+        {
+          "name": "target-screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The new target screen path"
+        },
+        {
+          "name": "find-text",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional text to replace while cloning"
+        },
+        {
+          "name": "replace-text",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional replacement text"
+        }
+      ]
+    },
+    {
+      "name": "create-block",
+      "description": "Creates a new block in PLC software (currently validated for ProDiag FB creation)",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the block to create"
+        },
+        {
+          "name": "block-type",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The type of block (currently validated: FB)"
+        },
+        {
+          "name": "language",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "The programming language (currently validated: ProDiag)"
+        }
+      ]
+    },
+    {
+      "name": "create-hmi-item",
+      "description": "Creates a Unified HMI item on a screen",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "item-type",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The item type or alias"
+        },
+        {
+          "name": "item-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The new item name"
+        },
+        {
+          "name": "left",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional left position"
+        },
+        {
+          "name": "top",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional top position"
+        },
+        {
+          "name": "width",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional item width"
+        },
+        {
+          "name": "height",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional item height"
+        }
+      ]
+    },
+    {
+      "name": "create-hmi-screen",
+      "description": "Creates a Unified HMI screen if it does not already exist",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "width",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional screen width"
+        },
+        {
+          "name": "height",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional screen height"
+        }
+      ]
+    },
+    {
+      "name": "create-hmi-trend",
+      "description": "Creates or updates Unified HMI logging infrastructure for a tag",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "tag-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The HMI tag path"
+        },
+        {
+          "name": "datalog-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The target data log name"
+        },
+        {
+          "name": "cyclic",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Whether cyclic logging should be used"
+        },
+        {
+          "name": "cycle",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional cycle value, such as T5s"
+        },
+        {
+          "name": "storage-folder",
+          "type": "String",
+          "required": false,
+          "defaultValue": "/Trends",
+          "description": "Compatibility option; Unified HMI storage folder is read-only and is not changed"
+        },
+        {
+          "name": "log-max-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 2000,
+          "description": "Optional data log max size"
+        },
+        {
+          "name": "duration-days",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 365,
+          "description": "Optional log duration in days"
+        },
+        {
+          "name": "segment-max-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 500,
+          "description": "Optional segment max size"
+        }
+      ]
+    },
+    {
+      "name": "create-hmi-trends",
+      "description": "Plans or applies multiple Unified HMI trend logging configurations",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "configs",
+          "type": "ObjectArray",
+          "required": true,
+          "defaultValue": null,
+          "description": "Trend configs containing tagPath, dataLogName, cyclic, cycle, and optional sizing properties"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate and report planned configurations without applying them"
+        }
+      ]
+    },
+    {
+      "name": "create-project",
+      "description": "Creates a new TIA Portal project and selects it as the current project",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "project-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Project folder path or .ap21 file path"
+        }
+      ]
+    },
+    {
+      "name": "create-vci-workspace",
+      "description": "Creates a Version Control Interface workspace in the open project",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "root-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace filesystem root"
+        },
+        {
+          "name": "workspace-language",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional culture such as en-US"
+        }
+      ]
+    },
+    {
+      "name": "delete-blocks",
+      "description": "Deletes blocks matching a regex pattern from PLC software",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "filter",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Regex pattern for block names to delete"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Confirm deletion without prompting (default: false)"
+        }
+      ]
+    },
+    {
+      "name": "delete-hmi-data-log",
+      "description": "Deletes one Unified HMI data log archive when no logging tags still reference it",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "datalog-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The data log archive name"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm deletion"
+        }
+      ]
+    },
+    {
+      "name": "delete-hmi-data-logs",
+      "description": "Plans or deletes multiple unreferenced Unified HMI data log archives",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "configs",
+          "type": "ObjectArray",
+          "required": true,
+          "defaultValue": null,
+          "description": "Data log configs containing dataLogName"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate and report planned archive deletions without applying them"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm deletion when dry-run is false"
+        }
+      ]
+    },
+    {
+      "name": "delete-vci-workspace",
+      "description": "Deletes a Version Control Interface workspace definition",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm deletion"
+        }
+      ]
+    },
+    {
+      "name": "diff-hmi-json",
+      "description": "Creates a minimal Unified HMI JSON patch from two exports",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "base-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Base export folder or .json file path"
+        },
+        {
+          "name": "modified-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Edited export folder or .json file path"
+        },
+        {
+          "name": "patch-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Target patch folder or .json file path"
+        },
+        {
+          "name": "screens",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated screen paths"
+        },
+        {
+          "name": "item-names",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated item names"
+        },
+        {
+          "name": "properties",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated property paths"
+        }
+      ]
+    },
+    {
+      "name": "disconnect-portal",
+      "description": "Disconnects from the TIA Portal instance",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "download-software",
+      "description": "Downloads PLC software to PLCSIM Advanced with dry-run and confirmation gates",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "to-simulator",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": false,
+          "description": "Restrict download to PLCSIM Advanced"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate and return the planned download without applying"
+        },
+        {
+          "name": "only-changes",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Download only software changes instead of the full software load"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly confirm a non-dry-run download"
+        }
+      ]
+    },
+    {
+      "name": "export-block",
+      "description": "Exports a single PLC block to XML",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the block to export"
+        },
+        {
+          "name": "export-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The full file path where the XML will be saved"
+        }
+      ]
+    },
+    {
+      "name": "export-block-as-docs",
+      "description": "Exports a single block as SIMATIC SD documents (.s7dcl \u002B .s7res)",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the block to export"
+        },
+        {
+          "name": "export-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The directory path where files will be saved"
+        }
+      ]
+    },
+    {
+      "name": "export-block-as-source",
+      "description": "Exports a PLC block as an external source file when supported",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Name of the PLC block to export"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Output source file or folder path"
+        }
+      ]
+    },
+    {
+      "name": "export-blocks-as-docs",
+      "description": "Exports multiple blocks as SIMATIC SD documents (.s7dcl \u002B .s7res)",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "export-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The directory path where files will be saved"
+        },
+        {
+          "name": "filter-regex",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional regex filter for block names (e.g., \u0022Motor_.*\u0022)"
+        }
+      ]
+    },
+    {
+      "name": "export-hmi-json",
+      "description": "Exports the supported Unified HMI surface to JSON",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Target folder or .json file path"
+        },
+        {
+          "name": "screens",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated screen paths"
+        },
+        {
+          "name": "item-names",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated item names"
+        },
+        {
+          "name": "properties",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated property paths"
+        }
+      ]
+    },
+    {
+      "name": "export-plc",
+      "description": "Exports all PLC blocks to XML files",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "export-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "The directory path for XML export"
+        }
+      ]
+    },
+    {
+      "name": "export-tags",
+      "description": "Exports PLC tags from all tag tables",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "culture",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Project language culture used for tag comments (default: en-US)"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for exported PLC tags"
+        }
+      ]
+    },
+    {
+      "name": "export-texts",
+      "description": "Exports project texts to a Siemens project text workbook",
+      "category": "Project Texts",
+      "parameters": [
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Target .xlsx file path or folder"
+        },
+        {
+          "name": "source-culture",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Source language culture name, such as en-US"
+        },
+        {
+          "name": "target-cultures",
+          "type": "StringArray",
+          "required": true,
+          "defaultValue": null,
+          "description": "Target language culture names"
+        },
+        {
+          "name": "categories",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional project text category identifiers"
+        },
+        {
+          "name": "objects",
+          "type": "StringArray",
+          "required": true,
+          "defaultValue": null,
+          "description": "Top-level device or device-item names to export"
+        }
+      ]
+    },
+    {
+      "name": "export-type",
+      "description": "Exports a single type (UDT) to XML",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "type-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the type to export"
+        },
+        {
+          "name": "export-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The full file path where the XML will be saved"
+        }
+      ]
+    },
+    {
+      "name": "export-types",
+      "description": "Exports multiple types (UDT) to XML",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "export-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The directory path where XML files will be saved"
+        },
+        {
+          "name": "filter-regex",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional regex filter for type names (e.g., \u0022Motor_.*\u0022)"
+        }
+      ]
+    },
+    {
+      "name": "export-vci-block",
+      "description": "Exports one PLC block into a VCI workspace and creates its mapping",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact block name"
+        },
+        {
+          "name": "relative-directory",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Path relative to workspace root"
+        },
+        {
+          "name": "file-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "File name without extension; defaults to block name"
+        },
+        {
+          "name": "file-format",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Format returned by get-vci-block-formats"
+        },
+        {
+          "name": "block-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block type such as FC or DB"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block group path"
+        }
+      ]
+    },
+    {
+      "name": "find-hardware-catalog-items",
+      "description": "Searches installed TIA Portal hardware catalog items by text",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "search-text",
+          "type": "String",
+          "required": false,
+          "defaultValue": "",
+          "description": "Catalog search text; blank enumerates the available catalog"
+        },
+        {
+          "name": "culture",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional catalog language such as en-US"
+        }
+      ]
+    },
+    {
+      "name": "find-hardware-module-types",
+      "description": "Finds module type identifiers using the project-level TIA module information provider",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "partial-type-identifier",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Partial type identifier search value"
+        }
+      ]
+    },
+    {
+      "name": "find-replace-db-members",
+      "description": "Finds and replaces GlobalDB member names with nested struct support",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "rename-map",
+          "type": "Object",
+          "required": true,
+          "defaultValue": null,
+          "description": "Dictionary mapping old member names to new names (JSON string or Dictionary)"
+        },
+        {
+          "name": "case-insensitive",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Enable case-insensitive matching (default: false)"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Preview changes without applying (default: true)"
+        },
+        {
+          "name": "target-blocks",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional list of specific GlobalDB names (null = all)"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for find/replace result rows"
+        }
+      ]
+    },
+    {
+      "name": "find-replace-tags",
+      "description": "Finds and replaces PLC tag names across all tag tables",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "rename-map",
+          "type": "Object",
+          "required": true,
+          "defaultValue": null,
+          "description": "Dictionary mapping old tag names to new names (JSON string or Dictionary)"
+        },
+        {
+          "name": "case-insensitive",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Enable case-insensitive matching (default: false)"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Preview changes without applying (default: true)"
+        },
+        {
+          "name": "substring-match",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Enable substring matching instead of exact matching (default: false)"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for find/replace result rows"
+        }
+      ]
+    },
+    {
+      "name": "find-replace-udt-members",
+      "description": "Finds and replaces UDT member names with nested struct support",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "rename-map",
+          "type": "Object",
+          "required": true,
+          "defaultValue": null,
+          "description": "Dictionary mapping old member names to new names (JSON string or Dictionary)"
+        },
+        {
+          "name": "case-insensitive",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Enable case-insensitive matching (default: false)"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Preview changes without applying (default: true)"
+        },
+        {
+          "name": "target-types",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional list of specific UDT names (null = all)"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for find/replace result rows"
+        }
+      ]
+    },
+    {
+      "name": "generate-blocks-from-source",
+      "description": "Generates PLC blocks from an external source when supported",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "source-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Name of the imported source file"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Preview without mutating the PLC project (default: true)"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Required for non-dry-run generation"
+        }
+      ]
+    },
+    {
+      "name": "get-block-info",
+      "description": "Gets detailed information about a specific PLC block",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the block"
+        }
+      ]
+    },
+    {
+      "name": "get-blocks",
+      "description": "Lists blocks from PLC software",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "filter",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional regex filter for block names"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for PLC block rows"
+        }
+      ]
+    },
+    {
+      "name": "get-cross-references",
+      "description": "Gets PLC cross references for a tag, block, or named PLC object",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Tag, block, or PLC object name to look up"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for cross-reference rows"
+        }
+      ]
+    },
+    {
+      "name": "get-device-info",
+      "description": "Gets detailed information about a device",
+      "category": "Devices",
+      "parameters": [
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the device"
+        }
+      ]
+    },
+    {
+      "name": "get-device-item-info",
+      "description": "Gets detailed information about a device item",
+      "category": "Devices",
+      "parameters": [
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the parent device"
+        },
+        {
+          "name": "item-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the device item"
+        }
+      ]
+    },
+    {
+      "name": "get-gsd-parameter-data",
+      "description": "Reads raw parameter data bytes from a GSD or GSDML hardware item",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Object",
+          "required": false,
+          "defaultValue": null,
+          "description": "GSD device item target as a structured hardware target"
+        },
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "GSD device item target device name; CLI-friendly alternative to target"
+        },
+        {
+          "name": "item-path",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "GSD device item target nested item path; use with device-name"
+        },
+        {
+          "name": "expected-type-identifier",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional expected target type identifier guard"
+        },
+        {
+          "name": "dataset-number",
+          "type": "Integer",
+          "required": true,
+          "defaultValue": null,
+          "description": "Parameter dataset number"
+        },
+        {
+          "name": "byte-offset",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 0,
+          "description": "Starting byte offset"
+        },
+        {
+          "name": "length",
+          "type": "Integer",
+          "required": true,
+          "defaultValue": null,
+          "description": "Number of bytes to read"
+        }
+      ]
+    },
+    {
+      "name": "get-hardware-drive-telegrams",
+      "description": "Lists Startdrive telegrams and their IO addresses exposed by hardware drive items",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional drive device name filter"
+        },
+        {
+          "name": "address-attributes",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional named telegram address attributes to read"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for drive telegram rows"
+        }
+      ]
+    },
+    {
+      "name": "get-hardware-feature-attributes",
+      "description": "Reads engineering attributes from a hardware feature service such as NetworkInterface",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Object",
+          "required": false,
+          "defaultValue": null,
+          "description": "Hardware target as a structured hardware target"
+        },
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Hardware target device name; CLI-friendly alternative to target"
+        },
+        {
+          "name": "item-path",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Hardware target nested item path; use with device-name"
+        },
+        {
+          "name": "expected-type-identifier",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional expected target type identifier guard"
+        },
+        {
+          "name": "feature-service",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Hardware feature service name, such as NetworkInterface"
+        },
+        {
+          "name": "attributes",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional named feature attributes to read"
+        }
+      ]
+    },
+    {
+      "name": "get-hardware-io-addresses",
+      "description": "Lists process-image address objects exposed by hardware device items",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional device name filter"
+        },
+        {
+          "name": "attributes",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional named address attributes to read"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for hardware IO address rows"
+        }
+      ]
+    },
+    {
+      "name": "get-hardware-item-capabilities",
+      "description": "Gets available hardware feature services and attributes for one hardware target",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Object",
+          "required": false,
+          "defaultValue": null,
+          "description": "Hardware target as a structured hardware target"
+        },
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Hardware target device name; CLI-friendly alternative to target"
+        },
+        {
+          "name": "item-path",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Hardware target nested item path; use with device-name"
+        },
+        {
+          "name": "expected-type-identifier",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional expected target type identifier guard"
+        },
+        {
+          "name": "attributes",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional named attributes to read"
+        }
+      ]
+    },
+    {
+      "name": "get-hardware-network-item-attributes",
+      "description": "Reads engineering attributes from a NetworkInterface child such as a node or IO connector",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Object",
+          "required": false,
+          "defaultValue": null,
+          "description": "Network interface hardware target as a structured hardware target"
+        },
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Network interface hardware target device name; CLI-friendly alternative to target"
+        },
+        {
+          "name": "item-path",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Network interface hardware target nested item path; use with device-name"
+        },
+        {
+          "name": "expected-type-identifier",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional expected target type identifier guard"
+        },
+        {
+          "name": "network-collection",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "NetworkInterface collection name: Nodes, IoControllers, or IoConnectors"
+        },
+        {
+          "name": "network-item-index",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 0,
+          "description": "Zero-based item index in the network collection"
+        },
+        {
+          "name": "attributes",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional named network item attributes to read"
+        }
+      ]
+    },
+    {
+      "name": "get-hardware-networks",
+      "description": "Lists hardware network interfaces, nodes, IO controllers and IO connectors",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional device name filter"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for hardware network interfaces"
+        }
+      ]
+    },
+    {
+      "name": "get-hardware-tree",
+      "description": "Gets nested hardware devices and device items with reusable hardware target paths",
+      "category": "Hardware",
+      "parameters": [
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional device name filter"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for the hardware tree"
+        }
+      ]
+    },
+    {
+      "name": "get-hmi-item-properties",
+      "description": "Gets readable properties for a Unified HMI item",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "item-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The screen item name"
+        },
+        {
+          "name": "properties",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional property names"
+        }
+      ]
+    },
+    {
+      "name": "get-hmi-screen-info",
+      "description": "Gets detailed information about a Unified HMI screen",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        }
+      ]
+    },
+    {
+      "name": "get-hmi-screen-json",
+      "description": "Gets one Unified HMI screen as canonical JSON for agent editing",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "item-names",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional item names to include"
+        },
+        {
+          "name": "properties",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional property/composite names to include"
+        },
+        {
+          "name": "working-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional artifact root path"
+        },
+        {
+          "name": "include-screen",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Include the full screen object inline when it stays below the spill threshold"
+        }
+      ]
+    },
+    {
+      "name": "get-hmi-screen-summary",
+      "description": "Summarizes item counts and faceplate contained types for one Unified HMI screen",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "include-items",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Include compact per-item entries"
+        },
+        {
+          "name": "include-faceplates",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Include compact faceplate interface entries and configuration counts"
+        },
+        {
+          "name": "working-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional artifact root path"
+        }
+      ]
+    },
+    {
+      "name": "get-library-type-versions",
+      "description": "Lists versions for a library type",
+      "category": "Libraries",
+      "parameters": [
+        {
+          "name": "library-scope",
+          "type": "String",
+          "required": false,
+          "defaultValue": "project",
+          "description": "Library scope: project or global"
+        },
+        {
+          "name": "global-library",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Open global library name or path when library-scope=global"
+        },
+        {
+          "name": "type-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Library type path inside TypeFolder"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for version rows"
+        }
+      ]
+    },
+    {
+      "name": "get-online-status",
+      "description": "Gets PLC online status, optionally going online first",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "go-online",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Attempt to go online before reading status"
+        }
+      ]
+    },
+    {
+      "name": "get-project-info",
+      "description": "Gets information about the currently open project",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "get-project-tree",
+      "description": "Gets the hierarchical project structure",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "depth",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Maximum depth to traverse (null for unlimited)"
+        }
+      ]
+    },
+    {
+      "name": "get-software-tree",
+      "description": "Gets the hierarchical PLC software structure",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "depth",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Maximum depth to traverse (null for unlimited)"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for the PLC software tree"
+        }
+      ]
+    },
+    {
+      "name": "get-vci-block-formats",
+      "description": "Gets VCI-supported workspace file formats for one PLC block",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact block name"
+        },
+        {
+          "name": "block-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block type such as FC or DB"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block group path"
+        }
+      ]
+    },
+    {
+      "name": "get-vci-block-status",
+      "description": "Gets VCI comparison status for one mapped PLC block",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact block name"
+        },
+        {
+          "name": "block-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block type"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block group path"
+        }
+      ]
+    },
+    {
+      "name": "get-vci-workspace",
+      "description": "Gets details for a Version Control Interface workspace",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        }
+      ]
+    },
+    {
+      "name": "hmi-status",
+      "description": "Gets Unified HMI session status and optionally probes a screen",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional Unified HMI name expected by the caller"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional screen path to probe"
+        },
+        {
+          "name": "open-if-needed",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Open hmi-name before probing when no matching HMI is selected"
+        }
+      ]
+    },
+    {
+      "name": "import-block",
+      "description": "Imports a single block from XML file",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "import-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Full path to the XML file to import"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional path within PLC program (e.g., \u0027Program Blocks/Motors\u0027)"
+        }
+      ]
+    },
+    {
+      "name": "import-block-from-docs",
+      "description": "Imports a single block from SIMATIC SD documents (.s7dcl/.s7res)",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "import-directory",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory containing .s7dcl and .s7res files"
+        },
+        {
+          "name": "file-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Block name without extension (e.g., \u0027MotorControl\u0027)"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional path within PLC program"
+        },
+        {
+          "name": "import-option",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Import behavior: Override, None, SkipInactiveCultures, ActivateInactiveCultures (default: Override)"
+        }
+      ]
+    },
+    {
+      "name": "import-blocks",
+      "description": "Imports multiple blocks from XML files in a directory",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "import-directory",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory containing XML files to import"
+        },
+        {
+          "name": "filter-regex",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional regex filter for file names"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional path within PLC program"
+        }
+      ]
+    },
+    {
+      "name": "import-blocks-from-docs",
+      "description": "Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res)",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "import-directory",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory containing .s7dcl and .s7res files"
+        },
+        {
+          "name": "filter-regex",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional regex filter for block names"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional path within PLC program"
+        },
+        {
+          "name": "import-option",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Import behavior: Override, None, SkipInactiveCultures, ActivateInactiveCultures (default: Override)"
+        }
+      ]
+    },
+    {
+      "name": "import-hmi-json",
+      "description": "Preflights or imports a Unified HMI JSON export or patch",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Source folder or .json file path"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate changes without applying them"
+        },
+        {
+          "name": "apply",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly request an import apply; requires dry-run=false and confirm=true"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm the reviewed import apply"
+        },
+        {
+          "name": "fail-on-warning",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Treat warnings as a safety block"
+        },
+        {
+          "name": "require-clean-preflight",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Run a blocking clean preflight before apply"
+        },
+        {
+          "name": "backup",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Create a backup export before applying changes"
+        },
+        {
+          "name": "backup-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional backup folder or .json file path"
+        },
+        {
+          "name": "screens",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated screen paths"
+        },
+        {
+          "name": "item-names",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated item names"
+        },
+        {
+          "name": "properties",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated property paths"
+        }
+      ]
+    },
+    {
+      "name": "import-source",
+      "description": "Imports a PLC external source file when supported",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "source-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Path to a .scl or .awl source file"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Preview without mutating the PLC project (default: true)"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": null,
+          "description": "Required for non-dry-run imports"
+        }
+      ]
+    },
+    {
+      "name": "import-texts",
+      "description": "Imports project texts from a Siemens project text workbook",
+      "category": "Project Texts",
+      "parameters": [
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Source .xlsx project text workbook"
+        },
+        {
+          "name": "update-source-language",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Allow import to update source-language text"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate inputs without invoking Siemens text import"
+        }
+      ]
+    },
+    {
+      "name": "import-type",
+      "description": "Imports a single type (UDT) from XML file",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "import-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Full path to the XML file to import"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional path within type groups (e.g., \u0027Types/Subgroups\u0027)"
+        }
+      ]
+    },
+    {
+      "name": "import-types",
+      "description": "Imports multiple types (UDT) from XML files in a directory",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "import-directory",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory containing XML files to import"
+        },
+        {
+          "name": "filter-regex",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional regex filter for file names"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional path within type groups"
+        }
+      ]
+    },
+    {
+      "name": "inspect-hmi-screen-json-capabilities",
+      "description": "Inspects one Unified HMI screen and returns agent-oriented patch capabilities and guidance",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "item-names",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional item names to include"
+        },
+        {
+          "name": "properties",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional property/composite names to include"
+        },
+        {
+          "name": "include-item-types",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Include supported item types and aliases"
+        },
+        {
+          "name": "include-writable-properties",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Include writable property metadata for exported items"
+        },
+        {
+          "name": "include-snapshot",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Include the full screen snapshot in the result"
+        },
+        {
+          "name": "working-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional artifact root path"
+        }
+      ]
+    },
+    {
+      "name": "list-devices",
+      "description": "Lists all devices in the currently open project",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "list-external-sources",
+      "description": "PLC external sources",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for rows"
+        }
+      ]
+    },
+    {
+      "name": "list-global-libraries",
+      "description": "Lists known and open TIA Portal global libraries",
+      "category": "Libraries",
+      "parameters": [
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for library rows"
+        }
+      ]
+    },
+    {
+      "name": "list-hmi-item-types",
+      "description": "Lists the validated Unified HMI item types supported by this toolkit",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "filter",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional text filter"
+        }
+      ]
+    },
+    {
+      "name": "list-hmi-screens",
+      "description": "Lists screens in a Unified HMI",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional screen group path"
+        },
+        {
+          "name": "recursive",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Traverse nested screen groups"
+        }
+      ]
+    },
+    {
+      "name": "list-hmi-tags",
+      "description": "Lists tags in a Unified HMI",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "filter",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional text filter"
+        },
+        {
+          "name": "root-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional tag path to enumerate only that subtree"
+        },
+        {
+          "name": "allow-full-scan",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Allow scanning the full HMI tag tree when root-path is omitted"
+        },
+        {
+          "name": "max-results",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 200,
+          "description": "Maximum number of tags to return during enumeration"
+        },
+        {
+          "name": "max-depth",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 4,
+          "description": "Maximum member depth to traverse from the selected root"
+        },
+        {
+          "name": "include-details",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Read detailed tag metadata such as display name and data type"
+        },
+        {
+          "name": "include-logging-counts",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Read logging tag counts for returned tags"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for large tag lists"
+        }
+      ]
+    },
+    {
+      "name": "list-hmis",
+      "description": "Lists all HMI devices found in the project",
+      "category": "Unified HMI",
+      "parameters": []
+    },
+    {
+      "name": "list-instances",
+      "description": "Lists all running TIA Portal instances",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "list-library-types",
+      "description": "Lists library types in the project library or an open global library",
+      "category": "Libraries",
+      "parameters": [
+        {
+          "name": "library-scope",
+          "type": "String",
+          "required": false,
+          "defaultValue": "project",
+          "description": "Library scope: project or global"
+        },
+        {
+          "name": "global-library",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Open global library name or path when library-scope=global"
+        },
+        {
+          "name": "folder-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional folder path inside TypeFolder"
+        },
+        {
+          "name": "recursive",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "List nested folders recursively"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for library type rows"
+        }
+      ]
+    },
+    {
+      "name": "list-master-copies",
+      "description": "Lists master copies in the project library or an open global library",
+      "category": "Libraries",
+      "parameters": [
+        {
+          "name": "library-scope",
+          "type": "String",
+          "required": false,
+          "defaultValue": "project",
+          "description": "Library scope: project or global"
+        },
+        {
+          "name": "global-library",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Open global library name or path when library-scope=global"
+        },
+        {
+          "name": "folder-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional folder path inside MasterCopyFolder"
+        },
+        {
+          "name": "recursive",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "List nested folders recursively"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for master copy rows"
+        }
+      ]
+    },
+    {
+      "name": "list-plc-alarm-text-lists",
+      "description": "PLC alarm text lists",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for rows"
+        }
+      ]
+    },
+    {
+      "name": "list-plcs",
+      "description": "Lists all PLC devices found in the project",
+      "category": "PLC",
+      "parameters": []
+    },
+    {
+      "name": "list-project-languages",
+      "description": "Lists project languages and active language settings",
+      "category": "Project Texts",
+      "parameters": []
+    },
+    {
+      "name": "list-projects",
+      "description": "Lists all open TIA Portal projects and sessions",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "list-technology-objects",
+      "description": "PLC technology objects",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for rows"
+        }
+      ]
+    },
+    {
+      "name": "list-vci-mappings",
+      "description": "Lists mapped objects in a Version Control Interface workspace",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for VCI mapping rows"
+        }
+      ]
+    },
+    {
+      "name": "list-vci-workspaces",
+      "description": "Lists Version Control Interface workspaces in the open project",
+      "category": "VCI",
+      "parameters": []
+    },
+    {
+      "name": "list-watch-tables",
+      "description": "PLC watch and force tables",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for rows"
+        }
+      ]
+    },
+    {
+      "name": "modify-tags",
+      "description": "Plans or applies explicit PLC tag create, update, delete, and replace operations",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "operations",
+          "type": "ObjectArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Inline operation array with action, optional match, and set objects"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional .json or .csv operation file. Use either operations or input-path"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate and preview operations without applying them"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm delete and replace operations when dry-run is false"
+        },
+        {
+          "name": "safety-password-env",
+          "type": "String",
+          "required": false,
+          "defaultValue": "OPENTIA_SAFETY_PASSWORD",
+          "description": "Environment variable containing the optional safety password; raw passwords are never accepted"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for operation results"
+        }
+      ]
+    },
+    {
+      "name": "open-global-library",
+      "description": "Opens a TIA Portal global library by file path",
+      "category": "Libraries",
+      "parameters": [
+        {
+          "name": "path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Global library file path"
+        },
+        {
+          "name": "read-only",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Open the library read-only"
+        },
+        {
+          "name": "upgrade",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Open with upgrade"
+        }
+      ]
+    },
+    {
+      "name": "open-plc",
+      "description": "Opens a PLC device software by name",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        }
+      ]
+    },
+    {
+      "name": "open-project",
+      "description": "Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported)",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "project-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Full path to the project file"
+        },
+        {
+          "name": "umac-user",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional UMAC user name"
+        },
+        {
+          "name": "umac-password-env",
+          "type": "String",
+          "required": false,
+          "defaultValue": "OPENTIA_UMAC_PASSWORD",
+          "description": "Environment variable containing the UMAC password (default: OPENTIA_UMAC_PASSWORD)"
+        },
+        {
+          "name": "umac-user-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": "project",
+          "description": "UMAC user type: project or global"
+        }
+      ]
+    },
+    {
+      "name": "open-tia-portal",
+      "description": "Opens a new TIA Portal instance (with UI by default)",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "with-ui",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Start TIA Portal with user interface"
+        }
+      ]
+    },
+    {
+      "name": "open-unified-hmi",
+      "description": "Opens a Unified HMI by device or device item name",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI device or device item name"
+        }
+      ]
+    },
+    {
+      "name": "portal-status",
+      "description": "Gets the current TIA Portal connection status",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "probe-hmi-faceplate-interface",
+      "description": "Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "item-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "The faceplate item name"
+        },
+        {
+          "name": "item-name-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional text file containing the exact faceplate item name"
+        },
+        {
+          "name": "property",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional interface property name to target"
+        },
+        {
+          "name": "write",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Attempt a direct write to the targeted interface property"
+        },
+        {
+          "name": "value",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "The direct write value when write is true"
+        },
+        {
+          "name": "restore",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Restore the original value after a write probe"
+        }
+      ]
+    },
+    {
+      "name": "remove-hmi-logging-tag",
+      "description": "Removes one Unified HMI logging tag after verifying its data log association",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "tag-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The HMI tag path"
+        },
+        {
+          "name": "datalog-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The expected data log name"
+        },
+        {
+          "name": "logging-tag-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional explicit logging tag name; defaults to the toolkit-derived name"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm deletion"
+        }
+      ]
+    },
+    {
+      "name": "remove-hmi-logging-tags",
+      "description": "Plans or removes multiple Unified HMI logging tags after data log verification",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "configs",
+          "type": "ObjectArray",
+          "required": true,
+          "defaultValue": null,
+          "description": "Removal configs containing tagPath, dataLogName, and optional loggingTagName"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Validate and report planned removals without applying them"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm deletion when dry-run is false"
+        }
+      ]
+    },
+    {
+      "name": "retrieve-project",
+      "description": "Retrieves an archived project and selects it as the current project",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "archive-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Source .zap archive path"
+        },
+        {
+          "name": "target-directory",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory where the project should be retrieved"
+        },
+        {
+          "name": "upgrade",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Upgrade the retrieved project to the current TIA version"
+        },
+        {
+          "name": "umac-user",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional UMAC user name"
+        },
+        {
+          "name": "umac-password-env",
+          "type": "String",
+          "required": false,
+          "defaultValue": "OPENTIA_UMAC_PASSWORD",
+          "description": "Environment variable containing the UMAC password (default: OPENTIA_UMAC_PASSWORD)"
+        },
+        {
+          "name": "umac-user-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": "project",
+          "description": "UMAC user type: project or global"
+        }
+      ]
+    },
+    {
+      "name": "save-as-project",
+      "description": "Saves the project to a new location",
+      "category": "Portal",
+      "parameters": [
+        {
+          "name": "destination-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "The destination path for the project"
+        }
+      ]
+    },
+    {
+      "name": "save-project",
+      "description": "Saves the current project",
+      "category": "Portal",
+      "parameters": []
+    },
+    {
+      "name": "search-blocks",
+      "description": "Searches PLC blocks by name/comment with optional type filter",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "pattern",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Search text pattern"
+        },
+        {
+          "name": "search-in",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Where to search: \u0027name\u0027 or \u0027comment\u0027 (default: \u0027name\u0027)"
+        },
+        {
+          "name": "filter-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block type filter (e.g., \u0027FB\u0027, \u0027FC\u0027, \u0027DB\u0027, \u0027OB\u0027)"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional CSV file or folder path for matching PLC block rows"
+        }
+      ]
+    },
+    {
+      "name": "set-hmi-item-property",
+      "description": "Sets a property or attribute on a Unified HMI item",
+      "category": "Unified HMI",
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "screen-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The slash-delimited screen path"
+        },
+        {
+          "name": "item-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The screen item name"
+        },
+        {
+          "name": "property",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The property or attribute name"
+        },
+        {
+          "name": "value",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The new property value"
+        }
+      ]
+    },
+    {
+      "name": "start-cpu",
+      "description": "Starts the PLC CPU when a supported online runtime operation is available",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly confirm CPU runtime state change"
+        }
+      ]
+    },
+    {
+      "name": "stop-cpu",
+      "description": "Stops the PLC CPU when a supported online runtime operation is available",
+      "category": "PLC",
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly confirm CPU runtime state change"
+        }
+      ]
+    },
+    {
+      "name": "sync-vci-block",
+      "description": "Synchronizes one mapped PLC block with a VCI workspace",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name"
+        },
+        {
+          "name": "block-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact block name"
+        },
+        {
+          "name": "direction",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "project-to-workspace or workspace-to-project"
+        },
+        {
+          "name": "create-mapping",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Export and map an unmapped item for project-to-workspace"
+        },
+        {
+          "name": "relative-directory",
+          "type": "String",
+          "required": false,
+          "defaultValue": "",
+          "description": "Path relative to workspace root"
+        },
+        {
+          "name": "file-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional file name without extension"
+        },
+        {
+          "name": "file-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional supported file format"
+        },
+        {
+          "name": "block-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block type"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block group path"
+        }
+      ]
+    },
+    {
+      "name": "sync-vci-blocks",
+      "description": "Synchronizes selected PLC blocks with a VCI workspace",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name"
+        },
+        {
+          "name": "direction",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "project-to-workspace or workspace-to-project"
+        },
+        {
+          "name": "filter-regex",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional block-name regular expression"
+        },
+        {
+          "name": "block-types",
+          "type": "StringArray",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional set of types such as FC, DB"
+        },
+        {
+          "name": "create-mappings",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Export and map unmapped items for project-to-workspace"
+        },
+        {
+          "name": "relative-directory",
+          "type": "String",
+          "required": false,
+          "defaultValue": "",
+          "description": "Base path relative to workspace root"
+        },
+        {
+          "name": "file-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional supported file format"
+        },
+        {
+          "name": "include-skipped",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Include per-item results for skipped unmapped objects"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for the bulk sync result"
+        }
+      ]
+    },
+    {
+      "name": "sync-vci-plc",
+      "description": "Synchronizes supported objects of a PLC with a VCI workspace",
+      "category": "VCI",
+      "parameters": [
+        {
+          "name": "workspace-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Workspace name"
+        },
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name"
+        },
+        {
+          "name": "direction",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "project-to-workspace or workspace-to-project"
+        },
+        {
+          "name": "scope",
+          "type": "String",
+          "required": false,
+          "defaultValue": "blocks",
+          "description": "blocks, blocks-and-types, or all-supported"
+        },
+        {
+          "name": "create-mappings",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Export and map unmapped items for project-to-workspace"
+        },
+        {
+          "name": "relative-directory",
+          "type": "String",
+          "required": false,
+          "defaultValue": "",
+          "description": "Base path relative to workspace root"
+        },
+        {
+          "name": "file-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional supported file format"
+        },
+        {
+          "name": "include-skipped",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Include per-item results for skipped unmapped objects"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional JSON file or folder path for the PLC sync result"
+        }
+      ]
+    }
+  ]
+}

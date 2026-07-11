@@ -291,15 +291,15 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    var plcs = new List<PlcInfo>();
+                    var plcs = new Dictionary<string, PlcInfo>(StringComparer.OrdinalIgnoreCase);
 
                     foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(project))
                     {
-                        SearchDeviceItemsRecursive(device.DeviceItems, device.Name, plcs);
+                        SearchDeviceItemsRecursive(device.DeviceItems, device.Name, device.Name, plcs);
                     }
 
                     _logger?.LogInformation("Found {PlcCount} PLC device(s)", plcs.Count);
-                    return (IReadOnlyList<PlcInfo>)plcs;
+                    return (IReadOnlyList<PlcInfo>)plcs.Values.OrderBy(plc => plc.Path, StringComparer.OrdinalIgnoreCase).ToList();
                 }
                 catch (Exception ex)
                 {
@@ -324,15 +324,15 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    var hmis = new List<HmiInfo>();
+                    var hmis = new Dictionary<string, HmiInfo>(StringComparer.OrdinalIgnoreCase);
 
                     foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(project))
                     {
-                        SearchDeviceItemsForHmisRecursive(device.DeviceItems, device.Name, hmis);
+                        SearchDeviceItemsForHmisRecursive(device.DeviceItems, device.Name, device.Name, hmis);
                     }
 
                     _logger?.LogInformation("Found {HmiCount} HMI device(s)", hmis.Count);
-                    return (IReadOnlyList<HmiInfo>)hmis;
+                    return (IReadOnlyList<HmiInfo>)hmis.Values.OrderBy(hmi => hmi.Path, StringComparer.OrdinalIgnoreCase).ToList();
                 }
                 catch (Exception ex)
                 {
@@ -342,85 +342,26 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
-        private void SearchDeviceItemsRecursive(System.Collections.IEnumerable deviceItems, string parentDeviceName, List<PlcInfo> plcs)
+        private void SearchDeviceItemsRecursive(
+            System.Collections.IEnumerable deviceItems,
+            string parentDeviceName,
+            string parentPath,
+            IDictionary<string, PlcInfo> plcs)
         {
             foreach (DeviceItem deviceItem in deviceItems)
             {
-                bool isPlc = false;
-                string? typeInfo = null;
-
-                if (deviceItem.Name.IndexOf("PLC", StringComparison.OrdinalIgnoreCase) >= 0)
+                var itemPath = parentPath + "/" + deviceItem.Name;
+                var software = _v21Adapter.GetPlcSoftware(deviceItem);
+                if (software != null)
                 {
-                    isPlc = true;
-                    typeInfo = "Detected by name pattern";
-                }
-
-                if (!isPlc)
-                {
-                    var software = _v21Adapter.GetPlcSoftware(deviceItem);
-                    if (software != null)
-                    {
-                        isPlc = true;
-                        typeInfo = "Confirmed PLC software";
-                    }
-                }
-
-                if (!isPlc)
-                {
-                    var typeIdentifier = _v21Adapter.GetTypeIdentifier(deviceItem);
-                    if (typeIdentifier is string nonNullTypeIdentifier &&
-                        (nonNullTypeIdentifier.Contains("S7-1200") ||
-                         nonNullTypeIdentifier.Contains("S71200") ||
-                         nonNullTypeIdentifier.Contains("S7-1500") ||
-                         nonNullTypeIdentifier.Contains("S71500") ||
-                         nonNullTypeIdentifier.Contains("S7-300") ||
-                         nonNullTypeIdentifier.Contains("S7300") ||
-                         nonNullTypeIdentifier.Contains("S7-400") ||
-                         nonNullTypeIdentifier.Contains("S7400") ||
-                         nonNullTypeIdentifier.Contains("CPU") ||
-                         nonNullTypeIdentifier.Contains("Interface")))
-                    {
-                        isPlc = true;
-                        typeInfo = "Device type: " + nonNullTypeIdentifier;
-                    }
-                }
-
-                if (!isPlc)
-                {
-                    if (deviceItem.Name.IndexOf("CPU", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        deviceItem.Name.IndexOf("Controller", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        deviceItem.Name.IndexOf("S7", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        isPlc = true;
-                        typeInfo = "Detected by CPU name pattern";
-                    }
-                }
-
-                if (!isPlc &&
-                    (parentDeviceName.IndexOf("ET 200", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                     parentDeviceName.IndexOf("Station", StringComparison.OrdinalIgnoreCase) >= 0))
-                {
-                    if (!deviceItem.Name.StartsWith("Port", StringComparison.OrdinalIgnoreCase) &&
-                        !deviceItem.Name.StartsWith("PROFINET", StringComparison.OrdinalIgnoreCase) &&
-                        !deviceItem.Name.StartsWith("OPC", StringComparison.OrdinalIgnoreCase) &&
-                        !deviceItem.Name.StartsWith("Card", StringComparison.OrdinalIgnoreCase) &&
-                        !deviceItem.Name.StartsWith("Rack", StringComparison.OrdinalIgnoreCase) &&
-                        !deviceItem.Name.StartsWith("BA ", StringComparison.OrdinalIgnoreCase))
-                    {
-                        isPlc = true;
-                        typeInfo = "Detected as CPU in distributed station";
-                    }
-                }
-
-                if (isPlc)
-                {
-                    plcs.Add(new PlcInfo
+                    plcs[itemPath] = new PlcInfo
                     {
                         Name = deviceItem.Name,
-                        Type = typeInfo ?? "Unknown",
+                        Type = "PLC software: " + software.GetType().FullName,
                         ParentDevice = parentDeviceName,
-                        IsConfirmedPlc = typeInfo == "Confirmed PLC software"
-                    });
+                        Path = itemPath,
+                        IsConfirmedPlc = true
+                    };
                 }
 
                 try
@@ -428,7 +369,7 @@ namespace OpenTiaToolkit.Core.Services
                     if (deviceItem.DeviceItems != null && deviceItem.DeviceItems.Count > 0 &&
                         deviceItem.DeviceItems is System.Collections.IEnumerable childItems)
                     {
-                        SearchDeviceItemsRecursive(childItems, parentDeviceName, plcs);
+                        SearchDeviceItemsRecursive(childItems, parentDeviceName, itemPath, plcs);
                     }
                 }
                 catch
@@ -438,21 +379,26 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        private void SearchDeviceItemsForHmisRecursive(System.Collections.IEnumerable deviceItems, string parentDeviceName, List<HmiInfo> hmis)
+        private void SearchDeviceItemsForHmisRecursive(
+            System.Collections.IEnumerable deviceItems,
+            string parentDeviceName,
+            string parentPath,
+            IDictionary<string, HmiInfo> hmis)
         {
             foreach (DeviceItem deviceItem in deviceItems)
             {
-                var isHmi = _v21Adapter.TryGetHmiDeviceClassification(deviceItem, out var typeInfo, out var isConfirmedHmi);
-
-                if (isHmi)
+                var itemPath = parentPath + "/" + deviceItem.Name;
+                var software = _v21Adapter.GetUnifiedHmiSoftware(deviceItem);
+                if (software != null)
                 {
-                    hmis.Add(new HmiInfo
+                    hmis[itemPath] = new HmiInfo
                     {
                         Name = deviceItem.Name,
-                        Type = typeInfo ?? "Unknown",
+                        Type = "Unified HMI software: " + software.GetType().FullName,
                         ParentDevice = parentDeviceName,
-                        IsConfirmedHmi = isConfirmedHmi
-                    });
+                        Path = itemPath,
+                        IsConfirmedHmi = true
+                    };
                 }
 
                 try
@@ -460,7 +406,7 @@ namespace OpenTiaToolkit.Core.Services
                     if (deviceItem.DeviceItems != null && deviceItem.DeviceItems.Count > 0 &&
                         deviceItem.DeviceItems is System.Collections.IEnumerable childItems)
                     {
-                        SearchDeviceItemsForHmisRecursive(childItems, parentDeviceName, hmis);
+                        SearchDeviceItemsForHmisRecursive(childItems, parentDeviceName, itemPath, hmis);
                     }
                 }
                 catch

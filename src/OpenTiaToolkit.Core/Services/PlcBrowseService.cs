@@ -83,12 +83,8 @@ namespace OpenTiaToolkit.Core.Services
                             var language = TiaReflectionHelper.GetProperty(block, "ProgrammingLanguage")?.ToString();
                             var isReadOnly = (bool?)TiaReflectionHelper.GetProperty(block, "IsReadOnly") ?? false;
 
-                            string? comment = null;
-                            var commentObject = TiaReflectionHelper.GetProperty(block, "Comment");
-                            if (commentObject != null)
-                            {
-                                comment = TiaReflectionHelper.GetProperty(commentObject, "Text")?.ToString() ?? commentObject.ToString();
-                            }
+                            var comment = TiaReflectionHelper.GetMultilingualText(
+                                TiaReflectionHelper.GetProperty(block, "Comment"));
 
                             blocks.Add(new BlockInfo(
                                 name,
@@ -165,12 +161,8 @@ namespace OpenTiaToolkit.Core.Services
                             var language = TiaReflectionHelper.GetProperty(block, "ProgrammingLanguage")?.ToString();
                             var isReadOnly = (bool?)TiaReflectionHelper.GetProperty(block, "IsReadOnly") ?? false;
 
-                            string? comment = null;
-                            var commentObject = TiaReflectionHelper.GetProperty(block, "Comment");
-                            if (commentObject != null)
-                            {
-                                comment = TiaReflectionHelper.GetProperty(commentObject, "Text")?.ToString() ?? commentObject.ToString();
-                            }
+                            var comment = TiaReflectionHelper.GetMultilingualText(
+                                TiaReflectionHelper.GetProperty(block, "Comment"));
 
                             var author = TiaReflectionHelper.GetProperty(block, "Author")?.ToString();
                             int memorySize = 0;

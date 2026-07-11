@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -121,8 +124,62 @@ namespace OpenTiaToolkit.MCP
                 ToolTimeout = ResolveToolTimeout(),
                 SessionResetGracePeriod = ResolvePositiveDuration(
                     "OPEN_TIA_MCP_RESET_GRACE_SECONDS",
-                    TimeSpan.FromSeconds(5))
+                    TimeSpan.FromSeconds(5)),
+                AllowedFileRoots = ResolveAllowedFileRoots(),
+                MaxInputFileBytes = ResolvePositiveLong(
+                    "OPEN_TIA_MCP_MAX_INPUT_FILE_BYTES",
+                    16L * 1024L * 1024L),
+                AllowFileOverwrite = ResolveBoolean("OPEN_TIA_MCP_ALLOW_FILE_OVERWRITE", false)
             };
+        }
+
+        private static IReadOnlyList<string> ResolveAllowedFileRoots()
+        {
+            var configured = Environment.GetEnvironmentVariable("OPEN_TIA_MCP_ALLOWED_ROOTS");
+            if (string.IsNullOrWhiteSpace(configured))
+            {
+                return Array.Empty<string>();
+            }
+
+            return configured!
+                .Split(new[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(path => path.Trim())
+                .Where(path => path.Length > 0)
+                .ToList();
+        }
+
+        private static long ResolvePositiveLong(string variableName, long defaultValue)
+        {
+            var configured = Environment.GetEnvironmentVariable(variableName);
+            if (string.IsNullOrWhiteSpace(configured))
+            {
+                return defaultValue;
+            }
+
+            if (long.TryParse(configured, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value > 0)
+            {
+                return value;
+            }
+
+            Console.Error.WriteLine($"Ignoring invalid {variableName} value '{configured}'. Use a positive integer.");
+            return defaultValue;
+        }
+
+        private static bool ResolveBoolean(string variableName, bool defaultValue)
+        {
+            var configured = Environment.GetEnvironmentVariable(variableName);
+            if (string.IsNullOrWhiteSpace(configured))
+            {
+                return defaultValue;
+            }
+
+            if (bool.TryParse(configured, out var value))
+            {
+                return value;
+            }
+
+            Console.Error.WriteLine($"Ignoring invalid {variableName} value '{configured}'. Use true or false.");
+            return defaultValue;
         }
 
         private static TimeSpan? ResolveToolTimeout()
@@ -177,6 +234,9 @@ namespace OpenTiaToolkit.MCP
                 "  OPEN_TIA_MCP_LOG_LEVEL             Trace, Debug, Information, Warning, Error, Critical, or None. Default: Warning.",
                 "  OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS  Optional positive timeout for one tool call. Timed-out calls are asked to cancel; use reset-session if the attachment stays busy.",
                 "  OPEN_TIA_MCP_RESET_GRACE_SECONDS   Seconds reset-session waits for cooperative quiescence. Default: 5. A still-running call is never disposed in-process.",
+                "  OPEN_TIA_MCP_ALLOWED_ROOTS         Semicolon-separated roots allowed for MCP path parameters. Defaults: Documents, Desktop, and the OpenTiaToolkit temp directory.",
+                "  OPEN_TIA_MCP_MAX_INPUT_FILE_BYTES Maximum existing input file size. Default: 16777216 (16 MiB).",
+                "  OPEN_TIA_MCP_ALLOW_FILE_OVERWRITE Allow explicit MCP output paths to overwrite existing files. Default: false.",
                 "  OPEN_TIA_ARTIFACT_RETENTION_DAYS   Optional retention window for temporary command artifacts. Default: 7.",
                 "",
                 "Built-in MCP tools:",

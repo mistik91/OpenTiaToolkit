@@ -198,6 +198,9 @@ public class PlcInfo
     /// <summary>Gets or sets the parent device name.</summary>
     public string? ParentDevice { get; set; }
 
+    /// <summary>Gets or sets the stable slash-delimited device-item path.</summary>
+    public string? Path { get; set; }
+
     /// <summary>Gets or sets a value indicating whether this is a confirmed PLC.</summary>
     public bool IsConfirmedPlc { get; set; }
 }
@@ -215,6 +218,9 @@ public class HmiInfo
 
     /// <summary>Gets or sets the parent device name.</summary>
     public string? ParentDevice { get; set; }
+
+    /// <summary>Gets or sets the stable slash-delimited device-item path.</summary>
+    public string? Path { get; set; }
 
     /// <summary>Gets or sets a value indicating whether this is a confirmed HMI.</summary>
     public bool IsConfirmedHmi { get; set; }

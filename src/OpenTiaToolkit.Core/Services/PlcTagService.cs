@@ -1828,7 +1828,7 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return message.IndexOf("permission to modify the safety program", StringComparison.OrdinalIgnoreCase) >= 0
-                ? message + " Log into the safety program in TIA Portal, or rerun with --safety-password when Openness safety login is available."
+                ? message + " Log into the safety program in TIA Portal, or provide a process environment variable through --safety-password-env when Openness safety login is available."
                 : message;
         }
 

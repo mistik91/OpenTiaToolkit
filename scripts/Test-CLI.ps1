@@ -320,7 +320,7 @@ function Get-HelpCommandsFromOutput {
             break
         }
 
-        if ($inCommands -and $line -match '^\s{2}([a-z0-9-]+)\s{2,}') {
+        if ($inCommands -and $line -match '^\s{2}([a-z0-9][a-z0-9-]*)\s+') {
             $commands.Add($matches[1])
         }
     }
@@ -614,7 +614,7 @@ function Run-ReadOnlySuite {
             (New-CliCommandString -Name 'get-software-tree' -Arguments @{ 'plc-name' = $PlcName; 'depth' = 3 }),
             (New-CliCommandString -Name 'compile-software' -Arguments @{ 'plc-name' = $PlcName }),
             (New-CliCommandString -Name 'get-blocks' -Arguments @{ 'plc-name' = $PlcName }),
-            (New-CliCommandString -Name 'list-db-members' -Arguments @{ 'plc-name' = $PlcName }),
+            (New-CliCommandString -Name 'list-watch-tables' -Arguments @{ 'plc-name' = $PlcName }),
             (New-CliCommandString -Name 'export-types' -Arguments @{ 'plc-name' = $PlcName; 'export-path' = $typeProbeRoot })
         )
 
@@ -1018,7 +1018,7 @@ function Run-NegativeSuite {
     Invoke-TestCase -SuiteName $suiteName -CaseName 'open-project-missing-arg' -Body {
         $result = Invoke-CliCommand -CaseName 'negative-open-project-missing-arg' -Arguments @('open-project')
         Assert-True ($result.ExitCode -ne 0) 'open-project without arguments unexpectedly returned exit code 0.'
-        Assert-Contains -Text $result.Output -Needle 'Project path is required' -Message 'open-project missing arg did not report the expected text.'
+        Assert-Contains -Text $result.Output -Needle 'Missing required parameter: project-path' -Message 'open-project missing arg did not report the expected text.'
         return $result
     } | Out-Null
 

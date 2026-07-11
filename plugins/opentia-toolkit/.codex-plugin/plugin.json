@@ -4,7 +4,6 @@
   "description": "Codex workflows, skills, and MCP configuration for Siemens TIA Portal automation with OpenTiaToolkit.",
   "author": {
     "name": "OpenTiaToolkit Contributors",
-    "email": "maintainers@opentiatoolkit.local",
     "url": "https://github.com/mistik91/OpenTiaToolkit"
   },
   "homepage": "https://github.com/mistik91/OpenTiaToolkit",

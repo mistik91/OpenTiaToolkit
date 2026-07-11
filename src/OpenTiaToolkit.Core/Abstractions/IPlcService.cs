@@ -180,7 +180,7 @@ public interface IPlcService
     Task<bool> ExportBlockAsync(string blockName, string exportPath);
 
     /// <summary>
-        /// Exports a single block as SIMATIC SD documents.
+    /// Exports a single block as SIMATIC SD documents.
     /// Creates .s7dcl and .s7res files.
     /// </summary>
     /// <param name="blockName">The name of the block to export.</param>
@@ -189,7 +189,7 @@ public interface IPlcService
     Task<bool> ExportBlockAsDocumentsAsync(string blockName, string exportPath);
 
     /// <summary>
-        /// Exports multiple blocks as SIMATIC SD documents.
+    /// Exports multiple blocks as SIMATIC SD documents.
     /// </summary>
     /// <param name="filterRegex">Optional regex filter for block names.</param>
     /// <param name="exportPath">The directory path where files will be saved.</param>
@@ -333,7 +333,7 @@ public interface IPlcService
     Task<ImportResult> ImportTypesAsync(string importDirectory, string? filterRegex = null, string? groupPath = null);
 
     /// <summary>
-        /// Imports a single block from SIMATIC SD documents (.s7dcl/.s7res).
+    /// Imports a single block from SIMATIC SD documents (.s7dcl/.s7res).
     /// </summary>
     /// <param name="importDirectory">The directory containing .s7dcl and .s7res files.</param>
     /// <param name="fileNameWithoutExtension">Block name without extension.</param>
@@ -343,7 +343,7 @@ public interface IPlcService
     Task<bool> ImportBlockFromDocumentsAsync(string importDirectory, string fileNameWithoutExtension, string? groupPath = null, string importOption = "Override");
 
     /// <summary>
-        /// Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res).
+    /// Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res).
     /// </summary>
     /// <param name="importDirectory">The directory containing document files.</param>
     /// <param name="filterRegex">Optional regex filter for block names.</param>

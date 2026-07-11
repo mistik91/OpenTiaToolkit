@@ -8,6 +8,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Changed
+- Completed Phase 1 trustworthy-beta hardening: atomic session transitions, typed deduplicated PLC/HMI discovery, multilingual comments, strict versioned HMI JSON validation, fail-closed reflection writes, environment-referenced safety credentials, MCP file policy, and spreadsheet-safe CSV output.
+- Split hosted vendor-free checks from licensed V21 validation, generated CLI/MCP references from the runtime catalog, corrected V21 support and runtime-location documentation, and added a tracked release checklist.
 - Completed the Phase 0 stop-ship remediation: isolated CLI/MCP installer dependencies, added exact staged stdio smoke testing, and verified the staged CLI/MCP against an open V21 project.
 - Made MCP session reset wait for operation quiescence and fail closed with process-restart guidance instead of releasing the gate and disposing a live Siemens session.
 - Made Unified HMI JSON import dry-run by default and require explicit `dry-run=false`, `apply=true`, and `confirm=true`; blocked HMI operations now return command failures with structured data.

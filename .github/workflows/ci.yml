@@ -14,12 +14,9 @@ on:
         type: string
 
 jobs:
-  validate:
-    name: Validate
+  hosted:
+    name: Hosted vendor-free checks
     runs-on: windows-latest
-
-    env:
-      DEFAULT_TIA_PUBLIC_API_PATH: C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48
 
     steps:
       - name: Checkout
@@ -30,51 +27,11 @@ jobs:
         with:
           dotnet-version: "9.0.x"
 
-      - name: Resolve TIA PublicAPI path
-        id: tia
-        shell: pwsh
-        run: |
-          $path = '${{ github.event.inputs.tiaPortalPublicApiPath }}'
-          if ([string]::IsNullOrWhiteSpace($path)) {
-            $path = $env:DEFAULT_TIA_PUBLIC_API_PATH
-          }
-
-          $available = Test-Path -LiteralPath (Join-Path $path 'Siemens.Engineering.Base.dll')
-          "path=$path" >> $env:GITHUB_OUTPUT
-          "available=$($available.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-
-          if ($available) {
-            Write-Host "TIA Portal PublicAPI found at $path"
-          } else {
-            Write-Warning "TIA Portal PublicAPI was not found at '$path'. Build, format, and tests will be skipped on this runner. Restore, dependency vulnerability scanning, config, and documentation checks still run. Use a runner with TIA Portal PublicAPI installed, or dispatch the workflow with tiaPortalPublicApiPath, to run the full validation suite."
-            "### TIA-dependent validation skipped" >> $env:GITHUB_STEP_SUMMARY
-            "" >> $env:GITHUB_STEP_SUMMARY
-            "The Siemens TIA Portal PublicAPI was not found at:" >> $env:GITHUB_STEP_SUMMARY
-            "" >> $env:GITHUB_STEP_SUMMARY
-            '```text' >> $env:GITHUB_STEP_SUMMARY
-            $path >> $env:GITHUB_STEP_SUMMARY
-            '```' >> $env:GITHUB_STEP_SUMMARY
-            "" >> $env:GITHUB_STEP_SUMMARY
-            "Build, format, and test steps require Siemens Openness assemblies and were intentionally skipped. Restore, dependency vulnerability scanning, config, and documentation sanity checks still run." >> $env:GITHUB_STEP_SUMMARY
-          }
-
       - name: Restore
         run: dotnet restore OpenTiaToolkit.sln
 
       - name: Dependency vulnerability scan
         run: dotnet list OpenTiaToolkit.sln package --vulnerable --include-transitive --source https://api.nuget.org/v3/index.json
-
-      - name: Build
-        if: steps.tia.outputs.available == 'true'
-        run: dotnet build OpenTiaToolkit.sln --no-restore /p:TiaPortalPublicApiPath="${{ steps.tia.outputs.path }}"
-
-      - name: Format check
-        if: steps.tia.outputs.available == 'true'
-        run: dotnet format OpenTiaToolkit.sln --no-restore --verify-no-changes --verbosity minimal
-
-      - name: Fast tests
-        if: steps.tia.outputs.available == 'true'
-        run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --no-build --filter "TestCategory!=Integration"
 
       - name: Config and docs sanity
         shell: pwsh
@@ -93,6 +50,10 @@ jobs:
             'CHANGELOG.md',
             'THIRD_PARTY_NOTICES.md',
             'docs\SETUP.md',
+            'docs\generated\command-catalog.json',
+            'docs\generated\COMMAND_REFERENCE.md',
+            'docs\generated\MCP_TOOL_REFERENCE.md',
+            'schemas\unified-hmi-json-1.0.schema.json',
             'examples\README.md',
             'plugins\opentia-toolkit\.codex-plugin\plugin.json',
             'plugins\opentia-toolkit\.mcp.json'
@@ -103,6 +64,64 @@ jobs:
               throw "Required publication file is missing: $path"
             }
           }
+
+      - name: Plugin skill sync check
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -CheckOnly
+
+  licensed-v21:
+    name: Licensed TIA V21 validation
+    if: vars.TIA_V21_SELF_HOSTED_ENABLED == 'true'
+    runs-on: [self-hosted, Windows, X64, tia-v21]
+    env:
+      DEFAULT_TIA_PUBLIC_API_PATH: C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Require licensed TIA V21 PublicAPI
+        id: tia
+        shell: pwsh
+        run: |
+          $path = '${{ github.event.inputs.tiaPortalPublicApiPath }}'
+          if ([string]::IsNullOrWhiteSpace($path)) {
+            $path = $env:DEFAULT_TIA_PUBLIC_API_PATH
+          }
+
+          if (-not (Test-Path -LiteralPath (Join-Path $path 'Siemens.Engineering.Base.dll'))) {
+            throw "Licensed TIA V21 PublicAPI was not found at '$path'."
+          }
+
+          "path=$path" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore OpenTiaToolkit.sln
+
+      - name: Build
+        run: dotnet build OpenTiaToolkit.sln -c Release --no-restore /p:TiaPortalPublicApiPath="${{ steps.tia.outputs.path }}"
+
+      - name: Format check
+        run: dotnet format OpenTiaToolkit.sln --no-restore --verify-no-changes --verbosity minimal
+
+      - name: Fast tests
+        run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "TestCategory!=Integration"
+
+      - name: Generated command reference drift check
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Generate-CommandReference.ps1 -CheckOnly
+
+      - name: Dependency vulnerability scan
+        run: dotnet list OpenTiaToolkit.sln package --vulnerable --include-transitive --source https://api.nuget.org/v3/index.json
+
+      - name: Build and smoke staged installer payload
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Installer.ps1 -Configuration Release -StageOnly -SkipBuild
 
       - name: Plugin skill sync check
         shell: pwsh

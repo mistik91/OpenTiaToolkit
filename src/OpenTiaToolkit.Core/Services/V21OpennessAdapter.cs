@@ -13,6 +13,7 @@ using Siemens.Engineering;
 using Siemens.Engineering.Compiler;
 using Siemens.Engineering.HW;
 using Siemens.Engineering.HW.Features;
+using Siemens.Engineering.HmiUnified;
 using Siemens.Engineering.SW;
 using Siemens.Engineering.SW.Blocks;
 
@@ -177,6 +178,20 @@ namespace OpenTiaToolkit.Core.Services
             return plcSoftwareType.IsInstanceOfType(software) ? software : null;
         }
 
+        public HmiSoftware? GetUnifiedHmiSoftware(object deviceItem)
+        {
+            if (deviceItem == null) throw new ArgumentNullException(nameof(deviceItem));
+
+            if (deviceItem is DeviceItem typedDeviceItem)
+            {
+                var softwareContainer = typedDeviceItem.GetService<SoftwareContainer>();
+                return softwareContainer?.Software as HmiSoftware;
+            }
+
+            var reflectedContainer = GetService(deviceItem, typeof(SoftwareContainer));
+            return TiaReflectionHelper.GetProperty(reflectedContainer, "Software") as HmiSoftware;
+        }
+
         public SafetyLoginResult LoginToSafetyOfflineProgram(object plcDeviceItem, string password)
         {
             if (plcDeviceItem == null) throw new ArgumentNullException(nameof(plcDeviceItem));
@@ -282,6 +297,14 @@ namespace OpenTiaToolkit.Core.Services
         public bool TryGetHmiDeviceClassification(object deviceItem, out string? typeInfo, out bool isConfirmedHmi)
         {
             if (deviceItem == null) throw new ArgumentNullException(nameof(deviceItem));
+
+            var unifiedSoftware = GetUnifiedHmiSoftware(deviceItem);
+            if (unifiedSoftware != null)
+            {
+                typeInfo = "Unified HMI software: " + unifiedSoftware.GetType().FullName;
+                isConfirmedHmi = true;
+                return true;
+            }
 
             if (GetService(deviceItem, "HmiTarget") != null)
             {

@@ -71,7 +71,7 @@ get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="D
 - A dry run performs validation and mutations in TIA, then disposes the transaction without committing it.
 - An apply run commits only if every operation succeeds.
 - `delete-device`, `delete-item`, `disconnect-node`, `disconnect-io-connector`, and `erase-drive-telegram` require `confirm-destructive=true`.
-- Use `plc-name` and `safety-password` on `apply-hardware-patch` when a dry-run or apply mutates fail-safe drive/project data; dry-runs still execute Siemens mutations inside a rolled-back transaction and may require safety authorization.
+- Put the safety password in `OPENTIA_SAFETY_PASSWORD` (or another process environment variable) and pass its name with `safety-password-env` when `apply-hardware-patch` may touch fail-safe data. Never put a password in command arguments, JSON, logs, or shell history. Dry-runs still execute Siemens mutations inside a rolled-back transaction and may require safety authorization.
 - Saving the project remains a separate explicit action.
 
 Supported operations:

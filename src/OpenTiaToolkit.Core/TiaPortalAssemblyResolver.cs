@@ -126,6 +126,16 @@ namespace OpenTiaToolkit.Core
         /// </summary>
         private static string? GetTiaPortalRoot()
         {
+            foreach (string variableName in new[] { "OPEN_TIA_PORTAL_ROOT", "TiaPortalLocation" })
+            {
+                string? configuredRoot = Environment.GetEnvironmentVariable(variableName);
+                if (!string.IsNullOrWhiteSpace(configuredRoot) && Directory.Exists(configuredRoot))
+                {
+                    Trace.TraceInformation($"[TiaPortalAssemblyResolver] Found configured TIA root from {variableName}: {configuredRoot}");
+                    return Path.GetFullPath(configuredRoot);
+                }
+            }
+
             // DIRECT PATH TO V21 (primary target)
             // This ensures the resolver always works even if registry keys are missing
             string v21Direct = @"C:\Program Files\Siemens\Automation\Portal V21";

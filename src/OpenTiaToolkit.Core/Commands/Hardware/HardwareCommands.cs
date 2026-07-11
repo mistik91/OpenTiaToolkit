@@ -876,8 +876,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
             new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate operations in a rolled-back transaction without applying", required: false, defaultValue: true),
             new CommandParameter("confirm-destructive", CommandParameterType.Boolean, "Permit delete and disconnect operations", required: false, defaultValue: false),
             new CommandParameter("transaction-description", CommandParameterType.String, "Undo unit description for TIA Portal", required: false),
-            new CommandParameter("plc-name", CommandParameterType.String, "Optional PLC device name used with safety-password", required: false),
-            new CommandParameter("safety-password", CommandParameterType.String, "Optional safety program password used to log into the offline safety program before hardware mutations", required: false)
+            new CommandParameter("plc-name", CommandParameterType.String, "Optional PLC device name used with safety-password-env", required: false),
+            new CommandParameter("safety-password-env", CommandParameterType.String, "Environment variable containing the optional safety password; raw passwords are never accepted", required: false, defaultValue: CommandSecretSupport.DefaultSafetyPasswordEnvironmentVariable)
         });
         public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
@@ -890,7 +890,22 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
             {
                 context.StartCommand(Name, "Validating hardware patch inputs.");
                 var dryRun = !args.Has("dry-run") || args.GetBool("dry-run", true);
-                var safetyPassword = args.GetString("safety-password");
+                if (args.Has("safety-password"))
+                {
+                    return CommandResult.CreateFailure(
+                        "Raw safety-password input is not accepted. Put the password in an environment variable and use safety-password-env.");
+                }
+
+                if (!CommandSecretSupport.TryResolveOptionalEnvironmentSecret(
+                    args,
+                    "safety-password-env",
+                    CommandSecretSupport.DefaultSafetyPasswordEnvironmentVariable,
+                    out var safetyPassword,
+                    out var secretError))
+                {
+                    return CommandResult.CreateFailure(secretError!);
+                }
+
                 SafetyLoginResult? safetyLogin = null;
                 if (!string.IsNullOrEmpty(safetyPassword))
                 {
@@ -902,7 +917,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                     var plcName = args.GetString("plc-name");
                     if (string.IsNullOrWhiteSpace(plcName))
                     {
-                        return CommandResult.CreateFailure("plc-name is required when safety-password is provided.");
+                        return CommandResult.CreateFailure("plc-name is required when a safety password environment reference is provided.");
                     }
 
                     if (!_plcService.IsSoftwareOpen ||
@@ -917,7 +932,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                     }
 
                     context.Checkpoint("Logging into offline safety program.", 35, "safety-login");
-                    safetyLogin = await _plcService.LoginToSafetyOfflineProgramAsync(safetyPassword);
+                    safetyLogin = await _plcService.LoginToSafetyOfflineProgramAsync(safetyPassword!);
                     if (!safetyLogin.Success && safetyLogin.PasswordRequired)
                     {
                         return CommandResult.CreateFailure(safetyLogin.Message, new { safetyLogin });

@@ -37,7 +37,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 required: false),
             new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate and preview operations without applying them", required: false, defaultValue: true),
             new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm delete and replace operations when dry-run is false", required: false, defaultValue: false),
-            new CommandParameter("safety-password", CommandParameterType.String, "Optional safety program password used before applying changes", required: false),
+            new CommandParameter("safety-password-env", CommandParameterType.String, "Environment variable containing the optional safety password; raw passwords are never accepted", required: false, defaultValue: CommandSecretSupport.DefaultSafetyPasswordEnvironmentVariable),
             new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for operation results", required: false)
         });
 
@@ -91,12 +91,27 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                     }
                 }
 
+                if (args.Has("safety-password"))
+                {
+                    return CommandResult.CreateFailure(
+                        "Raw safety-password input is not accepted. Put the password in an environment variable and use safety-password-env.");
+                }
+
+                if (!CommandSecretSupport.TryResolveOptionalEnvironmentSecret(
+                    args,
+                    "safety-password-env",
+                    CommandSecretSupport.DefaultSafetyPasswordEnvironmentVariable,
+                    out var safetyPassword,
+                    out var secretError))
+                {
+                    return CommandResult.CreateFailure(secretError!);
+                }
+
                 SafetyLoginResult? safetyLogin = null;
-                var safetyPassword = args.GetString("safety-password");
                 if (!dryRun && !string.IsNullOrEmpty(safetyPassword))
                 {
                     context.Checkpoint("Logging into offline safety program.", 35, "safety-login");
-                    safetyLogin = await _plcService.LoginToSafetyOfflineProgramAsync(safetyPassword);
+                    safetyLogin = await _plcService.LoginToSafetyOfflineProgramAsync(safetyPassword!);
                     if (!safetyLogin.Success && safetyLogin.PasswordRequired)
                     {
                         return CommandResult.CreateFailure(safetyLogin.Message, new { safetyLogin });

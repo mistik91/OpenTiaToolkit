@@ -177,6 +177,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps
 - Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.
 - `OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS` can be set to a positive number to make long tool calls return a structured timeout result. Timed-out calls are asked to cancel; use `operation-status` to inspect the active operation and `reset-session` if the TIA attachment remains busy.
 - `OPEN_TIA_MCP_RESET_GRACE_SECONDS` controls how long `reset-session` waits for the active operation to become quiescent (default 5 seconds).
+- `OPEN_TIA_MCP_ALLOWED_ROOTS` is a semicolon-separated allow-list for every MCP path parameter. It defaults to Documents, Desktop, and `%TEMP%\OpenTiaToolkit`.
+- `OPEN_TIA_MCP_MAX_INPUT_FILE_BYTES` caps existing input files at 16 MiB by default.
+- `OPEN_TIA_MCP_ALLOW_FILE_OVERWRITE` defaults to `false`; enable it only for an intentional overwrite of an explicit output path.
 - The MCP server exposes built-in infrastructure tools: `operation-status` reports the active operation and latest progress, `cancel-operation` requests cooperative cancellation, and `reset-session` cancels and waits before disposing the TIA attachment. If the operation does not quiesce during the grace period, reset fails without disposing or releasing the gate; terminate and restart the MCP process to recover safely.
 - PLC batch tag commands (`modify-tags`, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members`) report per-operation or per-item progress and honor cooperative cancellation between items and before TIA write calls.
 - `OPEN_TIA_ARTIFACT_RETENTION_DAYS` controls best-effort cleanup for temporary command artifacts written under `%TEMP%\OpenTiaToolkit\CommandArtifacts`; the default is 7 days.

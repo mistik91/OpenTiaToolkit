@@ -499,10 +499,11 @@ Performs a transactional sequence of generic hardware operations. It defaults to
 ```bash
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=true
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=false
-OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\drive-patch.json" --dry-run=true --plc-name="PLC_1" --safety-password="<safety-password>"
+$env:OPENTIA_SAFETY_PASSWORD = Read-Host -AsSecureString | ConvertFrom-SecureString -AsPlainText
+OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\drive-patch.json" --dry-run=true --plc-name="PLC_1" --safety-password-env="OPENTIA_SAFETY_PASSWORD"
 ```
 
-Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, PROFINET identity configuration (`configure-profinet-device` for IP address, station name, and device number), process-image relocation (`set-io-address-start`), Startdrive telegram number/address/size/insert/erase changes, subnet and IO-system connection, and explicitly confirmed disconnect/delete/telegram-erase operations. `targetRef` may be combined with a relative `target.itemPath` to address children of newly created items in the same transaction. `plug-item` verifies the actual path TIA assigned to the created item and fails by default if TIA placed it somewhere other than the requested parent path; set `allowDisplacedPlacement=true` only when you want to accept and report that actual placement. For GSD/GSDML subslots that TIA displaces, prefer `allowDisplacedPlacement=true` plus a `resultId` on `plug-item`, then use that `resultId` for follow-up IO address or parameter operations instead of adding device-specific commands. For new PROFINET drives, connect the drive interface to the subnet and IO system before assigning Startdrive telegram addresses. PROFINET station name (`pnDeviceName`) is separate from TIA's display `Name`, which can be written with guarded `set-attributes`. Use `--plc-name` and `--safety-password` when hardware mutations touch fail-safe drive/project data, including dry-runs.
+Supported patch operations include device instantiation, module/submodule plugging, GSD parameter read/write, PROFINET identity configuration (`configure-profinet-device` for IP address, station name, and device number), process-image relocation (`set-io-address-start`), Startdrive telegram number/address/size/insert/erase changes, subnet and IO-system connection, and explicitly confirmed disconnect/delete/telegram-erase operations. `targetRef` may be combined with a relative `target.itemPath` to address children of newly created items in the same transaction. `plug-item` verifies the actual path TIA assigned to the created item and fails by default if TIA placed it somewhere other than the requested parent path; set `allowDisplacedPlacement=true` only when you want to accept and report that actual placement. For GSD/GSDML subslots that TIA displaces, prefer `allowDisplacedPlacement=true` plus a `resultId` on `plug-item`, then use that `resultId` for follow-up IO address or parameter operations instead of adding device-specific commands. For new PROFINET drives, connect the drive interface to the subnet and IO system before assigning Startdrive telegram addresses. PROFINET station name (`pnDeviceName`) is separate from TIA's display `Name`, which can be written with guarded `set-attributes`. Use `--plc-name` and a `--safety-password-env` reference when hardware mutations touch fail-safe drive/project data, including dry-runs. Never pass the password value itself as an argument.
 
 ### Unified HMI Operations
 
@@ -1672,7 +1673,7 @@ replace,INPUT,Obsolete,,,,,,Replacement comment,false
 delete,INPUT,Unused,,,,,,,false
 ```
 
-Use exactly one of `operations` or `input-path`. `dry-run` defaults to `true`. Applying a batch containing `delete` or `replace` requires `confirm=true`. `safety-password` and JSON `output-path` are optional.
+Use exactly one of `operations` or `input-path`. `dry-run` defaults to `true`. Applying a batch containing `delete` or `replace` requires `confirm=true`. `safety-password-env` and JSON `output-path` are optional; raw passwords are rejected.
 
 When invoked through MCP, `modify-tags` reports operation-level progress to `operation-status` and honors `cancel-operation` between operations and before TIA write calls.
 
@@ -2599,7 +2600,7 @@ Fatal error: Cannot load Siemens.Engineering assembly
 **Solution**:
 - Ensure TIA Portal V21 is installed
 - The Siemens resolver package handles assembly loading
-- Set `TiaPortalLocation` environment variable if needed
+- Set `OPEN_TIA_PORTAL_ROOT` to the TIA Portal installation root for a non-standard runtime installation (`TiaPortalLocation` remains a compatibility alias)
 
 ## Tips and Tricks
 

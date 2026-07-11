@@ -1,0 +1,4 @@
+interface:
+  display_name: "Basic TIA Interaction"
+  short_description: "Connect to TIA Portal and establish the correct project context."
+  default_prompt: "Use $basic-tia-interaction to select the correct TIA Portal instance and open project safely."

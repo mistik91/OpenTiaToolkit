@@ -6,7 +6,7 @@
 
 OpenTiaToolkit is a Windows automation toolkit for Siemens TIA Portal Openness. It provides one shared command surface through a human-friendly CLI and an MCP server for agent/harness workflows.
 
-The project targets **TIA Portal V21 and forward**. Current development and validation are performed against V21.
+The project targets and is validated against **TIA Portal V21**. Later Siemens releases require explicit compatibility validation before they are claimed as supported.
 
 ## What It Does
 
@@ -21,7 +21,7 @@ The project targets **TIA Portal V21 and forward**. Current development and vali
 - Exposes the same capabilities through both CLI and MCP, so scripts and agents use the same implementation.
 - Ships agent-ready workflow guidance for common TIA/HMI interaction patterns.
 
-For the detailed command surface, see [CLI usage](docs/CLI_USAGE.md).
+For workflows and examples, see [CLI usage](docs/CLI_USAGE.md). The complete generated surfaces are the [command reference](docs/generated/COMMAND_REFERENCE.md), [MCP tool reference](docs/generated/MCP_TOOL_REFERENCE.md), and [machine-readable catalog](docs/generated/command-catalog.json).
 
 ## Integrations
 
@@ -169,7 +169,8 @@ For development checkouts and client-specific snippets, use [docs/mcp-client-con
 |-------|------|
 | Setup and Openness registration | [docs/SETUP.md](docs/SETUP.md) |
 | Installed agent plugin setup | [docs/INSTALL_AGENT_PLUGINS.md](docs/INSTALL_AGENT_PLUGINS.md) |
-| Full CLI command reference | [docs/CLI_USAGE.md](docs/CLI_USAGE.md) |
+| CLI workflows and examples | [docs/CLI_USAGE.md](docs/CLI_USAGE.md) |
+| Generated CLI/MCP command references | [docs/generated/COMMAND_REFERENCE.md](docs/generated/COMMAND_REFERENCE.md), [docs/generated/MCP_TOOL_REFERENCE.md](docs/generated/MCP_TOOL_REFERENCE.md) |
 | CLI automation harness | [docs/CLI_TESTING.md](docs/CLI_TESTING.md) |
 | MCP client/plugin setup | [docs/mcp-client-configs/README.md](docs/mcp-client-configs/README.md) |
 | TIA Portal version support | [docs/TIA_PORTAL_VERSION_SUPPORT.md](docs/TIA_PORTAL_VERSION_SUPPORT.md) |
