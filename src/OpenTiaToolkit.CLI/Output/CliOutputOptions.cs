@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
-using OpenTiaToolkit.Core.Commands;
+using System.Text.Json;
+using OpenTiaToolkit.Contracts.Outcomes;
+using OpenTiaToolkit.Contracts.Protocol;
 
 namespace OpenTiaToolkit.CLI.Output
 {
@@ -106,11 +108,25 @@ namespace OpenTiaToolkit.CLI.Output
 
     public static class CliOutputFormatter
     {
-        public static string Format(CommandResult result, CliOutputFormat format)
+        public static string Format(CommandOutcome result, CliOutputFormat format)
         {
             return format == CliOutputFormat.Json
-                ? result.ToJson()
-                : TableOutputFormatter.Format(result);
+                ? JsonSerializer.Serialize(result, ContractJson.CreateOptions(writeIndented: true))
+                : FormatText(result);
+        }
+
+        private static string FormatText(CommandOutcome result)
+        {
+            if (!result.Success)
+            {
+                return $"Error [{result.Error?.Code ?? ErrorCode.InternalError}] ({result.CorrelationId}): {result.Message}";
+            }
+
+            if (!result.Data.HasValue || result.Data.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+                return result.Message;
+            JsonElement data = result.Data.Value;
+            if (data.ValueKind == JsonValueKind.String) return data.GetString() ?? string.Empty;
+            return JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
         }
     }
 }

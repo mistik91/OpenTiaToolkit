@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **124**
+Commands: **127**
 
 ## Devices
 
@@ -38,6 +38,7 @@ Dry-runs or applies transactional generic TIA hardware operations
 | `transaction-description` | String | no |  | Undo unit description for TIA Portal |
 | `plc-name` | String | no |  | Optional PLC device name used with safety-password-env |
 | `safety-password-env` | String | no | OPENTIA_SAFETY_PASSWORD | Environment variable containing the optional safety password; raw passwords are never accepted |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### audit-hardware-tag-mappings
 
@@ -226,6 +227,8 @@ Lists known and open TIA Portal global libraries
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `output-path` | Path | no |  | Optional JSON file or folder path for library rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-library-types
 
@@ -238,6 +241,8 @@ Lists library types in the project library or an open global library
 | `folder-path` | String | no |  | Optional folder path inside TypeFolder |
 | `recursive` | Boolean | no | True | List nested folders recursively |
 | `output-path` | Path | no |  | Optional JSON file or folder path for library type rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-master-copies
 
@@ -250,6 +255,8 @@ Lists master copies in the project library or an open global library
 | `folder-path` | String | no |  | Optional folder path inside MasterCopyFolder |
 | `recursive` | Boolean | no | True | List nested folders recursively |
 | `output-path` | Path | no |  | Optional JSON file or folder path for master copy rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### open-global-library
 
@@ -260,6 +267,7 @@ Opens a TIA Portal global library by file path
 | `path` | Path | yes |  | Global library file path |
 | `read-only` | Boolean | no | True | Open the library read-only |
 | `upgrade` | Boolean | no | False | Open with upgrade |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ## PLC
 
@@ -292,6 +300,7 @@ Creates a new block in PLC software (currently validated for ProDiag FB creation
 | `block-name` | String | yes |  | The name of the block to create |
 | `block-type` | String | yes |  | The type of block (currently validated: FB) |
 | `language` | String | no |  | The programming language (currently validated: ProDiag) |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### delete-blocks
 
@@ -406,6 +415,7 @@ Finds and replaces GlobalDB member names with nested struct support
 | `dry-run` | Boolean | no |  | Preview changes without applying (default: true) |
 | `target-blocks` | StringArray | no |  | Optional list of specific GlobalDB names (null = all) |
 | `output-path` | Path | no |  | Optional CSV file or folder path for find/replace result rows |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### find-replace-tags
 
@@ -419,6 +429,7 @@ Finds and replaces PLC tag names across all tag tables
 | `dry-run` | Boolean | no |  | Preview changes without applying (default: true) |
 | `substring-match` | Boolean | no |  | Enable substring matching instead of exact matching (default: false) |
 | `output-path` | Path | no |  | Optional CSV file or folder path for find/replace result rows |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### find-replace-udt-members
 
@@ -432,6 +443,7 @@ Finds and replaces UDT member names with nested struct support
 | `dry-run` | Boolean | no |  | Preview changes without applying (default: true) |
 | `target-types` | StringArray | no |  | Optional list of specific UDT names (null = all) |
 | `output-path` | Path | no |  | Optional CSV file or folder path for find/replace result rows |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### generate-blocks-from-source
 
@@ -462,6 +474,8 @@ Lists blocks from PLC software
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `filter` | String | no |  | Optional regex filter for block names |
 | `output-path` | Path | no |  | Optional CSV file or folder path for PLC block rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### get-cross-references
 
@@ -501,6 +515,7 @@ Imports a single block from XML file
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `import-path` | String | yes |  | Full path to the XML file to import |
 | `group-path` | String | no |  | Optional path within PLC program (e.g., 'Program Blocks/Motors') |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### import-block-from-docs
 
@@ -513,6 +528,7 @@ Imports a single block from SIMATIC SD documents (.s7dcl/.s7res)
 | `file-name` | String | yes |  | Block name without extension (e.g., 'MotorControl') |
 | `group-path` | String | no |  | Optional path within PLC program |
 | `import-option` | String | no |  | Import behavior: Override, None, SkipInactiveCultures, ActivateInactiveCultures (default: Override) |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### import-blocks
 
@@ -524,6 +540,7 @@ Imports multiple blocks from XML files in a directory
 | `import-directory` | String | yes |  | Directory containing XML files to import |
 | `filter-regex` | String | no |  | Optional regex filter for file names |
 | `group-path` | String | no |  | Optional path within PLC program |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### import-blocks-from-docs
 
@@ -536,6 +553,7 @@ Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res)
 | `filter-regex` | String | no |  | Optional regex filter for block names |
 | `group-path` | String | no |  | Optional path within PLC program |
 | `import-option` | String | no |  | Import behavior: Override, None, SkipInactiveCultures, ActivateInactiveCultures (default: Override) |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### import-source
 
@@ -557,6 +575,7 @@ Imports a single type (UDT) from XML file
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `import-path` | String | yes |  | Full path to the XML file to import |
 | `group-path` | String | no |  | Optional path within type groups (e.g., 'Types/Subgroups') |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### import-types
 
@@ -568,6 +587,7 @@ Imports multiple types (UDT) from XML files in a directory
 | `import-directory` | String | yes |  | Directory containing XML files to import |
 | `filter-regex` | String | no |  | Optional regex filter for file names |
 | `group-path` | String | no |  | Optional path within type groups |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### list-external-sources
 
@@ -577,6 +597,8 @@ PLC external sources
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `output-path` | Path | no |  | Optional CSV file or folder path for rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-plc-alarm-text-lists
 
@@ -586,12 +608,17 @@ PLC alarm text lists
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `output-path` | Path | no |  | Optional CSV file or folder path for rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-plcs
 
 Lists all PLC devices found in the project
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-technology-objects
 
@@ -601,6 +628,8 @@ PLC technology objects
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `output-path` | Path | no |  | Optional CSV file or folder path for rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-watch-tables
 
@@ -610,6 +639,8 @@ PLC watch and force tables
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `output-path` | Path | no |  | Optional CSV file or folder path for rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### modify-tags
 
@@ -644,6 +675,8 @@ Searches PLC blocks by name/comment with optional type filter
 | `search-in` | String | no |  | Where to search: 'name' or 'comment' (default: 'name') |
 | `filter-type` | String | no |  | Optional block type filter (e.g., 'FB', 'FC', 'DB', 'OB') |
 | `output-path` | Path | no |  | Optional CSV file or folder path for matching PLC block rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### start-cpu
 
@@ -674,6 +707,7 @@ Adds a device with its primary item to the current project
 | `order-number` | String | yes |  | TIA hardware type identifier or order number |
 | `version` | String | no |  | Optional catalog version appended to the order number when needed |
 | `name` | String | yes |  | Name for the device and primary item |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### archive-project
 
@@ -683,6 +717,7 @@ Archives the current project to a .zap21 archive
 |---|---|---:|---|---|
 | `archive-path` | Path | yes |  | Target .zap21 archive path |
 | `mode` | String | no | Compressed | Archive mode: Compressed, None, DiscardRestorableData, or DiscardRestorableDataAndCompressed |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### close-project
 
@@ -691,12 +726,15 @@ Closes the currently open project
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `save` | Boolean | no | False | Whether to save changes before closing (default: false) |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### close-tia-portal
 
 Closes the current TIA Portal instance
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### connect-instance
 
@@ -719,12 +757,15 @@ Creates a new TIA Portal project and selects it as the current project
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `project-path` | Path | yes |  | Project folder path or .ap21 file path |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### disconnect-portal
 
 Disconnects from the TIA Portal instance
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### get-project-info
 
@@ -744,19 +785,28 @@ Gets the hierarchical project structure
 
 Lists all devices in the currently open project
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-instances
 
 Lists all running TIA Portal instances
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-projects
 
 Lists all open TIA Portal projects and sessions
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### open-project
 
@@ -795,6 +845,7 @@ Retrieves an archived project and selects it as the current project
 | `umac-user` | String | no |  | Optional UMAC user name |
 | `umac-password-env` | String | no | OPENTIA_UMAC_PASSWORD | Environment variable containing the UMAC password (default: OPENTIA_UMAC_PASSWORD) |
 | `umac-user-type` | String | no | project | UMAC user type: project or global |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### save-as-project
 
@@ -803,12 +854,15 @@ Saves the project to a new location
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `destination-path` | Path | yes |  | The destination path for the project |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### save-project
 
 Saves the current project
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ## Project Texts
 
@@ -833,12 +887,16 @@ Imports project texts from a Siemens project text workbook
 | `input-path` | Path | yes |  | Source .xlsx project text workbook |
 | `update-source-language` | Boolean | no | False | Allow import to update source-language text |
 | `dry-run` | Boolean | no | True | Validate inputs without invoking Siemens text import |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### list-project-languages
 
 Lists project languages and active language settings
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ## Unified HMI
 
@@ -861,6 +919,7 @@ Dry-runs or applies one Unified HMI screen JSON edit with safety checks
 | `item-names` | StringArray | no |  | Optional item names to include |
 | `properties` | StringArray | no |  | Optional property/composite names to include |
 | `working-path` | Path | no |  | Optional artifact root path |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### apply-hmi-screen-json-patch
 
@@ -882,6 +941,7 @@ Dry-runs or applies compact Unified HMI screen patch operations with safety chec
 | `item-names` | StringArray | no |  | Optional item names to include; keep identical to the snapshot when using base-hash |
 | `properties` | StringArray | no |  | Optional property/composite names to include; keep identical to the snapshot when using base-hash |
 | `working-path` | Path | no |  | Optional artifact root path |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### audit-hmi-label-proximity
 
@@ -909,6 +969,7 @@ Copies a Unified HMI screen from a template screen with optional find/replace
 | `target-screen-path` | String | yes |  | The new target screen path |
 | `find-text` | String | no |  | Optional text to replace while cloning |
 | `replace-text` | String | no |  | Optional replacement text |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### create-hmi-item
 
@@ -924,6 +985,7 @@ Creates a Unified HMI item on a screen
 | `top` | Integer | no |  | Optional top position |
 | `width` | Integer | no |  | Optional item width |
 | `height` | Integer | no |  | Optional item height |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### create-hmi-screen
 
@@ -935,6 +997,7 @@ Creates a Unified HMI screen if it does not already exist
 | `screen-path` | String | yes |  | The slash-delimited screen path |
 | `width` | Integer | no |  | Optional screen width |
 | `height` | Integer | no |  | Optional screen height |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### create-hmi-trend
 
@@ -951,6 +1014,7 @@ Creates or updates Unified HMI logging infrastructure for a tag
 | `log-max-size` | Integer | no | 2000 | Optional data log max size |
 | `duration-days` | Integer | no | 365 | Optional log duration in days |
 | `segment-max-size` | Integer | no | 500 | Optional segment max size |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### create-hmi-trends
 
@@ -961,6 +1025,7 @@ Plans or applies multiple Unified HMI trend logging configurations
 | `hmi-name` | String | yes |  | The Unified HMI name |
 | `configs` | ObjectArray | yes |  | Trend configs containing tagPath, dataLogName, cyclic, cycle, and optional sizing properties |
 | `dry-run` | Boolean | no | True | Validate and report planned configurations without applying them |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### delete-hmi-data-log
 
@@ -1104,12 +1169,17 @@ Lists the validated Unified HMI item types supported by this toolkit
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `filter` | String | no |  | Optional text filter |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-hmis
 
 Lists all HMI devices found in the project
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-hmi-screens
 
@@ -1120,6 +1190,8 @@ Lists screens in a Unified HMI
 | `hmi-name` | String | yes |  | The Unified HMI name |
 | `group-path` | String | no |  | Optional screen group path |
 | `recursive` | Boolean | no | True | Traverse nested screen groups |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-hmi-tags
 
@@ -1136,6 +1208,8 @@ Lists tags in a Unified HMI
 | `include-details` | Boolean | no | True | Read detailed tag metadata such as display name and data type |
 | `include-logging-counts` | Boolean | no | False | Read logging tag counts for returned tags |
 | `output-path` | Path | no |  | Optional CSV file or folder path for large tag lists |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### open-unified-hmi
 
@@ -1159,6 +1233,7 @@ Inspects Unified HMI faceplate interface metadata and optionally probes one reve
 | `write` | Boolean | no | False | Attempt a direct write to the targeted interface property |
 | `value` | String | no |  | The direct write value when write is true |
 | `restore` | Boolean | no | True | Restore the original value after a write probe |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### remove-hmi-logging-tag
 
@@ -1194,6 +1269,27 @@ Sets a property or attribute on a Unified HMI item
 | `item-name` | String | yes |  | The screen item name |
 | `property` | String | yes |  | The property or attribute name |
 | `value` | String | yes |  | The new property value |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+
+## V21
+
+### capabilities
+
+Reports the worker capability profile and exact Siemens assembly hashes.
+
+No parameters.
+
+### doctor
+
+Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture.
+
+No parameters.
+
+### version
+
+Reports toolkit, IPC, worker, runtime, and target TIA versions.
+
+No parameters.
 
 ## VCI
 
@@ -1211,6 +1307,7 @@ Connects one PLC block to existing VCI workspace files
 | `file-format` | String | yes |  | Format returned by get-vci-block-formats |
 | `block-type` | String | no |  | Optional block type such as FC or DB |
 | `group-path` | String | no |  | Optional block group path |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### create-vci-workspace
 
@@ -1221,6 +1318,7 @@ Creates a Version Control Interface workspace in the open project
 | `workspace-name` | String | yes |  | Workspace name |
 | `root-path` | Path | yes |  | Workspace filesystem root |
 | `workspace-language` | String | no |  | Optional culture such as en-US |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### delete-vci-workspace
 
@@ -1285,12 +1383,17 @@ Lists mapped objects in a Version Control Interface workspace
 |---|---|---:|---|---|
 | `workspace-name` | String | yes |  | Workspace name |
 | `output-path` | Path | no |  | Optional CSV file or folder path for VCI mapping rows |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### list-vci-workspaces
 
 Lists Version Control Interface workspaces in the open project
 
-No parameters.
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
 ### sync-vci-block
 
@@ -1308,6 +1411,7 @@ Synchronizes one mapped PLC block with a VCI workspace
 | `file-format` | String | no |  | Optional supported file format |
 | `block-type` | String | no |  | Optional block type |
 | `group-path` | String | no |  | Optional block group path |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### sync-vci-blocks
 
@@ -1325,6 +1429,7 @@ Synchronizes selected PLC blocks with a VCI workspace
 | `file-format` | String | no |  | Optional supported file format |
 | `include-skipped` | Boolean | no | False | Include per-item results for skipped unmapped objects |
 | `output-path` | Path | no |  | Optional JSON file or folder path for the bulk sync result |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### sync-vci-plc
 
@@ -1341,3 +1446,4 @@ Synchronizes supported objects of a PLC with a VCI workspace
 | `file-format` | String | no |  | Optional supported file format |
 | `include-skipped` | Boolean | no | False | Include per-item results for skipped unmapped objects |
 | `output-path` | Path | no |  | Optional JSON file or folder path for the PLC sync result |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |

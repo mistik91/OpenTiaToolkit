@@ -68,6 +68,8 @@ namespace OpenTiaToolkit.Core
                 SessionSerializedServiceProxy<IHardwareService>.Create(
                     serviceProvider.GetRequiredService<HardwareService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>()));
+            services.AddSingleton<IHardwareQueryCapability>(serviceProvider => serviceProvider.GetRequiredService<IHardwareService>());
+            services.AddSingleton<IHardwarePatchCapability>(serviceProvider => serviceProvider.GetRequiredService<IHardwareService>());
 
             services.AddSingleton<LibraryService>(serviceProvider =>
                 new LibraryService(

@@ -7,6 +7,8 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipSkillSyncCheck,
     [switch]$StageOnly,
+    [string]$SigningCertificateThumbprint = $env:OPEN_TIA_SIGNING_CERT_THUMBPRINT,
+    [switch]$RequireSigning,
     [string]$InnoCompilerPath
 )
 
@@ -89,8 +91,10 @@ $resolvedOutputRoot = Resolve-RepoPath -Path $OutputRoot
 $stageRoot = Join-Path $resolvedOutputRoot 'stage'
 $mcpProject = Join-Path $repoRoot 'src\OpenTiaToolkit.MCP\OpenTiaToolkit.MCP.csproj'
 $cliProject = Join-Path $repoRoot 'src\OpenTiaToolkit.CLI\OpenTiaToolkit.CLI.csproj'
+$workerProject = Join-Path $repoRoot 'src\OpenTiaToolkit.Worker.V21\OpenTiaToolkit.Worker.V21.csproj'
 $mcpBin = Join-Path $repoRoot "src\OpenTiaToolkit.MCP\bin\$Configuration\net48"
 $cliBin = Join-Path $repoRoot "src\OpenTiaToolkit.CLI\bin\$Configuration\net48"
+$workerBin = Join-Path $repoRoot "src\OpenTiaToolkit.Worker.V21\bin\$Configuration\net48"
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     [xml]$props = Get-Content -LiteralPath (Join-Path $repoRoot 'Directory.Build.props')
@@ -104,16 +108,22 @@ if (-not $SkipSkillSyncCheck) {
 if (-not $SkipBuild) {
     dotnet build $mcpProject -c $Configuration
     dotnet build $cliProject -c $Configuration
+    dotnet build $workerProject -c $Configuration
 }
 
 $mcpExe = Join-Path $mcpBin 'OpenTiaToolkit.MCP.exe'
 $cliExe = Join-Path $cliBin 'OpenTiaToolkit.CLI.exe'
+$workerExe = Join-Path $workerBin 'OpenTiaToolkit.Worker.V21.exe'
 if (-not (Test-Path -LiteralPath $mcpExe -PathType Leaf)) {
     throw "MCP executable was not found at '$mcpExe'. Build first or omit -SkipBuild."
 }
 
 if (-not (Test-Path -LiteralPath $cliExe -PathType Leaf)) {
     throw "CLI executable was not found at '$cliExe'. Build first or omit -SkipBuild."
+}
+
+if (-not (Test-Path -LiteralPath $workerExe -PathType Leaf)) {
+    throw "V21 worker executable was not found at '$workerExe'. Build first or omit -SkipBuild."
 }
 
 if (Test-Path -LiteralPath $stageRoot) {
@@ -123,18 +133,22 @@ if (Test-Path -LiteralPath $stageRoot) {
 New-Item -ItemType Directory -Force -Path $stageRoot | Out-Null
 $mcpStageRoot = Join-Path $stageRoot 'mcp'
 $cliStageRoot = Join-Path $stageRoot 'cli'
+$workerStageRoot = Join-Path $stageRoot 'worker-v21'
 Copy-BuildOutput -Source $mcpBin -Destination $mcpStageRoot
 Copy-BuildOutput -Source $cliBin -Destination $cliStageRoot
+Copy-BuildOutput -Source $workerBin -Destination $workerStageRoot
 
 Copy-Directory -Source (Join-Path $repoRoot 'plugins') -Destination (Join-Path $stageRoot 'plugins')
 Copy-Directory -Source (Join-Path $repoRoot 'skills') -Destination (Join-Path $stageRoot 'skills')
 Copy-Directory -Source (Join-Path $repoRoot 'docs') -Destination (Join-Path $stageRoot 'docs')
 Copy-Directory -Source (Join-Path $repoRoot 'schemas') -Destination (Join-Path $stageRoot 'schemas')
+Copy-Directory -Source (Join-Path $repoRoot 'compatibility') -Destination (Join-Path $stageRoot 'compatibility')
 
 Copy-RequiredFile -Source (Join-Path $repoRoot 'scripts\Register-OpennessAllowList.ps1') -Destination (Join-Path $stageRoot 'scripts\Register-OpennessAllowList.ps1')
 Copy-RequiredFile -Source (Join-Path $repoRoot 'README.md') -Destination (Join-Path $stageRoot 'README.md')
 Copy-RequiredFile -Source (Join-Path $repoRoot 'LICENSE') -Destination (Join-Path $stageRoot 'LICENSE')
 Copy-RequiredFile -Source (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md') -Destination (Join-Path $stageRoot 'THIRD_PARTY_NOTICES.md')
+Copy-RequiredFile -Source (Join-Path $repoRoot 'SECURITY.md') -Destination (Join-Path $stageRoot 'SECURITY.md')
 
 $manifest = [ordered]@{
     Name = 'OpenTiaToolkit'
@@ -143,12 +157,26 @@ $manifest = [ordered]@{
     InstallDirectory = 'C:\Program Files\OpenTiaToolkit'
     McpExecutable = 'C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe'
     CliExecutable = 'C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe'
+    V21WorkerExecutable = 'C:\Program Files\OpenTiaToolkit\worker-v21\OpenTiaToolkit.Worker.V21.exe'
     PluginDirectory = 'C:\Program Files\OpenTiaToolkit\plugins'
     SkillDirectory = 'C:\Program Files\OpenTiaToolkit\skills'
     SchemaDirectory = 'C:\Program Files\OpenTiaToolkit\schemas'
+    CompatibilityDirectory = 'C:\Program Files\OpenTiaToolkit\compatibility'
 }
 
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $stageRoot 'install-manifest.json') -Encoding UTF8
+
+$supplyChainArguments = @(
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $repoRoot 'scripts\Generate-ReleaseArtifacts.ps1'),
+    '-InputRoot', $stageRoot,
+    '-OutputRoot', (Join-Path $stageRoot 'release-metadata'),
+    '-SolutionPath', (Join-Path $repoRoot 'OpenTiaToolkit.sln'),
+    '-SignBinaries'
+)
+if (-not [string]::IsNullOrWhiteSpace($SigningCertificateThumbprint)) { $supplyChainArguments += @('-SigningCertificateThumbprint', $SigningCertificateThumbprint) }
+if ($RequireSigning) { $supplyChainArguments += '-RequireSigning' }
+& powershell @supplyChainArguments
+if ($LASTEXITCODE -ne 0) { throw "Release metadata/signing generation failed with exit code $LASTEXITCODE." }
 
 $stagedMcpExe = Join-Path $mcpStageRoot 'OpenTiaToolkit.MCP.exe'
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\Test-McpStdio.ps1') -ExecutablePath $stagedMcpExe
@@ -207,6 +235,23 @@ $installerPath = Join-Path $resolvedOutputRoot "OpenTiaToolkit-$Version-Setup.ex
 if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
     throw "Expected installer was not produced: $installerPath"
 }
+
+if (-not [string]::IsNullOrWhiteSpace($SigningCertificateThumbprint)) {
+    $certificate = Get-Item -LiteralPath ("Cert:\CurrentUser\My\" + $SigningCertificateThumbprint) -ErrorAction SilentlyContinue
+    if (-not $certificate) { $certificate = Get-Item -LiteralPath ("Cert:\LocalMachine\My\" + $SigningCertificateThumbprint) -ErrorAction SilentlyContinue }
+    if (-not $certificate) { throw "Signing certificate '$SigningCertificateThumbprint' was not found for the installer." }
+    $signature = Set-AuthenticodeSignature -LiteralPath $installerPath -Certificate $certificate -HashAlgorithm SHA256
+    if ($signature.Status -eq 'NotSigned') { throw "Failed to sign installer: $($signature.StatusMessage)" }
+}
+elseif ($RequireSigning) {
+    throw 'Installer signing is required but no signing certificate thumbprint was supplied.'
+}
+
+$releaseMetadataRoot = Join-Path $resolvedOutputRoot 'release-metadata'
+New-Item -ItemType Directory -Force -Path $releaseMetadataRoot | Out-Null
+$installerHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+"$installerHash  $([System.IO.Path]::GetFileName($installerPath))" | Set-Content -LiteralPath (Join-Path $releaseMetadataRoot 'INSTALLER-SHA256SUMS.txt') -Encoding UTF8
+Copy-Item -Path (Join-Path $stageRoot 'release-metadata\*') -Destination $releaseMetadataRoot -Force
 
 [pscustomobject]@{
     StageRoot = $stageRoot

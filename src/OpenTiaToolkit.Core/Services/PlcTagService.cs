@@ -1535,7 +1535,7 @@ namespace OpenTiaToolkit.Core.Services
             int? csvPageNumber)
         {
             var dataType = string.IsNullOrEmpty(csvRow.DataType)
-                ? InferDataTypeFromAddress(csvRow.Address)
+                ? PlcTagAddressPlanner.InferDataType(csvRow.Address)
                 : csvRow.DataType;
 
             if (string.IsNullOrEmpty(dataType))
@@ -1634,7 +1634,7 @@ namespace OpenTiaToolkit.Core.Services
             bool dryRun)
         {
             var dataType = string.IsNullOrEmpty(csvRow.DataType)
-                ? InferDataTypeFromAddress(csvRow.Address)
+                ? PlcTagAddressPlanner.InferDataType(csvRow.Address)
                 : csvRow.DataType;
 
             if (string.IsNullOrEmpty(dataType))
@@ -1885,43 +1885,12 @@ namespace OpenTiaToolkit.Core.Services
             return true;
         }
 
-        private static string InferDataTypeFromAddress(string address)
-        {
-            if (string.IsNullOrWhiteSpace(address))
-            {
-                return string.Empty;
-            }
-
-            var normalized = TagUpdateCsvParser.NormalizeLogicalAddress(address);
-            if (Regex.IsMatch(normalized, @"^%[IQM]\d+\.\d+$", RegexOptions.IgnoreCase))
-            {
-                return "Bool";
-            }
-
-            if (Regex.IsMatch(normalized, @"^%[IQM]B\d+$", RegexOptions.IgnoreCase))
-            {
-                return "Byte";
-            }
-
-            if (Regex.IsMatch(normalized, @"^%[IQM]W\d+$", RegexOptions.IgnoreCase))
-            {
-                return "Word";
-            }
-
-            if (Regex.IsMatch(normalized, @"^%[IQM]D\d+$", RegexOptions.IgnoreCase))
-            {
-                return "DWord";
-            }
-
-            return string.Empty;
-        }
-
         private object? FindBestTagTableForAddress(
             IEnumerable<object> tagTables,
             string address,
             Dictionary<string, List<TagInfo>> tagsByTable)
         {
-            var addressInfo = TryParseAddressLocation(address);
+            var addressInfo = PlcTagAddressPlanner.TryParse(address);
             if (addressInfo == null)
             {
                 return null;
@@ -1930,7 +1899,7 @@ namespace OpenTiaToolkit.Core.Services
             var candidateTables = tagsByTable
                 .Where(kvp => kvp.Value.Any(tag =>
                 {
-                    var tagAddressInfo = TryParseAddressLocation(tag.NormalizedAddress);
+                    var tagAddressInfo = PlcTagAddressPlanner.TryParse(tag.NormalizedAddress);
                     return tagAddressInfo != null
                         && tagAddressInfo.Value.Area == addressInfo.Value.Area
                         && tagAddressInfo.Value.ByteNumber == addressInfo.Value.ByteNumber;
@@ -1943,12 +1912,12 @@ namespace OpenTiaToolkit.Core.Services
                 candidateTables = tagsByTable
                     .Where(kvp => kvp.Value.Any(tag =>
                     {
-                        var tagAddressInfo = TryParseAddressLocation(tag.NormalizedAddress);
+                        var tagAddressInfo = PlcTagAddressPlanner.TryParse(tag.NormalizedAddress);
                         return tagAddressInfo != null
                             && tagAddressInfo.Value.Area == addressInfo.Value.Area;
                     }))
                     .OrderBy(kvp => kvp.Value
-                        .Select(tag => TryParseAddressLocation(tag.NormalizedAddress))
+                        .Select(tag => PlcTagAddressPlanner.TryParse(tag.NormalizedAddress))
                         .Where(parsed => parsed != null && parsed.Value.Area == addressInfo.Value.Area)
                         .Min(parsed => Math.Abs(parsed!.Value.ByteNumber - addressInfo.Value.ByteNumber)))
                     .Select(kvp => kvp.Key)
@@ -1964,7 +1933,7 @@ namespace OpenTiaToolkit.Core.Services
             var bestTableName = candidateTables
                 .OrderByDescending(tableName => tagsByTable[tableName].Count(tag =>
                 {
-                    var tagAddressInfo = TryParseAddressLocation(tag.NormalizedAddress);
+                    var tagAddressInfo = PlcTagAddressPlanner.TryParse(tag.NormalizedAddress);
                     return tagAddressInfo != null
                         && tagAddressInfo.Value.Area == addressInfo.Value.Area
                         && tagAddressInfo.Value.ByteNumber == addressInfo.Value.ByteNumber;
@@ -1973,20 +1942,6 @@ namespace OpenTiaToolkit.Core.Services
 
             return tagTables.FirstOrDefault(table =>
                 _v21Adapter.GetName(table)?.Equals(bestTableName, StringComparison.OrdinalIgnoreCase) == true);
-        }
-
-        private static AddressLocation? TryParseAddressLocation(string address)
-        {
-            var normalized = TagUpdateCsvParser.NormalizeLogicalAddress(address);
-            var match = Regex.Match(normalized, @"^%(?<area>[IQM])(?:(?<size>[BWD]))?(?<byte>\d+)(?:\.(?<bit>\d+))?$", RegexOptions.IgnoreCase);
-            if (!match.Success)
-            {
-                return null;
-            }
-
-            return new AddressLocation(
-                match.Groups["area"].Value.ToUpperInvariant(),
-                int.Parse(match.Groups["byte"].Value));
         }
 
         private object? FindBestTagTableForPage(
@@ -2145,17 +2100,5 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        private struct AddressLocation
-        {
-            public AddressLocation(string area, int byteNumber)
-            {
-                Area = area;
-                ByteNumber = byteNumber;
-            }
-
-            public string Area { get; }
-
-            public int ByteNumber { get; }
-        }
     }
 }

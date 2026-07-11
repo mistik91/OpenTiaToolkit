@@ -11,6 +11,8 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $sourceDir = Join-Path $repoRoot "plugins\opentia-toolkit-claude-desktop"
 $mcpProject = Join-Path $repoRoot "src\OpenTiaToolkit.MCP\OpenTiaToolkit.MCP.csproj"
 $mcpBin = Join-Path $repoRoot "src\OpenTiaToolkit.MCP\bin\$Configuration\net48"
+$workerProject = Join-Path $repoRoot "src\OpenTiaToolkit.Worker.V21\OpenTiaToolkit.Worker.V21.csproj"
+$workerBin = Join-Path $repoRoot "src\OpenTiaToolkit.Worker.V21\bin\$Configuration\net48"
 if ([System.IO.Path]::IsPathRooted($OutputRoot)) {
     $resolvedOutputRoot = $OutputRoot
 }
@@ -25,10 +27,14 @@ $bundlePath = Join-Path $resolvedOutputRoot "opentia-toolkit.mcpb"
 
 if (-not $SkipBuild) {
     dotnet build $mcpProject -c $Configuration
+    dotnet build $workerProject -c $Configuration
 }
 
 if (-not (Test-Path (Join-Path $mcpBin "OpenTiaToolkit.MCP.exe"))) {
     throw "MCP executable not found at '$mcpBin'. Build the MCP project first or pass a valid -Configuration."
+}
+if (-not (Test-Path (Join-Path $workerBin "OpenTiaToolkit.Worker.V21.exe"))) {
+    throw "V21 worker executable not found at '$workerBin'."
 }
 
 if (Test-Path $stageDir) {
@@ -38,8 +44,11 @@ if (Test-Path $stageDir) {
 New-Item -ItemType Directory -Force -Path $serverDir | Out-Null
 Copy-Item -LiteralPath (Join-Path $sourceDir "manifest.json") -Destination (Join-Path $stageDir "manifest.json") -Force
 Copy-Item -Path (Join-Path $mcpBin "*") -Destination $serverDir -Recurse -Force
+$workerStageDir = Join-Path $serverDir 'worker-v21'
+New-Item -ItemType Directory -Force -Path $workerStageDir | Out-Null
+Copy-Item -Path (Join-Path $workerBin '*') -Destination $workerStageDir -Recurse -Force
 
-$stagedExe = Join-Path $serverDir "OpenTiaToolkit.MCP.exe"
+$stagedExe = Join-Path $workerStageDir "OpenTiaToolkit.Worker.V21.exe"
 
 if ($RegisterOpenness) {
     $registerScript = Join-Path $repoRoot "scripts\Register-OpennessAllowList.ps1"

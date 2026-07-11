@@ -21,8 +21,8 @@ Use this checklist before publishing an open beta build or public release.
 
 - Build the installer with `.\scripts\Build-Installer.ps1`.
 - Validate staged payload contents with `.\scripts\Build-Installer.ps1 -StageOnly`.
-- Confirm the installed layout includes the CLI, MCP server, docs, plugin packages, skills, and `scripts\Register-OpennessAllowList.ps1`.
-- Confirm `OPEN_TIA_MCP_EXE` points to `C:\Program Files\OpenTiaToolkit\OpenTiaToolkit.MCP.exe` after installation.
+- Confirm the installed layout includes isolated CLI, MCP, and `worker-v21` payloads, docs, compatibility profile, release metadata, plugins, skills, and registration script.
+- Confirm `OPEN_TIA_MCP_EXE` and `OPEN_TIA_WORKER_EXE` point to their installed subdirectory executables.
 - Check packaged skills against canonical skill sources with:
 
 ```powershell
@@ -38,12 +38,15 @@ dotnet test .\tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --filter "T
 ```
 
 - Run live integration tests against a disposable or dedicated V21 test project before a public build.
-- Register the exact CLI and MCP executables with Siemens Openness after each rebuild or installer staging change.
+- Run vendor-free architecture tests and confirm clean CLI/MCP payloads contain no Core or Siemens assemblies.
+- Run worker IPC, failure-injection, disposable archive retrieve, and compatibility doctor tests.
+- Register only the exact V21 worker with Siemens Openness after each rebuild, signing, or installer staging change.
 - Smoke test a read-only CLI workflow and a read-only MCP workflow before publishing release artifacts.
 
 ## Release Artifacts
 
 - Update version metadata and changelog entries.
 - Publish the Windows installer and any agent/plugin bundles intended for the release.
+- Build publication artifacts with `-RequireSigning`; verify Authenticode signatures, payload and installer checksums, SPDX SBOM, provenance, and the exact V21 compatibility profile.
 - Verify release download links, documentation links, and support/issue links from a clean browser session.
 - Add known limitations for any workflows that are validated only on specific TIA Portal or device configurations.

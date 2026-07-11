@@ -99,7 +99,7 @@ namespace OpenTiaToolkit.Core.Services
                         op,
                         $"Item '{itemName}' is outside the current item-names filter. Re-read or apply with item-names including '{itemName}' so the base hash and diff cover the target item.",
                         itemName,
-                        suggestions: BuildItemFilterSuggestions(itemName)));
+                        suggestions: HmiPatchSuggestionService.BuildItemFilterSuggestions(itemName)));
                 }
 
                 var propertyIssueItemName = FirstNonEmpty(
@@ -121,7 +121,7 @@ namespace OpenTiaToolkit.Core.Services
                         $"Property '{propertyName}' is outside the current properties filter. Re-read or apply with properties including '{propertyName}' so the base hash and diff cover the requested change.",
                         propertyIssueItemName,
                         propertyName,
-                        BuildPropertyFilterSuggestions(propertyName)));
+                        HmiPatchSuggestionService.BuildPropertyFilterSuggestions(propertyName)));
                 }
             }
 
@@ -967,7 +967,7 @@ namespace OpenTiaToolkit.Core.Services
                 return false;
             }
 
-            suggestions = SuggestItemNames(screen, itemName);
+            suggestions = HmiPatchSuggestionService.SuggestItemNames(screen, itemName);
             message = $"Item '{itemName}' was not found on the exported screen.";
             return false;
         }
@@ -1490,87 +1490,6 @@ namespace OpenTiaToolkit.Core.Services
             {
                 values.Add(value!.Trim());
             }
-        }
-
-        private static List<string> BuildItemFilterSuggestions(string itemName)
-        {
-            return new List<string>
-            {
-                $"Add '{itemName}' to item-names.",
-                "Re-read the screen with matching item-names before retrying with base-hash."
-            };
-        }
-
-        private static List<string> BuildPropertyFilterSuggestions(string propertyName)
-        {
-            var suggestions = new List<string>
-            {
-                $"Add '{propertyName}' to properties.",
-                "Re-read the screen with matching properties before retrying with base-hash."
-            };
-
-            if (HmiScreenJsonAgentSupport.CompositePropertyNames.Contains(propertyName, StringComparer.OrdinalIgnoreCase))
-            {
-                suggestions.Add("Composite edits must filter by the root property name: EventHandlers, PropertyEventHandlers, Dynamizations, or Interface.");
-            }
-
-            return suggestions;
-        }
-
-        private static List<string> SuggestItemNames(HmiJsonScreen screen, string itemName)
-        {
-            return screen.Items
-                .Select(item => new
-                {
-                    item.Name,
-                    Score = GetSimilarityScore(item.Name, itemName)
-                })
-                .OrderBy(item => item.Score)
-                .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .Take(3)
-                .Select(item => item.Name)
-                .ToList();
-        }
-
-        private static int GetSimilarityScore(string candidate, string requested)
-        {
-            if (candidate.IndexOf(requested, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                requested.IndexOf(candidate, StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return 0;
-            }
-
-            return GetLevenshteinDistance(
-                candidate.ToUpperInvariant(),
-                requested.ToUpperInvariant());
-        }
-
-        private static int GetLevenshteinDistance(string left, string right)
-        {
-            var distances = new int[left.Length + 1, right.Length + 1];
-
-            for (var i = 0; i <= left.Length; i++)
-            {
-                distances[i, 0] = i;
-            }
-
-            for (var j = 0; j <= right.Length; j++)
-            {
-                distances[0, j] = j;
-            }
-
-            for (var i = 1; i <= left.Length; i++)
-            {
-                for (var j = 1; j <= right.Length; j++)
-                {
-                    var cost = left[i - 1] == right[j - 1] ? 0 : 1;
-                    distances[i, j] = Math.Min(
-                        Math.Min(distances[i - 1, j] + 1, distances[i, j - 1] + 1),
-                        distances[i - 1, j - 1] + cost);
-                }
-            }
-
-            return distances[left.Length, right.Length];
         }
 
         private static HmiJsonScreen CloneScreen(HmiJsonScreen screen)

@@ -9,29 +9,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- TIA Openness API references - V21 installation (primary) -->
-    <!-- In V21+, the API is modular: Base.dll, Step7.dll, WinCC.dll, WinCC.Extension.dll -->
-    <Reference Include="Siemens.Engineering.Base">
-      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Base.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Siemens.Engineering.Step7">
-      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Step7.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Siemens.Engineering.WinCCUnified">
-      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.WinCCUnified.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
+    <ProjectReference Include="..\OpenTiaToolkit.Application\OpenTiaToolkit.Application.csproj" />
+    <ProjectReference Include="..\OpenTiaToolkit.Contracts\OpenTiaToolkit.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OpenTiaToolkit.Core\OpenTiaToolkit.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <Compile Remove="Program.cs" />
+    <Compile Remove="Routing\CommandRouter.cs" />
+    <Compile Remove="Output\TableOutputFormatter.cs" />
+    <Compile Remove="Output\TreeTextFormatter.cs" />
   </ItemGroup>
 
 </Project>

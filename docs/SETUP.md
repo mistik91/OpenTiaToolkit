@@ -40,7 +40,7 @@ The installer places OpenTiaToolkit under:
 C:\Program Files\OpenTiaToolkit
 ```
 
-It installs the MCP and CLI executables, `plugins\`, `skills\`, docs, MCP client snippets, and `scripts\Register-OpennessAllowList.ps1`. Setup runs elevated, sets `OPEN_TIA_MCP_EXE`, and can register `OpenTiaToolkit.MCP.exe` with Siemens Openness. CLI registration is available as an optional setup task.
+It installs isolated `mcp\`, `cli\`, and `worker-v21\` payloads, plus plugins, skills, schemas, compatibility metadata, and docs. Setup sets `OPEN_TIA_MCP_EXE` and `OPEN_TIA_WORKER_EXE` and can register `OpenTiaToolkit.Worker.V21.exe` with Siemens Openness. CLI and MCP are vendor-free and do not require Openness allow-list entries.
 
 After installation, ask your agent to install or configure the local plugin from the installed folder. See [INSTALL_AGENT_PLUGINS.md](INSTALL_AGENT_PLUGINS.md).
 
@@ -60,16 +60,15 @@ dotnet build OpenTiaToolkit.sln /p:TiaPortalPublicApiPath="D:\Siemens\Portal V21
 
 ## Register Siemens Openness Allow-List Entries
 
-Siemens Openness allow-list entries are tied to executable path and hash. Register each rebuilt executable you plan to launch.
+Siemens Openness allow-list entries are tied to executable path and hash. Register the exact rebuilt V21 worker you plan to launch.
 
 Run PowerShell as Administrator:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
+powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe
 ```
 
-Repeat this after rebuilding those executables.
+Repeat this after rebuilding or signing the worker. Do not register the vendor-free CLI or MCP host.
 
 ## Run The CLI
 
@@ -151,6 +150,6 @@ $env:OPEN_TIA_TEST_UNIFIED_HMI_NAME = "HMI_1"
 
 If build cannot find Siemens assemblies, confirm the PublicAPI path exists or pass `/p:TiaPortalPublicApiPath=...`.
 
-If TIA rejects CLI or MCP access, refresh the Openness allow-list entry for the exact rebuilt executable.
+If TIA rejects access, refresh the Openness allow-list entry for the exact rebuilt `OpenTiaToolkit.Worker.V21.exe`.
 
 If an MCP client cannot start the server, run the MCP executable directly from PowerShell first and verify the path in the client config. After rebuilding or changing which Debug/Release executable is used, restart the MCP client so it launches the newly registered binary.

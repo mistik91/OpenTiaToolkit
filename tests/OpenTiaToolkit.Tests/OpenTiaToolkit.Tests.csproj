@@ -10,6 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenTiaToolkit.Application\OpenTiaToolkit.Application.csproj" />
+    <ProjectReference Include="..\..\src\OpenTiaToolkit.Contracts\OpenTiaToolkit.Contracts.csproj" />
     <ProjectReference Include="..\..\src\OpenTiaToolkit.Core\OpenTiaToolkit.Core.csproj" />
     <ProjectReference Include="..\..\src\OpenTiaToolkit.CLI\OpenTiaToolkit.CLI.csproj" />
     <ProjectReference Include="..\..\src\OpenTiaToolkit.MCP\OpenTiaToolkit.MCP.csproj" />

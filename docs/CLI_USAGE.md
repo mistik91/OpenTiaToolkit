@@ -2070,7 +2070,7 @@ Project2             C:\Path2.ap21        V21        2025-01-02
 **Claude Desktop MCPB packaging**:
 - The MCPB source package is versioned in `plugins/opentia-toolkit-claude-desktop`.
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\Pack-ClaudeDesktopMcpb.ps1` to stage the MCP build output and create `artifacts\claude-desktop-mcpb\opentia-toolkit.mcpb` with `mcpb` or `npx -y @anthropic-ai/mcpb`.
-- Add `-RegisterOpenness` from an elevated PowerShell session to register the exact staged MCP executable path and hash with Siemens Openness.
+- Add `-RegisterOpenness` from an elevated PowerShell session to register the exact staged isolated V21 worker path and hash with Siemens Openness. The bundled MCP host is vendor-free.
 
 ## Examples
 

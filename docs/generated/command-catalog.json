@@ -1,11 +1,14 @@
 ﻿{
-  "schemaVersion": "1.0",
-  "commandCount": 124,
+  "schemaVersion": "2.0",
+  "protocolVersion": "1.0",
+  "commandCount": 127,
   "commands": [
     {
       "name": "add-device",
       "description": "Adds a device with its primary item to the current project",
       "category": "Portal",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "order-number",
@@ -27,6 +30,13 @@
           "required": true,
           "defaultValue": null,
           "description": "Name for the device and primary item"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -34,6 +44,8 @@
       "name": "apply-hardware-patch",
       "description": "Dry-runs or applies transactional generic TIA hardware operations",
       "category": "Hardware",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "operations",
@@ -83,6 +95,13 @@
           "required": false,
           "defaultValue": "OPENTIA_SAFETY_PASSWORD",
           "description": "Environment variable containing the optional safety password; raw passwords are never accepted"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -90,6 +109,8 @@
       "name": "apply-hmi-screen-json-edit",
       "description": "Dry-runs or applies one Unified HMI screen JSON edit with safety checks",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "hmi-name",
@@ -181,6 +202,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional artifact root path"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -188,6 +216,8 @@
       "name": "apply-hmi-screen-json-patch",
       "description": "Dry-runs or applies compact Unified HMI screen patch operations with safety checks",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "hmi-name",
@@ -286,6 +316,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional artifact root path"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -293,6 +330,8 @@
       "name": "archive-project",
       "description": "Archives the current project to a .zap21 archive",
       "category": "Portal",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "archive-path",
@@ -307,6 +346,13 @@
           "required": false,
           "defaultValue": "Compressed",
           "description": "Archive mode: Compressed, None, DiscardRestorableData, or DiscardRestorableDataAndCompressed"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -314,6 +360,8 @@
       "name": "audit-hardware-tag-mappings",
       "description": "Audits PLC I/Q tag addresses against discovered hardware IO ranges and optional catalog evidence",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -356,6 +404,8 @@
       "name": "audit-hmi-label-proximity",
       "description": "Creates an auditable nearest-label mapping report from an exported Unified HMI JSON file",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "input-path",
@@ -419,6 +469,8 @@
       "name": "can-plug-hardware-item",
       "description": "Checks whether a hardware module or submodule can be plugged at a target position",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "target",
@@ -472,9 +524,19 @@
       ]
     },
     {
+      "name": "capabilities",
+      "description": "Reports the worker capability profile and exact Siemens assembly hashes.",
+      "category": "V21",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": []
+    },
+    {
       "name": "check-library-updates",
       "description": "Reports project instances that are outdated against the project library or an open global library",
       "category": "Libraries",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "library-scope",
@@ -510,6 +572,8 @@
       "name": "close-global-library",
       "description": "Closes an open user global library by name or path",
       "category": "Libraries",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "global-library",
@@ -524,6 +588,8 @@
       "name": "close-project",
       "description": "Closes the currently open project",
       "category": "Portal",
+      "risk": "Destructive",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "save",
@@ -531,6 +597,13 @@
           "required": false,
           "defaultValue": false,
           "description": "Whether to save changes before closing (default: false)"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -538,12 +611,24 @@
       "name": "close-tia-portal",
       "description": "Closes the current TIA Portal instance",
       "category": "Portal",
-      "parameters": []
+      "risk": "Destructive",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
     },
     {
       "name": "compare-software",
       "description": "Compares PLC software to the online target",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -572,6 +657,8 @@
       "name": "compile-software",
       "description": "Compiles the PLC software",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -593,6 +680,8 @@
       "name": "connect-instance",
       "description": "Connects to a specific TIA Portal instance by process ID",
       "category": "Portal",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "instance-id",
@@ -607,12 +696,16 @@
       "name": "connect-portal",
       "description": "Connects to a running TIA Portal instance or starts a new one",
       "category": "Portal",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": []
     },
     {
       "name": "connect-vci-block",
       "description": "Connects one PLC block to existing VCI workspace files",
       "category": "VCI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -669,6 +762,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional block group path"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -676,6 +776,8 @@
       "name": "copy-from-master-copy",
       "description": "Copies a library master copy into a PLC block group with dry-run and confirmation gates",
       "category": "Libraries",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "library-scope",
@@ -732,6 +834,8 @@
       "name": "copy-hmi-screen-from-template",
       "description": "Copies a Unified HMI screen from a template screen with optional find/replace",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -767,6 +871,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional replacement text"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -774,6 +885,8 @@
       "name": "create-block",
       "description": "Creates a new block in PLC software (currently validated for ProDiag FB creation)",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -802,6 +915,13 @@
           "required": false,
           "defaultValue": null,
           "description": "The programming language (currently validated: ProDiag)"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -809,6 +929,8 @@
       "name": "create-hmi-item",
       "description": "Creates a Unified HMI item on a screen",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -865,6 +987,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional item height"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -872,6 +1001,8 @@
       "name": "create-hmi-screen",
       "description": "Creates a Unified HMI screen if it does not already exist",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -900,6 +1031,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional screen height"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -907,6 +1045,8 @@
       "name": "create-hmi-trend",
       "description": "Creates or updates Unified HMI logging infrastructure for a tag",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -970,6 +1110,13 @@
           "required": false,
           "defaultValue": 500,
           "description": "Optional segment max size"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -977,6 +1124,8 @@
       "name": "create-hmi-trends",
       "description": "Plans or applies multiple Unified HMI trend logging configurations",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "hmi-name",
@@ -998,6 +1147,13 @@
           "required": false,
           "defaultValue": true,
           "description": "Validate and report planned configurations without applying them"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -1005,6 +1161,8 @@
       "name": "create-project",
       "description": "Creates a new TIA Portal project and selects it as the current project",
       "category": "Portal",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "project-path",
@@ -1012,6 +1170,13 @@
           "required": true,
           "defaultValue": null,
           "description": "Project folder path or .ap21 file path"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -1019,6 +1184,8 @@
       "name": "create-vci-workspace",
       "description": "Creates a Version Control Interface workspace in the open project",
       "category": "VCI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -1040,6 +1207,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional culture such as en-US"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -1047,6 +1221,8 @@
       "name": "delete-blocks",
       "description": "Deletes blocks matching a regex pattern from PLC software",
       "category": "PLC",
+      "risk": "Destructive",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1075,6 +1251,8 @@
       "name": "delete-hmi-data-log",
       "description": "Deletes one Unified HMI data log archive when no logging tags still reference it",
       "category": "Unified HMI",
+      "risk": "Destructive",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -1103,6 +1281,8 @@
       "name": "delete-hmi-data-logs",
       "description": "Plans or deletes multiple unreferenced Unified HMI data log archives",
       "category": "Unified HMI",
+      "risk": "Destructive",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "hmi-name",
@@ -1138,6 +1318,8 @@
       "name": "delete-vci-workspace",
       "description": "Deletes a Version Control Interface workspace definition",
       "category": "VCI",
+      "risk": "Destructive",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -1159,6 +1341,8 @@
       "name": "diff-hmi-json",
       "description": "Creates a minimal Unified HMI JSON patch from two exports",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "base-path",
@@ -1208,12 +1392,32 @@
       "name": "disconnect-portal",
       "description": "Disconnects from the TIA Portal instance",
       "category": "Portal",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "doctor",
+      "description": "Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture.",
+      "category": "V21",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": []
     },
     {
       "name": "download-software",
       "description": "Downloads PLC software to PLCSIM Advanced with dry-run and confirmation gates",
       "category": "PLC",
+      "risk": "Online",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "plc-name",
@@ -1256,6 +1460,8 @@
       "name": "export-block",
       "description": "Exports a single PLC block to XML",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1284,6 +1490,8 @@
       "name": "export-block-as-docs",
       "description": "Exports a single block as SIMATIC SD documents (.s7dcl \u002B .s7res)",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1312,6 +1520,8 @@
       "name": "export-block-as-source",
       "description": "Exports a PLC block as an external source file when supported",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1340,6 +1550,8 @@
       "name": "export-blocks-as-docs",
       "description": "Exports multiple blocks as SIMATIC SD documents (.s7dcl \u002B .s7res)",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1368,6 +1580,8 @@
       "name": "export-hmi-json",
       "description": "Exports the supported Unified HMI surface to JSON",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -1410,6 +1624,8 @@
       "name": "export-plc",
       "description": "Exports all PLC blocks to XML files",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1431,6 +1647,8 @@
       "name": "export-tags",
       "description": "Exports PLC tags from all tag tables",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1459,6 +1677,8 @@
       "name": "export-texts",
       "description": "Exports project texts to a Siemens project text workbook",
       "category": "Project Texts",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "output-path",
@@ -1501,6 +1721,8 @@
       "name": "export-type",
       "description": "Exports a single type (UDT) to XML",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1529,6 +1751,8 @@
       "name": "export-types",
       "description": "Exports multiple types (UDT) to XML",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1557,6 +1781,8 @@
       "name": "export-vci-block",
       "description": "Exports one PLC block into a VCI workspace and creates its mapping",
       "category": "VCI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -1620,6 +1846,8 @@
       "name": "find-hardware-catalog-items",
       "description": "Searches installed TIA Portal hardware catalog items by text",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "search-text",
@@ -1641,6 +1869,8 @@
       "name": "find-hardware-module-types",
       "description": "Finds module type identifiers using the project-level TIA module information provider",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "partial-type-identifier",
@@ -1655,6 +1885,8 @@
       "name": "find-replace-db-members",
       "description": "Finds and replaces GlobalDB member names with nested struct support",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "plc-name",
@@ -1697,6 +1929,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for find/replace result rows"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -1704,6 +1943,8 @@
       "name": "find-replace-tags",
       "description": "Finds and replaces PLC tag names across all tag tables",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "plc-name",
@@ -1746,6 +1987,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for find/replace result rows"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -1753,6 +2001,8 @@
       "name": "find-replace-udt-members",
       "description": "Finds and replaces UDT member names with nested struct support",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "plc-name",
@@ -1795,6 +2045,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for find/replace result rows"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -1802,6 +2059,8 @@
       "name": "generate-blocks-from-source",
       "description": "Generates PLC blocks from an external source when supported",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "plc-name",
@@ -1837,6 +2096,8 @@
       "name": "get-block-info",
       "description": "Gets detailed information about a specific PLC block",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1858,6 +2119,8 @@
       "name": "get-blocks",
       "description": "Lists blocks from PLC software",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1879,6 +2142,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for PLC block rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -1886,6 +2163,8 @@
       "name": "get-cross-references",
       "description": "Gets PLC cross references for a tag, block, or named PLC object",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -1914,6 +2193,8 @@
       "name": "get-device-info",
       "description": "Gets detailed information about a device",
       "category": "Devices",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "device-name",
@@ -1928,6 +2209,8 @@
       "name": "get-device-item-info",
       "description": "Gets detailed information about a device item",
       "category": "Devices",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "device-name",
@@ -1949,6 +2232,8 @@
       "name": "get-gsd-parameter-data",
       "description": "Reads raw parameter data bytes from a GSD or GSDML hardware item",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "target",
@@ -2005,6 +2290,8 @@
       "name": "get-hardware-drive-telegrams",
       "description": "Lists Startdrive telegrams and their IO addresses exposed by hardware drive items",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "device-name",
@@ -2033,6 +2320,8 @@
       "name": "get-hardware-feature-attributes",
       "description": "Reads engineering attributes from a hardware feature service such as NetworkInterface",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "target",
@@ -2082,6 +2371,8 @@
       "name": "get-hardware-io-addresses",
       "description": "Lists process-image address objects exposed by hardware device items",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "device-name",
@@ -2110,6 +2401,8 @@
       "name": "get-hardware-item-capabilities",
       "description": "Gets available hardware feature services and attributes for one hardware target",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "target",
@@ -2152,6 +2445,8 @@
       "name": "get-hardware-network-item-attributes",
       "description": "Reads engineering attributes from a NetworkInterface child such as a node or IO connector",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "target",
@@ -2208,6 +2503,8 @@
       "name": "get-hardware-networks",
       "description": "Lists hardware network interfaces, nodes, IO controllers and IO connectors",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "device-name",
@@ -2229,6 +2526,8 @@
       "name": "get-hardware-tree",
       "description": "Gets nested hardware devices and device items with reusable hardware target paths",
       "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "device-name",
@@ -2250,6 +2549,8 @@
       "name": "get-hmi-item-properties",
       "description": "Gets readable properties for a Unified HMI item",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -2285,6 +2586,8 @@
       "name": "get-hmi-screen-info",
       "description": "Gets detailed information about a Unified HMI screen",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -2306,6 +2609,8 @@
       "name": "get-hmi-screen-json",
       "description": "Gets one Unified HMI screen as canonical JSON for agent editing",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -2355,6 +2660,8 @@
       "name": "get-hmi-screen-summary",
       "description": "Summarizes item counts and faceplate contained types for one Unified HMI screen",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -2397,6 +2704,8 @@
       "name": "get-library-type-versions",
       "description": "Lists versions for a library type",
       "category": "Libraries",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "library-scope",
@@ -2432,6 +2741,8 @@
       "name": "get-online-status",
       "description": "Gets PLC online status, optionally going online first",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2453,12 +2764,16 @@
       "name": "get-project-info",
       "description": "Gets information about the currently open project",
       "category": "Portal",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": []
     },
     {
       "name": "get-project-tree",
       "description": "Gets the hierarchical project structure",
       "category": "Portal",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "depth",
@@ -2473,6 +2788,8 @@
       "name": "get-software-tree",
       "description": "Gets the hierarchical PLC software structure",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2501,6 +2818,8 @@
       "name": "get-vci-block-formats",
       "description": "Gets VCI-supported workspace file formats for one PLC block",
       "category": "VCI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2536,6 +2855,8 @@
       "name": "get-vci-block-status",
       "description": "Gets VCI comparison status for one mapped PLC block",
       "category": "VCI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -2578,6 +2899,8 @@
       "name": "get-vci-workspace",
       "description": "Gets details for a Version Control Interface workspace",
       "category": "VCI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -2592,6 +2915,8 @@
       "name": "hmi-status",
       "description": "Gets Unified HMI session status and optionally probes a screen",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -2620,6 +2945,8 @@
       "name": "import-block",
       "description": "Imports a single block from XML file",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2641,6 +2968,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional path within PLC program (e.g., \u0027Program Blocks/Motors\u0027)"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -2648,6 +2982,8 @@
       "name": "import-block-from-docs",
       "description": "Imports a single block from SIMATIC SD documents (.s7dcl/.s7res)",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2683,6 +3019,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Import behavior: Override, None, SkipInactiveCultures, ActivateInactiveCultures (default: Override)"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -2690,6 +3033,8 @@
       "name": "import-blocks",
       "description": "Imports multiple blocks from XML files in a directory",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2718,6 +3063,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional path within PLC program"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -2725,6 +3077,8 @@
       "name": "import-blocks-from-docs",
       "description": "Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res)",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2760,6 +3114,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Import behavior: Override, None, SkipInactiveCultures, ActivateInactiveCultures (default: Override)"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -2767,6 +3128,8 @@
       "name": "import-hmi-json",
       "description": "Preflights or imports a Unified HMI JSON export or patch",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "hmi-name",
@@ -2858,6 +3221,8 @@
       "name": "import-source",
       "description": "Imports a PLC external source file when supported",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "plc-name",
@@ -2893,6 +3258,8 @@
       "name": "import-texts",
       "description": "Imports project texts from a Siemens project text workbook",
       "category": "Project Texts",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "input-path",
@@ -2914,6 +3281,13 @@
           "required": false,
           "defaultValue": true,
           "description": "Validate inputs without invoking Siemens text import"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -2921,6 +3295,8 @@
       "name": "import-type",
       "description": "Imports a single type (UDT) from XML file",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2942,6 +3318,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional path within type groups (e.g., \u0027Types/Subgroups\u0027)"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -2949,6 +3332,8 @@
       "name": "import-types",
       "description": "Imports multiple types (UDT) from XML files in a directory",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -2977,6 +3362,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional path within type groups"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -2984,6 +3376,8 @@
       "name": "inspect-hmi-screen-json-capabilities",
       "description": "Inspects one Unified HMI screen and returns agent-oriented patch capabilities and guidance",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -3047,12 +3441,31 @@
       "name": "list-devices",
       "description": "Lists all devices in the currently open project",
       "category": "Portal",
-      "parameters": []
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
     },
     {
       "name": "list-external-sources",
       "description": "PLC external sources",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -3067,6 +3480,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3074,6 +3501,8 @@
       "name": "list-global-libraries",
       "description": "Lists known and open TIA Portal global libraries",
       "category": "Libraries",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "output-path",
@@ -3081,6 +3510,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional JSON file or folder path for library rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3088,6 +3531,8 @@
       "name": "list-hmi-item-types",
       "description": "Lists the validated Unified HMI item types supported by this toolkit",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "filter",
@@ -3095,6 +3540,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional text filter"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3102,6 +3561,8 @@
       "name": "list-hmi-screens",
       "description": "Lists screens in a Unified HMI",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -3123,6 +3584,20 @@
           "required": false,
           "defaultValue": true,
           "description": "Traverse nested screen groups"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3130,6 +3605,8 @@
       "name": "list-hmi-tags",
       "description": "Lists tags in a Unified HMI",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -3193,6 +3670,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for large tag lists"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3200,18 +3691,54 @@
       "name": "list-hmis",
       "description": "Lists all HMI devices found in the project",
       "category": "Unified HMI",
-      "parameters": []
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
     },
     {
       "name": "list-instances",
       "description": "Lists all running TIA Portal instances",
       "category": "Portal",
-      "parameters": []
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
     },
     {
       "name": "list-library-types",
       "description": "Lists library types in the project library or an open global library",
       "category": "Libraries",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "library-scope",
@@ -3247,6 +3774,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional JSON file or folder path for library type rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3254,6 +3795,8 @@
       "name": "list-master-copies",
       "description": "Lists master copies in the project library or an open global library",
       "category": "Libraries",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "library-scope",
@@ -3289,6 +3832,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional JSON file or folder path for master copy rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3296,6 +3853,8 @@
       "name": "list-plc-alarm-text-lists",
       "description": "PLC alarm text lists",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -3310,6 +3869,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3317,24 +3890,77 @@
       "name": "list-plcs",
       "description": "Lists all PLC devices found in the project",
       "category": "PLC",
-      "parameters": []
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
     },
     {
       "name": "list-project-languages",
       "description": "Lists project languages and active language settings",
       "category": "Project Texts",
-      "parameters": []
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
     },
     {
       "name": "list-projects",
       "description": "Lists all open TIA Portal projects and sessions",
       "category": "Portal",
-      "parameters": []
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
     },
     {
       "name": "list-technology-objects",
       "description": "PLC technology objects",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -3349,6 +3975,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3356,6 +3996,8 @@
       "name": "list-vci-mappings",
       "description": "Lists mapped objects in a Version Control Interface workspace",
       "category": "VCI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -3370,6 +4012,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for VCI mapping rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3377,12 +4033,31 @@
       "name": "list-vci-workspaces",
       "description": "Lists Version Control Interface workspaces in the open project",
       "category": "VCI",
-      "parameters": []
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
     },
     {
       "name": "list-watch-tables",
       "description": "PLC watch and force tables",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -3397,6 +4072,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3404,6 +4093,8 @@
       "name": "modify-tags",
       "description": "Plans or applies explicit PLC tag create, update, delete, and replace operations",
       "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "plc-name",
@@ -3460,6 +4151,8 @@
       "name": "open-global-library",
       "description": "Opens a TIA Portal global library by file path",
       "category": "Libraries",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "path",
@@ -3481,6 +4174,13 @@
           "required": false,
           "defaultValue": false,
           "description": "Open with upgrade"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -3488,6 +4188,8 @@
       "name": "open-plc",
       "description": "Opens a PLC device software by name",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -3502,6 +4204,8 @@
       "name": "open-project",
       "description": "Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported)",
       "category": "Portal",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "project-path",
@@ -3537,6 +4241,8 @@
       "name": "open-tia-portal",
       "description": "Opens a new TIA Portal instance (with UI by default)",
       "category": "Portal",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "with-ui",
@@ -3551,6 +4257,8 @@
       "name": "open-unified-hmi",
       "description": "Opens a Unified HMI by device or device item name",
       "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -3565,12 +4273,16 @@
       "name": "portal-status",
       "description": "Gets the current TIA Portal connection status",
       "category": "Portal",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": []
     },
     {
       "name": "probe-hmi-faceplate-interface",
       "description": "Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -3627,6 +4339,13 @@
           "required": false,
           "defaultValue": true,
           "description": "Restore the original value after a write probe"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -3634,6 +4353,8 @@
       "name": "remove-hmi-logging-tag",
       "description": "Removes one Unified HMI logging tag after verifying its data log association",
       "category": "Unified HMI",
+      "risk": "Destructive",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -3676,6 +4397,8 @@
       "name": "remove-hmi-logging-tags",
       "description": "Plans or removes multiple Unified HMI logging tags after data log verification",
       "category": "Unified HMI",
+      "risk": "Destructive",
+      "supportsPreview": true,
       "parameters": [
         {
           "name": "hmi-name",
@@ -3711,6 +4434,8 @@
       "name": "retrieve-project",
       "description": "Retrieves an archived project and selects it as the current project",
       "category": "Portal",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "archive-path",
@@ -3753,6 +4478,13 @@
           "required": false,
           "defaultValue": "project",
           "description": "UMAC user type: project or global"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -3760,6 +4492,8 @@
       "name": "save-as-project",
       "description": "Saves the project to a new location",
       "category": "Portal",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "destination-path",
@@ -3767,6 +4501,13 @@
           "required": true,
           "defaultValue": null,
           "description": "The destination path for the project"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -3774,12 +4515,24 @@
       "name": "save-project",
       "description": "Saves the current project",
       "category": "Portal",
-      "parameters": []
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
     },
     {
       "name": "search-blocks",
       "description": "Searches PLC blocks by name/comment with optional type filter",
       "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -3815,6 +4568,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional CSV file or folder path for matching PLC block rows"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
         }
       ]
     },
@@ -3822,6 +4589,8 @@
       "name": "set-hmi-item-property",
       "description": "Sets a property or attribute on a Unified HMI item",
       "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "hmi-name",
@@ -3857,6 +4626,13 @@
           "required": true,
           "defaultValue": null,
           "description": "The new property value"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -3864,6 +4640,8 @@
       "name": "start-cpu",
       "description": "Starts the PLC CPU when a supported online runtime operation is available",
       "category": "PLC",
+      "risk": "Online",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -3885,6 +4663,8 @@
       "name": "stop-cpu",
       "description": "Stops the PLC CPU when a supported online runtime operation is available",
       "category": "PLC",
+      "risk": "Online",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "plc-name",
@@ -3906,6 +4686,8 @@
       "name": "sync-vci-block",
       "description": "Synchronizes one mapped PLC block with a VCI workspace",
       "category": "VCI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -3976,6 +4758,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional block group path"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -3983,6 +4772,8 @@
       "name": "sync-vci-blocks",
       "description": "Synchronizes selected PLC blocks with a VCI workspace",
       "category": "VCI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -4053,6 +4844,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional JSON file or folder path for the bulk sync result"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -4060,6 +4858,8 @@
       "name": "sync-vci-plc",
       "description": "Synchronizes supported objects of a PLC with a VCI workspace",
       "category": "VCI",
+      "risk": "Mutating",
+      "supportsPreview": false,
       "parameters": [
         {
           "name": "workspace-name",
@@ -4123,8 +4923,23 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional JSON file or folder path for the PLC sync result"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
+    },
+    {
+      "name": "version",
+      "description": "Reports toolkit, IPC, worker, runtime, and target TIA versions.",
+      "category": "V21",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": []
     }
   ]
 }

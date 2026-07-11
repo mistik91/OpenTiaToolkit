@@ -63,21 +63,24 @@ OpenTiaToolkit.sln
 
 | Layer | Responsibility |
 |-------|----------------|
-| `OpenTiaToolkit.Core` | Shared abstractions, commands, services, builders, models |
-| `OpenTiaToolkit.CLI` | CLI routing, REPL flow, output formatting |
-| `OpenTiaToolkit.MCP` | MCP transport and tool registry |
+| `OpenTiaToolkit.Contracts` | Vendor-free versioned IPC, typed outcomes/errors, capabilities, paging, and audit records |
+| `OpenTiaToolkit.Application` | Mutation policy, audit journal, typed dispatch, and worker lifecycle |
+| `OpenTiaToolkit.Worker.V21` | Single-queue net48 process owning Core and Siemens V21 sessions |
+| `OpenTiaToolkit.Core` | Siemens-backed commands, services, adapters, builders, and models |
+| `OpenTiaToolkit.CLI` | Vendor-free CLI routing and output formatting |
+| `OpenTiaToolkit.MCP` | Vendor-free MCP transport and remote tool registry |
 | `OpenTiaToolkit.Tests` | Fast tests plus real TIA integration validation |
 
 ## Architecture
 
 ### Shared Host Composition
 
-Both executable hosts reuse the same registrations from [ServiceCollectionExtensions.cs](../src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
+The V21 worker owns the registrations from [ServiceCollectionExtensions.cs](../src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
 
 - `AddOpenTiaToolkitCoreServices()`
 - `AddOpenTiaToolkitCommands()`
 
-That means command and service registration happens once in Core and is automatically shared by CLI and MCP.
+Registration happens once in the worker. CLI and MCP obtain the catalog through versioned IPC and cannot reference Core or Siemens assemblies. Application enforces mutation policy before every IPC execution. See [PRODUCTION_ARCHITECTURE.md](PRODUCTION_ARCHITECTURE.md).
 
 ### Shared Session State
 
@@ -206,7 +209,7 @@ Then add or extend integration tests if real TIA behavior needs validation.
 
 ### Step 4: Verify Both Hosts
 
-Because CLI and MCP share registrations, you usually do not need separate registration edits.
+Because the worker publishes one catalog to CLI and MCP, you usually do not need separate host registration edits.
 
 Typical local verification:
 

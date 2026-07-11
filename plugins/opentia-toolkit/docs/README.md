@@ -28,6 +28,6 @@ Register the exact MCP executable you launch with Siemens Openness. Developers w
 ## Expected First Use
 
 1. Build `OpenTiaToolkit.MCP` or set `OPEN_TIA_MCP_EXE` to a built MCP executable.
-2. Register that exact `OpenTiaToolkit.MCP.exe` with Siemens Openness.
+2. Build and register the exact `OpenTiaToolkit.Worker.V21.exe`; the MCP host itself is vendor-free.
 3. Enable this plugin in Codex.
 4. Restart Codex so the `opentia` MCP server and skills are loaded.

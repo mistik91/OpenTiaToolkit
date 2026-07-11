@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
-using OpenTiaToolkit.Core;
+using OpenTiaToolkit.Application.Execution;
 using OpenTiaToolkit.MCP.Server;
 
 namespace OpenTiaToolkit.MCP
@@ -18,15 +18,6 @@ namespace OpenTiaToolkit.MCP
     /// </summary>
     public static class Program
     {
-        /// <summary>
-        /// Static constructor - registers the TIA Portal assembly resolver BEFORE any types are loaded.
-        /// This is critical for proper assembly resolution according to Siemens documentation.
-        /// </summary>
-        static Program()
-        {
-            TiaPortalAssemblyResolver.Register();
-        }
-
         public static async Task<int> Main(string[] args)
         {
             if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help"))
@@ -65,10 +56,12 @@ namespace OpenTiaToolkit.MCP
 
             hostBuilder.ConfigureServices(services =>
             {
-                services.AddOpenTiaToolkitCoreServices();
-                services.AddOpenTiaToolkitCommands();
                 services.AddSingleton(ResolveRuntimeOptions());
-                services.AddSingleton<ToolRegistry>();
+                services.AddSingleton(serviceProvider => new ToolRegistry(
+                    ToolkitSession.ResolveWorkerPath(typeof(Program).Assembly.Location),
+                    ToolkitSession.ResolveDefaultAuditPath(),
+                    serviceProvider.GetRequiredService<McpRuntimeOptions>(),
+                    serviceProvider.GetRequiredService<ILogger<ToolRegistry>>()));
                 services
                     .AddMcpServer(options =>
                     {

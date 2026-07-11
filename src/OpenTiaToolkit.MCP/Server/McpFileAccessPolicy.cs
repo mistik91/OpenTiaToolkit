@@ -1,5 +1,4 @@
-using OpenTiaToolkit.Core.Commands;
-using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Contracts.Commands;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -41,7 +40,7 @@ namespace OpenTiaToolkit.MCP.Server
         }
 
         public string? Validate(
-            ICommand command,
+            CommandDescriptor command,
             IReadOnlyDictionary<string, JsonElement>? arguments)
         {
             if (arguments == null)
@@ -49,7 +48,7 @@ namespace OpenTiaToolkit.MCP.Server
                 return null;
             }
 
-            foreach (var parameter in command.Schema.Parameters.Where(parameter => parameter.Type == CommandParameterType.Path))
+            foreach (var parameter in command.Parameters.Where(parameter => parameter.Kind == CommandParameterKind.Path))
             {
                 if (!arguments.TryGetValue(parameter.Name, out var rawPath) ||
                     rawPath.ValueKind == JsonValueKind.Null ||

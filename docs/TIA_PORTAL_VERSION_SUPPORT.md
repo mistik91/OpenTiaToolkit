@@ -152,3 +152,9 @@ You can override the default paths with:
 - `OPEN_TIA_TEST_OUTPUT_PATH`
 
 When in doubt, validate new PLC behavior against **TIA Portal V21** first.
+
+## Exact validated profile
+
+The executable `doctor` command compares the installed API with [the committed V21 compatibility profile](../compatibility/tia-v21.json). The current validated file versions are Base/Step7 `2100.0.121.1`, WinCC Unified `2100.200.5.1`, and Startdrive `2100.2.2302.1`. Exact SHA-256 values remain machine-readable in the profile and are also reported by `capabilities`.
+
+A V21 installation with different hashes may be a legitimate Siemens update, but it is treated as unvalidated until the architecture suite and live disposable-project suite pass and a reviewed profile update is committed.

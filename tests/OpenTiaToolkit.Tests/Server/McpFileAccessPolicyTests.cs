@@ -1,7 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
-using OpenTiaToolkit.Core.Abstractions;
-using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.MCP.Server;
 using System;
 using System.Collections.Generic;
@@ -87,15 +85,22 @@ namespace OpenTiaToolkit.Tests.Server
             });
         }
 
-        private static ICommand CreatePathCommand(string parameterName)
+        private static CommandDescriptor CreatePathCommand(string parameterName)
         {
-            var command = new Mock<ICommand>();
-            command.SetupGet(candidate => candidate.Name).Returns("path-test");
-            command.SetupGet(candidate => candidate.Description).Returns("Path test");
-            command.SetupGet(candidate => candidate.Schema).Returns(new CommandSchema(
-                "Path test",
-                new[] { new CommandParameter(parameterName, CommandParameterType.Path, "Test path") }));
-            return command.Object;
+            return new CommandDescriptor
+            {
+                Name = "path-test",
+                Description = "Path test",
+                Parameters = new[]
+                {
+                    new CommandParameterContract
+                    {
+                        Name = parameterName,
+                        Kind = CommandParameterKind.Path,
+                        Description = "Test path"
+                    }
+                }
+            };
         }
 
         private static IReadOnlyDictionary<string, JsonElement> Args(params (string Name, string Value)[] values)

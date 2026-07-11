@@ -5,6 +5,10 @@ param(
 
     [switch]$LiveProject,
 
+    [string]$DisposableArchivePath = '',
+
+    [switch]$DisposableProjectOnly,
+
     [ValidateRange(5, 300)]
     [int]$TimeoutSeconds = 30
 )
@@ -22,6 +26,14 @@ $startInfo.RedirectStandardInput = $true
 $startInfo.RedirectStandardOutput = $true
 $startInfo.RedirectStandardError = $true
 $startInfo.EnvironmentVariables['OPEN_TIA_MCP_LOG_LEVEL'] = 'None'
+
+# A staged MCP payload must exercise the worker shipped beside it instead of
+# inheriting a developer-machine OPEN_TIA_WORKER_EXE value.
+$payloadRoot = Split-Path -Parent (Split-Path -Parent $resolvedExecutable)
+$stagedWorker = Join-Path $payloadRoot 'worker-v21\OpenTiaToolkit.Worker.V21.exe'
+if (Test-Path -LiteralPath $stagedWorker -PathType Leaf) {
+    $startInfo.EnvironmentVariables['OPEN_TIA_WORKER_EXE'] = $stagedWorker
+}
 
 $process = [System.Diagnostics.Process]::new()
 $process.StartInfo = $startInfo
@@ -150,6 +162,38 @@ try {
     }
 
     if ($LiveProject) {
+        if ($DisposableProjectOnly) {
+            if ([string]::IsNullOrWhiteSpace($DisposableArchivePath)) {
+                throw '-DisposableProjectOnly requires -DisposableArchivePath.'
+            }
+            $archiveFullPath = [System.IO.Path]::GetFullPath($DisposableArchivePath)
+            $archiveDirectory = Split-Path -Parent $archiveFullPath
+            New-Item -ItemType Directory -Path $archiveDirectory -Force | Out-Null
+            $fixtureProjectName = 'phase2-mcp-fixture-' + [Guid]::NewGuid().ToString('N')
+            $fixtureProjectPath = Join-Path $archiveDirectory ($fixtureProjectName + '.ap21')
+            [void](Invoke-McpTool -Name 'open-tia-portal' -Arguments @{ 'with-ui' = $false })
+            [void](Invoke-McpTool -Name 'create-project' -Arguments @{
+                'project-path' = $fixtureProjectPath
+                'confirm' = $true
+            })
+            $projectsResponse = Invoke-McpTool -Name 'list-projects'
+            $projects = @($projectsResponse.result.structuredContent.data)
+            if ($projects.Count -ne 1) { throw "Disposable worker expected one project; found $($projects.Count)." }
+            [void](Invoke-McpTool -Name 'archive-project' -Arguments @{
+                'archive-path' = $archiveFullPath
+                'mode' = 'Compressed'
+                'confirm' = $true
+            })
+            if (-not (Test-Path -LiteralPath $archiveFullPath -PathType Leaf)) {
+                throw "Disposable archive was not produced at '$archiveFullPath'."
+            }
+            [void](Invoke-McpTool -Name 'doctor')
+            [void](Invoke-McpTool -Name 'reset-session')
+            $summary['DisposableArchiveCreated'] = $true
+            $summary['ProjectCount'] = $projects.Count
+            $summary['ResetVerified'] = $true
+        }
+        else {
         $instancesResponse = Invoke-McpTool -Name 'list-instances'
         $instanceData = $instancesResponse.result.structuredContent.data
         $instances = @($instanceData.instances)
@@ -207,6 +251,26 @@ try {
         $screensResponse = Invoke-McpTool -Name 'list-hmi-screens' -Arguments @{ 'hmi-name' = $hmiNames[0] }
         $screens = @($screensResponse.result.structuredContent.data)
 
+        if (-not [string]::IsNullOrWhiteSpace($DisposableArchivePath)) {
+            $archiveFullPath = [System.IO.Path]::GetFullPath($DisposableArchivePath)
+            $archiveDirectory = Split-Path -Parent $archiveFullPath
+            New-Item -ItemType Directory -Path $archiveDirectory -Force | Out-Null
+            $fixtureProjectPath = Join-Path $archiveDirectory 'phase2-fixture-source.ap21'
+            [void](Invoke-McpTool -Name 'create-project' -Arguments @{
+                'project-path' = $fixtureProjectPath
+                'confirm' = $true
+            })
+            [void](Invoke-McpTool -Name 'archive-project' -Arguments @{
+                'archive-path' = $archiveFullPath
+                'mode' = 'Compressed'
+                'confirm' = $true
+            })
+            if (-not (Test-Path -LiteralPath $archiveFullPath -PathType Leaf)) {
+                throw "Disposable archive was not produced at '$archiveFullPath'."
+            }
+            $summary['DisposableArchiveCreated'] = $true
+        }
+
         [void](Invoke-McpTool -Name 'portal-status')
         [void](Invoke-McpTool -Name 'reset-session')
 
@@ -218,6 +282,7 @@ try {
         $summary['HmiCount'] = $hmis.Count
         $summary['ScreenCount'] = $screens.Count
         $summary['ResetVerified'] = $true
+        }
     }
 
     [pscustomobject]$summary

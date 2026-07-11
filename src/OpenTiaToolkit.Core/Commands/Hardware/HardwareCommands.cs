@@ -137,8 +137,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class FindHardwareCatalogItemsCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public FindHardwareCatalogItemsCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public FindHardwareCatalogItemsCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "find-hardware-catalog-items";
         public string Description => "Searches installed TIA Portal hardware catalog items by text";
         public CommandSchema Schema => new CommandSchema(Description, new[]
@@ -166,8 +166,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class GetHardwareTreeCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public GetHardwareTreeCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public GetHardwareTreeCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "get-hardware-tree";
         public string Description => "Gets nested hardware devices and device items with reusable hardware target paths";
         public CommandSchema Schema => new CommandSchema(Description, new[]
@@ -230,8 +230,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class GetHardwareIoAddressesCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public GetHardwareIoAddressesCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public GetHardwareIoAddressesCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "get-hardware-io-addresses";
         public string Description => "Lists process-image address objects exposed by hardware device items";
         public CommandSchema Schema => new CommandSchema(Description, new[]
@@ -347,8 +347,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class GetHardwareDriveTelegramsCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public GetHardwareDriveTelegramsCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public GetHardwareDriveTelegramsCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "get-hardware-drive-telegrams";
         public string Description => "Lists Startdrive telegrams and their IO addresses exposed by hardware drive items";
         public CommandSchema Schema => new CommandSchema(Description, new[]
@@ -495,8 +495,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class AuditHardwareTagMappingsCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public AuditHardwareTagMappingsCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public AuditHardwareTagMappingsCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "audit-hardware-tag-mappings";
         public string Description => "Audits PLC I/Q tag addresses against discovered hardware IO ranges and optional catalog evidence";
         public CommandSchema Schema => new CommandSchema(Description, new[]
@@ -599,8 +599,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class GetHardwareItemCapabilitiesCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public GetHardwareItemCapabilitiesCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public GetHardwareItemCapabilitiesCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "get-hardware-item-capabilities";
         public string Description => "Gets available hardware feature services and attributes for one hardware target";
         public CommandSchema Schema => new CommandSchema(Description, Combine(
@@ -636,8 +636,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class GetHardwareFeatureAttributesCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public GetHardwareFeatureAttributesCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public GetHardwareFeatureAttributesCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "get-hardware-feature-attributes";
         public string Description => "Reads engineering attributes from a hardware feature service such as NetworkInterface";
         public CommandSchema Schema => new CommandSchema(Description, new List<CommandParameter>(HardwareCommandSupport.TargetParameters("Hardware target"))
@@ -668,8 +668,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class GetHardwareNetworkItemAttributesCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public GetHardwareNetworkItemAttributesCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public GetHardwareNetworkItemAttributesCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "get-hardware-network-item-attributes";
         public string Description => "Reads engineering attributes from a NetworkInterface child such as a node or IO connector";
         public CommandSchema Schema => new CommandSchema(Description, new List<CommandParameter>(HardwareCommandSupport.TargetParameters("Network interface hardware target"))
@@ -702,8 +702,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class FindHardwareModuleTypesCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public FindHardwareModuleTypesCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public FindHardwareModuleTypesCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "find-hardware-module-types";
         public string Description => "Finds module type identifiers using the project-level TIA module information provider";
         public CommandSchema Schema => new CommandSchema(Description, new[]
@@ -730,8 +730,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class CanPlugHardwareItemCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public CanPlugHardwareItemCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public CanPlugHardwareItemCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "can-plug-hardware-item";
         public string Description => "Checks whether a hardware module or submodule can be plugged at a target position";
         public CommandSchema Schema => new CommandSchema(Description, new List<CommandParameter>(HardwareCommandSupport.TargetParameters("Parent hardware target"))
@@ -764,8 +764,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class GetHardwareNetworksCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public GetHardwareNetworksCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public GetHardwareNetworksCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "get-hardware-networks";
         public string Description => "Lists hardware network interfaces, nodes, IO controllers and IO connectors";
         public CommandSchema Schema => new CommandSchema(Description, new[]
@@ -821,8 +821,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class GetGsdParameterDataCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
-        public GetGsdParameterDataCommand(IHardwareService service) => _service = service;
+        private readonly IHardwareQueryCapability _service;
+        public GetGsdParameterDataCommand(IHardwareQueryCapability service) => _service = service;
         public string Name => "get-gsd-parameter-data";
         public string Description => "Reads raw parameter data bytes from a GSD or GSDML hardware item";
         public CommandSchema Schema => new CommandSchema(Description, new List<CommandParameter>(HardwareCommandSupport.TargetParameters("GSD device item target"))
@@ -860,9 +860,9 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
 
     public sealed class ApplyHardwarePatchCommand : IContextualCommand
     {
-        private readonly IHardwareService _service;
+        private readonly IHardwarePatchCapability _service;
         private readonly IPlcService? _plcService;
-        public ApplyHardwarePatchCommand(IHardwareService service, IPlcService? plcService = null)
+        public ApplyHardwarePatchCommand(IHardwarePatchCapability service, IPlcService? plcService = null)
         {
             _service = service;
             _plcService = plcService;

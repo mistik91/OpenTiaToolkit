@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.CLI.Output;
-using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Contracts.Outcomes;
+using System;
 using System.Linq;
 using System.Text.Json;
 
@@ -79,9 +80,7 @@ namespace OpenTiaToolkit.Tests.Output
         [TestMethod]
         public void Format_ReturnsJsonEnvelope_WhenJsonIsRequested()
         {
-            var result = CommandResult.CreateSuccess(
-                new { items = new[] { "PLC_1", "HMI_1" } },
-                "Found devices");
+            var result = Success(JsonSerializer.SerializeToElement(new { items = new[] { "PLC_1", "HMI_1" } }), "Found devices");
 
             var output = CliOutputFormatter.Format(result, CliOutputFormat.Json);
             using var document = JsonDocument.Parse(output);
@@ -94,11 +93,24 @@ namespace OpenTiaToolkit.Tests.Output
         [TestMethod]
         public void Format_ReturnsTableOutput_WhenTableIsRequested()
         {
-            var result = CommandResult.CreateSuccess("Plain text", "Completed");
+            var result = Success(JsonSerializer.SerializeToElement("Plain text"), "Completed");
 
             var output = CliOutputFormatter.Format(result, CliOutputFormat.Table);
 
             Assert.AreEqual("Plain text", output);
+        }
+
+        private static CommandOutcome Success(JsonElement data, string message)
+        {
+            return new CommandOutcome
+            {
+                CorrelationId = "test",
+                Success = true,
+                Message = message,
+                Data = data,
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
         }
     }
 }

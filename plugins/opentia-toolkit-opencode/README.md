@@ -38,6 +38,6 @@ The supplied `opencode.json` sets a 600-second MCP timeout because broad TIA Por
 ## Expected First Use
 
 1. Build `OpenTiaToolkit.MCP` or set `OPEN_TIA_MCP_EXE` to a built MCP executable.
-2. Register that exact `OpenTiaToolkit.MCP.exe` with Siemens Openness.
+2. Build and register the exact `OpenTiaToolkit.Worker.V21.exe`; the MCP host itself is vendor-free.
 3. Copy this bundle into the OpenCode project or global config directory.
 4. Restart OpenCode so the MCP server, plugin, rules, and skills are discovered.

@@ -28,7 +28,18 @@ jobs:
           dotnet-version: "9.0.x"
 
       - name: Restore
-        run: dotnet restore OpenTiaToolkit.sln
+        run: dotnet restore OpenTiaToolkit.sln --locked-mode
+
+      - name: Build vendor-free architecture and hosts
+        shell: pwsh
+        run: |
+          dotnet build src\OpenTiaToolkit.Contracts\OpenTiaToolkit.Contracts.csproj -c Release --no-restore
+          dotnet build src\OpenTiaToolkit.Application\OpenTiaToolkit.Application.csproj -c Release --no-restore
+          dotnet build src\OpenTiaToolkit.CLI\OpenTiaToolkit.CLI.csproj -c Release --no-restore
+          dotnet build src\OpenTiaToolkit.MCP\OpenTiaToolkit.MCP.csproj -c Release --no-restore
+
+      - name: Vendor-free architecture tests
+        run: dotnet test tests\OpenTiaToolkit.ArchitectureTests\OpenTiaToolkit.ArchitectureTests.csproj -c Release --no-restore
 
       - name: Dependency vulnerability scan
         run: dotnet list OpenTiaToolkit.sln package --vulnerable --include-transitive --source https://api.nuget.org/v3/index.json
@@ -101,7 +112,7 @@ jobs:
           "path=$path" >> $env:GITHUB_OUTPUT
 
       - name: Restore
-        run: dotnet restore OpenTiaToolkit.sln
+        run: dotnet restore OpenTiaToolkit.sln --locked-mode
 
       - name: Build
         run: dotnet build OpenTiaToolkit.sln -c Release --no-restore /p:TiaPortalPublicApiPath="${{ steps.tia.outputs.path }}"
@@ -111,6 +122,19 @@ jobs:
 
       - name: Fast tests
         run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "TestCategory!=Integration"
+
+      - name: Worker IPC and compatibility diagnostics
+        shell: pwsh
+        run: |
+          dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~WorkerProcessIntegrationTests"
+          $doctor = & .\src\OpenTiaToolkit.CLI\bin\Release\net48\OpenTiaToolkit.CLI.exe doctor --format json | ConvertFrom-Json
+          if (-not $doctor.success -or -not $doctor.data.healthy) { throw "V21 compatibility doctor failed: $($doctor | ConvertTo-Json -Depth 10)" }
+
+      - name: Disposable archived-project integration
+        if: vars.OPEN_TIA_TEST_ARCHIVE_PATH != ''
+        env:
+          OPEN_TIA_TEST_ARCHIVE_PATH: ${{ vars.OPEN_TIA_TEST_ARCHIVE_PATH }}
+        run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~DisposableArchiveProjectIntegrationTests"
 
       - name: Generated command reference drift check
         shell: pwsh
@@ -122,6 +146,15 @@ jobs:
       - name: Build and smoke staged installer payload
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Installer.ps1 -Configuration Release -StageOnly -SkipBuild
+
+      - name: Verify supply-chain artifacts
+        shell: pwsh
+        run: |
+          foreach ($file in @('SHA256SUMS.txt', 'sbom.spdx.json', 'provenance.intoto.json')) {
+            if (-not (Test-Path -LiteralPath (Join-Path '.\artifacts\installer\stage\release-metadata' $file))) {
+              throw "Missing staged release metadata: $file"
+            }
+          }
 
       - name: Plugin skill sync check
         shell: pwsh

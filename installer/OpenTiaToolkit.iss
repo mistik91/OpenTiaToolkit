@@ -33,8 +33,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "registermcp"; Description: "Register OpenTiaToolkit MCP with Siemens Openness"; GroupDescription: "Siemens Openness registration:"; Flags: checkedonce
-Name: "registercli"; Description: "Register OpenTiaToolkit CLI with Siemens Openness"; GroupDescription: "Siemens Openness registration:"
+Name: "registerworker"; Description: "Register the isolated OpenTiaToolkit V21 worker with Siemens Openness"; GroupDescription: "Siemens Openness registration:"; Flags: checkedonce
 
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -46,10 +45,10 @@ Name: "{group}\OpenTiaToolkit CLI"; Filename: "{app}\cli\OpenTiaToolkit.CLI.exe"
 
 [Registry]
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "OPEN_TIA_MCP_EXE"; ValueData: "{app}\mcp\OpenTiaToolkit.MCP.exe"; Flags: preservestringtype uninsdeletevalue
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "OPEN_TIA_WORKER_EXE"; ValueData: "{app}\worker-v21\OpenTiaToolkit.Worker.V21.exe"; Flags: preservestringtype uninsdeletevalue
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Register-OpennessAllowList.ps1"" -ExecutablePath ""{app}\mcp\OpenTiaToolkit.MCP.exe"""; StatusMsg: "Registering OpenTiaToolkit MCP with Siemens Openness..."; Flags: runhidden; Tasks: registermcp
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Register-OpennessAllowList.ps1"" -ExecutablePath ""{app}\cli\OpenTiaToolkit.CLI.exe"""; StatusMsg: "Registering OpenTiaToolkit CLI with Siemens Openness..."; Flags: runhidden; Tasks: registercli
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Register-OpennessAllowList.ps1"" -ExecutablePath ""{app}\worker-v21\OpenTiaToolkit.Worker.V21.exe"""; StatusMsg: "Registering isolated OpenTiaToolkit V21 worker with Siemens Openness..."; Flags: runhidden; Tasks: registerworker
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\plugins"

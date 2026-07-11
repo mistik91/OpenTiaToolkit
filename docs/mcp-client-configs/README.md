@@ -11,7 +11,7 @@ There are two config families:
 C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 ```
 
-For end users, an installer or first-run setup helper should register that stable executable with Siemens Openness once. Developers who rebuild the MCP executable must refresh the Siemens Openness allow-list because the entry is tied to the executable hash and path.
+For end users, setup registers the isolated `worker-v21\OpenTiaToolkit.Worker.V21.exe` with Siemens Openness. The stable MCP executable is vendor-free. Developers refresh the allow-list only after rebuilding or signing the worker because entries are tied to its hash and path.
 
 The Windows installer also copies all plugin packages and canonical skills under:
 
@@ -63,7 +63,7 @@ The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit
 - the `opentia-toolkit-workflow` router skill and specialized workflow skills
 - the `basic-tia-interaction` skill for TIA Portal instance/project selection
 - the `hmi-unified-agent-editing` skill and references
-- a helper script for manually registering the installed MCP executable during development or manual installs
+- a helper script for manually registering the installed V21 worker during development or manual installs
 
 The launcher uses `OPEN_TIA_MCP_EXE` when set; otherwise it searches upward for this repo and runs the Debug or Release MCP build output.
 
@@ -157,17 +157,13 @@ Calling `open-project` before `connect-portal` can fail because the MCP server h
 
 ## Siemens Openness Allow-List
 
-Siemens Openness allow-list entries are hash-based and path-based. For shipped product builds, registration should happen once for the installed executable path. After building a new CLI or MCP executable during development, refresh the registry entry for the exact `.exe` you will launch:
+Siemens Openness allow-list entries are hash-based and path-based. For shipped product builds, registration should happen once for the installed worker path. After rebuilding or signing the worker during development, refresh the registry entry for the exact worker `.exe` the hosts will launch:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
+powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe
 ```
 
-Run the same script for the CLI executable if your workflow also uses the CLI:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe
-```
+The CLI and MCP executables are vendor-free and must not be registered with Siemens Openness.
 
 ## Notes For Windows Paths
 

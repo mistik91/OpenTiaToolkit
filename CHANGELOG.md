@@ -8,6 +8,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Changed
+- Completed the Phase 2 production architecture: vendor-free Contracts/Application/CLI/MCP projects, an isolated net48 V21 worker with a single request queue, versioned IPC, typed errors/outcomes, centralized mutation policy, correlation IDs, and redacted mutation auditing.
+- Added capability boundaries, pagination and large-result artifact streaming, `version`/`doctor`/`capabilities`, disposable archive fixtures, deterministic failure injection, exact Siemens API compatibility profiles, locked SDK/dependencies, signed release support, SPDX SBOMs, checksums, and in-toto/SLSA provenance.
 - Completed Phase 1 trustworthy-beta hardening: atomic session transitions, typed deduplicated PLC/HMI discovery, multilingual comments, strict versioned HMI JSON validation, fail-closed reflection writes, environment-referenced safety credentials, MCP file policy, and spreadsheet-safe CSV output.
 - Split hosted vendor-free checks from licensed V21 validation, generated CLI/MCP references from the runtime catalog, corrected V21 support and runtime-location documentation, and added a tracked release checklist.
 - Completed the Phase 0 stop-ship remediation: isolated CLI/MCP installer dependencies, added exact staged stdio smoke testing, and verified the staged CLI/MCP against an open V21 project.

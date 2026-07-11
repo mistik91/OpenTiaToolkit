@@ -33,7 +33,7 @@ dotnet test .\tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --filter "T
 
 ## Openness Allow-List Refresh
 
-For live TIA CLI or MCP work, do not skip Siemens Openness registration after rebuilding the executable. The allow-list is tied to the exact executable path, UTC file timestamp, and SHA-256 file hash, so every rebuild of `OpenTiaToolkit.CLI.exe` or `OpenTiaToolkit.MCP.exe` can require a refresh.
+For live TIA CLI or MCP work, register the isolated V21 worker after rebuilding it. CLI and MCP are vendor-free hosts and no longer belong in the Siemens allow-list. The allow-list is tied to the exact worker path, UTC timestamp, and SHA-256 hash.
 
 First verify whether the current shell is elevated:
 
@@ -45,16 +45,10 @@ $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 If it returns `False`, say that the rebuild can continue but the allow-list write requires an elevated Codex/session or an elevated shell. If it returns `True`, register the exact rebuilt executable before running live TIA validation.
 
-For the MCP Debug build:
+For the V21 worker Debug build:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
-```
-
-For the CLI Debug build:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe
+powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe
 ```
 
 Pass `-PortalVersion 21.0` when validating against TIA Portal V21. If the active TIA version differs, use the matching version-specific key, such as `22.0` for V22.

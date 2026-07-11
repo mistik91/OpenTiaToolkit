@@ -30,7 +30,7 @@ Claude Code does not load a plugin-root `CLAUDE.md` as project context. Operatio
 ## Expected First Use
 
 1. Build `OpenTiaToolkit.MCP` or set `OPEN_TIA_MCP_EXE` to a built MCP executable.
-2. Register that exact `OpenTiaToolkit.MCP.exe` with Siemens Openness.
+2. Build and register the exact `OpenTiaToolkit.Worker.V21.exe`; the MCP host itself is vendor-free.
 3. Test locally with:
 
 ```powershell

@@ -1027,7 +1027,8 @@ function Run-NegativeSuite {
             'create-block',
             '--plc-name=DummyPlc',
             '--block-name=DummyBlock',
-            '--block-type=FC'
+            '--block-type=FC',
+            '--confirm=true'
         )
         Assert-True ($result.ExitCode -ne 0) 'create-block with invalid type unexpectedly returned exit code 0.'
         Assert-Contains -Text $result.Output -Needle 'Invalid block type' -Message 'create-block invalid type did not report the expected text.'

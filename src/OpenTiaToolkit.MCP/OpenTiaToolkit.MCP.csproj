@@ -9,24 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- TIA Openness API references - V21 installation (primary) -->
-    <!-- In V21+, the API is modular: Base.dll, Step7.dll, WinCC.dll, WinCC.Extension.dll -->
-    <Reference Include="Siemens.Engineering.Base">
-      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Base.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Siemens.Engineering.Step7">
-      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Step7.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Siemens.Engineering.WinCCUnified">
-      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.WinCCUnified.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\OpenTiaToolkit.Core\OpenTiaToolkit.Core.csproj" />
+    <ProjectReference Include="..\OpenTiaToolkit.Application\OpenTiaToolkit.Application.csproj" />
+    <ProjectReference Include="..\OpenTiaToolkit.Contracts\OpenTiaToolkit.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +19,11 @@
     <!-- Explicitly pin the patched runtime dependency pulled by the preview MCP SDK. -->
     <PackageReference Include="Microsoft.Bcl.Memory" Version="9.0.14" />
     <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Server\ToolAdapter.cs" />
+    <Compile Remove="Server\ToolRegistry.cs" />
   </ItemGroup>
 
 </Project>

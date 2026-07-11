@@ -18,7 +18,7 @@ The project targets and is validated against **TIA Portal V21**. Later Siemens r
 - Works with project and global libraries: open/list/close global libraries, list master copies and library types, copy approved master copies into PLC block groups, and report library update status before mutation.
 - Supports generic hardware catalog discovery, module/submodule composition, PROFINET IO identity/wiring, process-image address assignment, Startdrive telegram configuration, and transactional GSD/GSDML parameter changes.
 - Supports Unified HMI browse, screen/item mutation, tag/trend setup, JSON export/diff/import, focused screen patches, faceplate interface probes, and safety preflights.
-- Exposes the same capabilities through both CLI and MCP, so scripts and agents use the same implementation.
+- Exposes the same worker catalog through vendor-free CLI and MCP hosts; Siemens session ownership remains isolated in the V21 worker.
 - Ships agent-ready workflow guidance for common TIA/HMI interaction patterns.
 
 For workflows and examples, see [CLI usage](docs/CLI_USAGE.md). The complete generated surfaces are the [command reference](docs/generated/COMMAND_REFERENCE.md), [MCP tool reference](docs/generated/MCP_TOOL_REFERENCE.md), and [machine-readable catalog](docs/generated/command-catalog.json).
@@ -84,7 +84,7 @@ The installer places the product under:
 C:\Program Files\OpenTiaToolkit
 ```
 
-It also sets `OPEN_TIA_MCP_EXE` and can register the installed MCP executable with Siemens Openness. After installation, ask your agent to install or configure the local plugin from `C:\Program Files\OpenTiaToolkit\plugins`; see [agent plugin setup](docs/INSTALL_AGENT_PLUGINS.md).
+It sets `OPEN_TIA_MCP_EXE` and `OPEN_TIA_WORKER_EXE` and can register the isolated V21 worker with Siemens Openness. After installation, ask your agent to install or configure the local plugin from `C:\Program Files\OpenTiaToolkit\plugins`; see [agent plugin setup](docs/INSTALL_AGENT_PLUGINS.md).
 
 ### Build
 
@@ -96,14 +96,13 @@ dotnet build OpenTiaToolkit.sln
 
 ### Register Openness Allow-List Entries
 
-Siemens Openness allow-list entries are tied to executable path and hash. After building, register the exact CLI or MCP executable you will run:
+Siemens Openness allow-list entries are tied to executable path and hash. After building, register the exact V21 worker; CLI and MCP no longer load Siemens assemblies:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
+powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe
 ```
 
-Repeat this after rebuilding those executables.
+Repeat this after rebuilding or signing the worker.
 
 ### Run The CLI
 
@@ -174,6 +173,9 @@ For development checkouts and client-specific snippets, use [docs/mcp-client-con
 | CLI automation harness | [docs/CLI_TESTING.md](docs/CLI_TESTING.md) |
 | MCP client/plugin setup | [docs/mcp-client-configs/README.md](docs/mcp-client-configs/README.md) |
 | TIA Portal version support | [docs/TIA_PORTAL_VERSION_SUPPORT.md](docs/TIA_PORTAL_VERSION_SUPPORT.md) |
+| Production architecture and recovery | [docs/PRODUCTION_ARCHITECTURE.md](docs/PRODUCTION_ARCHITECTURE.md) |
+| Supply chain, signing, SBOM, and provenance | [docs/SUPPLY_CHAIN.md](docs/SUPPLY_CHAIN.md) |
+| Security policy | [SECURITY.md](SECURITY.md) |
 | Development notes | [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md) |
 | Generic hardware automation | [docs/HARDWARE_AUTOMATION.md](docs/HARDWARE_AUTOMATION.md) |
 | Examples | [examples/README.md](examples/README.md) |
