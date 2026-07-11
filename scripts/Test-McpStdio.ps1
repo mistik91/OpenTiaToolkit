@@ -143,11 +143,11 @@ try {
 
     $toolsResponse = Invoke-McpRequest -Method 'tools/list' -Params @{}
     $tools = @($toolsResponse.result.tools)
-    if ($tools.Count -lt 100) {
+    if ($tools.Count -lt 145) {
         throw "Expected the shared command surface, but tools/list returned only $($tools.Count) tools."
     }
 
-    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session')) {
+    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
         if (-not ($tools.name -contains $requiredTool)) {
             throw "tools/list did not include required tool '$requiredTool'."
         }
@@ -169,13 +169,23 @@ try {
             $archiveFullPath = [System.IO.Path]::GetFullPath($DisposableArchivePath)
             $archiveDirectory = Split-Path -Parent $archiveFullPath
             New-Item -ItemType Directory -Path $archiveDirectory -Force | Out-Null
-            $fixtureProjectName = 'phase2-mcp-fixture-' + [Guid]::NewGuid().ToString('N')
+            $fixtureProjectName = 'phase3-mcp-fixture-' + [Guid]::NewGuid().ToString('N')
             $fixtureProjectPath = Join-Path $archiveDirectory ($fixtureProjectName + '.ap21')
-            [void](Invoke-McpTool -Name 'open-tia-portal' -Arguments @{ 'with-ui' = $false })
-            [void](Invoke-McpTool -Name 'create-project' -Arguments @{
-                'project-path' = $fixtureProjectPath
-                'confirm' = $true
-            })
+            $blueprintPath = Join-Path $archiveDirectory ($fixtureProjectName + '.blueprint.json')
+            [ordered]@{
+                schemaVersion = '1.0'
+                name = 'Packaged MCP disposable project bootstrap'
+                requiredWorker = 'V21'
+                steps = @(
+                    [ordered]@{ id = 'open'; command = 'open-tia-portal'; arguments = @{ 'with-ui' = $false } }
+                    [ordered]@{ id = 'create'; command = 'create-project'; arguments = @{ 'project-path' = $fixtureProjectPath } }
+                )
+            } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $blueprintPath -Encoding UTF8
+            [void](Invoke-McpTool -Name 'validate-blueprint' -Arguments @{ 'blueprint-path' = $blueprintPath })
+            $planResponse = Invoke-McpTool -Name 'plan-blueprint' -Arguments @{ 'blueprint-path' = $blueprintPath }
+            $applyToken = [string]$planResponse.result.structuredContent.data.ApplyToken
+            if ([string]::IsNullOrWhiteSpace($applyToken)) { throw 'Blueprint plan did not return an apply token.' }
+            [void](Invoke-McpTool -Name 'apply-blueprint' -Arguments @{ 'apply-token' = $applyToken; 'confirm' = $true })
             $projectsResponse = Invoke-McpTool -Name 'list-projects'
             $projects = @($projectsResponse.result.structuredContent.data)
             if ($projects.Count -ne 1) { throw "Disposable worker expected one project; found $($projects.Count)." }
@@ -188,8 +198,12 @@ try {
                 throw "Disposable archive was not produced at '$archiveFullPath'."
             }
             [void](Invoke-McpTool -Name 'doctor')
+            [void](Invoke-McpTool -Name 'describe-api')
+            [void](Invoke-McpTool -Name 'diff-api-profile')
             [void](Invoke-McpTool -Name 'reset-session')
+            Remove-Item -LiteralPath $blueprintPath -Force -ErrorAction SilentlyContinue
             $summary['DisposableArchiveCreated'] = $true
+            $summary['BlueprintApplied'] = $true
             $summary['ProjectCount'] = $projects.Count
             $summary['ResetVerified'] = $true
         }

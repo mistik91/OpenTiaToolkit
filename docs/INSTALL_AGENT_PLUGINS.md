@@ -36,7 +36,7 @@ Install the OpenTiaToolkit Claude Code plugin from C:\Program Files\OpenTiaToolk
 Configure OpenCode with the OpenTiaToolkit bundle in C:\Program Files\OpenTiaToolkit\plugins\opentia-toolkit-opencode.
 ```
 
-The installed plugin packages include workflow skills for TIA Portal discovery, PLC work, Unified HMI editing, hardware configuration, trend logging, libraries, VCI synchronization, and OpenTiaToolkit repo development.
+The installed plugin packages include workflow skills for TIA Portal discovery, state-bound engineering blueprints, PLC work, Unified HMI editing, hardware configuration, trend logging, libraries, VCI synchronization, and OpenTiaToolkit repo development.
 
 ## Installed Layout
 

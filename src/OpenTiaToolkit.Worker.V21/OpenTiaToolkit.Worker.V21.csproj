@@ -19,5 +19,11 @@
     <Content Include="..\..\compatibility\tia-v21.json" Link="compatibility\tia-v21.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\..\compatibility\worker-v21.json" Link="worker-manifest.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\compatibility\tia-v21.api.json" Link="compatibility\tia-v21.api.json" Condition="Exists('..\..\compatibility\tia-v21.api.json')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

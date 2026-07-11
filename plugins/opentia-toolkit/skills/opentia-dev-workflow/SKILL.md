@@ -31,6 +31,8 @@ Use live integration tests only when TIA Portal V21, test project paths, and Ope
 dotnet test .\tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --filter "TestCategory=Integration"
 ```
 
+For Phase 3 compatibility changes, also run the architecture worker-package contract tests, `describe-api`, `diff-api-profile`, and the worker IPC integration tests. A worker rebuild changes its Siemens allow-list identity.
+
 ## Openness Allow-List Refresh
 
 For live TIA CLI or MCP work, register the isolated V21 worker after rebuilding it. CLI and MCP are vendor-free hosts and no longer belong in the Siemens allow-list. The allow-list is tied to the exact worker path, UTC timestamp, and SHA-256 hash.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Engineering Blueprints"
+  short_description: "Plan and apply state-bound TIA engineering blueprints"
+  default_prompt: "Use the OpenTiaToolkit blueprint workflow to validate, plan, safely apply, and verify this PLC/HMI/hardware outcome."

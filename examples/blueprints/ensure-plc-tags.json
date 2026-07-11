@@ -1,0 +1,26 @@
+{
+  "$schema": "../../schemas/engineering-blueprint.schema.json",
+  "schemaVersion": "1.0",
+  "name": "Ensure PLC engineering tags",
+  "description": "Creates or updates an explicit set of PLC tags after a state-bound plan review.",
+  "requiredWorker": "V21",
+  "steps": [
+    {
+      "id": "apply-tags",
+      "command": "modify-tags",
+      "arguments": {
+        "plc-name": "PLC_1",
+        "operations": [
+          {
+            "operation": "upsert",
+            "tableName": "Generated tags",
+            "name": "ToolkitHeartbeat",
+            "dataType": "Bool",
+            "logicalAddress": "%M100.0"
+          }
+        ],
+        "dry-run": true
+      }
+    }
+  ]
+}

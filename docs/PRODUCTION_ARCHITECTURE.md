@@ -1,5 +1,7 @@
 # Production Architecture
 
+Phase 3 extends this boundary with independently manifest-driven worker packages. The vendor-free host selects a worker by TIA version and validates its IPC/version contract before launch. Inside the worker, blueprint planning binds a one-use token to the canonical desired state and current project fingerprint; API self-description verifies the exact Siemens public surface before automation proceeds.
+
 ## Process boundary
 
 ```text

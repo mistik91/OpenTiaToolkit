@@ -28,6 +28,14 @@
       <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Startdrive.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Siemens.Engineering.Safety">
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Safety.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Siemens.Engineering.SafetyValidation">
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.SafetyValidation.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

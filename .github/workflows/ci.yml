@@ -130,6 +130,19 @@ jobs:
           $doctor = & .\src\OpenTiaToolkit.CLI\bin\Release\net48\OpenTiaToolkit.CLI.exe doctor --format json | ConvertFrom-Json
           if (-not $doctor.success -or -not $doctor.data.healthy) { throw "V21 compatibility doctor failed: $($doctor | ConvertTo-Json -Depth 10)" }
 
+      - name: Validate Phase 3 blueprint examples
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem .\examples\blueprints\*.json) {
+            & .\src\OpenTiaToolkit.CLI\bin\Release\net48\OpenTiaToolkit.CLI.exe validate-blueprint --blueprint-path=$($file.FullName) --format json
+            if ($LASTEXITCODE -ne 0) { throw "Blueprint validation failed: $($file.FullName)" }
+          }
+
+      - name: Disposable blueprint lifecycle
+        env:
+          OPEN_TIA_RUN_DISPOSABLE_BLUEPRINT: 'true'
+        run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~DisposableBlueprintIntegrationTests"
+
       - name: Disposable archived-project integration
         if: vars.OPEN_TIA_TEST_ARCHIVE_PATH != ''
         env:

@@ -22,11 +22,14 @@ namespace OpenTiaToolkit.Tests.Integration
             using (ToolRegistry registry = CreateRegistry())
             {
                 List<Tool> tools = registry.ListTools();
-                Assert.IsTrue(tools.Count >= 130);
+                Assert.IsTrue(tools.Count >= 145);
                 Assert.AreEqual(tools.Count, tools.Select(tool => tool.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
                 Tool createProject = tools.Single(tool => tool.Name == "create-project");
                 string schema = createProject.InputSchema.GetRawText();
                 StringAssert.Contains(schema, "confirm");
+                CollectionAssert.IsSubsetOf(
+                    new[] { "validate-blueprint", "plan-blueprint", "apply-blueprint", "describe-api", "diff-api-profile", "get-hardware-drive-parameters", "list-unified-alarms" },
+                    tools.Select(tool => tool.Name).ToArray());
             }
         }
 

@@ -27,6 +27,8 @@ The repo targets the V21 modular Openness API layout:
 - `Siemens.Engineering.Step7.dll`
 - `Siemens.Engineering.WinCCUnified.dll`
 - `Siemens.Engineering.Startdrive.dll`
+- `Siemens.Engineering.Safety.dll`
+- `Siemens.Engineering.SafetyValidation.dll`
 
 Common V21 PLC surfaces used by the toolkit include:
 
@@ -155,6 +157,6 @@ When in doubt, validate new PLC behavior against **TIA Portal V21** first.
 
 ## Exact validated profile
 
-The executable `doctor` command compares the installed API with [the committed V21 compatibility profile](../compatibility/tia-v21.json). The current validated file versions are Base/Step7 `2100.0.121.1`, WinCC Unified `2100.200.5.1`, and Startdrive `2100.2.2302.1`. Exact SHA-256 values remain machine-readable in the profile and are also reported by `capabilities`.
+The executable `doctor` command compares the installed API with [the committed V21 binary compatibility profile](../compatibility/tia-v21.json) and [public-surface baseline](../compatibility/tia-v21.api.json). The current validated file versions are Base/Step7/Safety/SafetyValidation `2100.0.121.1`, WinCC Unified `2100.200.5.1`, and Startdrive `2100.2.2302.1`. Exact SHA-256 and public-surface hashes remain machine-readable and are also reported by `capabilities`, `describe-api`, and `diff-api-profile`.
 
 A V21 installation with different hashes may be a legitimate Siemens update, but it is treated as unvalidated until the architecture suite and live disposable-project suite pass and a reviewed profile update is committed.

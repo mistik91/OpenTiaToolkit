@@ -1,0 +1,28 @@
+{
+  "$schema": "../../schemas/engineering-blueprint.schema.json",
+  "schemaVersion": "1.0",
+  "name": "Configure a PROFINET device identity",
+  "description": "Applies a guarded hardware patch after a state-bound plan review.",
+  "requiredWorker": "V21",
+  "steps": [
+    {
+      "id": "configure-identity",
+      "command": "apply-hardware-patch",
+      "arguments": {
+        "operations": [
+          {
+            "op": "configure-profinet-device",
+            "target": {
+              "deviceName": "PLC_1",
+              "itemPath": [ "PROFINET interface_1" ]
+            },
+            "ipAddress": "192.168.0.10",
+            "subnetMask": "255.255.255.0",
+            "pnDeviceName": "plc-1"
+          }
+        ],
+        "dry-run": true
+      }
+    }
+  ]
+}

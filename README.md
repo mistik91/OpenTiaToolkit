@@ -6,6 +6,8 @@
 
 OpenTiaToolkit is a Windows automation toolkit for Siemens TIA Portal Openness. It provides one shared command surface through a human-friendly CLI and an MCP server for agent/harness workflows.
 
+Phase 3 adds versioned worker manifests, API migration contracts, state-bound declarative blueprints, and bounded official V21 insight commands. See [engineering blueprints](docs/BLUEPRINTS.md), [API compatibility](docs/API_COMPATIBILITY.md), and [official API insights](docs/OFFICIAL_API_INSIGHTS.md).
+
 The project targets and is validated against **TIA Portal V21**. Later Siemens releases require explicit compatibility validation before they are claimed as supported.
 
 ## What It Does

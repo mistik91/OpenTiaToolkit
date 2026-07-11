@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0",
+  "tiaVersion": "V21",
+  "capturedAtUtc": "2026-07-11T12:56:23Z",
+  "assemblies": [
+    {
+      "name": "Siemens.Engineering.Base.dll",
+      "version": "21.0.0.0",
+      "sha256": "8c12b0fa70c298f1cd1221105880752ab204ed63c9f6d9dcb68833d977bcb5d0",
+      "publicTypeCount": 1382,
+      "publicMemberCount": 18476,
+      "publicSurfaceSha256": "6c0586ff037908f39f12822dc62ef6ad01917be1764504c88ad898d79a64edfb"
+    },
+    {
+      "name": "Siemens.Engineering.Step7.dll",
+      "version": "21.0.0.0",
+      "sha256": "dfbbe3863005fa2fbc8cb553a3e7e4612acbaca19124939eb8d29de24c814eba",
+      "publicTypeCount": 228,
+      "publicMemberCount": 3375,
+      "publicSurfaceSha256": "5373f8377bf82bd54e7b4a964a8e464517f1e617a0b02ae3eb99ee3c9cc203f6"
+    },
+    {
+      "name": "Siemens.Engineering.WinCCUnified.dll",
+      "version": "21.0.0.0",
+      "sha256": "937852a43fb15a2b87e79fc403e4ac1467f389d1c0b528536e3ad244ef1bd0ff",
+      "publicTypeCount": 536,
+      "publicMemberCount": 8949,
+      "publicSurfaceSha256": "76f290a7dbe4724818f509ce95b8fb7d90b7f91c371e22e96e2d2d8a39f2a5f9"
+    },
+    {
+      "name": "Siemens.Engineering.Startdrive.dll",
+      "version": "21.0.0.0",
+      "sha256": "d9f61a8384e3eafccfa5b9bfc5fc69f179b8a5c0ad5bae763383bdf978bc49ac",
+      "publicTypeCount": 64,
+      "publicMemberCount": 982,
+      "publicSurfaceSha256": "a7f63d8917e03ec65316533df61f06c9a9ee56d5b5ed2b3e46280d9044b494c7"
+    },
+    {
+      "name": "Siemens.Engineering.Safety.dll",
+      "version": "21.0.0.0",
+      "sha256": "aa239702036fcffe2efb04dc0a9a925ef58c434e0c75e648d4713fcfb4afe892",
+      "publicTypeCount": 18,
+      "publicMemberCount": 294,
+      "publicSurfaceSha256": "2d14b3e3ccdea45c89f8cef4c79d00d84022f79df5a49b3a5413c9ed514e0811"
+    },
+    {
+      "name": "Siemens.Engineering.SafetyValidation.dll",
+      "version": "21.0.0.0",
+      "sha256": "586f897179d8cf6376a52b0eb266e3bf6e009f5fd070e4d866f033970e29d2a0",
+      "publicTypeCount": 19,
+      "publicMemberCount": 318,
+      "publicSurfaceSha256": "09133f735cf50f70664c98eb4e4f91287e8696c905e92a239bdc0b3edf5ad57e"
+    }
+  ],
+  "featureProbes": {
+    "unified-alarms": true,
+    "unified-runtime-settings": true,
+    "unified-text-lists": true,
+    "startdrive-telegrams": true,
+    "safety-administration": true,
+    "multiuser": true,
+    "project-security": true,
+    "plc-watch-tables": true,
+    "plc-technology-objects": true,
+    "plc-alarm-text-lists": true
+  },
+  "aggregateSurfaceSha256": "caf24e4388cbbf6a8497ee8efd968d6bcb138b281a1984aec866fbf4c40a6e49"
+}

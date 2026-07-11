@@ -143,6 +143,7 @@ Copy-Directory -Source (Join-Path $repoRoot 'skills') -Destination (Join-Path $s
 Copy-Directory -Source (Join-Path $repoRoot 'docs') -Destination (Join-Path $stageRoot 'docs')
 Copy-Directory -Source (Join-Path $repoRoot 'schemas') -Destination (Join-Path $stageRoot 'schemas')
 Copy-Directory -Source (Join-Path $repoRoot 'compatibility') -Destination (Join-Path $stageRoot 'compatibility')
+Copy-Directory -Source (Join-Path $repoRoot 'examples') -Destination (Join-Path $stageRoot 'examples')
 
 Copy-RequiredFile -Source (Join-Path $repoRoot 'scripts\Register-OpennessAllowList.ps1') -Destination (Join-Path $stageRoot 'scripts\Register-OpennessAllowList.ps1')
 Copy-RequiredFile -Source (Join-Path $repoRoot 'README.md') -Destination (Join-Path $stageRoot 'README.md')
@@ -158,10 +159,19 @@ $manifest = [ordered]@{
     McpExecutable = 'C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe'
     CliExecutable = 'C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe'
     V21WorkerExecutable = 'C:\Program Files\OpenTiaToolkit\worker-v21\OpenTiaToolkit.Worker.V21.exe'
+    WorkerPackages = @(
+        [ordered]@{
+            WorkerId = 'opentia-worker-v21'
+            TiaVersions = @('V21')
+            Executable = 'C:\Program Files\OpenTiaToolkit\worker-v21\OpenTiaToolkit.Worker.V21.exe'
+            Manifest = 'C:\Program Files\OpenTiaToolkit\worker-v21\worker-manifest.json'
+        }
+    )
     PluginDirectory = 'C:\Program Files\OpenTiaToolkit\plugins'
     SkillDirectory = 'C:\Program Files\OpenTiaToolkit\skills'
     SchemaDirectory = 'C:\Program Files\OpenTiaToolkit\schemas'
     CompatibilityDirectory = 'C:\Program Files\OpenTiaToolkit\compatibility'
+    ExampleDirectory = 'C:\Program Files\OpenTiaToolkit\examples'
 }
 
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $stageRoot 'install-manifest.json') -Encoding UTF8

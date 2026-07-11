@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 127,
+  "commandCount": 142,
   "commands": [
     {
       "name": "add-device",
@@ -30,6 +30,29 @@
           "required": true,
           "defaultValue": null,
           "description": "Name for the device and primary item"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "apply-blueprint",
+      "description": "Applies a previously reviewed blueprint plan using its state-bound one-use token.",
+      "category": "V21",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "apply-token",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "One-use token returned by plan-blueprint"
         },
         {
           "name": "confirm",
@@ -1338,6 +1361,30 @@
       ]
     },
     {
+      "name": "describe-api",
+      "description": "Self-describes the installed V21 public API surface and prioritized feature availability.",
+      "category": "V21",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": []
+    },
+    {
+      "name": "diff-api-profile",
+      "description": "Compares the installed V21 public API self-description with a committed migration baseline.",
+      "category": "V21",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "baseline-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional API profile baseline"
+        }
+      ]
+    },
+    {
       "name": "diff-hmi-json",
       "description": "Creates a minimal Unified HMI JSON patch from two exports",
       "category": "Unified HMI",
@@ -2287,6 +2334,43 @@
       ]
     },
     {
+      "name": "get-hardware-drive-parameters",
+      "description": "Reads bounded Startdrive parameter metadata, values, units, ranges, and enumerations through the official V21 API.",
+      "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "device-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional drive device name filter"
+        },
+        {
+          "name": "drive-object-index",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional zero-based drive object index"
+        },
+        {
+          "name": "filter",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional parameter name, number, or text filter"
+        },
+        {
+          "name": "max-results",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 500,
+          "description": "Maximum returned parameters (1-5000)"
+        }
+      ]
+    },
+    {
       "name": "get-hardware-drive-telegrams",
       "description": "Lists Startdrive telegrams and their IO addresses exposed by hardware drive items",
       "category": "Hardware",
@@ -2738,6 +2822,14 @@
       ]
     },
     {
+      "name": "get-multiuser-status",
+      "description": "Reports project/local-session multiuser state and ownership through the official V21 API.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": []
+    },
+    {
       "name": "get-online-status",
       "description": "Gets PLC online status, optionally going online first",
       "category": "PLC",
@@ -2757,6 +2849,22 @@
           "required": false,
           "defaultValue": true,
           "description": "Attempt to go online before reading status"
+        }
+      ]
+    },
+    {
+      "name": "get-plc-alarm-text-list-details",
+      "description": "Reads PLC alarm system/user text-list metadata through the official V21 API.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "max-results",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 500,
+          "description": "Maximum returned rows (1-5000)"
         }
       ]
     },
@@ -2811,6 +2919,38 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional JSON file or folder path for the PLC software tree"
+        }
+      ]
+    },
+    {
+      "name": "get-technology-object-details",
+      "description": "Reads PLC technology object metadata and parameters through the official V21 API.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "max-results",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 500,
+          "description": "Maximum returned rows (1-5000)"
+        }
+      ]
+    },
+    {
+      "name": "get-unified-runtime-settings",
+      "description": "Reads scalar Unified HMI runtime settings through the official V21 API.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "max-results",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 500,
+          "description": "Maximum returned rows (1-5000)"
         }
       ]
     },
@@ -2908,6 +3048,22 @@
           "required": true,
           "defaultValue": null,
           "description": "Workspace name"
+        }
+      ]
+    },
+    {
+      "name": "get-watch-table-details",
+      "description": "Reads PLC watch/force tables and their entry metadata through the official V21 API.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "max-results",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 500,
+          "description": "Maximum returned rows (1-5000)"
         }
       ]
     },
@@ -3436,6 +3592,14 @@
           "description": "Optional artifact root path"
         }
       ]
+    },
+    {
+      "name": "inspect-project-security",
+      "description": "Inspects project security metadata and certificate/password/syslog service availability through V21 Openness.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": []
     },
     {
       "name": "list-devices",
@@ -3993,6 +4157,66 @@
       ]
     },
     {
+      "name": "list-unified-alarms",
+      "description": "Lists Unified HMI alarm classes, analog/discrete alarms, and OPC UA alarm types through the official V21 API.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "max-results",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 500,
+          "description": "Maximum returned rows (1-5000)"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
+    },
+    {
+      "name": "list-unified-text-lists",
+      "description": "Lists Unified HMI user, system, and graphic text lists through the official V21 API.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "max-results",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": 500,
+          "description": "Maximum returned rows (1-5000)"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
+    },
+    {
       "name": "list-vci-mappings",
       "description": "Lists mapped objects in a Version Control Interface workspace",
       "category": "VCI",
@@ -4266,6 +4490,22 @@
           "required": true,
           "defaultValue": null,
           "description": "The Unified HMI device or device item name"
+        }
+      ]
+    },
+    {
+      "name": "plan-blueprint",
+      "description": "Builds a state-bound engineering plan and short-lived one-use apply token.",
+      "category": "V21",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "blueprint-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Blueprint JSON file"
         }
       ]
     },
@@ -4932,6 +5172,30 @@
           "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
+    },
+    {
+      "name": "validate-blueprint",
+      "description": "Validates a declarative engineering blueprint against the V21 worker command contract.",
+      "category": "V21",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "blueprint-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Blueprint JSON file"
+        }
+      ]
+    },
+    {
+      "name": "validate-safety-configuration",
+      "description": "Validates official SafetyAdministration availability and offline login state for the selected PLC.",
+      "category": "Insights",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": []
     },
     {
       "name": "version",

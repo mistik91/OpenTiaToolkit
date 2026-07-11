@@ -5,6 +5,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | Tool | Domain | Parameters | Description |
 |---|---|---|---|
 | `add-device` | Portal | `order-number`, `version`, `name`, `confirm` | Adds a device with its primary item to the current project |
+| `apply-blueprint` | V21 | `apply-token`, `confirm` | Applies a previously reviewed blueprint plan using its state-bound one-use token. |
 | `apply-hardware-patch` | Hardware | `operations`, `operations-path`, `dry-run`, `confirm-destructive`, `transaction-description`, `plc-name`, `safety-password-env`, `confirm` | Dry-runs or applies transactional generic TIA hardware operations |
 | `apply-hmi-screen-json-edit` | Unified HMI | `hmi-name`, `screen-path`, `edited-screen`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies one Unified HMI screen JSON edit with safety checks |
 | `apply-hmi-screen-json-patch` | Unified HMI | `hmi-name`, `screen-path`, `operations`, `operations-path`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies compact Unified HMI screen patch operations with safety checks |
@@ -35,6 +36,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `delete-hmi-data-log` | Unified HMI | `hmi-name`, `datalog-name`, `confirm` | Deletes one Unified HMI data log archive when no logging tags still reference it |
 | `delete-hmi-data-logs` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or deletes multiple unreferenced Unified HMI data log archives |
 | `delete-vci-workspace` | VCI | `workspace-name`, `confirm` | Deletes a Version Control Interface workspace definition |
+| `describe-api` | V21 |  | Self-describes the installed V21 public API surface and prioritized feature availability. |
+| `diff-api-profile` | V21 | `baseline-path` | Compares the installed V21 public API self-description with a committed migration baseline. |
 | `diff-hmi-json` | Unified HMI | `base-path`, `modified-path`, `patch-path`, `screens`, `item-names`, `properties` | Creates a minimal Unified HMI JSON patch from two exports |
 | `disconnect-portal` | Portal | `confirm` | Disconnects from the TIA Portal instance |
 | `doctor` | V21 |  | Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture. |
@@ -62,6 +65,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `get-device-info` | Devices | `device-name` | Gets detailed information about a device |
 | `get-device-item-info` | Devices | `device-name`, `item-name` | Gets detailed information about a device item |
 | `get-gsd-parameter-data` | Hardware | `target`, `device-name`, `item-path`, `expected-type-identifier`, `dataset-number`, `byte-offset`, `length` | Reads raw parameter data bytes from a GSD or GSDML hardware item |
+| `get-hardware-drive-parameters` | Hardware | `device-name`, `drive-object-index`, `filter`, `max-results` | Reads bounded Startdrive parameter metadata, values, units, ranges, and enumerations through the official V21 API. |
 | `get-hardware-drive-telegrams` | Hardware | `device-name`, `address-attributes`, `output-path` | Lists Startdrive telegrams and their IO addresses exposed by hardware drive items |
 | `get-hardware-feature-attributes` | Hardware | `target`, `device-name`, `item-path`, `expected-type-identifier`, `feature-service`, `attributes` | Reads engineering attributes from a hardware feature service such as NetworkInterface |
 | `get-hardware-io-addresses` | Hardware | `device-name`, `attributes`, `output-path` | Lists process-image address objects exposed by hardware device items |
@@ -74,13 +78,18 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `get-hmi-screen-json` | Unified HMI | `hmi-name`, `screen-path`, `item-names`, `properties`, `working-path`, `include-screen` | Gets one Unified HMI screen as canonical JSON for agent editing |
 | `get-hmi-screen-summary` | Unified HMI | `hmi-name`, `screen-path`, `include-items`, `include-faceplates`, `working-path` | Summarizes item counts and faceplate contained types for one Unified HMI screen |
 | `get-library-type-versions` | Libraries | `library-scope`, `global-library`, `type-path`, `output-path` | Lists versions for a library type |
+| `get-multiuser-status` | Insights |  | Reports project/local-session multiuser state and ownership through the official V21 API. |
 | `get-online-status` | PLC | `plc-name`, `go-online` | Gets PLC online status, optionally going online first |
+| `get-plc-alarm-text-list-details` | Insights | `max-results` | Reads PLC alarm system/user text-list metadata through the official V21 API. |
 | `get-project-info` | Portal |  | Gets information about the currently open project |
 | `get-project-tree` | Portal | `depth` | Gets the hierarchical project structure |
 | `get-software-tree` | PLC | `plc-name`, `depth`, `output-path` | Gets the hierarchical PLC software structure |
+| `get-technology-object-details` | Insights | `max-results` | Reads PLC technology object metadata and parameters through the official V21 API. |
+| `get-unified-runtime-settings` | Insights | `max-results` | Reads scalar Unified HMI runtime settings through the official V21 API. |
 | `get-vci-block-formats` | VCI | `plc-name`, `block-name`, `block-type`, `group-path` | Gets VCI-supported workspace file formats for one PLC block |
 | `get-vci-block-status` | VCI | `workspace-name`, `plc-name`, `block-name`, `block-type`, `group-path` | Gets VCI comparison status for one mapped PLC block |
 | `get-vci-workspace` | VCI | `workspace-name` | Gets details for a Version Control Interface workspace |
+| `get-watch-table-details` | Insights | `max-results` | Reads PLC watch/force tables and their entry metadata through the official V21 API. |
 | `hmi-status` | Unified HMI | `hmi-name`, `screen-path`, `open-if-needed` | Gets Unified HMI session status and optionally probes a screen |
 | `import-block` | PLC | `plc-name`, `import-path`, `group-path`, `confirm` | Imports a single block from XML file |
 | `import-block-from-docs` | PLC | `plc-name`, `import-directory`, `file-name`, `group-path`, `import-option`, `confirm` | Imports a single block from SIMATIC SD documents (.s7dcl/.s7res) |
@@ -92,6 +101,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `import-type` | PLC | `plc-name`, `import-path`, `group-path`, `confirm` | Imports a single type (UDT) from XML file |
 | `import-types` | PLC | `plc-name`, `import-directory`, `filter-regex`, `group-path`, `confirm` | Imports multiple types (UDT) from XML files in a directory |
 | `inspect-hmi-screen-json-capabilities` | Unified HMI | `hmi-name`, `screen-path`, `item-names`, `properties`, `include-item-types`, `include-writable-properties`, `include-snapshot`, `working-path` | Inspects one Unified HMI screen and returns agent-oriented patch capabilities and guidance |
+| `inspect-project-security` | Insights |  | Inspects project security metadata and certificate/password/syslog service availability through V21 Openness. |
 | `list-devices` | Portal | `page-size`, `continuation-token` | Lists all devices in the currently open project |
 | `list-external-sources` | PLC | `plc-name`, `output-path`, `page-size`, `continuation-token` | PLC external sources |
 | `list-global-libraries` | Libraries | `output-path`, `page-size`, `continuation-token` | Lists known and open TIA Portal global libraries |
@@ -107,6 +117,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `list-project-languages` | Project Texts | `page-size`, `continuation-token` | Lists project languages and active language settings |
 | `list-projects` | Portal | `page-size`, `continuation-token` | Lists all open TIA Portal projects and sessions |
 | `list-technology-objects` | PLC | `plc-name`, `output-path`, `page-size`, `continuation-token` | PLC technology objects |
+| `list-unified-alarms` | Insights | `max-results`, `page-size`, `continuation-token` | Lists Unified HMI alarm classes, analog/discrete alarms, and OPC UA alarm types through the official V21 API. |
+| `list-unified-text-lists` | Insights | `max-results`, `page-size`, `continuation-token` | Lists Unified HMI user, system, and graphic text lists through the official V21 API. |
 | `list-vci-mappings` | VCI | `workspace-name`, `output-path`, `page-size`, `continuation-token` | Lists mapped objects in a Version Control Interface workspace |
 | `list-vci-workspaces` | VCI | `page-size`, `continuation-token` | Lists Version Control Interface workspaces in the open project |
 | `list-watch-tables` | PLC | `plc-name`, `output-path`, `page-size`, `continuation-token` | PLC watch and force tables |
@@ -116,6 +128,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `open-project` | Portal | `project-path`, `umac-user`, `umac-password-env`, `umac-user-type` | Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported) |
 | `open-tia-portal` | Portal | `with-ui` | Opens a new TIA Portal instance (with UI by default) |
 | `open-unified-hmi` | Unified HMI | `hmi-name` | Opens a Unified HMI by device or device item name |
+| `plan-blueprint` | V21 | `blueprint-path` | Builds a state-bound engineering plan and short-lived one-use apply token. |
 | `portal-status` | Portal |  | Gets the current TIA Portal connection status |
 | `probe-hmi-faceplate-interface` | Unified HMI | `hmi-name`, `screen-path`, `item-name`, `item-name-path`, `property`, `write`, `value`, `restore`, `confirm` | Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write |
 | `remove-hmi-logging-tag` | Unified HMI | `hmi-name`, `tag-path`, `datalog-name`, `logging-tag-name`, `confirm` | Removes one Unified HMI logging tag after verifying its data log association |
@@ -130,6 +143,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `sync-vci-block` | VCI | `workspace-name`, `plc-name`, `block-name`, `direction`, `create-mapping`, `relative-directory`, `file-name`, `file-format`, `block-type`, `group-path`, `confirm` | Synchronizes one mapped PLC block with a VCI workspace |
 | `sync-vci-blocks` | VCI | `workspace-name`, `plc-name`, `direction`, `filter-regex`, `block-types`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes selected PLC blocks with a VCI workspace |
 | `sync-vci-plc` | VCI | `workspace-name`, `plc-name`, `direction`, `scope`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes supported objects of a PLC with a VCI workspace |
+| `validate-blueprint` | V21 | `blueprint-path` | Validates a declarative engineering blueprint against the V21 worker command contract. |
+| `validate-safety-configuration` | Insights |  | Validates official SafetyAdministration availability and offline login state for the selected PLC. |
 | `version` | V21 |  | Reports toolkit, IPC, worker, runtime, and target TIA versions. |
 
 ## Infrastructure tools

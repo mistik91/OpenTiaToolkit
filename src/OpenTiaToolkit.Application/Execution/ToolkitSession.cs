@@ -81,42 +81,11 @@ public sealed class ToolkitSession : IToolkitClient, IDisposable
 
     public static string ResolveWorkerPath(string hostExecutablePath)
     {
-        string? configured = Environment.GetEnvironmentVariable("OPEN_TIA_WORKER_EXE");
-        if (!string.IsNullOrWhiteSpace(configured)) return Path.GetFullPath(configured);
-
-        string hostDirectory = Path.GetDirectoryName(Path.GetFullPath(hostExecutablePath))!;
-        var candidates = new System.Collections.Generic.List<string>
-        {
-            Path.Combine(hostDirectory, "worker-v21", "OpenTiaToolkit.Worker.V21.exe"),
-            Path.Combine(hostDirectory, "OpenTiaToolkit.Worker.V21.exe"),
-            Path.GetFullPath(Path.Combine(hostDirectory, "..", "..", "..", "..", "OpenTiaToolkit.Worker.V21", "bin", "Debug", "net48", "OpenTiaToolkit.Worker.V21.exe")),
-            Path.GetFullPath(Path.Combine(hostDirectory, "..", "..", "..", "..", "OpenTiaToolkit.Worker.V21", "bin", "Release", "net48", "OpenTiaToolkit.Worker.V21.exe"))
-        };
-
-        foreach (string start in new[] { hostDirectory, Environment.CurrentDirectory })
-        {
-            DirectoryInfo? current = new DirectoryInfo(start);
-            while (current != null)
-            {
-                if (File.Exists(Path.Combine(current.FullName, "OpenTiaToolkit.sln")))
-                {
-                    string preferredConfiguration = start.IndexOf("Release", StringComparison.OrdinalIgnoreCase) >= 0
-                        ? "Release"
-                        : "Debug";
-                    string fallbackConfiguration = preferredConfiguration == "Release" ? "Debug" : "Release";
-                    candidates.Add(Path.Combine(current.FullName, "src", "OpenTiaToolkit.Worker.V21", "bin", preferredConfiguration, "net48", "OpenTiaToolkit.Worker.V21.exe"));
-                    candidates.Add(Path.Combine(current.FullName, "src", "OpenTiaToolkit.Worker.V21", "bin", fallbackConfiguration, "net48", "OpenTiaToolkit.Worker.V21.exe"));
-                    break;
-                }
-
-                current = current.Parent;
-            }
-        }
-
-        string? found = candidates.FirstOrDefault(File.Exists);
-        return found ?? throw new FileNotFoundException(
-            "The V21 worker was not found. Set OPEN_TIA_WORKER_EXE or install the worker-v21 payload beside the host.");
+        return ResolveWorkerPath(hostExecutablePath, "V21");
     }
+
+    public static string ResolveWorkerPath(string hostExecutablePath, string tiaVersion) =>
+        WorkerPackageResolver.Resolve(hostExecutablePath, tiaVersion);
 
     public static string ResolveDefaultAuditPath()
     {

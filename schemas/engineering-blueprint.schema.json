@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opentiatoolkit.dev/schemas/engineering-blueprint.schema.json",
+  "title": "OpenTiaToolkit Engineering Blueprint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "name", "steps" ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": "1.0" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "requiredWorker": { "type": "string", "pattern": "^V[0-9]+$" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "id", "command", "arguments" ],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "command": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "arguments": {
+            "type": "object",
+            "not": { "required": [ "confirm" ] }
+          },
+          "continueOnError": { "type": "boolean", "default": false }
+        }
+      }
+    }
+  }
+}

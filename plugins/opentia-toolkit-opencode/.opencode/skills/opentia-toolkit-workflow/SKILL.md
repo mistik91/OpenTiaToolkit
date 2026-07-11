@@ -23,6 +23,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
    - Version Control Interface workspace, mapping, status, export/connect/sync work: use `vci-sync-workflow`.
    - Project languages, internationalization, translation export/import, project text workbooks, `list-project-languages`, `export-texts`, or `import-texts`: use this skill plus `basic-tia-interaction`.
    - OpenTiaToolkit repo changes, tests, docs, plugin packaging, or skill packaging: use `opentia-dev-workflow`.
+   - Declarative multi-step PLC/HMI/hardware outcomes, `validate-blueprint`, `plan-blueprint`, or `apply-blueprint`: use `engineering-blueprint-workflow` after target discovery.
 2. If live TIA context is needed and not already proven in the current turn, use `basic-tia-interaction` before the domain workflow.
 3. If several domains are involved, order them by dependency. For example: session selection, hardware discovery, PLC changes, HMI changes, compile/save verification.
 4. Ask only for information that cannot be discovered safely: ambiguous project among multiple open instances, missing project path, unclear PLC/HMI target, or destructive confirmation.

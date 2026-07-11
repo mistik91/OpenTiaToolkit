@@ -118,6 +118,26 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
+        public Task<IReadOnlyList<HardwareDriveParameterInfo>> GetDriveParametersAsync(string? deviceName = null, int? driveObjectIndex = null, string? filter = null, int maxResults = 500)
+        {
+            return Task.Run<IReadOnlyList<HardwareDriveParameterInfo>>(() =>
+            {
+                if (maxResults < 1 || maxResults > 5000) throw new ArgumentOutOfRangeException(nameof(maxResults), "maxResults must be between 1 and 5000.");
+                var result = new List<HardwareDriveParameterInfo>();
+                foreach (var device in ProjectDeviceEnumerator.EnumerateDevices(RequireProject()))
+                {
+                    if (!string.IsNullOrWhiteSpace(deviceName) && !string.Equals(device.Name, deviceName, StringComparison.OrdinalIgnoreCase)) continue;
+                    var root = new HardwareObjectRef { DeviceName = device.Name, ExpectedTypeIdentifier = device.TypeIdentifier };
+                    foreach (var item in device.DeviceItems)
+                    {
+                        AddDriveParametersRecursive(item, ChildRef(root, item.Name, item.TypeIdentifier), driveObjectIndex, filter, maxResults, result);
+                        if (result.Count >= maxResults) return result;
+                    }
+                }
+                return result;
+            });
+        }
+
         public Task<HardwareTagMappingAuditResult> AuditHardwareTagMappingsAsync(
             string plcName,
             string? tagTableFilter = null,
@@ -1083,6 +1103,17 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return new ResolvedTarget(Resolve(operation.Target), CloneRef(operation.Target));
+        }
+
+        private void AddDriveParametersRecursive(DeviceItem item, HardwareObjectRef reference, int? driveObjectIndex, string? filter, int maxResults, ICollection<HardwareDriveParameterInfo> result)
+        {
+            foreach (var value in _adapter.GetDriveParameters(item, reference, driveObjectIndex, filter, maxResults - result.Count)) result.Add(value);
+            if (result.Count >= maxResults) return;
+            foreach (var child in item.DeviceItems)
+            {
+                AddDriveParametersRecursive(child, ChildRef(reference, child.Name, child.TypeIdentifier), driveObjectIndex, filter, maxResults, result);
+                if (result.Count >= maxResults) return;
+            }
         }
 
         private ResolvedTarget ResolveRelative(ResolvedTarget parent, HardwareObjectRef relative)

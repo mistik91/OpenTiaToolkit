@@ -113,6 +113,24 @@ namespace OpenTiaToolkit.Core.Models
         public List<HardwareConnectedIoDeviceInfo> ConnectedIoDevices { get; set; } = new List<HardwareConnectedIoDeviceInfo>();
     }
 
+    public sealed class HardwareDriveParameterInfo
+    {
+        public HardwareObjectRef Target { get; set; } = new HardwareObjectRef();
+        public int DriveObjectIndex { get; set; }
+        public string? DriveObjectNumber { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int Number { get; set; }
+        public int ArrayIndex { get; set; }
+        public int ArrayLength { get; set; }
+        public string? ParameterText { get; set; }
+        public string? Value { get; set; }
+        public string? Unit { get; set; }
+        public string? Minimum { get; set; }
+        public string? Maximum { get; set; }
+        public bool IsWritable { get; set; }
+        public Dictionary<int, string> EnumValues { get; set; } = new Dictionary<int, string>();
+    }
+
     public sealed class HardwareNodeInfo
     {
         public int Index { get; set; }

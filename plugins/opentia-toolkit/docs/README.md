@@ -16,6 +16,7 @@ Register the exact MCP executable you launch with Siemens Openness. Developers w
 - `.mcp.json`: Codex-compatible MCP server entry for `opentia`.
 - `scripts/run-opentia-mcp.ps1`: MCP launcher for repo builds or `OPEN_TIA_MCP_EXE`.
 - `skills/opentia-toolkit-workflow`: top-level router and shared safety workflow.
+- `skills/engineering-blueprint-workflow`: state-bound PLC/HMI/hardware blueprint validation, plan, apply, and verification guidance.
 - `skills/basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance.
 - `skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance.
 - `skills/hardware-configuration-workflow`: generic hardware discovery, guarded patch, dry-run, and apply guidance.

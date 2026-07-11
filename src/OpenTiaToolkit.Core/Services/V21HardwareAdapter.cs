@@ -743,6 +743,71 @@ namespace OpenTiaToolkit.Core.Services
             return result;
         }
 
+        public IReadOnlyList<HardwareDriveParameterInfo> GetDriveParameters(DeviceItem target, HardwareObjectRef reference, int? requestedDriveObjectIndex, string? filter, int maxResults)
+        {
+            var container = GetFeatureService(target, "DriveObjectContainer") as DriveObjectContainer;
+            if (container == null) return Array.Empty<HardwareDriveParameterInfo>();
+            var result = new List<HardwareDriveParameterInfo>();
+            int driveIndex = 0;
+            foreach (DriveObject driveObject in container.DriveObjects)
+            {
+                if (!requestedDriveObjectIndex.HasValue || requestedDriveObjectIndex.Value == driveIndex)
+                {
+                    foreach (DriveParameter parameter in driveObject.Parameters)
+                    {
+                        if (!MatchesParameter(Convert.ToString(SafeRead(parameter, "Name")), Convert.ToInt32(SafeRead(parameter, "Number") ?? 0), Convert.ToString(SafeRead(parameter, "ParameterText")), filter)) continue;
+                        result.Add(ToParameterInfo(reference, driveIndex, driveObject, parameter, true));
+                        if (result.Count >= maxResults) return result;
+                    }
+                    foreach (ReadDriveParameter parameter in driveObject.ReadParameters)
+                    {
+                        if (!MatchesParameter(Convert.ToString(SafeRead(parameter, "Name")), Convert.ToInt32(SafeRead(parameter, "Number") ?? 0), Convert.ToString(SafeRead(parameter, "ParameterText")), filter)) continue;
+                        result.Add(ToParameterInfo(reference, driveIndex, driveObject, parameter, false));
+                        if (result.Count >= maxResults) return result;
+                    }
+                }
+                driveIndex++;
+            }
+            return result;
+        }
+
+        private static HardwareDriveParameterInfo ToParameterInfo(HardwareObjectRef reference, int driveIndex, DriveObject driveObject, object parameter, bool writable)
+        {
+            object? Read(string name) => SafeRead(parameter, name);
+            var enumValues = Read("EnumValueList") as IDictionary<int, string>;
+            return new HardwareDriveParameterInfo
+            {
+                Target = reference,
+                DriveObjectIndex = driveIndex,
+                DriveObjectNumber = Convert.ToString(SafeRead(driveObject, "DriveObjectNumber"), CultureInfo.InvariantCulture),
+                Name = Convert.ToString(Read("Name"), CultureInfo.InvariantCulture) ?? string.Empty,
+                Number = Convert.ToInt32(Read("Number"), CultureInfo.InvariantCulture),
+                ArrayIndex = Convert.ToInt32(Read("ArrayIndex"), CultureInfo.InvariantCulture),
+                ArrayLength = Convert.ToInt32(Read("ArrayLength"), CultureInfo.InvariantCulture),
+                ParameterText = Convert.ToString(Read("ParameterText"), CultureInfo.InvariantCulture),
+                Value = Convert.ToString(Read("Value"), CultureInfo.InvariantCulture),
+                Unit = Convert.ToString(Read("Unit"), CultureInfo.InvariantCulture),
+                Minimum = Convert.ToString(Read("MinValue"), CultureInfo.InvariantCulture),
+                Maximum = Convert.ToString(Read("MaxValue"), CultureInfo.InvariantCulture),
+                IsWritable = writable,
+                EnumValues = enumValues == null ? new Dictionary<int, string>() : new Dictionary<int, string>(enumValues)
+            };
+        }
+
+        private static object? SafeRead(object target, string propertyName)
+        {
+            try { return target.GetType().GetProperty(propertyName)?.GetValue(target); }
+            catch (Exception) { return null; }
+        }
+
+        private static bool MatchesParameter(string? name, int number, string? text, string? filter)
+        {
+            if (string.IsNullOrWhiteSpace(filter)) return true;
+            return (name?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0 ||
+                (text?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0 ||
+                number.ToString(CultureInfo.InvariantCulture).IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         internal static List<HardwareAttributeInfo> GetSelectedEngineeringAttributeInfos(object? target, IEnumerable<string> attributeNames)
         {
             if (target == null) return new List<HardwareAttributeInfo>();

@@ -40,7 +40,7 @@ The installer places OpenTiaToolkit under:
 C:\Program Files\OpenTiaToolkit
 ```
 
-It installs isolated `mcp\`, `cli\`, and `worker-v21\` payloads, plus plugins, skills, schemas, compatibility metadata, and docs. Setup sets `OPEN_TIA_MCP_EXE` and `OPEN_TIA_WORKER_EXE` and can register `OpenTiaToolkit.Worker.V21.exe` with Siemens Openness. CLI and MCP are vendor-free and do not require Openness allow-list entries.
+It installs isolated `mcp\`, `cli\`, and `worker-v21\` payloads, plus plugins, skills, schemas, compatibility metadata, and docs. Setup sets `OPEN_TIA_MCP_EXE`, `OPEN_TIA_WORKER_V21_EXE`, and the legacy `OPEN_TIA_WORKER_EXE`, and can register `OpenTiaToolkit.Worker.V21.exe` with Siemens Openness. Version-specific variables take precedence. CLI and MCP are vendor-free and do not require Openness allow-list entries; see [API compatibility](API_COMPATIBILITY.md).
 
 After installation, ask your agent to install or configure the local plugin from the installed folder. See [INSTALL_AGENT_PLUGINS.md](INSTALL_AGENT_PLUGINS.md).
 

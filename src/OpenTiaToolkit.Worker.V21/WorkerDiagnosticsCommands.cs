@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using OpenTiaToolkit.Contracts.Protocol;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
@@ -38,6 +39,7 @@ internal abstract class WorkerDiagnosticCommand : ICommand
         {
             "Siemens.Engineering.Base.dll", "Siemens.Engineering.Step7.dll",
             "Siemens.Engineering.WinCCUnified.dll", "Siemens.Engineering.Startdrive.dll"
+            , "Siemens.Engineering.Safety.dll", "Siemens.Engineering.SafetyValidation.dll"
         })
         {
             string path = Path.Combine(api, name);
@@ -91,14 +93,16 @@ internal sealed class VersionCommand : WorkerDiagnosticCommand
 
 internal sealed class DoctorCommand : WorkerDiagnosticCommand
 {
-    public DoctorCommand() : base("doctor", "Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture.") { }
+    private readonly ApiSelfDescriptionService _api;
+    public DoctorCommand(ApiSelfDescriptionService api) : base("doctor", "Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture.") { _api = api; }
 
     public override Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         IReadOnlyDictionary<string, string> hashes = SiemensHashes();
         object compatibility = CompatibilityStatus(hashes);
+        var apiMigration = _api.Diff(ApiSelfDescriptionService.DefaultBaselinePath());
         bool matched = (bool)compatibility.GetType().GetProperty("matched")!.GetValue(compatibility)!;
-        bool healthy = Environment.Is64BitProcess && hashes.Count == 4 && matched;
+        bool healthy = Environment.Is64BitProcess && hashes.Count == 6 && matched && apiMigration.Compatible;
         object data = new
         {
             healthy,
@@ -107,6 +111,7 @@ internal sealed class DoctorCommand : WorkerDiagnosticCommand
             workerPath = Assembly.GetExecutingAssembly().Location,
             siemensAssemblies = hashes,
             compatibility,
+            apiMigration,
             auditJournal = Environment.GetEnvironmentVariable("OPEN_TIA_AUDIT_JOURNAL"),
             failureInjectionEnabled = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPEN_TIA_WORKER_FAILURE_INJECTION"))
         };
@@ -118,19 +123,19 @@ internal sealed class DoctorCommand : WorkerDiagnosticCommand
 
 internal sealed class CapabilitiesCommand : WorkerDiagnosticCommand
 {
-    public CapabilitiesCommand() : base("capabilities", "Reports the worker capability profile and exact Siemens assembly hashes.") { }
+    private readonly IServiceProvider _services;
+    public CapabilitiesCommand(IServiceProvider services) : base("capabilities", "Reports the worker capability profile and exact Siemens assembly hashes.") { _services = services; }
 
     public override Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
-        int coreCommandTypes = typeof(ICommand).Assembly.GetTypes().Count(type =>
-            typeof(ICommand).IsAssignableFrom(type) && type.IsClass && !type.IsAbstract);
+        var executor = _services.GetRequiredService<WorkerCommandExecutor>();
         IReadOnlyDictionary<string, string> hashes = SiemensHashes();
         return Task.FromResult(CommandResult.CreateSuccess(new
         {
             protocolVersion = ProtocolConstants.Version,
             worker = "V21",
-            supportedCommandCount = coreCommandTypes + 3,
-            features = new[] { "isolated-worker", "single-request-queue", "typed-outcomes", "mutation-policy", "audit-journal", "pagination", "failure-injection" },
+            supportedCommandCount = executor.GetCatalog().Length,
+            features = new[] { "isolated-worker", "single-request-queue", "typed-outcomes", "mutation-policy", "audit-journal", "pagination", "failure-injection", "versioned-worker-package", "compatibility-contract", "api-self-description", "migration-diff", "state-bound-blueprints", "official-v21-insights" },
             siemensAssemblyHashes = hashes,
             compatibility = CompatibilityStatus(hashes)
         }));

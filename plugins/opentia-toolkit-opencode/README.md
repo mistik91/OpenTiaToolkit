@@ -7,6 +7,7 @@ This bundle packages OpenTiaToolkit guidance for OpenCode:
 - `.opencode/plugins/opentia-toolkit.js`: a lightweight OpenCode plugin that sets the default OpenTiaToolkit shell log level
 - `.opencode/plugins/run-opentia-mcp.ps1`: MCP launcher for repo builds or `OPEN_TIA_MCP_EXE`
 - `.opencode/skills/opentia-toolkit-workflow`: top-level router and shared safety workflow
+- `.opencode/skills/engineering-blueprint-workflow`: state-bound PLC/HMI/hardware blueprint validation, plan, apply, and verification guidance
 - `.opencode/skills/basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance
 - `.opencode/skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance
 - `.opencode/skills/hardware-configuration-workflow`: generic hardware discovery, guarded patch, dry-run, and apply guidance

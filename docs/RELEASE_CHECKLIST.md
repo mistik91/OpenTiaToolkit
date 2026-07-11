@@ -41,6 +41,9 @@ dotnet test .\tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --filter "T
 - Run vendor-free architecture tests and confirm clean CLI/MCP payloads contain no Core or Siemens assemblies.
 - Run worker IPC, failure-injection, disposable archive retrieve, and compatibility doctor tests.
 - Register only the exact V21 worker with Siemens Openness after each rebuild, signing, or installer staging change.
+- Verify every versioned worker manifest, binary/API compatibility profile, `describe-api`, and `diff-api-profile`.
+- Validate all blueprint examples and run the disposable state-bound blueprint lifecycle, including replay rejection.
+- Confirm packaged MCP exposes the generated Phase 3 commands and uses its sibling versioned worker.
 - Smoke test a read-only CLI workflow and a read-only MCP workflow before publishing release artifacts.
 
 ## Release Artifacts

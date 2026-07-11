@@ -46,6 +46,7 @@ Name: "{group}\OpenTiaToolkit CLI"; Filename: "{app}\cli\OpenTiaToolkit.CLI.exe"
 [Registry]
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "OPEN_TIA_MCP_EXE"; ValueData: "{app}\mcp\OpenTiaToolkit.MCP.exe"; Flags: preservestringtype uninsdeletevalue
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "OPEN_TIA_WORKER_EXE"; ValueData: "{app}\worker-v21\OpenTiaToolkit.Worker.V21.exe"; Flags: preservestringtype uninsdeletevalue
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "OPEN_TIA_WORKER_V21_EXE"; ValueData: "{app}\worker-v21\OpenTiaToolkit.Worker.V21.exe"; Flags: preservestringtype uninsdeletevalue
 
 [Run]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\Register-OpennessAllowList.ps1"" -ExecutablePath ""{app}\worker-v21\OpenTiaToolkit.Worker.V21.exe"""; StatusMsg: "Registering isolated OpenTiaToolkit V21 worker with Siemens Openness..."; Flags: runhidden; Tasks: registerworker

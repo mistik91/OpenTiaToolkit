@@ -34,6 +34,13 @@ public static class Program
             services.AddSingleton<ICommand, VersionCommand>();
             services.AddSingleton<ICommand, DoctorCommand>();
             services.AddSingleton<ICommand, CapabilitiesCommand>();
+            services.AddSingleton<BlueprintCoordinator>();
+            services.AddSingleton<ICommand, ValidateBlueprintCommand>();
+            services.AddSingleton<ICommand, PlanBlueprintCommand>();
+            services.AddSingleton<ICommand, ApplyBlueprintCommand>();
+            services.AddSingleton<ApiSelfDescriptionService>();
+            services.AddSingleton<ICommand, DescribeApiCommand>();
+            services.AddSingleton<ICommand, DiffApiProfileCommand>();
             services.AddSingleton<WorkerCommandExecutor>();
             using (ServiceProvider provider = services.BuildServiceProvider())
             {

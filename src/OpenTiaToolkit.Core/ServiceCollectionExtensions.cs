@@ -92,6 +92,12 @@ namespace OpenTiaToolkit.Core
                     serviceProvider.GetRequiredService<TextService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
+            services.AddSingleton<EngineeringInsightsService>();
+            services.AddSingleton<IEngineeringInsightsService>(serviceProvider =>
+                SessionSerializedServiceProxy<IEngineeringInsightsService>.Create(
+                    serviceProvider.GetRequiredService<EngineeringInsightsService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
+
             return services;
         }
 

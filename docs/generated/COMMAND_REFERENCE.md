@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **127**
+Commands: **142**
 
 ## Devices
 
@@ -97,6 +97,17 @@ Reads raw parameter data bytes from a GSD or GSDML hardware item
 | `byte-offset` | Integer | no | 0 | Starting byte offset |
 | `length` | Integer | yes |  | Number of bytes to read |
 
+### get-hardware-drive-parameters
+
+Reads bounded Startdrive parameter metadata, values, units, ranges, and enumerations through the official V21 API.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `device-name` | String | no |  | Optional drive device name filter |
+| `drive-object-index` | Integer | no |  | Optional zero-based drive object index |
+| `filter` | String | no |  | Optional parameter name, number, or text filter |
+| `max-results` | Integer | no | 500 | Maximum returned parameters (1-5000) |
+
 ### get-hardware-drive-telegrams
 
 Lists Startdrive telegrams and their IO addresses exposed by hardware drive items
@@ -173,6 +184,78 @@ Gets nested hardware devices and device items with reusable hardware target path
 |---|---|---:|---|---|
 | `device-name` | String | no |  | Optional device name filter |
 | `output-path` | Path | no |  | Optional JSON file or folder path for the hardware tree |
+
+## Insights
+
+### get-multiuser-status
+
+Reports project/local-session multiuser state and ownership through the official V21 API.
+
+No parameters.
+
+### get-plc-alarm-text-list-details
+
+Reads PLC alarm system/user text-list metadata through the official V21 API.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `max-results` | Integer | no | 500 | Maximum returned rows (1-5000) |
+
+### get-technology-object-details
+
+Reads PLC technology object metadata and parameters through the official V21 API.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `max-results` | Integer | no | 500 | Maximum returned rows (1-5000) |
+
+### get-unified-runtime-settings
+
+Reads scalar Unified HMI runtime settings through the official V21 API.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `max-results` | Integer | no | 500 | Maximum returned rows (1-5000) |
+
+### get-watch-table-details
+
+Reads PLC watch/force tables and their entry metadata through the official V21 API.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `max-results` | Integer | no | 500 | Maximum returned rows (1-5000) |
+
+### inspect-project-security
+
+Inspects project security metadata and certificate/password/syslog service availability through V21 Openness.
+
+No parameters.
+
+### list-unified-alarms
+
+Lists Unified HMI alarm classes, analog/discrete alarms, and OPC UA alarm types through the official V21 API.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `max-results` | Integer | no | 500 | Maximum returned rows (1-5000) |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
+
+### list-unified-text-lists
+
+Lists Unified HMI user, system, and graphic text lists through the official V21 API.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `max-results` | Integer | no | 500 | Maximum returned rows (1-5000) |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
+
+### validate-safety-configuration
+
+Validates official SafetyAdministration availability and offline login state for the selected PLC.
+
+No parameters.
 
 ## Libraries
 
@@ -1273,17 +1356,56 @@ Sets a property or attribute on a Unified HMI item
 
 ## V21
 
+### apply-blueprint
+
+Applies a previously reviewed blueprint plan using its state-bound one-use token.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `apply-token` | String | yes |  | One-use token returned by plan-blueprint |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+
 ### capabilities
 
 Reports the worker capability profile and exact Siemens assembly hashes.
 
 No parameters.
 
+### describe-api
+
+Self-describes the installed V21 public API surface and prioritized feature availability.
+
+No parameters.
+
+### diff-api-profile
+
+Compares the installed V21 public API self-description with a committed migration baseline.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `baseline-path` | Path | no |  | Optional API profile baseline |
+
 ### doctor
 
 Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture.
 
 No parameters.
+
+### plan-blueprint
+
+Builds a state-bound engineering plan and short-lived one-use apply token.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `blueprint-path` | Path | yes |  | Blueprint JSON file |
+
+### validate-blueprint
+
+Validates a declarative engineering blueprint against the V21 worker command contract.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `blueprint-path` | Path | yes |  | Blueprint JSON file |
 
 ### version
 

@@ -493,6 +493,35 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         }
     }
 
+    public sealed class GetHardwareDriveParametersCommand : ICommand
+    {
+        private readonly IHardwareQueryCapability _service;
+        public GetHardwareDriveParametersCommand(IHardwareQueryCapability service) => _service = service;
+        public string Name => "get-hardware-drive-parameters";
+        public string Description => "Reads bounded Startdrive parameter metadata, values, units, ranges, and enumerations through the official V21 API.";
+        public CommandSchema Schema => new CommandSchema(Description, new[]
+        {
+            new CommandParameter("device-name", CommandParameterType.String, "Optional drive device name filter"),
+            new CommandParameter("drive-object-index", CommandParameterType.Integer, "Optional zero-based drive object index"),
+            new CommandParameter("filter", CommandParameterType.String, "Optional parameter name, number, or text filter"),
+            new CommandParameter("max-results", CommandParameterType.Integer, "Maximum returned parameters (1-5000)", false, 500)
+        });
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            try
+            {
+                IReadOnlyList<HardwareDriveParameterInfo> values = await _service.GetDriveParametersAsync(
+                    args.Has("device-name") ? args.GetString("device-name") : null,
+                    args.Has("drive-object-index") ? args.GetInt("drive-object-index") : (int?)null,
+                    args.Has("filter") ? args.GetString("filter") : null,
+                    args.GetInt("max-results", 500));
+                return CommandResult.CreateSuccess(values, $"Found {values.Count} Startdrive parameter(s).");
+            }
+            catch (Exception ex) { return HardwareCommandSupport.Failure("Getting hardware drive parameters", ex, logger); }
+        }
+    }
+
     public sealed class AuditHardwareTagMappingsCommand : IContextualCommand
     {
         private readonly IHardwareQueryCapability _service;
