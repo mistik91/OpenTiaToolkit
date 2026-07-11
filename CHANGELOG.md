@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-11
+
 ### Changed
 - Added Phase 3 versioned worker manifests, API compatibility contracts, state-bound blueprints, V21 self-description/migration diffs, and prioritized official API insight commands.
 - Added explicit Safety and SafetyValidation worker compatibility dependencies and documented the MCP-native companion UX decision.
@@ -35,6 +37,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added batch Unified HMI trend lifecycle tools for previewable creation, logging-tag removal, and safe unreferenced data-log deletion.
 - Made CI report when Siemens-dependent build/format/tests are skipped while still running restore, dependency vulnerability, config, documentation, and skill-sync validation.
 - Centralized repository build metadata, pinned the C# language version, added an `.editorconfig` and CI format check, removed unused build packages, and added a cleanup script for generated artifacts and test deployment folders.
+
+### Release validation
+
+- Validated the complete V21-only worker/CLI/MCP architecture, state-bound blueprint lifecycle, API compatibility diagnostics, release packaging, and representative live PLC, Unified HMI, hardware, safety, multiuser, and security reads.
+- Confirmed successful independent-machine use without recording private machine, project, device, or user identifiers.
+- Declared TIA Portal V21 as the only supported major version; future V22 support requires a separate worker package and compatibility validation.
 
 ## [0.1.0] - 2026-05-07
 

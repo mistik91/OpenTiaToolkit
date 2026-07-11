@@ -8,7 +8,7 @@ OpenTiaToolkit is a Windows automation toolkit for Siemens TIA Portal Openness. 
 
 Phase 3 adds versioned worker manifests, API migration contracts, state-bound declarative blueprints, and bounded official V21 insight commands. See [engineering blueprints](docs/BLUEPRINTS.md), [API compatibility](docs/API_COMPATIBILITY.md), and [official API insights](docs/OFFICIAL_API_INSIGHTS.md).
 
-The project targets and is validated against **TIA Portal V21**. Later Siemens releases require explicit compatibility validation before they are claimed as supported.
+The project supports **TIA Portal V21 only**. Other TIA Portal major versions, including V20 and the future V22 release, are unsupported until a dedicated worker package and compatibility profile have been implemented and validated.
 
 ## What It Does
 
@@ -24,6 +24,8 @@ The project targets and is validated against **TIA Portal V21**. Later Siemens r
 - Ships agent-ready workflow guidance for common TIA/HMI interaction patterns.
 
 For workflows and examples, see [CLI usage](docs/CLI_USAGE.md). The complete generated surfaces are the [command reference](docs/generated/COMMAND_REFERENCE.md), [MCP tool reference](docs/generated/MCP_TOOL_REFERENCE.md), and [machine-readable catalog](docs/generated/command-catalog.json).
+
+See the [1.0.0 release notes](docs/RELEASE_NOTES_1.0.0.md) for compatibility, validation evidence, and operational guidance.
 
 ## Integrations
 
@@ -71,7 +73,7 @@ Most TIA Portal V21 installations use this path. Non-standard installs can overr
 For a normal installed-product setup, download the latest Windows installer from the [GitHub releases page](https://github.com/mistik91/OpenTiaToolkit/releases):
 
 ```text
-OpenTiaToolkit-0.1.0-Setup.exe
+OpenTiaToolkit-1.0.0-Setup.exe
 ```
 
 For local development or release packaging, build the Inno Setup installer:
@@ -213,7 +215,7 @@ Integration tests require TIA Portal V21, allow-list registration, and local tes
 
 ## Status
 
-OpenTiaToolkit is being prepared for open beta and public release. The CLI, MCP server, plugin packages, and core TIA/HMI workflows are actively validated against real TIA Portal V21 projects. Treat mutation workflows as engineering tools: start on disposable project copies, review dry-run output, and keep project backups.
+OpenTiaToolkit 1.0 is a stable, V21-only engineering automation release. The CLI, MCP server, versioned worker, plugin packages, and representative PLC/HMI/hardware workflows have passed automated release validation, live V21 end-to-end validation, and independent-machine use. Treat mutation workflows as engineering tools: review preview output, use explicit confirmation, and keep project backups.
 
 ## License
 

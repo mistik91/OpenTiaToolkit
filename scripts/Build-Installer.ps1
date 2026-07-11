@@ -85,6 +85,23 @@ function Copy-BuildOutput {
         }
 }
 
+function Assert-ProductVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ExecutablePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedVersion
+    )
+
+    $versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($ExecutablePath)
+    $productVersion = $versionInfo.ProductVersion
+    $expectedPattern = '^' + [Regex]::Escape($ExpectedVersion) + '(?:[+-].*)?$'
+    if ([string]::IsNullOrWhiteSpace($productVersion) -or $productVersion -notmatch $expectedPattern) {
+        throw "Release binary version mismatch for '$ExecutablePath'. Expected '$ExpectedVersion', found '$productVersion'. Run a clean Release rebuild before packaging."
+    }
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $repoRoot = $repoRoot.Path
 $resolvedOutputRoot = Resolve-RepoPath -Path $OutputRoot
@@ -125,6 +142,10 @@ if (-not (Test-Path -LiteralPath $cliExe -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $workerExe -PathType Leaf)) {
     throw "V21 worker executable was not found at '$workerExe'. Build first or omit -SkipBuild."
 }
+
+Assert-ProductVersion -ExecutablePath $mcpExe -ExpectedVersion $Version
+Assert-ProductVersion -ExecutablePath $cliExe -ExpectedVersion $Version
+Assert-ProductVersion -ExecutablePath $workerExe -ExpectedVersion $Version
 
 if (Test-Path -LiteralPath $stageRoot) {
     Remove-Item -LiteralPath $stageRoot -Recurse -Force

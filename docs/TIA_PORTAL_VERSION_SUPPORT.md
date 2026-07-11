@@ -2,7 +2,7 @@
 
 ## Overview
 
-OpenTiaToolkit targets and is validated against **TIA Portal V21**. Later releases are not claimed as supported until their Siemens Openness assemblies and workflows have been tested.
+OpenTiaToolkit supports **TIA Portal V21 only**. No compatibility is claimed for another major version until a dedicated worker package, Siemens API baseline, binary compatibility profile, and live workflow suite have been implemented and validated for that version.
 
 That is the version assumed by:
 
@@ -16,7 +16,7 @@ That is the version assumed by:
 | Version | Status | Notes |
 |---------|--------|-------|
 | **V21** | Supported | Current development target and validated runtime environment |
-| **Future TIA Portal versions** | Unverified | Validate against each new Siemens Openness release before claiming support |
+| **V22 and future versions** | Not supported | A dedicated worker and compatibility validation will be required after the Siemens release becomes available |
 | **V20 and earlier** | Not supported | Not a target for development or validation |
 
 ## V21 API Surface Used By This Repo
