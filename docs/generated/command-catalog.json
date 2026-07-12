@@ -72,7 +72,7 @@
     },
     {
       "name": "apply-block-document-import",
-      "description": "Applies a reviewed SIMATIC SD import plan, verifies and compiles it, and rolls back failures",
+      "description": "Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure",
       "category": "PLC",
       "risk": "Mutating",
       "supportsPreview": false,
@@ -4829,7 +4829,7 @@
     },
     {
       "name": "plan-block-document-import",
-      "description": "Validates a SIMATIC SD import and creates a state-bound, rollback-capable one-use apply plan",
+      "description": "Binds an exact PLC block identity and creates a state-bound, rollback-capable SIMATIC SD apply plan",
       "category": "PLC",
       "risk": "ReadOnly",
       "supportsPreview": false,
@@ -5585,7 +5585,7 @@
     },
     {
       "name": "validate-plc-documents",
-      "description": "Validates SIMATIC SD (.s7dcl/.s7res) files offline before PLC import",
+      "description": "Validates SIMATIC SD structure, resources, and instruction forms offline before PLC import",
       "category": "PLC",
       "risk": "ReadOnly",
       "supportsPreview": false,

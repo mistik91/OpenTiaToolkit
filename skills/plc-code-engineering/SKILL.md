@@ -10,7 +10,7 @@ description: Route safe Siemens TIA Portal PLC code generation and modification 
 3. Use `get-vci-block-formats` for the exact block/type when VCI or several representations are available.
 4. Route general LAD or mixed LAD/SCL to `s7dcl-lad-authoring`; complex SCL to `scl-source-authoring`; global DBs to `s7dcl-data-authoring`; XML-only features to `simaticml-plc-fallback`.
 5. Prefer a new uniquely named block for generated logic. Connect it to existing code only after it compiles.
-6. For S7DCL, run `validate-plc-documents`, then `plan-block-document-import`, review hashes/action/warnings, and finally `apply-block-document-import --confirm=true`.
+6. For S7DCL, run `validate-plc-documents`, then bind an exact PLC/group/type/name target with `plan-block-document-import`; review classification, identity, hashes, action, and warnings before `apply-block-document-import --confirm=true`. Continue after rollback only when restored-hash equality is proven.
 7. For native sources, dry-run and confirm both `import-source` and `generate-blocks-from-source`.
 8. Verify the exact block and compile. Do not save on compile errors. Save only when the user wants the verified change persisted.
 

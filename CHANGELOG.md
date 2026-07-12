@@ -7,13 +7,16 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+- Hardened SIMATIC SD planning around exact PLC/group/type/name/number identities, ambiguity rejection, exact deletion, stale-target detection, startup cleanup of orphaned plans, and byte-hash proof after rollback.
+- Added instruction-aware S7DCL validation with verified/known-unsupported/unknown classifications, pin/template checks, timer/counter/edge placement rules, branch/resource consistency, and standard-versus-safety boundaries.
+- Extended live MCP PLC-code testing with deliberate stale-state rejection and forced compile-failure restoration verified by the original document hash.
+- Extended the staged MCP live test to generate, verify, compile, and clean up the complete PLC code-authoring corpus against an open V21 project.
+
 ### Added
 - Added offline SIMATIC SD validation and state-bound `plan-block-document-import` / `apply-block-document-import` workflows with input and target hashes, one-use tokens, read-back, compile verification, and automatic rollback.
 - Added guarded PLC external-source deletion for disposable native SCL workflows.
 - Added PLC code engineering, S7DCL LAD/data, native SCL source, and SimaticML fallback skills with live-tested FC, FB, mixed LAD/SCL, global DB, and SCL assets.
-
-### Changed
-- Extended the staged MCP live test to generate, verify, compile, and clean up the complete PLC code-authoring corpus against an open V21 project.
 
 ## [1.0.0] - 2026-07-11
 

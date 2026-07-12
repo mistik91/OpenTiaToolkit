@@ -12,7 +12,7 @@ public sealed class ValidatePlcDocumentsCommand : ICommand
     private readonly PlcDocumentWorkflowService _service;
     public ValidatePlcDocumentsCommand(PlcDocumentWorkflowService service) => _service = service;
     public string Name => "validate-plc-documents";
-    public string Description => "Validates SIMATIC SD (.s7dcl/.s7res) files offline before PLC import";
+    public string Description => "Validates SIMATIC SD structure, resources, and instruction forms offline before PLC import";
     public CommandSchema Schema => new CommandSchema(Description, new[]
     {
         new CommandParameter("import-directory", CommandParameterType.Path, "Directory containing the SIMATIC SD files", true),
@@ -30,7 +30,7 @@ public sealed class PlanBlockDocumentImportCommand : ICommand
     private readonly PlcDocumentWorkflowService _service;
     public PlanBlockDocumentImportCommand(PlcDocumentWorkflowService service) => _service = service;
     public string Name => "plan-block-document-import";
-    public string Description => "Validates a SIMATIC SD import and creates a state-bound, rollback-capable one-use apply plan";
+    public string Description => "Binds an exact PLC block identity and creates a state-bound, rollback-capable SIMATIC SD apply plan";
     public CommandSchema Schema => new CommandSchema(Description, new[]
     {
         new CommandParameter("plc-name", CommandParameterType.String, "PLC device name", true),
@@ -51,7 +51,7 @@ public sealed class ApplyBlockDocumentImportCommand : ICommand
     private readonly PlcDocumentWorkflowService _service;
     public ApplyBlockDocumentImportCommand(PlcDocumentWorkflowService service) => _service = service;
     public string Name => "apply-block-document-import";
-    public string Description => "Applies a reviewed SIMATIC SD import plan, verifies and compiles it, and rolls back failures";
+    public string Description => "Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure";
     public CommandSchema Schema => new CommandSchema(Description, new[]
     {
         new CommandParameter("apply-token", CommandParameterType.String, "One-use token returned by plan-block-document-import", true),

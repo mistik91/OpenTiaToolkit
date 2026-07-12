@@ -6,7 +6,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 |---|---|---|---|
 | `add-device` | Portal | `order-number`, `version`, `name`, `confirm` | Adds a device with its primary item to the current project |
 | `add-project-to-multiuser-server` | Multiuser | `server-alias`, `project-path`, `confirm` | Adds a closed single-user TIA project to a configured Project Server. |
-| `apply-block-document-import` | PLC | `apply-token`, `confirm` | Applies a reviewed SIMATIC SD import plan, verifies and compiles it, and rolls back failures |
+| `apply-block-document-import` | PLC | `apply-token`, `confirm` | Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure |
 | `apply-blueprint` | V21 | `apply-token`, `confirm` | Applies a previously reviewed blueprint plan using its state-bound one-use token. |
 | `apply-hardware-patch` | Hardware | `operations`, `operations-path`, `dry-run`, `confirm-destructive`, `transaction-description`, `plc-name`, `safety-password-env`, `confirm` | Dry-runs or applies transactional generic TIA hardware operations |
 | `apply-hmi-screen-json-edit` | Unified HMI | `hmi-name`, `screen-path`, `edited-screen`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies one Unified HMI screen JSON edit with safety checks |
@@ -138,7 +138,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `open-project` | Portal | `project-path`, `umac-user`, `umac-password-env`, `umac-user-type` | Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported) |
 | `open-tia-portal` | Portal | `with-ui` | Opens a new TIA Portal instance (with UI by default) |
 | `open-unified-hmi` | Unified HMI | `hmi-name` | Opens a Unified HMI by device or device item name |
-| `plan-block-document-import` | PLC | `plc-name`, `import-directory`, `file-name`, `group-path`, `import-option` | Validates a SIMATIC SD import and creates a state-bound, rollback-capable one-use apply plan |
+| `plan-block-document-import` | PLC | `plc-name`, `import-directory`, `file-name`, `group-path`, `import-option` | Binds an exact PLC block identity and creates a state-bound, rollback-capable SIMATIC SD apply plan |
 | `plan-blueprint` | V21 | `blueprint-path` | Builds a state-bound engineering plan and short-lived one-use apply token. |
 | `portal-status` | Portal |  | Gets the current TIA Portal connection status |
 | `probe-hmi-faceplate-interface` | Unified HMI | `hmi-name`, `screen-path`, `item-name`, `item-name-path`, `property`, `write`, `value`, `restore`, `confirm` | Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write |
@@ -156,7 +156,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `sync-vci-blocks` | VCI | `workspace-name`, `plc-name`, `direction`, `filter-regex`, `block-types`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes selected PLC blocks with a VCI workspace |
 | `sync-vci-plc` | VCI | `workspace-name`, `plc-name`, `direction`, `scope`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes supported objects of a PLC with a VCI workspace |
 | `validate-blueprint` | V21 | `blueprint-path` | Validates a declarative engineering blueprint against the V21 worker command contract. |
-| `validate-plc-documents` | PLC | `import-directory`, `file-name` | Validates SIMATIC SD (.s7dcl/.s7res) files offline before PLC import |
+| `validate-plc-documents` | PLC | `import-directory`, `file-name` | Validates SIMATIC SD structure, resources, and instruction forms offline before PLC import |
 | `validate-safety-configuration` | Insights |  | Validates official SafetyAdministration availability and offline login state for the selected PLC. |
 | `version` | V21 |  | Reports toolkit, IPC, worker, runtime, and target TIA versions. |
 

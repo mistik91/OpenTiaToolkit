@@ -125,6 +125,25 @@ function Invoke-McpTool {
     return $response
 }
 
+function Invoke-McpToolExpectError {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [hashtable]$Arguments = @{}
+    )
+
+    $response = Invoke-McpRequest -Method 'tools/call' -Params ([ordered]@{
+        name = $Name
+        arguments = $Arguments
+    })
+    $isErrorProperty = $response.result.PSObject.Properties['isError']
+    if ($null -eq $isErrorProperty -or $isErrorProperty.Value -ne $true) {
+        throw "MCP tool '$Name' was expected to fail, but it succeeded."
+    }
+    return $response
+}
+
 try {
     $initialize = Invoke-McpRequest -Method 'initialize' -Params ([ordered]@{
         protocolVersion = '2024-11-05'
@@ -258,10 +277,10 @@ try {
             $dataDirectory = Join-Path $assetRoot 's7dcl-data-authoring\assets'
             $sclPath = Join-Path $assetRoot 'scl-source-authoring\assets\Codex_SCL_Probe.scl'
             $documentCases = @(
-                @{ Directory = $ladDirectory; Name = 'Codex_LAD_Probe' },
-                @{ Directory = $ladDirectory; Name = 'Codex_LAD_FB_Probe' },
-                @{ Directory = $ladDirectory; Name = 'Codex_Mixed_Probe' },
-                @{ Directory = $dataDirectory; Name = 'Codex_Data_Probe' }
+                @{ Directory = $ladDirectory; Name = 'Codex_LAD_Probe'; Type = 'FC'; Number = '59991' },
+                @{ Directory = $ladDirectory; Name = 'Codex_LAD_FB_Probe'; Type = 'FB'; Number = '59992' },
+                @{ Directory = $ladDirectory; Name = 'Codex_Mixed_Probe'; Type = 'FB'; Number = '59993' },
+                @{ Directory = $dataDirectory; Name = 'Codex_Data_Probe'; Type = 'GlobalDB'; Number = '59994' }
             )
 
             foreach ($case in $documentCases) {
@@ -277,8 +296,56 @@ try {
                 }
                 $token = [string]$planResponse.result.structuredContent.data.ApplyToken
                 if ([string]::IsNullOrWhiteSpace($token)) { throw "Document import plan for '$($case.Name)' did not return an apply token." }
+                $target = $planResponse.result.structuredContent.data.Target
+                if ([string]$target.Name -ne $case.Name -or [string]$target.BlockType -ne $case.Type -or [string]$target.Number -ne $case.Number -or -not [string]::IsNullOrEmpty([string]$target.GroupPath)) {
+                    throw "Document import plan did not bind the expected exact root target for '$($case.Name)': $($target | ConvertTo-Json -Compress -Depth 10)"
+                }
                 [void](Invoke-McpTool -Name 'apply-block-document-import' -Arguments @{ 'apply-token' = $token; 'confirm' = $true })
             }
+
+            $adversarialRoot = Join-Path (Join-Path ([System.IO.Path]::GetTempPath()) 'OpenTiaToolkit') ('PlcDocuments-' + [Guid]::NewGuid().ToString('N'))
+            $staleRoot = Join-Path $adversarialRoot 'stale'
+            $brokenRoot = Join-Path $adversarialRoot 'compile-failure'
+            New-Item -ItemType Directory -Force -Path $staleRoot, $brokenRoot | Out-Null
+            $validLadPath = Join-Path $ladDirectory 'Codex_LAD_Probe.s7dcl'
+            $utf8Bom = [Text.UTF8Encoding]::new($true)
+
+            $stalePlanResponse = Invoke-McpTool -Name 'plan-block-document-import' -Arguments @{
+                'plc-name' = $plcNames[0]
+                'import-directory' = $ladDirectory
+                'file-name' = 'Codex_LAD_Probe'
+                'group-path' = ''
+                'import-option' = 'Override'
+            }
+            $staleToken = [string]$stalePlanResponse.result.structuredContent.data.ApplyToken
+            $staleText = [IO.File]::ReadAllText($validLadPath).Replace('in2 := #ValueB', 'in2 := 123')
+            [IO.File]::WriteAllText((Join-Path $staleRoot 'Codex_LAD_Probe.s7dcl'), $staleText, $utf8Bom)
+            [void](Invoke-McpTool -Name 'import-block-from-docs' -Arguments @{ 'plc-name' = $plcNames[0]; 'import-directory' = $staleRoot; 'file-name' = 'Codex_LAD_Probe'; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+            $staleResponse = Invoke-McpToolExpectError -Name 'apply-block-document-import' -Arguments @{ 'apply-token' = $staleToken; 'confirm' = $true }
+            $staleErrorText = @($staleResponse.result.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join [Environment]::NewLine
+            if ($staleErrorText -notmatch 'stale') { throw "Stale document apply did not report stale state: $staleErrorText" }
+            [void](Invoke-McpTool -Name 'import-block-from-docs' -Arguments @{ 'plc-name' = $plcNames[0]; 'import-directory' = $ladDirectory; 'file-name' = 'Codex_LAD_Probe'; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+
+            $brokenText = [IO.File]::ReadAllText($validLadPath).Replace('Contact( #InA )', 'Contact( "Codex_Missing_Tag" )')
+            [IO.File]::WriteAllText((Join-Path $brokenRoot 'Codex_LAD_Probe.s7dcl'), $brokenText, $utf8Bom)
+            [void](Invoke-McpTool -Name 'validate-plc-documents' -Arguments @{ 'import-directory' = $brokenRoot; 'file-name' = 'Codex_LAD_Probe' })
+            $rollbackPlanResponse = Invoke-McpTool -Name 'plan-block-document-import' -Arguments @{
+                'plc-name' = $plcNames[0]
+                'import-directory' = $brokenRoot
+                'file-name' = 'Codex_LAD_Probe'
+                'group-path' = ''
+                'import-option' = 'Override'
+            }
+            $rollbackToken = [string]$rollbackPlanResponse.result.structuredContent.data.ApplyToken
+            $rollbackResponse = Invoke-McpToolExpectError -Name 'apply-block-document-import' -Arguments @{ 'apply-token' = $rollbackToken; 'confirm' = $true }
+            $rollbackData = $rollbackResponse.result.structuredContent.data
+            if ($rollbackData.RolledBack -ne $true -or $rollbackData.RestoredHashMatches -ne $true) {
+                throw "Compile-failure rollback was not proven: $($rollbackData | ConvertTo-Json -Compress -Depth 20)"
+            }
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+            Remove-Item -LiteralPath $adversarialRoot -Recurse -Force
 
             $sourcesResponse = Invoke-McpTool -Name 'list-external-sources' -Arguments @{ 'plc-name' = $plcNames[0] }
             $sourceNames = @($sourcesResponse.result.structuredContent.data | ForEach-Object { [string]$_.name })
@@ -311,9 +378,17 @@ try {
             })
             [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
             [void](Invoke-McpTool -Name 'delete-external-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = 'Codex_SCL_Probe'; 'confirm' = $true })
+            $remainingBlocksResponse = Invoke-McpTool -Name 'search-blocks' -Arguments @{ 'plc-name' = $plcNames[0]; 'pattern' = 'Codex_'; 'search-in' = 'name' }
+            if (@($remainingBlocksResponse.result.structuredContent.data).Count -ne 0) { throw 'Disposable Codex PLC blocks remain after cleanup.' }
+            $remainingSourcesResponse = Invoke-McpTool -Name 'list-external-sources' -Arguments @{ 'plc-name' = $plcNames[0] }
+            if (@($remainingSourcesResponse.result.structuredContent.data | Where-Object { [string]$_.name -like 'Codex_*' }).Count -ne 0) { throw 'Disposable Codex PLC external sources remain after cleanup.' }
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
             $summary['PlcCodeWorkflowVerified'] = $true
             $summary['PlcCodeBlocksCreatedAndRemoved'] = 5
             $summary['SimaticMlFallbackVerified'] = $true
+            $summary['StaleDocumentStateRejected'] = $true
+            $summary['CompileFailureRollbackHashVerified'] = $true
+            $summary['CleanupVerified'] = $true
         }
 
         $hmisResponse = Invoke-McpTool -Name 'list-hmis'

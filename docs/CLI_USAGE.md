@@ -1539,11 +1539,11 @@ OpenTiaToolkit.CLI.exe plan-block-document-import --plc-name="PLC_1" --import-di
 OpenTiaToolkit.CLI.exe apply-block-document-import --apply-token="<token-from-plan>" --confirm=true
 ```
 
-`validate-plc-documents` runs without TIA and checks UTF-8 decoding, block/file-name agreement, supported block boundaries, conditional S7RES presence, and `MLC_*` resource integrity. UTF-8 without BOM is reported as a warning.
+`validate-plc-documents` runs without TIA and checks UTF-8 decoding, block/file-name agreement, block/network/rung boundaries, conditional S7RES presence, duplicate/missing `MLC_*` resources, branch junctions, instruction arguments, typed templates, timer/counter/edge instance rules, and safety-language boundaries. Each instruction is classified as `verified`, `known-unsupported`, or `unknown-requires-live-probe`. Known-unsupported forms fail validation; unknown project-specific calls remain valid but require guarded Siemens import and compile verification. UTF-8 without BOM is reported as a warning.
 
-`plan-block-document-import` validates the input, resolves the existing block, exports a rollback copy, computes input and baseline hashes, and returns a ten-minute one-use apply token. Planning fails if an existing target cannot be backed up as SIMATIC SD documents.
+`plan-block-document-import` validates the input and binds one exact target identity: PLC, normalized block-group path, declared block type, name, and block number when present. Ambiguous names and wrong-type collisions fail closed. It exports that exact block, computes input and baseline hashes, and returns a ten-minute one-use apply token. Use `group-path` whenever the target is not in the root Program blocks group.
 
-`apply-block-document-import` rejects changed input or target state, consumes the token once, imports the block, reads it back, and compiles the PLC. If import/read-back/compile fails, it restores the prior document export or deletes a newly created block, then recompiles. It does not save the project.
+`apply-block-document-import` rejects changed input or exact-target state, consumes the token once, imports into the planned group, verifies group/type/name/number, and compiles. If import/read-back/compile fails, it restores the exact prior document or deletes only the exact newly created target, re-exports the restoration, requires the restored hash to equal the baseline hash, and recompiles. An unproven rollback is reported as a hard failure requiring inspection. It does not save the project.
 
 For native-source probes, `delete-external-source --plc-name="PLC_1" --source-name="Probe" --confirm=true` removes the source definition after its generated blocks have been reviewed and deleted.
 

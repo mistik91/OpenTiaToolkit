@@ -451,7 +451,7 @@ Saves pending edits in the selected local session without checking in.
 
 ### apply-block-document-import
 
-Applies a reviewed SIMATIC SD import plan, verifies and compiles it, and rolls back failures
+Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
@@ -863,7 +863,7 @@ Opens a PLC device software by name
 
 ### plan-block-document-import
 
-Validates a SIMATIC SD import and creates a state-bound, rollback-capable one-use apply plan
+Binds an exact PLC block identity and creates a state-bound, rollback-capable SIMATIC SD apply plan
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
@@ -907,7 +907,7 @@ Stops the PLC CPU when a supported online runtime operation is available
 
 ### validate-plc-documents
 
-Validates SIMATIC SD (.s7dcl/.s7res) files offline before PLC import
+Validates SIMATIC SD structure, resources, and instruction forms offline before PLC import
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|

@@ -19,11 +19,42 @@ public sealed class PlcDocumentWorkflowService
     private static readonly Regex BlockRegex = new Regex(@"(?im)^\s*(FUNCTION_BLOCK|FUNCTION|DATA_BLOCK|ORGANIZATION_BLOCK)\s+(?:""(?<quoted>[^""]+)""|(?<plain>[^\s:]+))", RegexOptions.Compiled);
     private static readonly Regex BlockNumberRegex = new Regex(@"S7_BlockNumber\s*:=\s*""(?<value>[^""]+)""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex PreferredLanguageRegex = new Regex(@"S7_PreferredLanguage\s*:=\s*""(?<value>[^""]+)""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex CallRegex = new Regex(@"(?<![\w""#])(?:(?:#[A-Za-z_][\w]*|""[^""]+""(?:\.[A-Za-z_][\w]*)*)\.)?(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:\{[^{}]*\})?\s*\(", RegexOptions.Compiled);
+    private static readonly Regex QuotedBlockCallRegex = new Regex(@"""(?<name>[^""]+)""\s*\(", RegexOptions.Compiled);
+    private static readonly Regex UnsupportedDecoratedMoveRegex = new Regex(@"\bMove\s*\{", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex WireRegex = new Regex(@"\bwire#(?<name>[A-Za-z0-9_]+)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly HashSet<string> VerifiedInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Contact", "I_Contact", "Coil", "I_Coil", "S_Coil", "R_Coil", "Not", "P_Trig",
+        "GT_Contact", "LT_Contact", "EQ_Contact", "NE_Contact", "GE_Contact", "LE_Contact",
+        "Move", "Add", "Sub", "Mul", "Div", "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil"
+    };
+    private static readonly HashSet<string> KnownUnsupportedInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Gt", "Lt", "Eq", "Ne", "Ge", "Le", "PBox", "NBox"
+    };
+    private static readonly HashSet<string> TypedInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "GT_Contact", "LT_Contact", "EQ_Contact", "NE_Contact", "GE_Contact", "LE_Contact", "Add", "Sub", "Mul", "Div"
+    };
+    private static readonly HashSet<string> StatefulInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "TON", "TOF", "TP", "CTU", "CTD", "CTUD"
+    };
     private readonly IPlcService _plcService;
+    private readonly EngineeringSessionContext _sessionContext;
+    private readonly V21OpennessAdapter _v21Adapter = new V21OpennessAdapter();
     private readonly Dictionary<string, StoredPlan> _plans = new Dictionary<string, StoredPlan>(StringComparer.Ordinal);
     private readonly object _sync = new object();
 
-    public PlcDocumentWorkflowService(IPlcService plcService) => _plcService = plcService;
+    public PlcDocumentWorkflowService(IPlcService plcService) : this(plcService, new EngineeringSessionContext()) { }
+
+    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext)
+    {
+        _plcService = plcService;
+        _sessionContext = sessionContext;
+        CleanupOrphanedPlanDirectories();
+    }
 
     public PlcDocumentValidationResult Validate(string importDirectory, string fileName)
     {
@@ -46,12 +77,10 @@ public sealed class PlcDocumentWorkflowService
         if (!blockMatch.Success && documentBytes.Length > 0) errors.Add("No supported FUNCTION, FUNCTION_BLOCK, DATA_BLOCK, or ORGANIZATION_BLOCK declaration was found.");
         string? blockName = blockMatch.Success ? FirstNonEmpty(blockMatch.Groups["quoted"].Value, blockMatch.Groups["plain"].Value) : null;
         string? blockType = blockMatch.Success ? NormalizeBlockType(blockMatch.Groups[1].Value) : null;
-        if (!string.IsNullOrWhiteSpace(blockName) && !string.Equals(blockName, baseName, StringComparison.Ordinal))
-            errors.Add($"Document block name '{blockName}' does not match file-name '{baseName}'.");
-        if (blockType == "FC" && text.IndexOf("END_FUNCTION", StringComparison.OrdinalIgnoreCase) < 0) errors.Add("FUNCTION is missing END_FUNCTION.");
-        if (blockType == "FB" && text.IndexOf("END_FUNCTION_BLOCK", StringComparison.OrdinalIgnoreCase) < 0) errors.Add("FUNCTION_BLOCK is missing END_FUNCTION_BLOCK.");
-        if (blockType == "GlobalDB" && text.IndexOf("END_DATA_BLOCK", StringComparison.OrdinalIgnoreCase) < 0) errors.Add("DATA_BLOCK is missing END_DATA_BLOCK.");
-        if (blockType == "OB" && text.IndexOf("END_ORGANIZATION_BLOCK", StringComparison.OrdinalIgnoreCase) < 0) errors.Add("ORGANIZATION_BLOCK is missing END_ORGANIZATION_BLOCK.");
+        if (!string.IsNullOrWhiteSpace(blockName) && !string.Equals(blockName, baseName, StringComparison.Ordinal)) errors.Add($"Document block name '{blockName}' does not match file-name '{baseName}'.");
+        ValidateBlockBoundaries(text, blockType, errors);
+        if (Regex.IsMatch(text, @"S7_PreferredLanguage\s*:=\s*""F_", RegexOptions.IgnoreCase) || Regex.IsMatch(text, @"\bS7_F", RegexOptions.IgnoreCase))
+            errors.Add("Safety-language S7DCL authoring is known-unsupported by this standard-block workflow. Use a separately validated safety workflow.");
 
         string[] references = ResourceReferenceRegex.Matches(text).Cast<Match>().Select(match => match.Value).Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray();
         bool resourceRequired = references.Length > 0;
@@ -62,13 +91,23 @@ public sealed class PlcDocumentWorkflowService
             byte[] resourceBytes = File.ReadAllBytes(s7resPath);
             string resourceText = DecodeUtf8(resourceBytes, errors, "S7RES");
             resourceHash = Hash(resourceBytes);
-            var definitions = new HashSet<string>(ResourceDefinitionRegex.Matches(resourceText).Cast<Match>().Select(match => match.Groups[1].Value), StringComparer.Ordinal);
+            string[] definitionRows = ResourceDefinitionRegex.Matches(resourceText).Cast<Match>().Select(match => match.Groups[1].Value).ToArray();
+            foreach (IGrouping<string, string> duplicate in definitionRows.GroupBy(value => value, StringComparer.Ordinal).Where(group => group.Count() > 1)) errors.Add($"S7RES defines resource '{duplicate.Key}' more than once.");
+            var definitions = new HashSet<string>(definitionRows, StringComparer.Ordinal);
             foreach (string reference in references.Where(reference => !definitions.Contains(reference))) errors.Add($"S7RES does not define referenced resource '{reference}'.");
+            foreach (string unused in definitions.Where(definition => !references.Contains(definition, StringComparer.Ordinal))) warnings.Add($"S7RES resource '{unused}' is not referenced by the S7DCL document.");
+            if (resourceRequired && !Regex.IsMatch(resourceText, @"(?im)^\s+[A-Za-z]{2}-[A-Za-z]{2}\s*:")) errors.Add("S7RES resources do not contain any culture text rows.");
+            if (resourceRequired && !Regex.IsMatch(resourceText, @"(?im)^\s+en-US\s*:")) warnings.Add("S7RES has no en-US text. Siemens LAD imports can reject resources that only contain another culture.");
         }
 
+        IReadOnlyList<PlcDocumentInstructionValidation> instructions = ValidateInstructions(text, blockType, errors, warnings);
+        string classification = errors.Any(error => error.IndexOf("known-unsupported", StringComparison.OrdinalIgnoreCase) >= 0)
+            ? "known-unsupported"
+            : instructions.Any(item => item.Classification == "unknown-requires-live-probe") ? "unknown-requires-live-probe" : "verified";
         return new PlcDocumentValidationResult
         {
             Valid = errors.Count == 0,
+            Classification = classification,
             ImportDirectory = directory,
             FileName = baseName,
             S7dclPath = s7dclPath,
@@ -82,6 +121,7 @@ public sealed class PlcDocumentWorkflowService
             HasUtf8Bom = hasBom,
             ResourceRequired = resourceRequired,
             ResourceReferences = references,
+            Instructions = instructions,
             Errors = errors,
             Warnings = warnings
         };
@@ -92,23 +132,32 @@ public sealed class PlcDocumentWorkflowService
         PlcDocumentValidationResult validation = Validate(importDirectory, fileName);
         if (!validation.Valid) throw new InvalidDataException("PLC documents are invalid: " + string.Join("; ", validation.Errors));
         await EnsurePlcOpen(plcName).ConfigureAwait(false);
-        BlockInfoDetail? existing = await _plcService.GetBlockInfoAsync(validation.BlockName!).ConfigureAwait(false);
+        string normalizedGroup = NormalizeGroupPath(groupPath);
+        object root = RequireBlockRoot();
+        if (ResolveGroup(root, normalizedGroup) == null) throw new InvalidOperationException($"PLC block group was not found: '{DisplayGroup(normalizedGroup)}'.");
+        IReadOnlyList<ResolvedBlock> named = FindBlocks(root, validation.BlockName!);
+        IReadOnlyList<ResolvedBlock> inGroup = named.Where(item => GroupEquals(item.Identity.GroupPath, normalizedGroup)).ToArray();
+        if (inGroup.Count > 1) throw Ambiguous(validation.BlockName!, inGroup);
+        if (inGroup.Count == 1 && !BlockTypeEquals(inGroup[0].Identity.BlockType, validation.BlockType!))
+            throw new InvalidOperationException($"Target '{inGroup[0].Identity}' exists with type '{inGroup[0].Identity.BlockType}', but the document declares '{validation.BlockType}'.");
+        if (string.IsNullOrEmpty(normalizedGroup) && inGroup.Count == 0 && named.Count > 0)
+            throw new InvalidOperationException($"Block '{validation.BlockName}' exists outside the root group. Supply group-path explicitly. Candidates: {string.Join(", ", named.Select(item => item.Identity.ToString()))}");
+
+        ResolvedBlock? existing = inGroup.SingleOrDefault();
         string planId = Guid.NewGuid().ToString("N");
-        string backupDirectory = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-document-plans", planId);
+        string backupDirectory = Path.Combine(PlanRoot, planId);
         string baselineHash = "missing";
         var warnings = new List<string>(validation.Warnings);
+        if (validation.Classification == "unknown-requires-live-probe") warnings.Add("The document contains unknown instructions or calls. Apply remains guarded and must pass Siemens import plus compile verification.");
         if (existing != null)
         {
             Directory.CreateDirectory(backupDirectory);
-            if (!await _plcService.ExportBlockAsDocumentsAsync(existing.Name, backupDirectory).ConfigureAwait(false))
-                throw new InvalidOperationException($"Existing block '{existing.Name}' could not be exported as SIMATIC SD documents; a rollback-safe plan cannot be created.");
-            baselineHash = HashDocumentPair(backupDirectory, existing.Name);
+            if (!ExportExact(existing, backupDirectory)) throw new InvalidOperationException($"Existing block '{existing.Identity}' could not be exported; a rollback-safe plan cannot be created.");
+            baselineHash = HashDocumentPair(backupDirectory, existing.Identity.Name);
         }
-        else
-        {
-            warnings.Add("The plan creates a new block. A failed apply will delete the new block and recompile the PLC.");
-        }
+        else warnings.Add("The plan creates a new block. A failed apply will delete only the exact planned group/type/name target and recompile.");
 
+        var target = existing?.Identity ?? new PlcBlockIdentity { PlcName = plcName, GroupPath = normalizedGroup, Name = validation.BlockName!, BlockType = validation.BlockType!, Number = validation.BlockNumber };
         string token = RandomToken();
         var plan = new PlcDocumentImportPlan
         {
@@ -118,20 +167,17 @@ public sealed class PlcDocumentWorkflowService
             PlcName = plcName,
             ImportDirectory = validation.ImportDirectory,
             FileName = validation.FileName,
-            GroupPath = groupPath,
+            GroupPath = normalizedGroup,
             ImportOption = string.IsNullOrWhiteSpace(importOption) ? "Override" : importOption,
             Action = existing == null ? "Create" : "Override",
             InputHash = HashDocumentPair(validation.ImportDirectory, validation.FileName),
             BaselineHash = baselineHash,
-            ExistingBlock = existing,
+            ExistingBlock = existing?.Info,
+            Target = target,
             Validation = validation,
             Warnings = warnings
         };
-        lock (_sync)
-        {
-            PruneExpired();
-            _plans[token] = new StoredPlan(plan, backupDirectory);
-        }
+        lock (_sync) { PruneExpired(); _plans[token] = new StoredPlan(plan, backupDirectory); }
         return plan;
     }
 
@@ -148,74 +194,276 @@ public sealed class PlcDocumentWorkflowService
         PlcDocumentImportPlan plan = stored.Plan;
         await EnsurePlcOpen(plan.PlcName).ConfigureAwait(false);
         if (!FixedEquals(plan.InputHash, HashDocumentPair(plan.ImportDirectory, plan.FileName)))
+        {
+            Cleanup(stored.BackupDirectory);
             throw new InvalidOperationException("Input documents changed after planning. Create and review a new import plan.");
-        BlockInfoDetail? current = await _plcService.GetBlockInfoAsync(plan.Validation.BlockName!).ConfigureAwait(false);
+        }
+        object root = RequireBlockRoot();
+        ResolvedBlock? current = ResolveExact(root, plan.Target, allowMissing: true);
         string currentBaseline = "missing";
-        string currentExport = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-document-current", Guid.NewGuid().ToString("N"));
+        string currentExport = Path.Combine(CurrentRoot, Guid.NewGuid().ToString("N"));
         try
         {
             if (current != null)
             {
                 Directory.CreateDirectory(currentExport);
-                if (!await _plcService.ExportBlockAsDocumentsAsync(current.Name, currentExport).ConfigureAwait(false))
-                    throw new InvalidOperationException("The current target block could not be exported for stale-state verification.");
-                currentBaseline = HashDocumentPair(currentExport, current.Name);
+                if (!ExportExact(current, currentExport)) throw new InvalidOperationException("The exact target block could not be exported for stale-state verification.");
+                currentBaseline = HashDocumentPair(currentExport, current.Identity.Name);
             }
-            if (!FixedEquals(plan.BaselineHash, currentBaseline)) throw new InvalidOperationException("The target block changed after planning. Create and review a new import plan.");
+            if (!FixedEquals(plan.BaselineHash, currentBaseline)) throw new InvalidOperationException("The exact target block changed after planning. The token is stale; create and review a new plan.");
 
-            bool imported = await _plcService.ImportBlockFromDocumentsAsync(plan.ImportDirectory, plan.FileName, plan.GroupPath, plan.ImportOption).ConfigureAwait(false);
-            BlockInfoDetail? verified = imported ? await _plcService.GetBlockInfoAsync(plan.Validation.BlockName!).ConfigureAwait(false) : null;
-            CompilationResult? compilation = verified != null ? await _plcService.CompileSoftwareAsync().ConfigureAwait(false) : null;
-            bool succeeded = imported && verified != null && compilation != null && compilation.Success && compilation.ErrorCount == 0;
+            bool imported = await _plcService.ImportBlockFromDocumentsAsync(plan.ImportDirectory, plan.FileName, plan.Target.GroupPath, plan.ImportOption).ConfigureAwait(false);
+            ResolvedBlock? verified = imported ? ResolveExact(RequireBlockRoot(), plan.Target, allowMissing: true) : null;
+            bool identityVerified = verified != null && IdentityMatches(plan.Target, verified.Identity, requireNumber: !string.IsNullOrWhiteSpace(plan.Target.Number));
+            CompilationResult? compilation = identityVerified ? await _plcService.CompileSoftwareAsync().ConfigureAwait(false) : null;
+            bool succeeded = imported && identityVerified && compilation != null && compilation.Success && compilation.ErrorCount == 0;
             if (succeeded)
             {
                 Cleanup(stored.BackupDirectory);
-                return new PlcDocumentImportApplyResult { PlanId = plan.PlanId, Applied = true, StateMatched = true, Verified = true, CompileSucceeded = true, Message = "PLC documents imported, read back, and compiled successfully.", ImportedBlock = verified, Compilation = compilation };
+                return new PlcDocumentImportApplyResult { PlanId = plan.PlanId, Target = plan.Target, Applied = true, StateMatched = true, Verified = true, CompileSucceeded = true, Message = "Exact PLC block imported, read back, and compiled successfully.", ImportedBlock = verified!.Info, Compilation = compilation };
             }
 
-            bool rolledBack = await RollbackAsync(plan, stored.BackupDirectory).ConfigureAwait(false);
+            RollbackEvidence rollback = await RollbackAsync(plan, stored.BackupDirectory).ConfigureAwait(false);
             CompilationResult rollbackCompilation = await _plcService.CompileSoftwareAsync().ConfigureAwait(false);
             Cleanup(stored.BackupDirectory);
+            bool rollbackProven = rollback.OperationSucceeded && rollback.HashMatches && rollbackCompilation.Success && rollbackCompilation.ErrorCount == 0;
             return new PlcDocumentImportApplyResult
             {
                 PlanId = plan.PlanId,
+                Target = plan.Target,
                 Applied = false,
                 StateMatched = true,
-                Verified = verified != null,
+                Verified = identityVerified,
                 CompileSucceeded = compilation != null && compilation.Success && compilation.ErrorCount == 0,
                 RollbackAttempted = true,
-                RolledBack = rolledBack && rollbackCompilation.Success && rollbackCompilation.ErrorCount == 0,
-                Message = "Import or compile verification failed; rollback was attempted.",
-                ImportedBlock = verified,
+                RolledBack = rollbackProven,
+                RestoredHashMatches = rollback.HashMatches,
+                ExpectedRestoredHash = rollback.ExpectedHash,
+                ActualRestoredHash = rollback.ActualHash,
+                Message = rollbackProven ? "Import or compile verification failed; the exact baseline was restored and hash-verified." : "Import or compile verification failed and exact rollback could not be proven. Inspect the target before continuing.",
+                ImportedBlock = verified?.Info,
                 Compilation = compilation,
                 RollbackCompilation = rollbackCompilation
             };
         }
+        catch
+        {
+            Cleanup(stored.BackupDirectory);
+            throw;
+        }
         finally { Cleanup(currentExport); }
     }
 
-    private async Task<bool> RollbackAsync(PlcDocumentImportPlan plan, string backupDirectory)
+    private async Task<RollbackEvidence> RollbackAsync(PlcDocumentImportPlan plan, string backupDirectory)
     {
         if (plan.ExistingBlock != null)
-            return await _plcService.ImportBlockFromDocumentsAsync(backupDirectory, plan.ExistingBlock.Name, plan.GroupPath, "Override").ConfigureAwait(false);
-        return await _plcService.DeleteBlocksAsync("^" + Regex.Escape(plan.Validation.BlockName!) + "$", true).ConfigureAwait(false);
+        {
+            bool restored = await _plcService.ImportBlockFromDocumentsAsync(backupDirectory, plan.Target.Name, plan.Target.GroupPath, "Override").ConfigureAwait(false);
+            if (!restored) return new RollbackEvidence(false, false, plan.BaselineHash, null);
+            ResolvedBlock? restoredBlock = ResolveExact(RequireBlockRoot(), plan.Target, allowMissing: true);
+            if (restoredBlock == null) return new RollbackEvidence(true, false, plan.BaselineHash, null);
+            string verifyDirectory = Path.Combine(RollbackRoot, Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(verifyDirectory);
+                if (!ExportExact(restoredBlock, verifyDirectory)) return new RollbackEvidence(true, false, plan.BaselineHash, null);
+                string actual = HashDocumentPair(verifyDirectory, plan.Target.Name);
+                return new RollbackEvidence(true, FixedEquals(plan.BaselineHash, actual), plan.BaselineHash, actual);
+            }
+            finally { Cleanup(verifyDirectory); }
+        }
+
+        ResolvedBlock? created = ResolveExact(RequireBlockRoot(), plan.Target, allowMissing: true);
+        bool deleted = created == null || _v21Adapter.TryDelete(created.EngineeringObject);
+        bool absent = ResolveExact(RequireBlockRoot(), plan.Target, allowMissing: true) == null;
+        return new RollbackEvidence(deleted && absent, deleted && absent, "missing", absent ? "missing" : "present");
     }
+
+    private IReadOnlyList<PlcDocumentInstructionValidation> ValidateInstructions(string text, string? blockType, List<string> errors, List<string> warnings)
+    {
+        var results = new List<PlcDocumentInstructionValidation>();
+        foreach (Match match in CallRegex.Matches(text))
+        {
+            string name = match.Groups["name"].Value;
+            int line = 1 + text.Take(match.Index).Count(character => character == '\n');
+            if (KnownUnsupportedInstructions.Contains(name) || (name.Equals("Move", StringComparison.OrdinalIgnoreCase) && UnsupportedDecoratedMoveRegex.IsMatch(match.Value)))
+            {
+                results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = "known-unsupported", Line = line, Guidance = "Use the import-verified S7DCL form from the LAD grammar reference." });
+                errors.Add($"Line {line}: known-unsupported S7DCL instruction form '{name}'.");
+                continue;
+            }
+            if (VerifiedInstructions.Contains(name))
+            {
+                results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = "verified", Line = line });
+                ValidateInstructionArguments(text, match, name, blockType, errors);
+            }
+            else
+            {
+                results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = "unknown-requires-live-probe", Line = line, Guidance = "Keep the guarded apply and require Siemens import plus zero-error compile verification." });
+                warnings.Add($"Line {line}: instruction or block call '{name}' is not in the import-verified registry and requires a live probe.");
+                if (StatefulInstructions.Contains(name) || name.Equals("N_Trig", StringComparison.OrdinalIgnoreCase)) ValidateInstructionArguments(text, match, name, blockType, errors);
+            }
+        }
+        foreach (Match match in QuotedBlockCallRegex.Matches(text))
+        {
+            int line = LineOf(text, match.Index);
+            string name = match.Groups["name"].Value;
+            results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = "unknown-requires-live-probe", Line = line, Guidance = "Block calls are project-specific and require Siemens import plus compile verification." });
+            warnings.Add($"Line {line}: block call '{name}' requires a live probe against the target project.");
+        }
+        foreach (IGrouping<string, Match> wire in WireRegex.Matches(text).Cast<Match>().Where(match => !match.Groups["name"].Value.Equals("powerrail", StringComparison.OrdinalIgnoreCase)).GroupBy(match => match.Groups["name"].Value, StringComparer.OrdinalIgnoreCase))
+            if (wire.Count() < 2) errors.Add($"Wire junction 'wire#{wire.Key}' is referenced only once; every branch junction must have a tap and a join.");
+        return results;
+    }
+
+    private static void ValidateInstructionArguments(string text, Match call, string name, string? blockType, List<string> errors)
+    {
+        string arguments = ExtractParenthesized(text, call.Index + call.Length - 1);
+        bool Has(string parameter) => Regex.IsMatch(arguments, @"(?i)\b" + Regex.Escape(parameter) + @"\s*(?::=|=>)");
+        if (name.Equals("Move", StringComparison.OrdinalIgnoreCase) && (!Has("in") || !Has("out1"))) errors.Add($"Instruction Move at line {LineOf(text, call.Index)} requires named 'in' and 'out1' parameters.");
+        if (new[] { "Add", "Sub", "Mul", "Div" }.Contains(name, StringComparer.OrdinalIgnoreCase) && (!Has("in1") || !Has("in2") || !Has("out"))) errors.Add($"Instruction {name} at line {LineOf(text, call.Index)} requires named 'in1', 'in2', and 'out' parameters.");
+        if (TypedInstructions.Contains(name) && name.EndsWith("_Contact", StringComparison.OrdinalIgnoreCase) && (!Has("in1") || !Has("in2"))) errors.Add($"Instruction {name} at line {LineOf(text, call.Index)} requires named 'in1' and 'in2' parameters.");
+        if (TypedInstructions.Contains(name))
+        {
+            int networkStart = text.LastIndexOf("NETWORK", call.Index, StringComparison.OrdinalIgnoreCase);
+            string prefix = text.Substring(Math.Max(0, networkStart), call.Index - Math.Max(0, networkStart));
+            if (prefix.IndexOf("SrcType", StringComparison.OrdinalIgnoreCase) < 0) errors.Add($"Typed instruction {name} at line {LineOf(text, call.Index)} requires an S7_Templates SrcType declaration in the same network before the call.");
+        }
+        if (new[] { "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil" }.Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!Has("pt")) errors.Add($"Timer instruction {name} at line {LineOf(text, call.Index)} requires named 'pt'.");
+            string receiver = call.Value.Substring(0, call.Value.LastIndexOf(name, StringComparison.OrdinalIgnoreCase));
+            if (string.Equals(blockType, "FC", StringComparison.OrdinalIgnoreCase) && receiver.TrimStart().StartsWith("#", StringComparison.Ordinal)) errors.Add($"Timer instance {receiver.Trim().TrimEnd('.')} at line {LineOf(text, call.Index)} is local to an FC. Use an FB static or a global DB timer instance.");
+        }
+        if (new[] { "CTU", "CTD", "CTUD" }.Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            string[] required = name.Equals("CTU", StringComparison.OrdinalIgnoreCase) ? new[] { "CU", "R", "PV" } : name.Equals("CTD", StringComparison.OrdinalIgnoreCase) ? new[] { "CD", "LD", "PV" } : new[] { "CU", "CD", "R", "LD", "PV" };
+            foreach (string parameter in required) if (!Has(parameter)) errors.Add($"Counter instruction {name} at line {LineOf(text, call.Index)} requires named '{parameter}'.");
+        }
+        Match localReceiver = Regex.Match(call.Value, @"#(?<name>[A-Za-z_][A-Za-z0-9_]*)\.");
+        if (localReceiver.Success && StatefulInstructions.Contains(name) && string.Equals(blockType, "FB", StringComparison.OrdinalIgnoreCase))
+        {
+            string instance = localReceiver.Groups["name"].Value;
+            if (!IsDeclaredInStaticSection(text, instance)) errors.Add($"Stateful instruction instance '#{instance}' at line {LineOf(text, call.Index)} must be declared in the FB static VAR section, not VAR_TEMP or an interface section.");
+        }
+        if (name.Equals("P_Trig", StringComparison.OrdinalIgnoreCase) || name.Equals("N_Trig", StringComparison.OrdinalIgnoreCase))
+        {
+            Match operand = Regex.Match(arguments, @"#(?<name>[A-Za-z_][A-Za-z0-9_]*)");
+            if (!operand.Success) errors.Add($"{name} at line {LineOf(text, call.Index)} requires a local edge-memory operand.");
+            else if (!IsDeclaredInLocalOrStaticSection(text, operand.Groups["name"].Value, "Bool")) errors.Add($"Edge-memory operand '#{operand.Groups["name"].Value}' at line {LineOf(text, call.Index)} must be declared as Bool in FB static or temporary data.");
+        }
+    }
+
+    private static void ValidateBlockBoundaries(string text, string? blockType, List<string> errors)
+    {
+        if (blockType == "FC" && !Regex.IsMatch(text, @"(?im)^\s*END_FUNCTION\s*$")) errors.Add("FUNCTION is missing END_FUNCTION.");
+        if (blockType == "FB" && !Regex.IsMatch(text, @"(?im)^\s*END_FUNCTION_BLOCK\s*$")) errors.Add("FUNCTION_BLOCK is missing END_FUNCTION_BLOCK.");
+        if (blockType == "GlobalDB" && !Regex.IsMatch(text, @"(?im)^\s*END_DATA_BLOCK\s*$")) errors.Add("DATA_BLOCK is missing END_DATA_BLOCK.");
+        if (blockType == "OB" && !Regex.IsMatch(text, @"(?im)^\s*END_ORGANIZATION_BLOCK\s*$")) errors.Add("ORGANIZATION_BLOCK is missing END_ORGANIZATION_BLOCK.");
+        if (Regex.Matches(text, @"(?i)(?<!END_)\bNETWORK\b").Count != Regex.Matches(text, @"(?i)\bEND_NETWORK\b").Count) errors.Add("NETWORK and END_NETWORK counts do not match.");
+        if (Regex.Matches(text, @"(?i)(?<!END_)\bRUNG\b").Count != Regex.Matches(text, @"(?i)\bEND_RUNG\b").Count) errors.Add("RUNG and END_RUNG counts do not match.");
+    }
+
+    private object RequireBlockRoot() => TiaReflectionHelper.GetBlockGroup(_sessionContext.PlcSoftware) ?? throw new InvalidOperationException("PLC block root is unavailable.");
+
+    private IReadOnlyList<ResolvedBlock> FindBlocks(object root, string name)
+    {
+        var results = new List<ResolvedBlock>();
+        CollectBlocks(root, string.Empty, name, results);
+        return results;
+    }
+
+    private void CollectBlocks(object group, string path, string name, List<ResolvedBlock> results)
+    {
+        IEnumerable<object>? blocks = TiaReflectionHelper.GetBlocks(group);
+        if (blocks != null)
+            foreach (object block in blocks)
+                if (string.Equals(TiaReflectionHelper.GetName(block), name, StringComparison.OrdinalIgnoreCase)) results.Add(ToResolved(block, path));
+        IEnumerable<object>? groups = TiaReflectionHelper.GetGroups(group);
+        if (groups == null) return;
+        foreach (object child in groups)
+        {
+            string childName = TiaReflectionHelper.GetName(child) ?? "<unnamed>";
+            CollectBlocks(child, CombinePath(path, childName), name, results);
+        }
+    }
+
+    private ResolvedBlock? ResolveExact(object root, PlcBlockIdentity identity, bool allowMissing)
+    {
+        IReadOnlyList<ResolvedBlock> matches = FindBlocks(root, identity.Name).Where(item => GroupEquals(item.Identity.GroupPath, identity.GroupPath) && BlockTypeEquals(item.Identity.BlockType, identity.BlockType)).ToArray();
+        if (matches.Count > 1) throw Ambiguous(identity.Name, matches);
+        if (matches.Count == 0) { if (allowMissing) return null; throw new InvalidOperationException($"Exact target '{identity}' was not found."); }
+        return matches[0];
+    }
+
+    private ResolvedBlock ToResolved(object block, string groupPath)
+    {
+        string name = TiaReflectionHelper.GetName(block) ?? string.Empty;
+        string type = NormalizeRuntimeBlockType(TiaReflectionHelper.GetProperty(block, "Type")?.ToString(), block.GetType().Name);
+        string? number = TiaReflectionHelper.GetProperty(block, "Number")?.ToString();
+        string? language = TiaReflectionHelper.GetProperty(block, "ProgrammingLanguage")?.ToString();
+        bool readOnly = (bool?)TiaReflectionHelper.GetProperty(block, "IsReadOnly") ?? false;
+        var info = new BlockInfoDetail(name, type, language, number, readOnly, TiaReflectionHelper.GetMultilingualText(TiaReflectionHelper.GetProperty(block, "Comment")), TiaReflectionHelper.GetProperty(block, "Author")?.ToString(), null, null, 0, language);
+        return new ResolvedBlock(block, new PlcBlockIdentity { PlcName = _sessionContext.CurrentPlcName ?? string.Empty, GroupPath = groupPath, Name = name, BlockType = type, Number = number }, info);
+    }
+
+    private bool ExportExact(ResolvedBlock block, string directory)
+    {
+        Directory.CreateDirectory(directory);
+        return _v21Adapter.TryExportAsDocuments(block.EngineeringObject, new DirectoryInfo(directory), block.Identity.Name, out string? state) && string.Equals(state, "Success", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static object? ResolveGroup(object root, string path) => TiaReflectionHelper.GetBlockGroupByPath(root, path);
+    private static bool IdentityMatches(PlcBlockIdentity expected, PlcBlockIdentity actual, bool requireNumber) => GroupEquals(expected.GroupPath, actual.GroupPath) && BlockTypeEquals(expected.BlockType, actual.BlockType) && string.Equals(expected.Name, actual.Name, StringComparison.OrdinalIgnoreCase) && (!requireNumber || string.Equals(expected.Number, actual.Number, StringComparison.OrdinalIgnoreCase));
+    private static bool GroupEquals(string? left, string? right) => string.Equals(NormalizeGroupPath(left), NormalizeGroupPath(right), StringComparison.OrdinalIgnoreCase);
+    private static bool BlockTypeEquals(string left, string right) => string.Equals(NormalizeRuntimeBlockType(left, left), NormalizeRuntimeBlockType(right, right), StringComparison.OrdinalIgnoreCase);
+    private static string NormalizeRuntimeBlockType(string? type, string runtimeType)
+    {
+        string value = (type ?? runtimeType).Replace("PlcBlock", string.Empty);
+        if (value.IndexOf("Instance", StringComparison.OrdinalIgnoreCase) >= 0 && value.IndexOf("DB", StringComparison.OrdinalIgnoreCase) >= 0) return "InstanceDB";
+        if (value.Equals("DB", StringComparison.OrdinalIgnoreCase) || value.IndexOf("GlobalDB", StringComparison.OrdinalIgnoreCase) >= 0 || value.IndexOf("DataBlock", StringComparison.OrdinalIgnoreCase) >= 0) return "GlobalDB";
+        if (value.IndexOf("FunctionBlock", StringComparison.OrdinalIgnoreCase) >= 0 || value.Equals("FB", StringComparison.OrdinalIgnoreCase)) return "FB";
+        if (value.IndexOf("Function", StringComparison.OrdinalIgnoreCase) >= 0 || value.Equals("FC", StringComparison.OrdinalIgnoreCase)) return "FC";
+        if (value.IndexOf("Organization", StringComparison.OrdinalIgnoreCase) >= 0 || value.Equals("OB", StringComparison.OrdinalIgnoreCase)) return "OB";
+        return value;
+    }
+
+    private static InvalidOperationException Ambiguous(string name, IEnumerable<ResolvedBlock> matches) => new InvalidOperationException($"Block target '{name}' is ambiguous. Supply an exact group-path and block type. Candidates: {string.Join(", ", matches.Select(item => item.Identity.ToString()))}");
+    private static string NormalizeGroupPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+        string normalized = string.Join("/", path!.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim()));
+        if (normalized.Equals("Program Blocks", StringComparison.OrdinalIgnoreCase)) return string.Empty;
+        if (normalized.StartsWith("Program Blocks/", StringComparison.OrdinalIgnoreCase)) return normalized.Substring("Program Blocks/".Length);
+        return normalized;
+    }
+    private static string DisplayGroup(string path) => string.IsNullOrEmpty(path) ? "<root>" : path;
+    private static string CombinePath(string path, string child) => string.IsNullOrEmpty(path) ? child : path + "/" + child;
 
     private async Task EnsurePlcOpen(string plcName)
     {
-        if (!_plcService.IsSoftwareOpen || !string.Equals(_plcService.CurrentPlcName, plcName, StringComparison.OrdinalIgnoreCase))
-            await _plcService.OpenPlcAsync(plcName).ConfigureAwait(false);
+        if (!_plcService.IsSoftwareOpen || !string.Equals(_plcService.CurrentPlcName, plcName, StringComparison.OrdinalIgnoreCase)) await _plcService.OpenPlcAsync(plcName).ConfigureAwait(false);
     }
 
     private void PruneExpired()
     {
-        foreach (string token in _plans.Where(pair => pair.Value.Plan.ExpiresAtUtc <= DateTimeOffset.UtcNow).Select(pair => pair.Key).ToArray())
-        {
-            Cleanup(_plans[token].BackupDirectory);
-            _plans.Remove(token);
-        }
+        foreach (string token in _plans.Where(pair => pair.Value.Plan.ExpiresAtUtc <= DateTimeOffset.UtcNow).Select(pair => pair.Key).ToArray()) { Cleanup(_plans[token].BackupDirectory); _plans.Remove(token); }
     }
 
+    private static void CleanupOrphanedPlanDirectories()
+    {
+        try
+        {
+            if (!Directory.Exists(PlanRoot)) return;
+            foreach (string directory in Directory.GetDirectories(PlanRoot))
+                if (Directory.GetLastWriteTimeUtc(directory) < DateTime.UtcNow.Subtract(PlanLifetime)) Cleanup(directory);
+        }
+        catch { }
+    }
+
+    private static string PlanRoot => Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-document-plans");
+    private static string CurrentRoot => Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-document-current");
+    private static string RollbackRoot => Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-document-rollback");
     private static string HashDocumentPair(string directory, string baseName)
     {
         byte[] dcl = File.ReadAllBytes(Path.Combine(directory, baseName + ".s7dcl"));
@@ -223,39 +471,44 @@ public sealed class PlcDocumentWorkflowService
         byte[] res = File.Exists(resourcePath) ? File.ReadAllBytes(resourcePath) : Array.Empty<byte>();
         return Hash(dcl.Concat(new byte[] { 0 }).Concat(res).ToArray());
     }
-
-    private static string DecodeUtf8(byte[] bytes, List<string> errors, string label)
-    {
-        if (bytes.Length == 0) return string.Empty;
-        try { return new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF'); }
-        catch (DecoderFallbackException ex) { errors.Add($"{label} is not valid UTF-8: {ex.Message}"); return string.Empty; }
-    }
-
-    private static string Hash(byte[] bytes)
-    {
-        using (SHA256 sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", string.Empty).ToLowerInvariant();
-    }
-
-    private static string RandomToken()
-    {
-        var bytes = new byte[32];
-        using (RandomNumberGenerator rng = RandomNumberGenerator.Create()) rng.GetBytes(bytes);
-        return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-    }
-
-    private static bool FixedEquals(string left, string right)
-    {
-        byte[] a = Encoding.UTF8.GetBytes(left); byte[] b = Encoding.UTF8.GetBytes(right);
-        if (a.Length != b.Length) return false;
-        int difference = 0; for (int index = 0; index < a.Length; index++) difference |= a[index] ^ b[index];
-        return difference == 0;
-    }
-
+    private static string DecodeUtf8(byte[] bytes, List<string> errors, string label) { if (bytes.Length == 0) return string.Empty; try { return new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF'); } catch (DecoderFallbackException ex) { errors.Add($"{label} is not valid UTF-8: {ex.Message}"); return string.Empty; } }
+    private static string Hash(byte[] bytes) { using (SHA256 sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", string.Empty).ToLowerInvariant(); }
+    private static string RandomToken() { var bytes = new byte[32]; using (RandomNumberGenerator rng = RandomNumberGenerator.Create()) rng.GetBytes(bytes); return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_'); }
+    private static bool FixedEquals(string left, string right) { byte[] a = Encoding.UTF8.GetBytes(left); byte[] b = Encoding.UTF8.GetBytes(right); if (a.Length != b.Length) return false; int difference = 0; for (int index = 0; index < a.Length; index++) difference |= a[index] ^ b[index]; return difference == 0; }
     private static string? Capture(Regex regex, string text) { Match match = regex.Match(text); return match.Success ? match.Groups["value"].Value : null; }
     private static string? FirstNonEmpty(string first, string second) => !string.IsNullOrWhiteSpace(first) ? first : (!string.IsNullOrWhiteSpace(second) ? second : null);
     private static string NormalizeBlockType(string value) => value.ToUpperInvariant() == "FUNCTION" ? "FC" : value.ToUpperInvariant() == "FUNCTION_BLOCK" ? "FB" : value.ToUpperInvariant() == "DATA_BLOCK" ? "GlobalDB" : "OB";
+    private static int LineOf(string text, int index) => 1 + text.Take(index).Count(character => character == '\n');
+    private static string ExtractParenthesized(string text, int openIndex) { int depth = 0; for (int index = openIndex; index < text.Length; index++) { if (text[index] == '(') depth++; else if (text[index] == ')' && --depth == 0) return text.Substring(openIndex + 1, index - openIndex - 1); } return text.Substring(Math.Min(openIndex + 1, text.Length)); }
+    private static bool IsDeclaredInStaticSection(string text, string instance)
+    {
+        foreach (Match section in Regex.Matches(text, @"(?is)\bVAR\b(?<body>.*?)\bEND_VAR\b"))
+            if (Regex.IsMatch(section.Groups["body"].Value, @"(?im)^\s*" + Regex.Escape(instance) + @"\s*:")) return true;
+        return false;
+    }
+    private static bool IsDeclaredInLocalOrStaticSection(string text, string name, string type)
+    {
+        foreach (Match section in Regex.Matches(text, @"(?is)\b(?:VAR|VAR_TEMP)\b(?<body>.*?)\bEND_VAR\b"))
+            if (Regex.IsMatch(section.Groups["body"].Value, @"(?im)(?:^|;)\s*" + Regex.Escape(name) + @"\s*:\s*" + Regex.Escape(type) + @"\s*;")) return true;
+        return false;
+    }
     private static void Cleanup(string directory) { try { if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory)) Directory.Delete(directory, true); } catch { } }
 
+    private sealed class ResolvedBlock
+    {
+        public ResolvedBlock(object engineeringObject, PlcBlockIdentity identity, BlockInfoDetail info) { EngineeringObject = engineeringObject; Identity = identity; Info = info; }
+        public object EngineeringObject { get; }
+        public PlcBlockIdentity Identity { get; }
+        public BlockInfoDetail Info { get; }
+    }
+    private sealed class RollbackEvidence
+    {
+        public RollbackEvidence(bool operationSucceeded, bool hashMatches, string? expectedHash, string? actualHash) { OperationSucceeded = operationSucceeded; HashMatches = hashMatches; ExpectedHash = expectedHash; ActualHash = actualHash; }
+        public bool OperationSucceeded { get; }
+        public bool HashMatches { get; }
+        public string? ExpectedHash { get; }
+        public string? ActualHash { get; }
+    }
     private sealed class StoredPlan
     {
         public StoredPlan(PlcDocumentImportPlan plan, string backupDirectory) { Plan = plan; BackupDirectory = backupDirectory; }

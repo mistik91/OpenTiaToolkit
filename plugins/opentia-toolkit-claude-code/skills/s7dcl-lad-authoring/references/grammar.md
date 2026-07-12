@@ -22,6 +22,8 @@ END_FUNCTION
 
 Avoid bare export forms such as `Gt(...)`, `PBox(...)`, or decorated `Move{ Card := ... }` unless live import proves them.
 
+The validator rejects those known export-only forms, missing named pins, missing `SrcType` templates, unpaired `wire#wN` junctions, local FC timer instances, incorrectly placed FB stateful instances, invalid edge memory, duplicate resources, and F-language documents. Project-specific block calls and unregistered instructions are classified `unknown-requires-live-probe` rather than assumed safe.
+
 Use `wire#wN` as a branch junction. A LAD-preferred block may include complete `{ S7_Language := "SCL" }` networks.
 
 When referencing `S7_NetworkTitle := "MLC_Title"`, define it once in `.s7res`:
