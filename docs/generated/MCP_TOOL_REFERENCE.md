@@ -5,15 +5,18 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | Tool | Domain | Parameters | Description |
 |---|---|---|---|
 | `add-device` | Portal | `order-number`, `version`, `name`, `confirm` | Adds a device with its primary item to the current project |
+| `add-plc-code-transaction-operation` | PLC | `transaction-id`, `import-directory`, `file-name`, `group-path`, `import-option`, `confirm` | Adds a validated SIMATIC SD block upsert to a draft PLC code transaction |
 | `add-project-to-multiuser-server` | Multiuser | `server-alias`, `project-path`, `confirm` | Adds a closed single-user TIA project to a configured Project Server. |
 | `apply-block-document-import` | PLC | `apply-token`, `confirm` | Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure |
 | `apply-blueprint` | V21 | `apply-token`, `confirm` | Applies a previously reviewed blueprint plan using its state-bound one-use token. |
 | `apply-hardware-patch` | Hardware | `operations`, `operations-path`, `dry-run`, `confirm-destructive`, `transaction-description`, `plc-name`, `safety-password-env`, `confirm` | Dry-runs or applies transactional generic TIA hardware operations |
 | `apply-hmi-screen-json-edit` | Unified HMI | `hmi-name`, `screen-path`, `edited-screen`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies one Unified HMI screen JSON edit with safety checks |
 | `apply-hmi-screen-json-patch` | Unified HMI | `hmi-name`, `screen-path`, `operations`, `operations-path`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies compact Unified HMI screen patch operations with safety checks |
+| `apply-plc-code-transaction` | PLC | `transaction-id`, `apply-token`, `confirm` | Atomically preflights, applies, compiles, verifies, or fully rolls back a planned PLC code transaction |
 | `archive-project` | Portal | `archive-path`, `mode`, `confirm` | Archives the current project to a .zap21 archive |
 | `audit-hardware-tag-mappings` | Hardware | `plc-name`, `tag-table-filter`, `catalog-search-text`, `max-unmatched-tags`, `output-path` | Audits PLC I/Q tag addresses against discovered hardware IO ranges and optional catalog evidence |
 | `audit-hmi-label-proximity` | Unified HMI | `input-path`, `screen-path`, `target-items`, `target-types`, `label-texts`, `label-types`, `max-candidates`, `output-path` | Creates an auditable nearest-label mapping report from an exported Unified HMI JSON file |
+| `begin-plc-code-transaction` | PLC | `plc-name`, `description`, `compile-policy`, `maximum-new-warnings` | Begins a persistent PLC code transaction bound to the current TIA process, project, and PLC |
 | `can-plug-hardware-item` | Hardware | `target`, `device-name`, `item-path`, `expected-type-identifier`, `type-identifier`, `item-name`, `position-number` | Checks whether a hardware module or submodule can be plugged at a target position |
 | `capabilities` | V21 |  | Reports the worker capability profile and exact Siemens assembly hashes. |
 | `check-library-updates` | Libraries | `library-scope`, `global-library`, `include-up-to-date`, `output-path` | Reports project instances that are outdated against the project library or an open global library |
@@ -44,6 +47,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `describe-api` | V21 |  | Self-describes the installed V21 public API surface and prioritized feature availability. |
 | `diff-api-profile` | V21 | `baseline-path` | Compares the installed V21 public API self-description with a committed migration baseline. |
 | `diff-hmi-json` | Unified HMI | `base-path`, `modified-path`, `patch-path`, `screens`, `item-names`, `properties` | Creates a minimal Unified HMI JSON patch from two exports |
+| `discard-plc-code-transaction` | PLC | `transaction-id`, `confirm` | Deletes a terminal or never-applied PLC code transaction and its retained local artifacts |
 | `disconnect-portal` | Portal | `confirm` | Disconnects from the TIA Portal instance |
 | `doctor` | V21 |  | Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture. |
 | `download-software` | PLC | `plc-name`, `to-simulator`, `dry-run`, `only-changes`, `confirm` | Downloads PLC software to PLCSIM Advanced with dry-run and confirmation gates |
@@ -88,6 +92,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `get-multiuser-status` | Insights |  | Reports project/local-session multiuser state and ownership through the official V21 API. |
 | `get-online-status` | PLC | `plc-name`, `go-online` | Gets PLC online status, optionally going online first |
 | `get-plc-alarm-text-list-details` | Insights | `max-results` | Reads PLC alarm system/user text-list metadata through the official V21 API. |
+| `get-plc-code-transaction` | PLC | `transaction-id` | Gets the persistent manifest, journal, hashes, compile evidence, and recovery state for one PLC code transaction |
 | `get-project-info` | Portal |  | Gets information about the currently open project |
 | `get-project-tree` | Portal | `depth` | Gets the hierarchical project structure |
 | `get-software-tree` | PLC | `plc-name`, `depth`, `output-path` | Gets the hierarchical PLC software structure |
@@ -123,6 +128,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `list-multiuser-servers` | Multiuser | `page-size`, `continuation-token` | Lists configured TIA Project Server connections. |
 | `list-multiuser-sessions` | Multiuser | `server-alias`, `project-name`, `page-size`, `continuation-token` | Lists local sessions registered for a server project. |
 | `list-plc-alarm-text-lists` | PLC | `plc-name`, `output-path`, `page-size`, `continuation-token` | PLC alarm text lists |
+| `list-plc-code-transactions` | PLC | `page-size`, `continuation-token` | Lists persistent PLC code transactions, including interrupted and recovery-required changes |
 | `list-plcs` | PLC | `page-size`, `continuation-token` | Lists all PLC devices found in the project |
 | `list-project-languages` | Project Texts | `page-size`, `continuation-token` | Lists project languages and active language settings |
 | `list-projects` | Portal | `page-size`, `continuation-token` | Lists all open TIA Portal projects and sessions |
@@ -140,8 +146,10 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `open-unified-hmi` | Unified HMI | `hmi-name` | Opens a Unified HMI by device or device item name |
 | `plan-block-document-import` | PLC | `plc-name`, `import-directory`, `file-name`, `group-path`, `import-option` | Binds an exact PLC block identity and creates a state-bound, rollback-capable SIMATIC SD apply plan |
 | `plan-blueprint` | V21 | `blueprint-path` | Builds a state-bound engineering plan and short-lived one-use apply token. |
+| `plan-plc-code-transaction` | PLC | `transaction-id` | Snapshots every existing target and produces one atomic, state-bound PLC code transaction plan |
 | `portal-status` | Portal |  | Gets the current TIA Portal connection status |
 | `probe-hmi-faceplate-interface` | Unified HMI | `hmi-name`, `screen-path`, `item-name`, `item-name-path`, `property`, `write`, `value`, `restore`, `confirm` | Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write |
+| `recover-plc-code-transaction` | PLC | `transaction-id`, `confirm` | Conservatively restores every baseline in an interrupted or unverified PLC code transaction |
 | `remove-hmi-logging-tag` | Unified HMI | `hmi-name`, `tag-path`, `datalog-name`, `logging-tag-name`, `confirm` | Removes one Unified HMI logging tag after verifying its data log association |
 | `remove-hmi-logging-tags` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or removes multiple Unified HMI logging tags after data log verification |
 | `retrieve-project` | Portal | `archive-path`, `target-directory`, `upgrade`, `umac-user`, `umac-password-env`, `umac-user-type`, `confirm` | Retrieves an archived project and selects it as the current project |

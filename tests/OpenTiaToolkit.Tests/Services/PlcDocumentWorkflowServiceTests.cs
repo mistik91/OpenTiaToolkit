@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
@@ -353,6 +354,200 @@ public class PlcDocumentWorkflowServiceTests
         Assert.AreEqual("missing", result.ActualRestoredHash);
         Assert.AreEqual(0, targetGroup.Blocks.Count);
         Assert.AreSame(unrelated, unrelatedGroup.Blocks.Single());
+    }
+
+    [TestMethod]
+    public async Task Transaction_TwoNewBlocks_AppliesOnceAndPersistsCanonicalEvidence()
+    {
+        WriteUtf8Bom("First.s7dcl", "{ S7_BlockNumber := \"61001\" }\r\nFUNCTION \"First\" : Void\r\nEND_FUNCTION");
+        WriteUtf8Bom("Second.s7dcl", "{ S7_BlockNumber := \"61002\" }\r\nFUNCTION_BLOCK \"Second\"\r\nEND_FUNCTION_BLOCK");
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(_directory, It.IsAny<string>(), "", "Override"))
+            .ReturnsAsync((string _, string name, string _, string _) =>
+            {
+                var created = new FakeBlock { Name = name, Type = name == "First" ? "FC" : "FB", Number = name == "First" ? 61001 : 61002, ExportContent = File.ReadAllText(Path.Combine(_directory, name + ".s7dcl")) };
+                created.OnDelete = () => software.BlockGroup.Blocks.Remove(created);
+                software.BlockGroup.Blocks.Add(created);
+                return true;
+            });
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "two-block change");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "First", null, "Override");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Second", null, "Override");
+
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        string transactionDirectory = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", plan.TransactionId);
+        Assert.IsTrue(File.Exists(Path.Combine(transactionDirectory, "manifest.json")));
+        Assert.IsTrue(File.Exists(Path.Combine(transactionDirectory, "journal.jsonl")));
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.Applied, result.Message);
+        Assert.IsTrue(result.Verified);
+        Assert.AreEqual("Succeeded", result.State);
+        Assert.AreEqual(2, result.Transaction.Operations.Count);
+        Assert.IsTrue(result.Transaction.Operations.All(operation => operation.ApplyState == "Verified" && !string.IsNullOrWhiteSpace(operation.CanonicalResultHash)));
+        Assert.AreEqual(2, software.BlockGroup.Blocks.Count);
+        Assert.AreEqual("Succeeded", service.GetTransaction(plan.TransactionId).State);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_FinalCompileFailure_RestoresAllTargetsInReverseWithHashProof()
+    {
+        WriteUtf8Bom("Existing.s7dcl", "{ S7_BlockNumber := \"62001\" }\r\nFUNCTION \"Existing\" : Void\r\nEND_FUNCTION");
+        WriteUtf8Bom("Created.s7dcl", "{ S7_BlockNumber := \"62002\" }\r\nFUNCTION \"Created\" : Void\r\nEND_FUNCTION");
+        const string baseline = "{ S7_BlockNumber := \"62001\" }\r\nFUNCTION \"Existing\" : Void\r\nEND_FUNCTION";
+        var existing = new FakeBlock { Name = "Existing", Type = "FC", Number = 62001, ExportContent = baseline };
+        var context = ContextWithGroups(("", existing));
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        var importOrder = new List<string>();
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), It.IsAny<string>(), "", "Override"))
+            .ReturnsAsync((string directory, string name, string _, string _) =>
+            {
+                importOrder.Add(name);
+                if (name == "Existing") existing.ExportContent = File.ReadAllText(Path.Combine(directory, "Existing.s7dcl"));
+                else
+                {
+                    var created = new FakeBlock { Name = "Created", Type = "FC", Number = 62002, ExportContent = File.ReadAllText(Path.Combine(directory, "Created.s7dcl")) };
+                    created.OnDelete = () => software.BlockGroup.Blocks.Remove(created);
+                    software.BlockGroup.Blocks.Add(created);
+                }
+                return true;
+            });
+        plc.SetupSequence(service => service.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
+            .ReturnsAsync(new CompilationResult(false, 1, 0, "forced"))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "rollback all");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Existing", null, "Override");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Created", null, "Override");
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsFalse(result.Applied);
+        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        Assert.AreEqual("RolledBackAndVerified", result.State);
+        Assert.AreEqual(baseline, existing.ExportContent.TrimStart('\uFEFF'));
+        Assert.IsFalse(software.BlockGroup.Blocks.Any(block => block.Name == "Created"));
+        Assert.IsTrue(result.Transaction.Operations.All(operation => operation.RestorationVerified));
+        CollectionAssert.AreEqual(new[] { "Existing", "Created", "Existing" }, importOrder);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_OneStaleTarget_RejectsBeforeAnyMutation()
+    {
+        WriteUtf8Bom("One.s7dcl", "FUNCTION \"One\" : Void\r\nEND_FUNCTION");
+        WriteUtf8Bom("Two.s7dcl", "FUNCTION \"Two\" : Void\r\nEND_FUNCTION");
+        var one = new FakeBlock { Name = "One", Type = "FC", ExportContent = "FUNCTION \"One\" : Void\r\nEND_FUNCTION" };
+        var two = new FakeBlock { Name = "Two", Type = "FC", ExportContent = "FUNCTION \"Two\" : Void\r\nEND_FUNCTION" };
+        var context = ContextWithGroups(("", one), ("", two));
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "stale all-or-nothing");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "One", null, "Override");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Two", null, "Override");
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        one.ExportContent += "\r\n// external edit";
+
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!));
+
+        plc.Verify(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        Assert.AreEqual("Stale", service.GetTransaction(plan.TransactionId).State);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_TamperedPersistentPlan_IsRejectedBeforeMutation()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\nEND_FUNCTION");
+        var context = ContextWithGroups();
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "integrity");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Probe", null, "Override");
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        plan.Operations[0].Target!.Name = "DifferentTarget";
+        string manifest = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", plan.TransactionId, "manifest.json");
+        File.WriteAllText(manifest, JsonSerializer.Serialize(plan, new JsonSerializerOptions { WriteIndented = true }));
+
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!));
+
+        plc.Verify(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        Assert.AreEqual("Stale", service.GetTransaction(plan.TransactionId).State);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_InterruptedManifest_NewServiceRecoversConservatively()
+    {
+        WriteUtf8Bom("Existing.s7dcl", "FUNCTION \"Existing\" : Void\r\nEND_FUNCTION");
+        WriteUtf8Bom("Created.s7dcl", "FUNCTION \"Created\" : Void\r\nEND_FUNCTION");
+        const string baseline = "FUNCTION \"Existing\" : Void\r\nEND_FUNCTION";
+        var existing = new FakeBlock { Name = "Existing", Type = "FC", ExportContent = baseline };
+        var context = ContextWithGroups(("", existing));
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), "Existing", "", "Override"))
+            .ReturnsAsync((string directory, string _, string _, string _) => { existing.ExportContent = File.ReadAllText(Path.Combine(directory, "Existing.s7dcl")); return true; });
+        var firstService = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await firstService.BeginTransactionAsync("PLC_1", "restart recovery");
+        firstService.AddTransactionOperation(draft.TransactionId, _directory, "Existing", null, "Override");
+        firstService.AddTransactionOperation(draft.TransactionId, _directory, "Created", null, "Override");
+        PlcCodeTransaction plan = await firstService.PlanTransactionAsync(draft.TransactionId);
+        existing.ExportContent = "FUNCTION \"Existing\" : Void\r\n// interrupted candidate\r\nEND_FUNCTION";
+        var created = new FakeBlock { Name = "Created", Type = "FC", ExportContent = "FUNCTION \"Created\" : Void\r\nEND_FUNCTION" };
+        created.OnDelete = () => software.BlockGroup.Blocks.Remove(created);
+        software.BlockGroup.Blocks.Add(created);
+        plan.State = "Applying";
+        plan.ApplyToken = null;
+        string manifest = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", plan.TransactionId, "manifest.json");
+        File.WriteAllText(manifest, JsonSerializer.Serialize(plan, new JsonSerializerOptions { WriteIndented = true }));
+
+        var restartedService = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransactionApplyResult result = await restartedService.RecoverTransactionAsync(plan.TransactionId);
+
+        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        Assert.AreEqual(baseline, existing.ExportContent.TrimStart('\uFEFF'));
+        Assert.IsFalse(software.BlockGroup.Blocks.Any(block => block.Name == "Created"));
+        Assert.IsTrue(restartedService.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_UnprovenRecovery_RetainsPackageAndCannotBeDiscarded()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\nEND_FUNCTION");
+        var existing = new FakeBlock { Name = "Probe", Type = "FC", ExportContent = "FUNCTION \"Probe\" : Void\r\nEND_FUNCTION" };
+        var context = ContextWithGroups(("", existing));
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), "Probe", "", "Override")).ReturnsAsync(false);
+        plc.SetupSequence(service => service.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
+            .ReturnsAsync(new CompilationResult(false, 1, 0, "forced"))
+            .ReturnsAsync(new CompilationResult(false, 1, 0, "not restored"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "retain recovery");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Probe", null, "Override");
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.RecoveryRequired);
+        Assert.AreEqual("RecoveryRequired", result.State);
+        Assert.IsTrue(result.Transaction.RecoveryPackageRetained);
+        Assert.ThrowsException<InvalidOperationException>(() => service.DiscardTransaction(plan.TransactionId));
+        string transactionDirectory = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", plan.TransactionId);
+        Assert.IsTrue(File.Exists(Path.Combine(transactionDirectory, "recovery.json")));
+        if (Directory.Exists(transactionDirectory)) Directory.Delete(transactionDirectory, true);
     }
 
     private void WriteUtf8Bom(string fileName, string content)

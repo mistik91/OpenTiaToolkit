@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **155**
+Commands: **163**
 
 ## Devices
 
@@ -449,6 +449,19 @@ Saves pending edits in the selected local session without checking in.
 
 ## PLC
 
+### add-plc-code-transaction-operation
+
+Adds a validated SIMATIC SD block upsert to a draft PLC code transaction
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Draft transaction id |
+| `import-directory` | Path | yes |  | Directory containing the SIMATIC SD files |
+| `file-name` | String | yes |  | Block/file name without extension |
+| `group-path` | String | no |  | Exact target block group |
+| `import-option` | String | no | Override | Siemens document import option |
+| `confirm` | Boolean | yes |  | Confirm adding this local manifest operation |
+
 ### apply-block-document-import
 
 Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure
@@ -457,6 +470,27 @@ Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verific
 |---|---|---:|---|---|
 | `apply-token` | String | yes |  | One-use token returned by plan-block-document-import |
 | `confirm` | Boolean | yes |  | Confirm the reviewed import apply |
+
+### apply-plc-code-transaction
+
+Atomically preflights, applies, compiles, verifies, or fully rolls back a planned PLC code transaction
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Planned transaction id |
+| `apply-token` | String | yes |  | One-use token returned by transaction planning |
+| `confirm` | Boolean | yes |  | Confirm the complete reviewed transaction |
+
+### begin-plc-code-transaction
+
+Begins a persistent PLC code transaction bound to the current TIA process, project, and PLC
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | Exact PLC device name |
+| `description` | String | no |  | Human-readable engineering intent |
+| `compile-policy` | String | no | NoNewErrors | NoNewErrors (default) or CleanCompile |
+| `maximum-new-warnings` | Integer | no |  | Optional maximum warning increase accepted by final compile |
 
 ### compare-software
 
@@ -508,6 +542,15 @@ Deletes one PLC external source after explicit confirmation
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `source-name` | String | yes |  | Exact external source name |
 | `confirm` | Boolean | yes |  | Confirm external source deletion |
+
+### discard-plc-code-transaction
+
+Deletes a terminal or never-applied PLC code transaction and its retained local artifacts
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Transaction id |
+| `confirm` | Boolean | yes |  | Confirm local transaction artifact deletion |
 
 ### download-software
 
@@ -693,6 +736,14 @@ Gets PLC online status, optionally going online first
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `go-online` | Boolean | no | True | Attempt to go online before reading status |
 
+### get-plc-code-transaction
+
+Gets the persistent manifest, journal, hashes, compile evidence, and recovery state for one PLC code transaction
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Transaction id |
+
 ### get-software-tree
 
 Gets the hierarchical PLC software structure
@@ -808,6 +859,15 @@ PLC alarm text lists
 | `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
 | `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
+### list-plc-code-transactions
+
+Lists persistent PLC code transactions, including interrupted and recovery-required changes
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
+
 ### list-plcs
 
 Lists all PLC devices found in the project
@@ -872,6 +932,23 @@ Binds an exact PLC block identity and creates a state-bound, rollback-capable SI
 | `file-name` | String | yes |  | Block/file name without extension |
 | `group-path` | String | no |  | Optional target block group |
 | `import-option` | String | no | Override | Override, None, SkipInactiveCultures, or ActivateInactiveCultures |
+
+### plan-plc-code-transaction
+
+Snapshots every existing target and produces one atomic, state-bound PLC code transaction plan
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Draft transaction id |
+
+### recover-plc-code-transaction
+
+Conservatively restores every baseline in an interrupted or unverified PLC code transaction
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Interrupted or recovery-required transaction id |
+| `confirm` | Boolean | yes |  | Confirm restoration from the retained recovery package |
 
 ### search-blocks
 

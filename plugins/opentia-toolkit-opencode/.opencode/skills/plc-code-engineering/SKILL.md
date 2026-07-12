@@ -10,8 +10,10 @@ description: Route safe Siemens TIA Portal PLC code generation and modification 
 3. Use `get-vci-block-formats` for the exact block/type when VCI or several representations are available.
 4. Route general LAD or mixed LAD/SCL to `s7dcl-lad-authoring`; complex SCL to `scl-source-authoring`; global DBs to `s7dcl-data-authoring`; XML-only features to `simaticml-plc-fallback`.
 5. Prefer a new uniquely named block for generated logic. Connect it to existing code only after it compiles.
-6. For S7DCL, run `validate-plc-documents`, then bind an exact PLC/group/type/name target with `plan-block-document-import`; review classification, identity, hashes, action, and warnings before `apply-block-document-import --confirm=true`. Continue after rollback only when restored-hash equality is proven.
-7. For native sources, dry-run and confirm both `import-source` and `generate-blocks-from-source`.
-8. Verify the exact block and compile. Do not save on compile errors. Save only when the user wants the verified change persisted.
+6. For one S7DCL target, run `validate-plc-documents`, then bind an exact PLC/group/type/name target with `plan-block-document-import`; review classification, identity, hashes, action, and warnings before `apply-block-document-import --confirm=true`. Continue after rollback only when restored-hash equality is proven.
+7. For an intent spanning multiple SIMATIC SD blocks, use the persistent transaction lifecycle: `begin-plc-code-transaction`, add every operation in dependency order, `plan-plc-code-transaction`, review all identities/baselines/compile policy, then `apply-plc-code-transaction --confirm=true`. Never replace it with sequential single-block applies.
+8. Treat `Stale` as a mandatory replan. Treat `RecoveryRequired` as an incident: retain the package and use `recover-plc-code-transaction --confirm=true`; never discard it before all hashes and the rollback compile are proven.
+9. For native sources, dry-run and confirm both `import-source` and `generate-blocks-from-source`.
+10. Verify the exact block and compile. Do not save on compile errors. Save only when the user wants the verified change persisted.
 
 Do not assume every block supports every format. Do not hand-author general FlgNet XML when S7DCL can represent the LAD. Treat safety blocks separately; standard LAD in an F-CPU project does not imply F-block generation support.

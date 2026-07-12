@@ -8,6 +8,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Changed
+- Added persistent multi-block PLC code transactions with TIA/project/PLC binding, whole-set stale preflight, baseline compile evidence, canonical result exports, reverse-order rollback, restart recovery, retained unverified recovery packages, and live V21 success/failure coverage.
 - Hardened SIMATIC SD planning around exact PLC/group/type/name/number identities, ambiguity rejection, exact deletion, stale-target detection, startup cleanup of orphaned plans, and byte-hash proof after rollback.
 - Added instruction-aware S7DCL validation with verified/known-unsupported/unknown classifications, pin/template checks, timer/counter/edge placement rules, branch/resource consistency, and standard-versus-safety boundaries.
 - Extended live MCP PLC-code testing with deliberate stale-state rejection and forced compile-failure restoration verified by the original document hash.

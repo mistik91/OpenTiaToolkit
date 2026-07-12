@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 155,
+  "commandCount": 163,
   "commands": [
     {
       "name": "add-device",
@@ -37,6 +37,57 @@
           "required": false,
           "defaultValue": false,
           "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "add-plc-code-transaction-operation",
+      "description": "Adds a validated SIMATIC SD block upsert to a draft PLC code transaction",
+      "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Draft transaction id"
+        },
+        {
+          "name": "import-directory",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory containing the SIMATIC SD files"
+        },
+        {
+          "name": "file-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Block/file name without extension"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Exact target block group"
+        },
+        {
+          "name": "import-option",
+          "type": "String",
+          "required": false,
+          "defaultValue": "Override",
+          "description": "Siemens document import option"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm adding this local manifest operation"
         }
       ]
     },
@@ -403,6 +454,36 @@
       ]
     },
     {
+      "name": "apply-plc-code-transaction",
+      "description": "Atomically preflights, applies, compiles, verifies, or fully rolls back a planned PLC code transaction",
+      "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Planned transaction id"
+        },
+        {
+          "name": "apply-token",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "One-use token returned by transaction planning"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm the complete reviewed transaction"
+        }
+      ]
+    },
+    {
       "name": "archive-project",
       "description": "Archives the current project to a .zap21 archive",
       "category": "Portal",
@@ -538,6 +619,43 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional JSON report output path"
+        }
+      ]
+    },
+    {
+      "name": "begin-plc-code-transaction",
+      "description": "Begins a persistent PLC code transaction bound to the current TIA process, project, and PLC",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact PLC device name"
+        },
+        {
+          "name": "description",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Human-readable engineering intent"
+        },
+        {
+          "name": "compile-policy",
+          "type": "String",
+          "required": false,
+          "defaultValue": "NoNewErrors",
+          "description": "NoNewErrors (default) or CleanCompile"
+        },
+        {
+          "name": "maximum-new-warnings",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum warning increase accepted by final compile"
         }
       ]
     },
@@ -1624,6 +1742,29 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional comma-separated property paths"
+        }
+      ]
+    },
+    {
+      "name": "discard-plc-code-transaction",
+      "description": "Deletes a terminal or never-applied PLC code transaction and its retained local artifacts",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Transaction id"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm local transaction artifact deletion"
         }
       ]
     },
@@ -3113,6 +3254,22 @@
       ]
     },
     {
+      "name": "get-plc-code-transaction",
+      "description": "Gets the persistent manifest, journal, hashes, compile evidence, and recovery state for one PLC code transaction",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Transaction id"
+        }
+      ]
+    },
+    {
       "name": "get-project-info",
       "description": "Gets information about the currently open project",
       "category": "Portal",
@@ -4385,6 +4542,29 @@
       ]
     },
     {
+      "name": "list-plc-code-transactions",
+      "description": "Lists persistent PLC code transactions, including interrupted and recovery-required changes",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
+    },
+    {
       "name": "list-plcs",
       "description": "Lists all PLC devices found in the project",
       "category": "PLC",
@@ -4888,6 +5068,22 @@
       ]
     },
     {
+      "name": "plan-plc-code-transaction",
+      "description": "Snapshots every existing target and produces one atomic, state-bound PLC code transaction plan",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Draft transaction id"
+        }
+      ]
+    },
+    {
       "name": "portal-status",
       "description": "Gets the current TIA Portal connection status",
       "category": "Portal",
@@ -4964,6 +5160,29 @@
           "required": false,
           "defaultValue": false,
           "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "recover-plc-code-transaction",
+      "description": "Conservatively restores every baseline in an interrupted or unverified PLC code transaction",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Interrupted or recovery-required transaction id"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm restoration from the retained recovery package"
         }
       ]
     },

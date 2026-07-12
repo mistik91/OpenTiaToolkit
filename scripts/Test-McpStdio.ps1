@@ -168,7 +168,7 @@ try {
         throw "Expected the shared command surface, but tools/list returned only $($tools.Count) tools."
     }
 
-    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
+    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'begin-plc-code-transaction', 'add-plc-code-transaction-operation', 'plan-plc-code-transaction', 'apply-plc-code-transaction', 'get-plc-code-transaction', 'list-plc-code-transactions', 'recover-plc-code-transaction', 'discard-plc-code-transaction', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
         if (-not ($tools.name -contains $requiredTool)) {
             throw "tools/list did not include required tool '$requiredTool'."
         }
@@ -345,6 +345,85 @@ try {
                 throw "Compile-failure rollback was not proven: $($rollbackData | ConvertTo-Json -Compress -Depth 20)"
             }
             [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+
+            $transactionRoot = Join-Path $adversarialRoot 'transaction'
+            $transactionSuccessRoot = Join-Path $transactionRoot 'success'
+            $transactionOverrideRoot = Join-Path $transactionRoot 'override'
+            $transactionBrokenRoot = Join-Path $transactionRoot 'broken'
+            $transactionRecoveryRoot = Join-Path $transactionRoot 'recovery'
+            New-Item -ItemType Directory -Force -Path $transactionSuccessRoot, $transactionOverrideRoot, $transactionBrokenRoot, $transactionRecoveryRoot | Out-Null
+            $transactionA = [IO.File]::ReadAllText($validLadPath).Replace('Codex_LAD_Probe', 'Codex_TX_A').Replace('59991', '63001')
+            $transactionFbPath = Join-Path $ladDirectory 'Codex_LAD_FB_Probe.s7dcl'
+            $transactionB = [IO.File]::ReadAllText($transactionFbPath).Replace('Codex_LAD_FB_Probe', 'Codex_TX_B').Replace('59992', '63002')
+            [IO.File]::WriteAllText((Join-Path $transactionSuccessRoot 'Codex_TX_A.s7dcl'), $transactionA, $utf8Bom)
+            [IO.File]::WriteAllText((Join-Path $transactionSuccessRoot 'Codex_TX_B.s7dcl'), $transactionB, $utf8Bom)
+
+            $beginTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live multi-block transaction' }
+            $transactionId = [string]$beginTransaction.result.structuredContent.data.TransactionId
+            [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $transactionId; 'import-directory' = $transactionSuccessRoot; 'file-name' = 'Codex_TX_A'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $transactionId; 'import-directory' = $transactionSuccessRoot; 'file-name' = 'Codex_TX_B'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
+            $transactionPlanResponse = Invoke-McpTool -Name 'plan-plc-code-transaction' -Arguments @{ 'transaction-id' = $transactionId }
+            $transactionPlan = $transactionPlanResponse.result.structuredContent.data
+            if ([string]$transactionPlan.State -ne 'Planned' -or @($transactionPlan.Operations).Count -ne 2 -or @($transactionPlan.Operations | Where-Object { [string]$_.Action -ne 'Create' }).Count -ne 0) {
+                throw "Multi-block transaction plan was not exact: $($transactionPlan | ConvertTo-Json -Compress -Depth 20)"
+            }
+            $transactionApplyResponse = Invoke-McpTool -Name 'apply-plc-code-transaction' -Arguments @{ 'transaction-id' = $transactionId; 'apply-token' = [string]$transactionPlan.ApplyToken; 'confirm' = $true }
+            $transactionApply = $transactionApplyResponse.result.structuredContent.data
+            if ($transactionApply.Applied -ne $true -or $transactionApply.Verified -ne $true -or [string]$transactionApply.State -ne 'Succeeded' -or @($transactionApply.Transaction.Operations | Where-Object { [string]::IsNullOrWhiteSpace([string]$_.CanonicalResultHash) }).Count -ne 0) {
+                throw "Multi-block transaction success was not proven: $($transactionApply | ConvertTo-Json -Compress -Depth 20)"
+            }
+            $persistedTransaction = (Invoke-McpTool -Name 'get-plc-code-transaction' -Arguments @{ 'transaction-id' = $transactionId }).result.structuredContent.data
+            if ([string]$persistedTransaction.State -ne 'Succeeded') { throw 'Successful transaction manifest did not persist.' }
+            $listedTransactions = @((Invoke-McpTool -Name 'list-plc-code-transactions').result.structuredContent.data)
+            if (@($listedTransactions | Where-Object { [string]$_.TransactionId -eq $transactionId }).Count -ne 1) { throw 'Successful transaction was not discoverable through list-plc-code-transactions.' }
+
+            $overrideA = $transactionA.Replace('in2 := #ValueB', 'in2 := 456')
+            $brokenTransaction = $transactionA.Replace('Codex_TX_A', 'Codex_TX_Bad').Replace('63001', '63003').Replace('Contact( #InA )', 'Contact( "Codex_TX_Missing_Tag" )')
+            [IO.File]::WriteAllText((Join-Path $transactionOverrideRoot 'Codex_TX_A.s7dcl'), $overrideA, $utf8Bom)
+            [IO.File]::WriteAllText((Join-Path $transactionBrokenRoot 'Codex_TX_Bad.s7dcl'), $brokenTransaction, $utf8Bom)
+            $beginFailureTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live forced rollback transaction' }
+            $failureTransactionId = [string]$beginFailureTransaction.result.structuredContent.data.TransactionId
+            [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $failureTransactionId; 'import-directory' = $transactionOverrideRoot; 'file-name' = 'Codex_TX_A'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $failureTransactionId; 'import-directory' = $transactionBrokenRoot; 'file-name' = 'Codex_TX_Bad'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
+            $failureTransactionPlan = (Invoke-McpTool -Name 'plan-plc-code-transaction' -Arguments @{ 'transaction-id' = $failureTransactionId }).result.structuredContent.data
+            $failureTransactionResponse = Invoke-McpToolExpectError -Name 'apply-plc-code-transaction' -Arguments @{ 'transaction-id' = $failureTransactionId; 'apply-token' = [string]$failureTransactionPlan.ApplyToken; 'confirm' = $true }
+            $failureTransaction = $failureTransactionResponse.result.structuredContent.data
+            if ($failureTransaction.RolledBackAndVerified -ne $true -or $failureTransaction.RecoveryRequired -eq $true -or [string]$failureTransaction.State -ne 'RolledBackAndVerified' -or @($failureTransaction.Transaction.Operations | Where-Object { $_.RestorationVerified -ne $true }).Count -ne 0) {
+                throw "Multi-block transaction rollback was not proven: $($failureTransaction | ConvertTo-Json -Compress -Depth 30)"
+            }
+            $badBlockSearch = Invoke-McpTool -Name 'search-blocks' -Arguments @{ 'plc-name' = $plcNames[0]; 'pattern' = '^Codex_TX_Bad$'; 'search-in' = 'name' }
+            if (@($badBlockSearch.result.structuredContent.data).Count -ne 0) { throw 'Failed transaction left its newly created block behind.' }
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+            [void](Invoke-McpTool -Name 'discard-plc-code-transaction' -Arguments @{ 'transaction-id' = $failureTransactionId; 'confirm' = $true })
+
+            $recoveryOverride = $transactionA.Replace('in2 := #ValueB', 'in2 := 789')
+            $recoveryNew = $transactionA.Replace('Codex_TX_A', 'Codex_TX_Recover').Replace('63001', '63004')
+            [IO.File]::WriteAllText((Join-Path $transactionRecoveryRoot 'Codex_TX_A.s7dcl'), $recoveryOverride, $utf8Bom)
+            [IO.File]::WriteAllText((Join-Path $transactionRecoveryRoot 'Codex_TX_Recover.s7dcl'), $recoveryNew, $utf8Bom)
+            $beginRecoveryTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live interrupted transaction recovery' }
+            $recoveryTransactionId = [string]$beginRecoveryTransaction.result.structuredContent.data.TransactionId
+            [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $recoveryTransactionId; 'import-directory' = $transactionRecoveryRoot; 'file-name' = 'Codex_TX_A'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $recoveryTransactionId; 'import-directory' = $transactionRecoveryRoot; 'file-name' = 'Codex_TX_Recover'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'plan-plc-code-transaction' -Arguments @{ 'transaction-id' = $recoveryTransactionId })
+            [void](Invoke-McpTool -Name 'import-block-from-docs' -Arguments @{ 'plc-name' = $plcNames[0]; 'import-directory' = $transactionRecoveryRoot; 'file-name' = 'Codex_TX_A'; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'import-block-from-docs' -Arguments @{ 'plc-name' = $plcNames[0]; 'import-directory' = $transactionRecoveryRoot; 'file-name' = 'Codex_TX_Recover'; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+            $recoveryManifestPath = Join-Path (Join-Path (Join-Path ([System.IO.Path]::GetTempPath()) 'OpenTiaToolkit\plc-code-transactions') $recoveryTransactionId) 'manifest.json'
+            $recoveryManifest = [IO.File]::ReadAllText($recoveryManifestPath) | ConvertFrom-Json
+            $recoveryManifest.State = 'Applying'
+            $recoveryManifest.ApplyToken = $null
+            [IO.File]::WriteAllText($recoveryManifestPath, ($recoveryManifest | ConvertTo-Json -Depth 100), [Text.UTF8Encoding]::new($false))
+            [void](Invoke-McpTool -Name 'reset-session')
+            [void](Invoke-McpTool -Name 'connect-instance' -Arguments @{ 'instance-id' = $processId })
+            $recoveryResponse = Invoke-McpTool -Name 'recover-plc-code-transaction' -Arguments @{ 'transaction-id' = $recoveryTransactionId; 'confirm' = $true }
+            $recoveryResult = $recoveryResponse.result.structuredContent.data
+            if ($recoveryResult.RolledBackAndVerified -ne $true -or [string]$recoveryResult.State -ne 'RolledBackAndVerified') {
+                throw "Interrupted transaction recovery was not proven: $($recoveryResult | ConvertTo-Json -Compress -Depth 30)"
+            }
+            $recoveryBlockSearch = Invoke-McpTool -Name 'search-blocks' -Arguments @{ 'plc-name' = $plcNames[0]; 'pattern' = '^Codex_TX_Recover$'; 'search-in' = 'name' }
+            if (@($recoveryBlockSearch.result.structuredContent.data).Count -ne 0) { throw 'Interrupted transaction recovery left its newly created block behind.' }
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+            [void](Invoke-McpTool -Name 'discard-plc-code-transaction' -Arguments @{ 'transaction-id' = $recoveryTransactionId; 'confirm' = $true })
             Remove-Item -LiteralPath $adversarialRoot -Recurse -Force
 
             $sourcesResponse = Invoke-McpTool -Name 'list-external-sources' -Arguments @{ 'plc-name' = $plcNames[0] }
@@ -373,21 +452,25 @@ try {
 
             [void](Invoke-McpTool -Name 'delete-blocks' -Arguments @{
                 'plc-name' = $plcNames[0]
-                'filter' = '^Codex_(LAD_Probe|LAD_FB_Probe|Mixed_Probe|Data_Probe|SCL_Probe)$'
+                'filter' = '^Codex_(LAD_Probe|LAD_FB_Probe|Mixed_Probe|Data_Probe|SCL_Probe|TX_A|TX_B)$'
                 'confirm' = $true
             })
             [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
             [void](Invoke-McpTool -Name 'delete-external-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = 'Codex_SCL_Probe'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'discard-plc-code-transaction' -Arguments @{ 'transaction-id' = $transactionId; 'confirm' = $true })
             $remainingBlocksResponse = Invoke-McpTool -Name 'search-blocks' -Arguments @{ 'plc-name' = $plcNames[0]; 'pattern' = 'Codex_'; 'search-in' = 'name' }
             if (@($remainingBlocksResponse.result.structuredContent.data).Count -ne 0) { throw 'Disposable Codex PLC blocks remain after cleanup.' }
             $remainingSourcesResponse = Invoke-McpTool -Name 'list-external-sources' -Arguments @{ 'plc-name' = $plcNames[0] }
             if (@($remainingSourcesResponse.result.structuredContent.data | Where-Object { [string]$_.name -like 'Codex_*' }).Count -ne 0) { throw 'Disposable Codex PLC external sources remain after cleanup.' }
             [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
             $summary['PlcCodeWorkflowVerified'] = $true
-            $summary['PlcCodeBlocksCreatedAndRemoved'] = 5
+            $summary['PlcCodeBlocksCreatedAndRemoved'] = 8
             $summary['SimaticMlFallbackVerified'] = $true
             $summary['StaleDocumentStateRejected'] = $true
             $summary['CompileFailureRollbackHashVerified'] = $true
+            $summary['MultiBlockTransactionVerified'] = $true
+            $summary['MultiBlockTransactionRollbackVerified'] = $true
+            $summary['InterruptedTransactionRecoveryVerified'] = $true
             $summary['CleanupVerified'] = $true
         }
 

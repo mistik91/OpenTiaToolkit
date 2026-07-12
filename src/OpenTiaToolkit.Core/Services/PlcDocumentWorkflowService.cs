@@ -11,7 +11,7 @@ using OpenTiaToolkit.Core.Models;
 
 namespace OpenTiaToolkit.Core.Services;
 
-public sealed class PlcDocumentWorkflowService
+public sealed partial class PlcDocumentWorkflowService
 {
     private static readonly TimeSpan PlanLifetime = TimeSpan.FromMinutes(10);
     private static readonly Regex ResourceReferenceRegex = new Regex(@"\bMLC_[A-Za-z0-9_]+\b", RegexOptions.Compiled);
@@ -256,7 +256,7 @@ public sealed class PlcDocumentWorkflowService
 
     private async Task<RollbackEvidence> RollbackAsync(PlcDocumentImportPlan plan, string backupDirectory)
     {
-        if (plan.ExistingBlock != null)
+        if (plan.ExistingBlock != null || !string.Equals(plan.BaselineHash, "missing", StringComparison.Ordinal))
         {
             bool restored = await _plcService.ImportBlockFromDocumentsAsync(backupDirectory, plan.Target.Name, plan.Target.GroupPath, "Override").ConfigureAwait(false);
             if (!restored) return new RollbackEvidence(false, false, plan.BaselineHash, null);
@@ -393,6 +393,8 @@ public sealed class PlcDocumentWorkflowService
         IReadOnlyList<ResolvedBlock> matches = FindBlocks(root, identity.Name).Where(item => GroupEquals(item.Identity.GroupPath, identity.GroupPath) && BlockTypeEquals(item.Identity.BlockType, identity.BlockType)).ToArray();
         if (matches.Count > 1) throw Ambiguous(identity.Name, matches);
         if (matches.Count == 0) { if (allowMissing) return null; throw new InvalidOperationException($"Exact target '{identity}' was not found."); }
+        if (!string.IsNullOrWhiteSpace(identity.Number) && !string.Equals(identity.Number, matches[0].Identity.Number, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Exact target '{identity}' resolved with block number '{matches[0].Identity.Number ?? "<none>"}' instead of planned number '{identity.Number}'.");
         return matches[0];
     }
 

@@ -16,4 +16,6 @@ description: Author, modify, validate, and safely import Siemens SIMATIC SD LAD 
 8. Apply only with the one-use token and `confirm=true`. Failed read-back or compile must report `rolledBack=true` and `restoredHashMatches=true` before continuing.
 9. Re-read and compile after adding callers.
 
+When one request changes multiple SIMATIC SD blocks, do not apply the documents one by one. Start a persistent PLC code transaction, add all operations in dependency order, plan once so every baseline is captured before mutation, and apply once. Accept failure only as `RolledBackAndVerified`; use explicit recovery for `RecoveryRequired` and retain its package.
+
 Do not bypass the planned import with raw document-import commands for agent-authored files.

@@ -150,6 +150,7 @@ It covers:
 - `delete-blocks`
 - XML block import/export roundtrips using an existing exportable block
 - SIMATIC SD instruction validation and exact-target guarded roundtrips using `validate-plc-documents`, `plan-block-document-import`, and `apply-block-document-import`, including stale-state rejection, forced compile-failure rollback, restored-hash equality, and low-level export/import commands
+- persistent multi-block PLC code transactions, including whole-set preflight, canonical result hashes, forced final-compile failure, reverse-order full rollback, persistent manifest discovery, and cleanup
 - type XML roundtrips using `export-type`, `export-types`, `import-type`, and `import-types`
 
 ## Expected Skips
