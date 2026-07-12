@@ -24,7 +24,7 @@ internal static class CommandContractMapper
     private static readonly string[] MutationPrefixes =
     {
         "add-", "apply-", "archive-", "connect-vci-", "copy-", "create-", "delete-", "disconnect-",
-        "download-", "find-replace-", "generate-", "import-", "modify-", "open-global-library", "probe-hmi-faceplate-",
+        "commit-", "download-", "ensure-", "find-replace-", "generate-", "import-", "modify-", "open-global-library", "probe-hmi-faceplate-",
         "remove-", "retrieve-", "save-", "set-", "start-", "stop-", "sync-"
     };
 

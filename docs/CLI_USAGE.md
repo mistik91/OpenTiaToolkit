@@ -2062,7 +2062,7 @@ Project2             C:\Path2.ap21        V21        2025-01-02
 ## Agent and MCP Packaging
 
 **Codex skill packaging**:
-- Agent workflow skills are versioned in `skills/`, including the top-level `opentia-toolkit-workflow` router, `basic-tia-interaction`, `hmi-unified-agent-editing`, and specialized hardware, PLC, library, trend logging, VCI, and repo-development workflows.
+- Agent workflow skills are versioned in `skills/`, including the top-level `opentia-toolkit-workflow` router, `basic-tia-interaction`, `multiuser-collaboration-workflow`, `hmi-unified-agent-editing`, and specialized hardware, PLC, library, trend logging, VCI, and repo-development workflows.
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip the default HMI skill under `artifacts\skills`.
 - Pass `-SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip` to package the TIA session-selection skill.
 - Add `-Install` to refresh `$CODEX_HOME\skills\<skill-name>`.

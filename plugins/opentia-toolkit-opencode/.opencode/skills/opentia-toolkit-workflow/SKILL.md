@@ -21,6 +21,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
    - Unified HMI trend logging, logging tags, data logs, or bulk logging configs: use `hmi-trend-logging-workflow`.
    - Project/global library browsing, master copies, library types, UDT versions, update checks, or approved asset reuse: use `library-workflow`.
    - Version Control Interface workspace, mapping, status, export/connect/sync work: use `vci-sync-workflow`.
+   - Project Server, Multiuser local sessions, markings, conflicts, save/check-in, or stale-session recreation: use `multiuser-collaboration-workflow`.
    - Project languages, internationalization, translation export/import, project text workbooks, `list-project-languages`, `export-texts`, or `import-texts`: use this skill plus `basic-tia-interaction`.
    - OpenTiaToolkit repo changes, tests, docs, plugin packaging, or skill packaging: use `opentia-dev-workflow`.
    - Declarative multi-step PLC/HMI/hardware outcomes, `validate-blueprint`, `plan-blueprint`, or `apply-blueprint`: use `engineering-blueprint-workflow` after target discovery.

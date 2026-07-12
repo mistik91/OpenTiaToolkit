@@ -574,10 +574,7 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         if (_ownsCurrentSession)
                         {
-                            if (saveChanges && _session.Project != null)
-                            {
-                                // Sessions auto-save on close.
-                            }
+                            if (saveChanges) _session.Save();
 
                             _session.Close();
                         }
@@ -630,7 +627,8 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     if (_session != null)
                     {
-                        _logger?.LogInformation("Session project auto-saved");
+                        _session.Save();
+                        _logger?.LogInformation("Session project saved successfully");
                         return true;
                     }
 

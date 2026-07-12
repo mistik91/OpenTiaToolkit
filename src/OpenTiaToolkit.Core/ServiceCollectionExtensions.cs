@@ -98,6 +98,12 @@ namespace OpenTiaToolkit.Core
                     serviceProvider.GetRequiredService<EngineeringInsightsService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>()));
 
+            services.AddSingleton<MultiuserService>();
+            services.AddSingleton<IMultiuserService>(serviceProvider =>
+                SessionSerializedServiceProxy<IMultiuserService>.Create(
+                    serviceProvider.GetRequiredService<MultiuserService>(),
+                    serviceProvider.GetRequiredService<EngineeringSessionContext>()));
+
             return services;
         }
 
