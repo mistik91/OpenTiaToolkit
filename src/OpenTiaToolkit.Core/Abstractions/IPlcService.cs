@@ -132,6 +132,9 @@ public interface IPlcService
     /// </summary>
     Task<PlcSourceOperationResult> ImportSourceAsync(string sourcePath, bool dryRun = true, bool confirm = false);
 
+    /// <summary>Deletes one PLC external source after explicit confirmation.</summary>
+    Task<PlcSourceOperationResult> DeleteExternalSourceAsync(string sourceName, bool confirm = false);
+
     /// <summary>
     /// Generates blocks from an imported PLC external source when supported.
     /// </summary>

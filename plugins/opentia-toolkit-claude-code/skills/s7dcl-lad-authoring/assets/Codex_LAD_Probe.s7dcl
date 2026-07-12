@@ -1,0 +1,43 @@
+﻿{
+    S7_BlockNumber := "59991";
+    S7_Optimized := "TRUE";
+    S7_PreferredLanguage := "LAD";
+    S7_Version := "0.1"
+}
+FUNCTION "Codex_LAD_Probe" : Void
+    VAR_INPUT
+        InA : Bool;
+        InB : Bool;
+        ValueA : Int;
+        ValueB : Int;
+    END_VAR
+    VAR_OUTPUT
+        OutAnd : Bool;
+        OutGreater : Bool;
+        Sum : Int;
+    END_VAR
+
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            Contact( #InA )
+            I_Contact( #InB )
+            Coil( #OutAnd )
+        END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            { S7_Templates := "SrcType := Int" }
+            GT_Contact( in1 := #ValueA, in2 := #ValueB )
+            Coil( #OutGreater )
+        END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            { S7_Templates := "SrcType := Int" }
+            Add( in1 := #ValueA, in2 := #ValueB, out => #Sum )
+        END_RUNG
+    END_NETWORK
+END_FUNCTION

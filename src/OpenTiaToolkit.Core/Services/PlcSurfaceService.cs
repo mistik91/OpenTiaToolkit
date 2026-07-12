@@ -228,6 +228,23 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
+        public async Task<PlcSourceOperationResult> DeleteExternalSourceAsync(string sourceName, bool confirm = false)
+        {
+            return await Task.Run(() =>
+            {
+                if (string.IsNullOrWhiteSpace(sourceName))
+                    return new PlcSourceOperationResult(false, false, "source-name is required.");
+                object? source = FindExternalSource(sourceName);
+                if (source == null)
+                    return new PlcSourceOperationResult(false, false, $"External source '{sourceName}' was not found.", sourceName);
+                if (!confirm)
+                    return new PlcSourceOperationResult(false, false, "Deleting an external source requires confirm=true.", sourceName);
+                if (!TryInvokeNoArgMethod(source, new[] { "Delete" }, out _, out string? failureReason))
+                    return new PlcSourceOperationResult(false, false, failureReason ?? "External source does not expose Delete().", sourceName);
+                return new PlcSourceOperationResult(true, true, $"Deleted external source '{sourceName}'.", sourceName);
+            });
+        }
+
         public async Task<PlcSourceOperationResult> ExportBlockAsSourceAsync(string blockName, string outputPath)
         {
             return await Task.Run(async () =>

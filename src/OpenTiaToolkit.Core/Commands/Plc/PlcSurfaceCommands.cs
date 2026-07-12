@@ -458,6 +458,31 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         }
     }
 
+    public sealed class DeleteExternalSourceCommand : IContextualCommand
+    {
+        private readonly IPlcService _plcService;
+        public DeleteExternalSourceCommand(IPlcService plcService) => _plcService = plcService;
+        public string Name => "delete-external-source";
+        public string Description => "Deletes one PLC external source after explicit confirmation";
+        public CommandSchema Schema => new CommandSchema(Description, new[]
+        {
+            new CommandParameter("plc-name", CommandParameterType.String, "The name of the PLC device", true),
+            new CommandParameter("source-name", CommandParameterType.String, "Exact external source name", true),
+            new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm external source deletion", true)
+        });
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => ExecuteAsync(args, logger, CommandExecutionContext.None);
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            string plcName = args.GetString("plc-name");
+            string sourceName = args.GetString("source-name");
+            if (string.IsNullOrWhiteSpace(plcName)) return CommandResult.CreateFailure("Missing required parameter: plc-name");
+            if (string.IsNullOrWhiteSpace(sourceName)) return CommandResult.CreateFailure("Missing required parameter: source-name");
+            if (!_plcService.IsSoftwareOpen || _plcService.CurrentPlcName != plcName) await _plcService.OpenPlcAsync(plcName);
+            PlcSourceOperationResult result = await _plcService.DeleteExternalSourceAsync(sourceName, args.GetBool("confirm", false));
+            return result.Success ? CommandResult.CreateSuccess(result, result.Message) : CommandResult.CreateFailure(result.Message, result);
+        }
+    }
+
     public sealed class ExportBlockAsSourceCommand : IContextualCommand
     {
         private readonly IPlcService _plcService;

@@ -1,0 +1,4 @@
+interface:
+  display_name: "S7DCL LAD Authoring"
+  short_description: "Author and safely import Siemens LAD documents"
+  default_prompt: "Create or modify LAD in import-verified S7DCL, validate it, plan the import, apply it, and compile."

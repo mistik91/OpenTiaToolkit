@@ -1,0 +1,4 @@
+interface:
+  display_name: "SCL Source Authoring"
+  short_description: "Author native Siemens SCL external sources safely"
+  default_prompt: "Create or modify native SCL source, dry-run the import and generation, apply with confirmation, and compile."

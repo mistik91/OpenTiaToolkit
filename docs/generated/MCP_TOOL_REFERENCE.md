@@ -5,6 +5,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | Tool | Domain | Parameters | Description |
 |---|---|---|---|
 | `add-device` | Portal | `order-number`, `version`, `name`, `confirm` | Adds a device with its primary item to the current project |
+| `add-project-to-multiuser-server` | Multiuser | `server-alias`, `project-path`, `confirm` | Adds a closed single-user TIA project to a configured Project Server. |
+| `apply-block-document-import` | PLC | `apply-token`, `confirm` | Applies a reviewed SIMATIC SD import plan, verifies and compiles it, and rolls back failures |
 | `apply-blueprint` | V21 | `apply-token`, `confirm` | Applies a previously reviewed blueprint plan using its state-bound one-use token. |
 | `apply-hardware-patch` | Hardware | `operations`, `operations-path`, `dry-run`, `confirm-destructive`, `transaction-description`, `plc-name`, `safety-password-env`, `confirm` | Dry-runs or applies transactional generic TIA hardware operations |
 | `apply-hmi-screen-json-edit` | Unified HMI | `hmi-name`, `screen-path`, `edited-screen`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies one Unified HMI screen JSON edit with safety checks |
@@ -18,6 +20,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `close-global-library` | Libraries | `global-library` | Closes an open user global library by name or path |
 | `close-project` | Portal | `save`, `confirm` | Closes the currently open project |
 | `close-tia-portal` | Portal | `confirm` | Closes the current TIA Portal instance |
+| `commit-multiuser-session` | Multiuser | `comment`, `require-up-to-date`, `require-no-conflicts`, `confirm` | Saves and checks in the selected local session, returning the created server revision. |
 | `compare-software` | PLC | `plc-name`, `target`, `output-path` | Compares PLC software to the online target |
 | `compile-software` | PLC | `plc-name`, `password` | Compiles the PLC software |
 | `connect-instance` | Portal | `instance-id` | Connects to a specific TIA Portal instance by process ID |
@@ -30,9 +33,11 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `create-hmi-screen` | Unified HMI | `hmi-name`, `screen-path`, `width`, `height`, `confirm` | Creates a Unified HMI screen if it does not already exist |
 | `create-hmi-trend` | Unified HMI | `hmi-name`, `tag-path`, `datalog-name`, `cyclic`, `cycle`, `storage-folder`, `log-max-size`, `duration-days`, `segment-max-size`, `confirm` | Creates or updates Unified HMI logging infrastructure for a tag |
 | `create-hmi-trends` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or applies multiple Unified HMI trend logging configurations |
+| `create-multiuser-session` | Multiuser | `server-alias`, `project-name`, `session-name`, `session-directory`, `mode`, `umac-user`, `umac-password-env`, `umac-user-type`, `confirm` | Creates an agent-owned Multiuser or Exclusive local session. |
 | `create-project` | Portal | `project-path`, `confirm` | Creates a new TIA Portal project and selects it as the current project |
 | `create-vci-workspace` | VCI | `workspace-name`, `root-path`, `workspace-language`, `confirm` | Creates a Version Control Interface workspace in the open project |
 | `delete-blocks` | PLC | `plc-name`, `filter`, `confirm` | Deletes blocks matching a regex pattern from PLC software |
+| `delete-external-source` | PLC | `plc-name`, `source-name`, `confirm` | Deletes one PLC external source after explicit confirmation |
 | `delete-hmi-data-log` | Unified HMI | `hmi-name`, `datalog-name`, `confirm` | Deletes one Unified HMI data log archive when no logging tags still reference it |
 | `delete-hmi-data-logs` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or deletes multiple unreferenced Unified HMI data log archives |
 | `delete-vci-workspace` | VCI | `workspace-name`, `confirm` | Deletes a Version Control Interface workspace definition |
@@ -42,6 +47,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `disconnect-portal` | Portal | `confirm` | Disconnects from the TIA Portal instance |
 | `doctor` | V21 |  | Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture. |
 | `download-software` | PLC | `plc-name`, `to-simulator`, `dry-run`, `only-changes`, `confirm` | Downloads PLC software to PLCSIM Advanced with dry-run and confirmation gates |
+| `ensure-multiuser-server` | Multiuser | `server-alias`, `protocol`, `host`, `port`, `confirm` | Creates or updates a TIA Project Server connection. |
 | `export-block` | PLC | `plc-name`, `block-name`, `export-path` | Exports a single PLC block to XML |
 | `export-block-as-docs` | PLC | `plc-name`, `block-name`, `export-path` | Exports a single block as SIMATIC SD documents (.s7dcl + .s7res) |
 | `export-block-as-source` | PLC | `plc-name`, `block-name`, `output-path` | Exports a PLC block as an external source file when supported |
@@ -78,6 +84,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `get-hmi-screen-json` | Unified HMI | `hmi-name`, `screen-path`, `item-names`, `properties`, `working-path`, `include-screen` | Gets one Unified HMI screen as canonical JSON for agent editing |
 | `get-hmi-screen-summary` | Unified HMI | `hmi-name`, `screen-path`, `include-items`, `include-faceplates`, `working-path` | Summarizes item counts and faceplate contained types for one Unified HMI screen |
 | `get-library-type-versions` | Libraries | `library-scope`, `global-library`, `type-path`, `output-path` | Lists versions for a library type |
+| `get-multiuser-session-status` | Multiuser |  | Reports up-to-date state, markings, and conflicts for the selected local session. |
 | `get-multiuser-status` | Insights |  | Reports project/local-session multiuser state and ownership through the official V21 API. |
 | `get-online-status` | PLC | `plc-name`, `go-online` | Gets PLC online status, optionally going online first |
 | `get-plc-alarm-text-list-details` | Insights | `max-results` | Reads PLC alarm system/user text-list metadata through the official V21 API. |
@@ -112,6 +119,9 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `list-instances` | Portal | `page-size`, `continuation-token` | Lists all running TIA Portal instances |
 | `list-library-types` | Libraries | `library-scope`, `global-library`, `folder-path`, `recursive`, `output-path`, `page-size`, `continuation-token` | Lists library types in the project library or an open global library |
 | `list-master-copies` | Libraries | `library-scope`, `global-library`, `folder-path`, `recursive`, `output-path`, `page-size`, `continuation-token` | Lists master copies in the project library or an open global library |
+| `list-multiuser-projects` | Multiuser | `server-alias`, `page-size`, `continuation-token` | Lists projects available on a configured TIA Project Server. |
+| `list-multiuser-servers` | Multiuser | `page-size`, `continuation-token` | Lists configured TIA Project Server connections. |
+| `list-multiuser-sessions` | Multiuser | `server-alias`, `project-name`, `page-size`, `continuation-token` | Lists local sessions registered for a server project. |
 | `list-plc-alarm-text-lists` | PLC | `plc-name`, `output-path`, `page-size`, `continuation-token` | PLC alarm text lists |
 | `list-plcs` | PLC | `page-size`, `continuation-token` | Lists all PLC devices found in the project |
 | `list-project-languages` | Project Texts | `page-size`, `continuation-token` | Lists project languages and active language settings |
@@ -128,6 +138,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `open-project` | Portal | `project-path`, `umac-user`, `umac-password-env`, `umac-user-type` | Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported) |
 | `open-tia-portal` | Portal | `with-ui` | Opens a new TIA Portal instance (with UI by default) |
 | `open-unified-hmi` | Unified HMI | `hmi-name` | Opens a Unified HMI by device or device item name |
+| `plan-block-document-import` | PLC | `plc-name`, `import-directory`, `file-name`, `group-path`, `import-option` | Validates a SIMATIC SD import and creates a state-bound, rollback-capable one-use apply plan |
 | `plan-blueprint` | V21 | `blueprint-path` | Builds a state-bound engineering plan and short-lived one-use apply token. |
 | `portal-status` | Portal |  | Gets the current TIA Portal connection status |
 | `probe-hmi-faceplate-interface` | Unified HMI | `hmi-name`, `screen-path`, `item-name`, `item-name-path`, `property`, `write`, `value`, `restore`, `confirm` | Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write |
@@ -135,6 +146,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `remove-hmi-logging-tags` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or removes multiple Unified HMI logging tags after data log verification |
 | `retrieve-project` | Portal | `archive-path`, `target-directory`, `upgrade`, `umac-user`, `umac-password-env`, `umac-user-type`, `confirm` | Retrieves an archived project and selects it as the current project |
 | `save-as-project` | Portal | `destination-path`, `confirm` | Saves the project to a new location |
+| `save-multiuser-session` | Multiuser | `confirm` | Saves pending edits in the selected local session without checking in. |
 | `save-project` | Portal | `confirm` | Saves the current project |
 | `search-blocks` | PLC | `plc-name`, `pattern`, `search-in`, `filter-type`, `output-path`, `page-size`, `continuation-token` | Searches PLC blocks by name/comment with optional type filter |
 | `set-hmi-item-property` | Unified HMI | `hmi-name`, `screen-path`, `item-name`, `property`, `value`, `confirm` | Sets a property or attribute on a Unified HMI item |
@@ -144,6 +156,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `sync-vci-blocks` | VCI | `workspace-name`, `plc-name`, `direction`, `filter-regex`, `block-types`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes selected PLC blocks with a VCI workspace |
 | `sync-vci-plc` | VCI | `workspace-name`, `plc-name`, `direction`, `scope`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes supported objects of a PLC with a VCI workspace |
 | `validate-blueprint` | V21 | `blueprint-path` | Validates a declarative engineering blueprint against the V21 worker command contract. |
+| `validate-plc-documents` | PLC | `import-directory`, `file-name` | Validates SIMATIC SD (.s7dcl/.s7res) files offline before PLC import |
 | `validate-safety-configuration` | Insights |  | Validates official SafetyAdministration availability and offline login state for the selected PLC. |
 | `version` | V21 |  | Reports toolkit, IPC, worker, runtime, and target TIA versions. |
 

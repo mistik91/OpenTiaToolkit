@@ -318,6 +318,12 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
+        public async Task<PlcSourceOperationResult> DeleteExternalSourceAsync(string sourceName, bool confirm = false)
+        {
+            return await _surfaceService.DeleteExternalSourceAsync(sourceName, confirm);
+        }
+
+        /// <inheritdoc/>
         public async Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false)
         {
             return await _surfaceService.GenerateBlocksFromSourceAsync(sourceName, dryRun, confirm);

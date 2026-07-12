@@ -117,7 +117,9 @@ internal sealed class MultiuserService : IMultiuserService
         var markings = session.MarkingService.GetMarkings();
         var rows = markings.AllMarkings.Select(x => new MultiuserMarkingInfo
         {
-            ObjectName = TryName(x.MarkedObject), ObjectType = x.MarkedObject.GetType().FullName ?? x.MarkedObject.GetType().Name, State = x.MarkState.ToString()
+            ObjectName = TryName(x.MarkedObject),
+            ObjectType = x.MarkedObject.GetType().FullName ?? x.MarkedObject.GetType().Name,
+            State = x.MarkState.ToString()
         }).ToList();
         return new MultiuserSessionStatus { IsMultiuser = true, IsOpen = true, IsUpToDate = session.IsUptoDate(), MarkingCount = rows.Count, ConflictCount = markings.ConflictedMarkings.Count, Markings = rows };
     }

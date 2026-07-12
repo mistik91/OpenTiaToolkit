@@ -17,7 +17,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#what-you-can-automate">Capabilities</a> ·
   <a href="#architecture">Architecture</a> ·
-  <a href="docs/generated/COMMAND_REFERENCE.md">142 commands</a> ·
+  <a href="docs/generated/COMMAND_REFERENCE.md">155 commands</a> ·
   <a href="docs/BLUEPRINTS.md">Blueprints</a> ·
   <a href="docs/SETUP.md">Documentation</a>
 </p>
@@ -40,7 +40,7 @@ The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and late
 | Process isolation | Siemens objects stay inside a disposable V21 worker with a serialized request queue |
 | Declarative automation | State-bound blueprints turn reviewed PLC, HMI, and hardware intent into previewable plans |
 | Explicit compatibility | `doctor`, assembly hashes, API self-description, capability probes, and migration diffs |
-| Agent-ready workflows | Packaged skills and client configurations for Codex, Claude, OpenCode, VS Code, and other MCP clients |
+| Agent-ready workflows | Packaged skills for guarded LAD/S7DCL, SCL source, DB document, SimaticML fallback, and other TIA workflows across Codex, Claude, OpenCode, VS Code, and MCP clients |
 
 ## What You Can Automate
 

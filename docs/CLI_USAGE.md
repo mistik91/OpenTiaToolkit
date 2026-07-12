@@ -1529,6 +1529,24 @@ Failed:
   - Motor_Test.xml (dependency missing)
 ```
 
+#### Guarded SIMATIC SD authoring and import
+
+Use the guarded workflow for agent-authored or modified `.s7dcl` files:
+
+```bash
+OpenTiaToolkit.CLI.exe validate-plc-documents --import-directory="C:\Imports\Docs" --file-name="Motor"
+OpenTiaToolkit.CLI.exe plan-block-document-import --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --file-name="Motor" --import-option="Override"
+OpenTiaToolkit.CLI.exe apply-block-document-import --apply-token="<token-from-plan>" --confirm=true
+```
+
+`validate-plc-documents` runs without TIA and checks UTF-8 decoding, block/file-name agreement, supported block boundaries, conditional S7RES presence, and `MLC_*` resource integrity. UTF-8 without BOM is reported as a warning.
+
+`plan-block-document-import` validates the input, resolves the existing block, exports a rollback copy, computes input and baseline hashes, and returns a ten-minute one-use apply token. Planning fails if an existing target cannot be backed up as SIMATIC SD documents.
+
+`apply-block-document-import` rejects changed input or target state, consumes the token once, imports the block, reads it back, and compiles the PLC. If import/read-back/compile fails, it restores the prior document export or deletes a newly created block, then recompiles. It does not save the project.
+
+For native-source probes, `delete-external-source --plc-name="PLC_1" --source-name="Probe" --confirm=true` removes the source definition after its generated blocks have been reviewed and deleted.
+
 #### import-block-from-docs
 
 Imports a single PLC block from SIMATIC SD documents (.s7dcl + .s7res) in the supported TIA Portal V21 workflow.
@@ -1561,11 +1579,11 @@ Format: SIMATIC SD (.s7dcl + .s7res)
 - `SkipInactiveCultures`: Skips inactive language versions
 - `ActivateInactiveCultures`: Activates all language versions
 
-**Note**: This command requires a supported TIA Portal version. The directory must contain both .s7dcl and .s7res files with matching names.
+**Note**: This low-level command requires a supported TIA Portal version. S7RES is required when the S7DCL references multilingual `MLC_*` resources; data documents without those references can be S7DCL-only. Prefer the guarded workflow above for authored changes.
 
 #### import-blocks-from-docs
 
-Imports multiple PLC blocks from SIMATIC SD documents (.s7dcl + .s7res) with optional regex filtering in the supported TIA Portal V21 workflow.
+Imports multiple PLC blocks from SIMATIC SD documents with optional regex filtering in the supported TIA Portal V21 workflow. This is a low-level bulk operation; validate authored files individually before using it.
 
 ```bash
 # Import all blocks from directory
@@ -2062,7 +2080,7 @@ Project2             C:\Path2.ap21        V21        2025-01-02
 ## Agent and MCP Packaging
 
 **Codex skill packaging**:
-- Agent workflow skills are versioned in `skills/`, including the top-level `opentia-toolkit-workflow` router, `basic-tia-interaction`, `multiuser-collaboration-workflow`, `hmi-unified-agent-editing`, and specialized hardware, PLC, library, trend logging, VCI, and repo-development workflows.
+- Agent workflow skills are versioned in `skills/`, including the top-level router, PLC code engineering router, S7DCL LAD/data authoring, native SCL source authoring, SimaticML fallback, session selection, HMI, hardware, library, trend logging, VCI, multiuser, and repo-development workflows.
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip the default HMI skill under `artifacts\skills`.
 - Pass `-SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip` to package the TIA session-selection skill.
 - Add `-Install` to refresh `$CODEX_HOME\skills\<skill-name>`.

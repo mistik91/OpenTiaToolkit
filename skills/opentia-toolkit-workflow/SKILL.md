@@ -18,6 +18,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
    - Unified HMI screen JSON, screen item, faceplate, event handler, dynamization, or JSON import/export edits: use `hmi-unified-agent-editing`.
    - Generic catalog, module/submodule, PROFINET, IO address, Startdrive telegram, GSD/GSDML parameter, or `apply-hardware-patch` work: use `hardware-configuration-workflow`.
    - PLC blocks, types, source files, compile, import/export, tags, cross-references, watch tables, technology objects, alarm text lists, CSV tag updates, or find/replace rename work: use `plc-block-and-tag-workflow`.
+   - PLC code generation or modification in LAD, SCL, S7DCL/S7RES, external source, or SimaticML: use `plc-code-engineering` after target discovery.
    - Unified HMI trend logging, logging tags, data logs, or bulk logging configs: use `hmi-trend-logging-workflow`.
    - Project/global library browsing, master copies, library types, UDT versions, update checks, or approved asset reuse: use `library-workflow`.
    - Version Control Interface workspace, mapping, status, export/connect/sync work: use `vci-sync-workflow`.

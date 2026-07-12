@@ -45,6 +45,7 @@ For imports, keep paths and groups explicit:
 - Use `import-block` / `import-blocks` for XML.
 - Use `import-type` / `import-types` for UDT XML.
 - Use `import-block-from-docs` / `import-blocks-from-docs` for `.s7dcl` + `.s7res`.
+- For agent-authored or modified SIMATIC SD files, use `validate-plc-documents`, `plan-block-document-import`, review the state-bound plan, and `apply-block-document-import --confirm=true`; guarded apply reads back, compiles, and rolls back failures.
 - Use `import-source --dry-run=true` before adding `.scl` or `.awl` external source files. Apply only with `dry-run=false` and `confirm=true`.
 - Use `generate-blocks-from-source --dry-run=true` before generating blocks from an external source. Apply only with `dry-run=false` and `confirm=true`, then verify with `get-block-info` or `get-blocks`.
 

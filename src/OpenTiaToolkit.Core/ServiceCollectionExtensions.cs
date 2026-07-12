@@ -18,6 +18,7 @@ namespace OpenTiaToolkit.Core
         {
             services.AddSingleton<EngineeringSessionContext>();
             services.AddSingleton<ISessionResetService, EngineeringSessionResetService>();
+            services.AddSingleton<PlcDocumentWorkflowService>();
 
             services.AddSingleton<PortalService>(serviceProvider =>
                 new PortalService(

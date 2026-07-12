@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **142**
+Commands: **155**
 
 ## Devices
 
@@ -352,7 +352,111 @@ Opens a TIA Portal global library by file path
 | `upgrade` | Boolean | no | False | Open with upgrade |
 | `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
+## Multiuser
+
+### add-project-to-multiuser-server
+
+Adds a closed single-user TIA project to a configured Project Server.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `server-alias` | String | yes |  | Connection alias |
+| `project-path` | Path | yes |  | Closed .ap project file |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+
+### commit-multiuser-session
+
+Saves and checks in the selected local session, returning the created server revision.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `comment` | String | yes |  | Server revision comment |
+| `require-up-to-date` | Boolean | no | True | Block commit when the session is stale |
+| `require-no-conflicts` | Boolean | no | True | Block commit when conflicted markings exist |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+
+### create-multiuser-session
+
+Creates an agent-owned Multiuser or Exclusive local session.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `server-alias` | String | yes |  | Connection alias |
+| `project-name` | String | yes |  | Server project name |
+| `session-name` | String | yes |  | Unique local session name |
+| `session-directory` | Path | yes |  | Directory for the local session |
+| `mode` | String | no | Multiuser | Multiuser or Exclusive |
+| `umac-user` | String | no |  | Optional UMAC user name |
+| `umac-password-env` | String | no | OPENTIA_UMAC_PASSWORD | Environment variable containing the UMAC password (default: OPENTIA_UMAC_PASSWORD) |
+| `umac-user-type` | String | no | project | UMAC user type: project or global |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+
+### ensure-multiuser-server
+
+Creates or updates a TIA Project Server connection.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `server-alias` | String | yes |  | Connection alias |
+| `protocol` | String | no | Https | Http or Https |
+| `host` | String | yes |  | Project Server host |
+| `port` | Integer | yes |  | Project Server port |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+
+### get-multiuser-session-status
+
+Reports up-to-date state, markings, and conflicts for the selected local session.
+
+No parameters.
+
+### list-multiuser-projects
+
+Lists projects available on a configured TIA Project Server.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `server-alias` | String | yes |  | Connection alias |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
+
+### list-multiuser-servers
+
+Lists configured TIA Project Server connections.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
+
+### list-multiuser-sessions
+
+Lists local sessions registered for a server project.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `server-alias` | String | yes |  | Connection alias |
+| `project-name` | String | yes |  | Server project name |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
+
+### save-multiuser-session
+
+Saves pending edits in the selected local session without checking in.
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+
 ## PLC
+
+### apply-block-document-import
+
+Applies a reviewed SIMATIC SD import plan, verifies and compiles it, and rolls back failures
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `apply-token` | String | yes |  | One-use token returned by plan-block-document-import |
+| `confirm` | Boolean | yes |  | Confirm the reviewed import apply |
 
 ### compare-software
 
@@ -394,6 +498,16 @@ Deletes blocks matching a regex pattern from PLC software
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `filter` | String | yes |  | Regex pattern for block names to delete |
 | `confirm` | Boolean | no |  | Confirm deletion without prompting (default: false) |
+
+### delete-external-source
+
+Deletes one PLC external source after explicit confirmation
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | The name of the PLC device |
+| `source-name` | String | yes |  | Exact external source name |
+| `confirm` | Boolean | yes |  | Confirm external source deletion |
 
 ### download-software
 
@@ -747,6 +861,18 @@ Opens a PLC device software by name
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 
+### plan-block-document-import
+
+Validates a SIMATIC SD import and creates a state-bound, rollback-capable one-use apply plan
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | PLC device name |
+| `import-directory` | Path | yes |  | Directory containing the SIMATIC SD files |
+| `file-name` | String | yes |  | Block/file name without extension |
+| `group-path` | String | no |  | Optional target block group |
+| `import-option` | String | no | Override | Override, None, SkipInactiveCultures, or ActivateInactiveCultures |
+
 ### search-blocks
 
 Searches PLC blocks by name/comment with optional type filter
@@ -778,6 +904,15 @@ Stops the PLC CPU when a supported online runtime operation is available
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `confirm` | Boolean | no | False | Explicitly confirm CPU runtime state change |
+
+### validate-plc-documents
+
+Validates SIMATIC SD (.s7dcl/.s7res) files offline before PLC import
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `import-directory` | Path | yes |  | Directory containing the SIMATIC SD files |
+| `file-name` | String | yes |  | Block/file name without extension |
 
 ## Portal
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PLC Code Engineering"
+  short_description: "Route safe PLC code generation and modification workflows"
+  default_prompt: "Inspect the PLC target, choose the safest source format, plan the change, apply it with verification, and compile."

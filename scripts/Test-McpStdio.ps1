@@ -9,6 +9,8 @@ param(
 
     [switch]$DisposableProjectOnly,
 
+    [string]$PlcCodeAssetsRoot = '',
+
     [ValidateRange(5, 300)]
     [int]$TimeoutSeconds = 30
 )
@@ -147,7 +149,7 @@ try {
         throw "Expected the shared command surface, but tools/list returned only $($tools.Count) tools."
     }
 
-    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
+    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
         if (-not ($tools.name -contains $requiredTool)) {
             throw "tools/list did not include required tool '$requiredTool'."
         }
@@ -248,6 +250,70 @@ try {
             if ([string]$block.comment -match '^Siemens\.Engineering\.MultilingualText$') {
                 throw 'PLC block comments still expose the Siemens MultilingualText type name.'
             }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($PlcCodeAssetsRoot)) {
+            $assetRoot = [System.IO.Path]::GetFullPath($PlcCodeAssetsRoot)
+            $ladDirectory = Join-Path $assetRoot 's7dcl-lad-authoring\assets'
+            $dataDirectory = Join-Path $assetRoot 's7dcl-data-authoring\assets'
+            $sclPath = Join-Path $assetRoot 'scl-source-authoring\assets\Codex_SCL_Probe.scl'
+            $documentCases = @(
+                @{ Directory = $ladDirectory; Name = 'Codex_LAD_Probe' },
+                @{ Directory = $ladDirectory; Name = 'Codex_LAD_FB_Probe' },
+                @{ Directory = $ladDirectory; Name = 'Codex_Mixed_Probe' },
+                @{ Directory = $dataDirectory; Name = 'Codex_Data_Probe' }
+            )
+
+            foreach ($case in $documentCases) {
+                [void](Invoke-McpTool -Name 'validate-plc-documents' -Arguments @{
+                    'import-directory' = $case.Directory
+                    'file-name' = $case.Name
+                })
+                $planResponse = Invoke-McpTool -Name 'plan-block-document-import' -Arguments @{
+                    'plc-name' = $plcNames[0]
+                    'import-directory' = $case.Directory
+                    'file-name' = $case.Name
+                    'import-option' = 'Override'
+                }
+                $token = [string]$planResponse.result.structuredContent.data.ApplyToken
+                if ([string]::IsNullOrWhiteSpace($token)) { throw "Document import plan for '$($case.Name)' did not return an apply token." }
+                [void](Invoke-McpTool -Name 'apply-block-document-import' -Arguments @{ 'apply-token' = $token; 'confirm' = $true })
+            }
+
+            $sourcesResponse = Invoke-McpTool -Name 'list-external-sources' -Arguments @{ 'plc-name' = $plcNames[0] }
+            $sourceNames = @($sourcesResponse.result.structuredContent.data | ForEach-Object { [string]$_.name })
+            if (-not ($sourceNames -contains 'Codex_SCL_Probe')) {
+                [void](Invoke-McpTool -Name 'import-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-path' = $sclPath; 'dry-run' = $true })
+                [void](Invoke-McpTool -Name 'import-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-path' = $sclPath; 'dry-run' = $false; 'confirm' = $true })
+            }
+            [void](Invoke-McpTool -Name 'generate-blocks-from-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = 'Codex_SCL_Probe'; 'dry-run' = $true })
+            [void](Invoke-McpTool -Name 'generate-blocks-from-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = 'Codex_SCL_Probe'; 'dry-run' = $false; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+
+            foreach ($name in @('Codex_LAD_Probe', 'Codex_LAD_FB_Probe', 'Codex_Mixed_Probe', 'Codex_Data_Probe', 'Codex_SCL_Probe')) {
+                [void](Invoke-McpTool -Name 'get-block-info' -Arguments @{ 'plc-name' = $plcNames[0]; 'block-name' = $name })
+            }
+
+            $xmlRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('OpenTiaToolkit-SimaticML-' + [Guid]::NewGuid().ToString('N'))
+            New-Item -ItemType Directory -Force -Path $xmlRoot | Out-Null
+            $xmlPath = Join-Path $xmlRoot 'Codex_LAD_Probe.xml'
+            [void](Invoke-McpTool -Name 'export-block' -Arguments @{ 'plc-name' = $plcNames[0]; 'block-name' = 'Codex_LAD_Probe'; 'export-path' = $xmlPath })
+            [void](Invoke-McpTool -Name 'delete-blocks' -Arguments @{ 'plc-name' = $plcNames[0]; 'filter' = '^Codex_LAD_Probe$'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'import-block' -Arguments @{ 'plc-name' = $plcNames[0]; 'import-path' = $xmlPath; 'import-option' = 'Override'; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+            [void](Invoke-McpTool -Name 'get-block-info' -Arguments @{ 'plc-name' = $plcNames[0]; 'block-name' = 'Codex_LAD_Probe' })
+            Remove-Item -LiteralPath $xmlRoot -Recurse -Force
+
+            [void](Invoke-McpTool -Name 'delete-blocks' -Arguments @{
+                'plc-name' = $plcNames[0]
+                'filter' = '^Codex_(LAD_Probe|LAD_FB_Probe|Mixed_Probe|Data_Probe|SCL_Probe)$'
+                'confirm' = $true
+            })
+            [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
+            [void](Invoke-McpTool -Name 'delete-external-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = 'Codex_SCL_Probe'; 'confirm' = $true })
+            $summary['PlcCodeWorkflowVerified'] = $true
+            $summary['PlcCodeBlocksCreatedAndRemoved'] = 5
+            $summary['SimaticMlFallbackVerified'] = $true
         }
 
         $hmisResponse = Invoke-McpTool -Name 'list-hmis'

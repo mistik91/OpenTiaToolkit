@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 142,
+  "commandCount": 155,
   "commands": [
     {
       "name": "add-device",
@@ -37,6 +37,59 @@
           "required": false,
           "defaultValue": false,
           "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "add-project-to-multiuser-server",
+      "description": "Adds a closed single-user TIA project to a configured Project Server.",
+      "category": "Multiuser",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "server-alias",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Connection alias"
+        },
+        {
+          "name": "project-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Closed .ap project file"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "apply-block-document-import",
+      "description": "Applies a reviewed SIMATIC SD import plan, verifies and compiles it, and rolls back failures",
+      "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "apply-token",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "One-use token returned by plan-block-document-import"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm the reviewed import apply"
         }
       ]
     },
@@ -647,6 +700,43 @@
       ]
     },
     {
+      "name": "commit-multiuser-session",
+      "description": "Saves and checks in the selected local session, returning the created server revision.",
+      "category": "Multiuser",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "comment",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Server revision comment"
+        },
+        {
+          "name": "require-up-to-date",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Block commit when the session is stale"
+        },
+        {
+          "name": "require-no-conflicts",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Block commit when conflicted markings exist"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
       "name": "compare-software",
       "description": "Compares PLC software to the online target",
       "category": "PLC",
@@ -1181,6 +1271,78 @@
       ]
     },
     {
+      "name": "create-multiuser-session",
+      "description": "Creates an agent-owned Multiuser or Exclusive local session.",
+      "category": "Multiuser",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "server-alias",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Connection alias"
+        },
+        {
+          "name": "project-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Server project name"
+        },
+        {
+          "name": "session-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Unique local session name"
+        },
+        {
+          "name": "session-directory",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory for the local session"
+        },
+        {
+          "name": "mode",
+          "type": "String",
+          "required": false,
+          "defaultValue": "Multiuser",
+          "description": "Multiuser or Exclusive"
+        },
+        {
+          "name": "umac-user",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional UMAC user name"
+        },
+        {
+          "name": "umac-password-env",
+          "type": "String",
+          "required": false,
+          "defaultValue": "OPENTIA_UMAC_PASSWORD",
+          "description": "Environment variable containing the UMAC password (default: OPENTIA_UMAC_PASSWORD)"
+        },
+        {
+          "name": "umac-user-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": "project",
+          "description": "UMAC user type: project or global"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
       "name": "create-project",
       "description": "Creates a new TIA Portal project and selects it as the current project",
       "category": "Portal",
@@ -1267,6 +1429,36 @@
           "required": false,
           "defaultValue": null,
           "description": "Confirm deletion without prompting (default: false)"
+        }
+      ]
+    },
+    {
+      "name": "delete-external-source",
+      "description": "Deletes one PLC external source after explicit confirmation",
+      "category": "PLC",
+      "risk": "Destructive",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The name of the PLC device"
+        },
+        {
+          "name": "source-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact external source name"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm external source deletion"
         }
       ]
     },
@@ -1500,6 +1692,50 @@
           "required": false,
           "defaultValue": false,
           "description": "Explicitly confirm a non-dry-run download"
+        }
+      ]
+    },
+    {
+      "name": "ensure-multiuser-server",
+      "description": "Creates or updates a TIA Project Server connection.",
+      "category": "Multiuser",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "server-alias",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Connection alias"
+        },
+        {
+          "name": "protocol",
+          "type": "String",
+          "required": false,
+          "defaultValue": "Https",
+          "description": "Http or Https"
+        },
+        {
+          "name": "host",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Project Server host"
+        },
+        {
+          "name": "port",
+          "type": "Integer",
+          "required": true,
+          "defaultValue": null,
+          "description": "Project Server port"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -2822,6 +3058,14 @@
       ]
     },
     {
+      "name": "get-multiuser-session-status",
+      "description": "Reports up-to-date state, markings, and conflicts for the selected local session.",
+      "category": "Multiuser",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": []
+    },
+    {
       "name": "get-multiuser-status",
       "description": "Reports project/local-session multiuser state and ownership through the official V21 API.",
       "category": "Insights",
@@ -4014,6 +4258,96 @@
       ]
     },
     {
+      "name": "list-multiuser-projects",
+      "description": "Lists projects available on a configured TIA Project Server.",
+      "category": "Multiuser",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "server-alias",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Connection alias"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
+    },
+    {
+      "name": "list-multiuser-servers",
+      "description": "Lists configured TIA Project Server connections.",
+      "category": "Multiuser",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
+    },
+    {
+      "name": "list-multiuser-sessions",
+      "description": "Lists local sessions registered for a server project.",
+      "category": "Multiuser",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "server-alias",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Connection alias"
+        },
+        {
+          "name": "project-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Server project name"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
+    },
+    {
       "name": "list-plc-alarm-text-lists",
       "description": "PLC alarm text lists",
       "category": "PLC",
@@ -4494,6 +4828,50 @@
       ]
     },
     {
+      "name": "plan-block-document-import",
+      "description": "Validates a SIMATIC SD import and creates a state-bound, rollback-capable one-use apply plan",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC device name"
+        },
+        {
+          "name": "import-directory",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory containing the SIMATIC SD files"
+        },
+        {
+          "name": "file-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Block/file name without extension"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional target block group"
+        },
+        {
+          "name": "import-option",
+          "type": "String",
+          "required": false,
+          "defaultValue": "Override",
+          "description": "Override, None, SkipInactiveCultures, or ActivateInactiveCultures"
+        }
+      ]
+    },
+    {
       "name": "plan-blueprint",
       "description": "Builds a state-bound engineering plan and short-lived one-use apply token.",
       "category": "V21",
@@ -4742,6 +5120,22 @@
           "defaultValue": null,
           "description": "The destination path for the project"
         },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "save-multiuser-session",
+      "description": "Saves pending edits in the selected local session without checking in.",
+      "category": "Multiuser",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
         {
           "name": "confirm",
           "type": "Boolean",
@@ -5186,6 +5580,29 @@
           "required": true,
           "defaultValue": null,
           "description": "Blueprint JSON file"
+        }
+      ]
+    },
+    {
+      "name": "validate-plc-documents",
+      "description": "Validates SIMATIC SD (.s7dcl/.s7res) files offline before PLC import",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "import-directory",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Directory containing the SIMATIC SD files"
+        },
+        {
+          "name": "file-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Block/file name without extension"
         }
       ]
     },

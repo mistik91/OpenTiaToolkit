@@ -149,7 +149,7 @@ It covers:
 - `find-replace-udt-members`
 - `delete-blocks`
 - XML block import/export roundtrips using an existing exportable block
-- SIMATIC SD block import/export roundtrips using `export-block-as-docs`, `export-blocks-as-docs`, `import-block-from-docs`, and `import-blocks-from-docs`
+- SIMATIC SD validation and guarded roundtrips using `validate-plc-documents`, `plan-block-document-import`, and `apply-block-document-import`, plus low-level export/import commands
 - type XML roundtrips using `export-type`, `export-types`, `import-type`, and `import-types`
 
 ## Expected Skips

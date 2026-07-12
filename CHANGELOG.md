@@ -7,6 +7,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+- Added offline SIMATIC SD validation and state-bound `plan-block-document-import` / `apply-block-document-import` workflows with input and target hashes, one-use tokens, read-back, compile verification, and automatic rollback.
+- Added guarded PLC external-source deletion for disposable native SCL workflows.
+- Added PLC code engineering, S7DCL LAD/data, native SCL source, and SimaticML fallback skills with live-tested FC, FB, mixed LAD/SCL, global DB, and SCL assets.
+
+### Changed
+- Extended the staged MCP live test to generate, verify, compile, and clean up the complete PLC code-authoring corpus against an open V21 project.
+
 ## [1.0.0] - 2026-07-11
 
 ### Changed

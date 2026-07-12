@@ -20,6 +20,7 @@ Use this skill for TIA Version Control Interface work. Treat sync direction as t
    For large mapping reviews, pass `output-path` to `list-vci-mappings` or use the returned CSV artifact path when it auto-spills.
 4. For a block workflow, discover supported formats with `get-vci-block-formats`.
 5. Before synchronization, run `get-vci-block-status` for mapped objects when possible.
+   If a workspace file will be authored or modified, route its content through `plc-code-engineering` and its format skill before workspace-to-project sync.
 6. Choose the operation:
    - `create-vci-workspace` for a new workspace root.
    - `export-vci-block` to export one PLC block and create its mapping.
