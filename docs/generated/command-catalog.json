@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 169,
+  "commandCount": 171,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -640,6 +640,43 @@
           "required": true,
           "defaultValue": null,
           "description": "Confirm the complete reviewed transaction"
+        }
+      ]
+    },
+    {
+      "name": "approve-plc-code-impact",
+      "description": "Revalidates and explicitly acknowledges a fingerprint-bound ReviewRequired or Unknown PLC code impact before issuing an apply token",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "ImpactReviewRequired PLC code transaction id"
+        },
+        {
+          "name": "impact-fingerprint",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact fingerprint returned by transaction planning"
+        },
+        {
+          "name": "accept-unknown",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly accept unresolved impact evidence after review"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm the reviewed impact acknowledgement"
         }
       ]
     },
@@ -3497,6 +3534,22 @@
           "required": false,
           "defaultValue": 500,
           "description": "Maximum returned rows (1-5000)"
+        }
+      ]
+    },
+    {
+      "name": "get-plc-code-impact",
+      "description": "Gets the semantic delta, resolved dependencies, live PLC consumers, policy status, and fingerprint for a planned PLC code transaction",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Planned or impact-review PLC code transaction id"
         }
       ]
     },

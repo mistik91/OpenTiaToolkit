@@ -31,7 +31,12 @@ public sealed class PlcCodeCapabilityDiscoveryServiceTests
             safetyProvider: target => new PlcCodeSafetyEvidence());
         PlcCodeCapabilityDiscovery discovery = await discoveryService.DiscoverAsync(new PlcCodeCapabilityRequest
         {
-            PlcName = "PLC_1", ObjectName = "Probe", ObjectKind = "Block", Operation = "Create", BlockType = "FC", RequestedLanguage = "LAD"
+            PlcName = "PLC_1",
+            ObjectName = "Probe",
+            ObjectKind = "Block",
+            Operation = "Create",
+            BlockType = "FC",
+            RequestedLanguage = "LAD"
         });
         var workflow = new PlcDocumentWorkflowService(plc.Object, context, discoveryService);
 

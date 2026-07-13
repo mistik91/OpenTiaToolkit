@@ -16,6 +16,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `apply-hmi-screen-json-edit` | Unified HMI | `hmi-name`, `screen-path`, `edited-screen`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies one Unified HMI screen JSON edit with safety checks |
 | `apply-hmi-screen-json-patch` | Unified HMI | `hmi-name`, `screen-path`, `operations`, `operations-path`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies compact Unified HMI screen patch operations with safety checks |
 | `apply-plc-code-transaction` | PLC | `transaction-id`, `apply-token`, `confirm` | Atomically preflights, applies, compiles, verifies, or fully rolls back a planned PLC code transaction |
+| `approve-plc-code-impact` | PLC | `transaction-id`, `impact-fingerprint`, `accept-unknown`, `confirm` | Revalidates and explicitly acknowledges a fingerprint-bound ReviewRequired or Unknown PLC code impact before issuing an apply token |
 | `archive-project` | Portal | `archive-path`, `mode`, `confirm` | Archives the current project to a .zap21 archive |
 | `audit-hardware-tag-mappings` | Hardware | `plc-name`, `tag-table-filter`, `catalog-search-text`, `max-unmatched-tags`, `output-path` | Audits PLC I/Q tag addresses against discovered hardware IO ranges and optional catalog evidence |
 | `audit-hmi-label-proximity` | Unified HMI | `input-path`, `screen-path`, `target-items`, `target-types`, `label-texts`, `label-types`, `max-candidates`, `output-path` | Creates an auditable nearest-label mapping report from an exported Unified HMI JSON file |
@@ -97,6 +98,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `get-multiuser-status` | Insights |  | Reports project/local-session multiuser state and ownership through the official V21 API. |
 | `get-online-status` | PLC | `plc-name`, `go-online` | Gets PLC online status, optionally going online first |
 | `get-plc-alarm-text-list-details` | Insights | `max-results` | Reads PLC alarm system/user text-list metadata through the official V21 API. |
+| `get-plc-code-impact` | PLC | `transaction-id` | Gets the semantic delta, resolved dependencies, live PLC consumers, policy status, and fingerprint for a planned PLC code transaction |
 | `get-plc-code-transaction` | PLC | `transaction-id` | Gets the persistent manifest, journal, hashes, compile evidence, and recovery state for one PLC code transaction |
 | `get-project-info` | Portal |  | Gets information about the currently open project |
 | `get-project-tree` | Portal | `depth` | Gets the hierarchical project structure |

@@ -233,6 +233,15 @@ public sealed partial class PlcDocumentWorkflowService
             throw;
         }
 
+        transaction.Operations = prepared;
+        PlcCodeImpactAnalysis impact;
+        try { impact = await AnalyzeTransactionImpactAsync(transaction).ConfigureAwait(false); }
+        catch
+        {
+            Cleanup(baselineRoot);
+            throw;
+        }
+
         CompilationResult baseline;
         try { baseline = await _plcService.CompileSoftwareAsync().ConfigureAwait(false); }
         catch
@@ -240,17 +249,20 @@ public sealed partial class PlcDocumentWorkflowService
             Cleanup(baselineRoot);
             throw;
         }
-        transaction.Operations = prepared;
         transaction.BaselineCompilation = ToEvidence(baseline);
-        transaction.PlanHash = ComputeTransactionPlanHash(transaction);
-        transaction.ApplyToken = RandomToken();
+        transaction.ImpactAnalysis = impact;
+        transaction.ImpactAcknowledged = false;
+        transaction.ImpactAcknowledgementFingerprint = null;
         transaction.ExpiresAtUtc = DateTimeOffset.UtcNow.Add(TransactionLifetime);
-        transaction.State = "Planned";
+        transaction.State = impact.Status == "Safe" ? "Planned" : impact.Status == "Blocked" ? "ImpactBlocked" : "ImpactReviewRequired";
+        transaction.ApplyToken = impact.Status == "Safe" ? RandomToken() : null;
         transaction.RecoveryPackageRetained = true;
-        transaction.Warnings = prepared.SelectMany(item => item.Validation?.Warnings ?? Array.Empty<string>()).Distinct(StringComparer.Ordinal).ToArray();
+        transaction.Warnings = prepared.SelectMany(item => item.Validation?.Warnings ?? Array.Empty<string>()).Concat(impact.Warnings).Distinct(StringComparer.Ordinal).ToArray();
+        transaction.PlanHash = ComputeTransactionPlanHash(transaction);
         int overrides = prepared.Sum(item => item.TargetSnapshots.Count > 0 ? item.TargetSnapshots.Count(target => target.Action == "Override") : item.Action == "Override" ? 1 : 0);
         int creates = prepared.Sum(item => item.TargetSnapshots.Count > 0 ? item.TargetSnapshots.Count(target => target.Action == "Create") : item.Action == "Create" ? 1 : 0);
         AddJournal(transaction, null, "Planning", "Planned", $"Snapshotted {overrides} existing target(s); {creates} target(s) will be created.");
+        AddJournal(transaction, null, "Impact", transaction.State, $"Impact analysis classified the complete change as {impact.Status} with fingerprint {impact.Fingerprint}.");
         SaveTransaction(transaction);
         return transaction;
     }
@@ -284,6 +296,11 @@ public sealed partial class PlcDocumentWorkflowService
         {
             await VerifyCapabilityCurrentAsync(transaction).ConfigureAwait(false);
             VerifyTransactionPreconditions(transaction);
+            PlcCodeImpactAnalysis currentImpact = await AnalyzeTransactionImpactAsync(transaction).ConfigureAwait(false);
+            if (transaction.ImpactAnalysis == null || !FixedEquals(transaction.ImpactAnalysis.Fingerprint, currentImpact.Fingerprint))
+                throw new InvalidOperationException("PLC dependencies, consumers, or semantic impact changed after planning.");
+            if (currentImpact.Status != "Safe" && (!transaction.ImpactAcknowledged || !FixedEquals(transaction.ImpactAcknowledgementFingerprint ?? string.Empty, currentImpact.Fingerprint)))
+                throw new InvalidOperationException("The current PLC code impact requires a matching explicit acknowledgement before apply.");
         }
         catch (Exception ex)
         {
@@ -963,7 +980,7 @@ public sealed partial class PlcDocumentWorkflowService
         if (!File.Exists(manifest)) throw new InvalidOperationException($"PLC code transaction '{id}' was not found.");
         PlcCodeTransaction transaction = JsonSerializer.Deserialize<PlcCodeTransaction>(File.ReadAllText(manifest), TransactionJsonOptions)
             ?? throw new InvalidDataException($"PLC code transaction '{id}' manifest is invalid.");
-        if (updateExpiry && transaction.State == "Planned" && transaction.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+        if (updateExpiry && new[] { "Planned", "ImpactReviewRequired" }.Contains(transaction.State, StringComparer.Ordinal) && transaction.ExpiresAtUtc <= DateTimeOffset.UtcNow)
         {
             transaction.State = "Expired";
             transaction.ApplyToken = null;
@@ -1026,6 +1043,9 @@ public sealed partial class PlcDocumentWorkflowService
             transaction.CapabilityBindings,
             transaction.CompilePolicy,
             transaction.MaximumNewWarnings,
+            transaction.ImpactAnalysis,
+            transaction.ImpactAcknowledged,
+            transaction.ImpactAcknowledgementFingerprint,
             Operations = transaction.Operations.OrderBy(item => item.Sequence).Select(item => new
             {
                 item.Sequence,

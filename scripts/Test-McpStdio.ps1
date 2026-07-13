@@ -168,7 +168,7 @@ try {
         throw "Expected the shared command surface, but tools/list returned only $($tools.Count) tools."
     }
 
-    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'begin-plc-code-transaction', 'add-plc-code-transaction-operation', 'add-delete-plc-type-transaction-operation', 'plan-plc-code-transaction', 'apply-plc-code-transaction', 'get-plc-code-transaction', 'list-plc-code-transactions', 'recover-plc-code-transaction', 'discard-plc-code-transaction', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
+    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'discover-plc-code-capabilities', 'begin-plc-code-transaction', 'add-plc-code-transaction-operation', 'add-delete-plc-type-transaction-operation', 'plan-plc-code-transaction', 'get-plc-code-impact', 'approve-plc-code-impact', 'apply-plc-code-transaction', 'get-plc-code-transaction', 'list-plc-code-transactions', 'recover-plc-code-transaction', 'discard-plc-code-transaction', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
         if (-not ($tools.name -contains $requiredTool)) {
             throw "tools/list did not include required tool '$requiredTool'."
         }
@@ -362,7 +362,9 @@ try {
             [IO.File]::WriteAllText((Join-Path $transactionSuccessRoot 'Codex_TX_A.s7dcl'), $transactionA, $utf8Bom)
             [IO.File]::WriteAllText((Join-Path $transactionSuccessRoot 'Codex_TX_B.s7dcl'), $transactionB, $utf8Bom)
 
-            $beginTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live multi-block transaction' }
+            $transactionCapabilityA = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Block'; 'object-name' = 'Codex_TX_A'; 'group-path' = ''; 'operation' = 'Create'; 'block-type' = 'FC'; 'requested-language' = 'LAD' }).result.structuredContent.data
+            $transactionCapabilityB = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Block'; 'object-name' = 'Codex_TX_B'; 'group-path' = ''; 'operation' = 'Create'; 'block-type' = 'FB'; 'requested-language' = 'LAD' }).result.structuredContent.data
+            $beginTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live multi-block transaction'; 'capability-ids' = ([string]$transactionCapabilityA.CapabilityId + ',' + [string]$transactionCapabilityB.CapabilityId) }
             $transactionId = [string]$beginTransaction.result.structuredContent.data.TransactionId
             [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $transactionId; 'import-directory' = $transactionSuccessRoot; 'file-name' = 'Codex_TX_A'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
             [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $transactionId; 'import-directory' = $transactionSuccessRoot; 'file-name' = 'Codex_TX_B'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
@@ -385,7 +387,9 @@ try {
             $brokenTransaction = $transactionA.Replace('Codex_TX_A', 'Codex_TX_Bad').Replace('63001', '63003').Replace('Contact( #InA )', 'Contact( "Codex_TX_Missing_Tag" )')
             [IO.File]::WriteAllText((Join-Path $transactionOverrideRoot 'Codex_TX_A.s7dcl'), $overrideA, $utf8Bom)
             [IO.File]::WriteAllText((Join-Path $transactionBrokenRoot 'Codex_TX_Bad.s7dcl'), $brokenTransaction, $utf8Bom)
-            $beginFailureTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live forced rollback transaction' }
+            $failureCapabilityA = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Block'; 'object-name' = 'Codex_TX_A'; 'group-path' = ''; 'operation' = 'Modify'; 'block-type' = 'FC'; 'requested-language' = 'LAD' }).result.structuredContent.data
+            $failureCapabilityBad = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Block'; 'object-name' = 'Codex_TX_Bad'; 'group-path' = ''; 'operation' = 'Create'; 'block-type' = 'FC'; 'requested-language' = 'LAD' }).result.structuredContent.data
+            $beginFailureTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live forced rollback transaction'; 'capability-ids' = ([string]$failureCapabilityA.CapabilityId + ',' + [string]$failureCapabilityBad.CapabilityId) }
             $failureTransactionId = [string]$beginFailureTransaction.result.structuredContent.data.TransactionId
             [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $failureTransactionId; 'import-directory' = $transactionOverrideRoot; 'file-name' = 'Codex_TX_A'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
             [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $failureTransactionId; 'import-directory' = $transactionBrokenRoot; 'file-name' = 'Codex_TX_Bad'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
@@ -404,7 +408,9 @@ try {
             $recoveryNew = $transactionA.Replace('Codex_TX_A', 'Codex_TX_Recover').Replace('63001', '63004')
             [IO.File]::WriteAllText((Join-Path $transactionRecoveryRoot 'Codex_TX_A.s7dcl'), $recoveryOverride, $utf8Bom)
             [IO.File]::WriteAllText((Join-Path $transactionRecoveryRoot 'Codex_TX_Recover.s7dcl'), $recoveryNew, $utf8Bom)
-            $beginRecoveryTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live interrupted transaction recovery' }
+            $recoveryCapabilityA = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Block'; 'object-name' = 'Codex_TX_A'; 'group-path' = ''; 'operation' = 'Modify'; 'block-type' = 'FC'; 'requested-language' = 'LAD' }).result.structuredContent.data
+            $recoveryCapabilityNew = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Block'; 'object-name' = 'Codex_TX_Recover'; 'group-path' = ''; 'operation' = 'Create'; 'block-type' = 'FC'; 'requested-language' = 'LAD' }).result.structuredContent.data
+            $beginRecoveryTransaction = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live interrupted transaction recovery'; 'capability-ids' = ([string]$recoveryCapabilityA.CapabilityId + ',' + [string]$recoveryCapabilityNew.CapabilityId) }
             $recoveryTransactionId = [string]$beginRecoveryTransaction.result.structuredContent.data.TransactionId
             [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $recoveryTransactionId; 'import-directory' = $transactionRecoveryRoot; 'file-name' = 'Codex_TX_A'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
             [void](Invoke-McpTool -Name 'add-plc-code-transaction-operation' -Arguments @{ 'transaction-id' = $recoveryTransactionId; 'import-directory' = $transactionRecoveryRoot; 'file-name' = 'Codex_TX_Recover'; 'group-path' = ''; 'import-option' = 'Override'; 'confirm' = $true })
@@ -464,10 +470,15 @@ try {
                 'confirm' = $true
             })
             [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
-            $beginTypeDelete = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live source-generated type cleanup' }
+            $typeDeleteCapability = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Type'; 'object-name' = 'Codex_SCL_Type_Probe_Record'; 'group-path' = ''; 'operation' = 'Modify'; 'block-type' = 'TYPE'; 'requested-language' = 'SCL' }).result.structuredContent.data
+            $beginTypeDelete = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live source-generated type cleanup'; 'capability-id' = [string]$typeDeleteCapability.CapabilityId }
             $typeDeleteId = [string]$beginTypeDelete.result.structuredContent.data.TransactionId
             [void](Invoke-McpTool -Name 'add-delete-plc-type-transaction-operation' -Arguments @{ 'transaction-id' = $typeDeleteId; 'type-name' = 'Codex_SCL_Type_Probe_Record'; 'group-path' = ''; 'confirm' = $true })
             $typeDeletePlan = (Invoke-McpTool -Name 'plan-plc-code-transaction' -Arguments @{ 'transaction-id' = $typeDeleteId }).result.structuredContent.data
+            if ([string]$typeDeletePlan.State -eq 'ImpactReviewRequired') {
+                $typeDeleteImpact = (Invoke-McpTool -Name 'get-plc-code-impact' -Arguments @{ 'transaction-id' = $typeDeleteId }).result.structuredContent.data
+                $typeDeletePlan = (Invoke-McpTool -Name 'approve-plc-code-impact' -Arguments @{ 'transaction-id' = $typeDeleteId; 'impact-fingerprint' = [string]$typeDeleteImpact.Fingerprint; 'accept-unknown' = ([string]$typeDeleteImpact.Status -eq 'Unknown'); 'confirm' = $true }).result.structuredContent.data
+            }
             [void](Invoke-McpTool -Name 'apply-plc-code-transaction' -Arguments @{ 'transaction-id' = $typeDeleteId; 'apply-token' = [string]$typeDeletePlan.ApplyToken; 'confirm' = $true })
             [void](Invoke-McpTool -Name 'discard-plc-code-transaction' -Arguments @{ 'transaction-id' = $typeDeleteId; 'confirm' = $true })
             foreach ($sclCase in $sclCases) {

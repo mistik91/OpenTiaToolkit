@@ -85,7 +85,7 @@ public sealed class PlcDocumentImportApplyResult
 
 public sealed class PlcCodeTransaction
 {
-    public string SchemaVersion { get; set; } = "1.0";
+    public string SchemaVersion { get; set; } = "1.1";
     public string TransactionId { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string State { get; set; } = "Draft";
@@ -107,11 +107,59 @@ public sealed class PlcCodeTransaction
     public PlcCodeTransactionCompileEvidence? BaselineCompilation { get; set; }
     public PlcCodeTransactionCompileEvidence? FinalCompilation { get; set; }
     public PlcCodeTransactionCompileEvidence? RollbackCompilation { get; set; }
+    public PlcCodeImpactAnalysis? ImpactAnalysis { get; set; }
+    public bool ImpactAcknowledged { get; set; }
+    public string? ImpactAcknowledgementFingerprint { get; set; }
     public IReadOnlyList<PlcCodeTransactionOperation> Operations { get; set; } = Array.Empty<PlcCodeTransactionOperation>();
     public IReadOnlyList<PlcCodeTransactionJournalEntry> Journal { get; set; } = Array.Empty<PlcCodeTransactionJournalEntry>();
     public IReadOnlyList<string> Warnings { get; set; } = Array.Empty<string>();
     public string? Failure { get; set; }
     public bool RecoveryPackageRetained { get; set; }
+}
+
+public sealed class PlcCodeImpactAnalysis
+{
+    public string SchemaVersion { get; set; } = "1.0";
+    public string Fingerprint { get; set; } = string.Empty;
+    public string Status { get; set; } = "Unknown";
+    public DateTimeOffset AnalyzedAtUtc { get; set; }
+    public IReadOnlyList<PlcCodeImpactTarget> Targets { get; set; } = Array.Empty<PlcCodeImpactTarget>();
+    public IReadOnlyList<PlcCodeImpactDependency> Dependencies { get; set; } = Array.Empty<PlcCodeImpactDependency>();
+    public IReadOnlyList<string> Warnings { get; set; } = Array.Empty<string>();
+}
+
+public sealed class PlcCodeImpactTarget
+{
+    public int OperationSequence { get; set; }
+    public PlcBlockIdentity Target { get; set; } = new PlcBlockIdentity();
+    public string ChangeKind { get; set; } = "Unknown";
+    public string Status { get; set; } = "Unknown";
+    public string? BaselineSignature { get; set; }
+    public string? CandidateSignature { get; set; }
+    public bool PlcConsumerLookupSucceeded { get; set; }
+    public string PlcConsumerLookupMessage { get; set; } = string.Empty;
+    public string ConsumerFingerprint { get; set; } = string.Empty;
+    public int ExcludedSelfReferenceCount { get; set; }
+    public IReadOnlyList<PlcCodeImpactConsumer> Consumers { get; set; } = Array.Empty<PlcCodeImpactConsumer>();
+    public IReadOnlyList<string> Reasons { get; set; } = Array.Empty<string>();
+}
+
+public sealed class PlcCodeImpactConsumer
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Path { get; set; }
+    public string? Usage { get; set; }
+    public string? ItemType { get; set; }
+    public string? Detail { get; set; }
+}
+
+public sealed class PlcCodeImpactDependency
+{
+    public int OperationSequence { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Status { get; set; } = "Unknown";
+    public PlcBlockIdentity? ResolvedTarget { get; set; }
+    public string Message { get; set; } = string.Empty;
 }
 
 public sealed class PlcCodeCapabilityBinding

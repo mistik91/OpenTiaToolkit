@@ -8,6 +8,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Changed
+- Made PLC code transaction planning perform mandatory semantic impact analysis: normalized interface/layout deltas, exact external dependency resolution, live PLC cross-reference consumers, deterministic evidence fingerprints, and apply-time stale revalidation now gate every direct-import mutation.
 - Added a shared PLC code-format capability/validation contract and format-specific hardening for native SCL, S7DCL LAD/data, baseline-bound SimaticML, and confirmed directional VCI synchronization.
 - Extended persistent PLC code transactions with dependency-ordered multi-target SCL generation, PLC `TYPE` generation/deletion, and existing block/type SimaticML patch adapters, including source/XML stale checks, canonical read-back, compile policy, reverse rollback, and restart-safe recovery.
 - Grounded LAD validation in live V21 exports: `Normalize`, `Scale`, positive/negative edge contacts, retentive timers, inferred typed calls, exact `ATTR_DB` pins, and project calls now have instruction-specific templates, pin contracts, and edge-memory placement rules.
@@ -22,6 +23,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Extended the staged MCP live test to generate, verify, compile, and clean up twelve PLC code-authoring blocks plus a source-generated PLC type against an open V21 project.
 
 ### Added
+- Added `get-plc-code-impact` and fingerprint-bound `approve-plc-code-impact`; safe plans receive tokens directly, review/unknown findings require explicit revalidated acknowledgement, and deletions with active PLC consumers fail closed.
 - Added `describe-plc-code-formats`, `validate-plc-code-artifact`, `add-scl-source-transaction-operation`, `add-simaticml-transaction-operation`, and `add-delete-plc-type-transaction-operation`.
 - Added offline SIMATIC SD validation and state-bound `plan-block-document-import` / `apply-block-document-import` workflows with input and target hashes, one-use tokens, read-back, compile verification, and automatic rollback.
 - Added guarded PLC external-source deletion for disposable native SCL workflows.

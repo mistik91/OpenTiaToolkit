@@ -539,7 +539,6 @@ public class PlcDocumentWorkflowServiceTests
         service.AddTransactionOperation(draft.TransactionId, _directory, "Existing", null, "Override");
         service.AddTransactionOperation(draft.TransactionId, _directory, "Created", null, "Override");
         PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
-
         PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
 
         Assert.IsFalse(result.Applied);
@@ -871,6 +870,8 @@ public class PlcDocumentWorkflowServiceTests
         type.OnDelete = () => software.TypeGroup.Types.Remove(type);
         software.TypeGroup.Types.Add(type);
         var plc = OpenPlcMock();
+        plc.Setup(service => service.GetCrossReferencesAsync("DeleteProbe"))
+            .ReturnsAsync(new PlcCrossReferenceResult(true, "DeleteProbe", "No PLC consumers were found."));
         plc.Setup(service => service.ImportTypeAsync(It.IsAny<string>(), "")).ReturnsAsync((string path, string _) =>
         {
             type.ExportContent = File.ReadAllText(path);
@@ -885,6 +886,8 @@ public class PlcDocumentWorkflowServiceTests
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "type delete rollback");
         service.AddDeleteTypeTransactionOperation(draft.TransactionId, "DeleteProbe", null);
         PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        Assert.AreEqual("ImpactReviewRequired", plan.State);
+        plan = await service.ApproveTransactionImpactAsync(plan.TransactionId, plan.ImpactAnalysis!.Fingerprint, acceptUnknown: false);
 
         PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
 
@@ -1005,6 +1008,209 @@ public class PlcDocumentWorkflowServiceTests
         Assert.IsTrue(result.RolledBackAndVerified, result.Message);
         StringAssert.Contains(result.Transaction.Failure!, "canonical export failed");
         Assert.AreEqual(0, software.BlockGroup.Blocks.Count);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_InterfaceChange_RequiresFingerprintBoundImpactApproval()
+    {
+        const string baseline = "FUNCTION \"ImpactProbe\" : Void\r\nVAR_INPUT\r\n    Enable : Bool;\r\nEND_VAR\r\nEND_FUNCTION";
+        const string candidate = "FUNCTION \"ImpactProbe\" : Void\r\nVAR_INPUT\r\n    Enable : Bool;\r\n    Reset : Bool;\r\nEND_VAR\r\nEND_FUNCTION";
+        WriteUtf8Bom("ImpactProbe.s7dcl", candidate);
+        var existing = new FakeBlock { Name = "ImpactProbe", Type = "FC", Number = 62010, ExportContent = baseline };
+        var context = ContextWithGroups(("", existing));
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetCrossReferencesAsync("ImpactProbe")).ReturnsAsync(new PlcCrossReferenceResult(true, "ImpactProbe", "One PLC consumer.", new[]
+        {
+            new PlcCrossReferenceEntry("Caller", "Program blocks/Caller", "Call", "Block", "Calls ImpactProbe"),
+            new PlcCrossReferenceEntry("Enable", "PLC_1/Program blocks/ImpactProbe", null, "Member", "source=ImpactProbe; target=ImpactProbe")
+        }));
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(_directory, "ImpactProbe", "", "Override")).ReturnsAsync(() =>
+        {
+            existing.ExportContent = File.ReadAllText(Path.Combine(_directory, "ImpactProbe.s7dcl"));
+            return true;
+        });
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "interface impact");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "ImpactProbe", null, "Override");
+
+        PlcCodeTransaction reviewed = await service.PlanTransactionAsync(draft.TransactionId);
+
+        Assert.AreEqual("ImpactReviewRequired", reviewed.State);
+        Assert.IsNull(reviewed.ApplyToken);
+        Assert.AreEqual("ReviewRequired", reviewed.ImpactAnalysis!.Status);
+        Assert.AreEqual("InterfaceChange", reviewed.ImpactAnalysis.Targets.Single().ChangeKind);
+        Assert.AreEqual(1, reviewed.ImpactAnalysis.Targets.Single().Consumers.Count);
+        Assert.AreEqual(1, reviewed.ImpactAnalysis.Targets.Single().ExcludedSelfReferenceCount);
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.ApproveTransactionImpactAsync(reviewed.TransactionId, "wrong", false));
+
+        PlcCodeTransaction plan = await service.ApproveTransactionImpactAsync(reviewed.TransactionId, reviewed.ImpactAnalysis.Fingerprint, false);
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.AreEqual("Planned", plan.State);
+        Assert.IsTrue(plan.ImpactAcknowledged);
+        Assert.IsTrue(result.Applied, result.Message);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_ImpactConsumerChange_MarksAcknowledgementStale()
+    {
+        WriteUtf8Bom("ImpactProbe.s7dcl", "FUNCTION \"ImpactProbe\" : Void\r\nVAR_INPUT\r\n    Changed : Bool;\r\nEND_VAR\r\nEND_FUNCTION");
+        var existing = new FakeBlock { Name = "ImpactProbe", Type = "FC", ExportContent = "FUNCTION \"ImpactProbe\" : Void\r\nEND_FUNCTION" };
+        var plc = OpenPlcMock();
+        plc.SetupSequence(service => service.GetCrossReferencesAsync("ImpactProbe"))
+            .ReturnsAsync(new PlcCrossReferenceResult(true, "ImpactProbe", "first", new[] { new PlcCrossReferenceEntry("CallerA", "CallerA", "Call", "Block", null) }))
+            .ReturnsAsync(new PlcCrossReferenceResult(true, "ImpactProbe", "second", new[] { new PlcCrossReferenceEntry("CallerB", "CallerB", "Call", "Block", null) }));
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "stale impact");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "ImpactProbe", null, "Override");
+        PlcCodeTransaction reviewed = await service.PlanTransactionAsync(draft.TransactionId);
+
+        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.ApproveTransactionImpactAsync(reviewed.TransactionId, reviewed.ImpactAnalysis!.Fingerprint, false));
+
+        StringAssert.Contains(error.Message, "changed after planning");
+        Assert.AreEqual("Stale", service.GetTransaction(reviewed.TransactionId).State);
+        Assert.IsTrue(service.DiscardTransaction(reviewed.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_ImpactConsumerChangeAfterApproval_RejectsApplyBeforeMutation()
+    {
+        WriteUtf8Bom("ImpactProbe.s7dcl", "FUNCTION \"ImpactProbe\" : Void\r\nVAR_INPUT\r\n    Changed : Bool;\r\nEND_VAR\r\nEND_FUNCTION");
+        var existing = new FakeBlock { Name = "ImpactProbe", Type = "FC", ExportContent = "FUNCTION \"ImpactProbe\" : Void\r\nEND_FUNCTION" };
+        var firstEvidence = new PlcCrossReferenceResult(true, "ImpactProbe", "first", new[] { new PlcCrossReferenceEntry("CallerA", "CallerA", "Call", "Block", null) });
+        var changedEvidence = new PlcCrossReferenceResult(true, "ImpactProbe", "changed", new[] { new PlcCrossReferenceEntry("CallerB", "CallerB", "Call", "Block", null) });
+        var plc = OpenPlcMock();
+        plc.SetupSequence(service => service.GetCrossReferencesAsync("ImpactProbe"))
+            .ReturnsAsync(firstEvidence)
+            .ReturnsAsync(firstEvidence)
+            .ReturnsAsync(changedEvidence);
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "apply stale impact");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "ImpactProbe", null, "Override");
+        PlcCodeTransaction reviewed = await service.PlanTransactionAsync(draft.TransactionId);
+        PlcCodeTransaction plan = await service.ApproveTransactionImpactAsync(reviewed.TransactionId, reviewed.ImpactAnalysis!.Fingerprint, false);
+
+        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!));
+
+        StringAssert.Contains(error.Message, "changed after planning");
+        Assert.AreEqual("Stale", service.GetTransaction(plan.TransactionId).State);
+        plc.Verify(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_DeleteWithPlcConsumers_IsImpactBlocked()
+    {
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var type = new FakeType { Name = "UsedType", ExportContent = TypeXml("UsedType", "baseline") };
+        software.TypeGroup.Types.Add(type);
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetCrossReferencesAsync("UsedType")).ReturnsAsync(new PlcCrossReferenceResult(true, "UsedType", "used", new[]
+        {
+            new PlcCrossReferenceEntry("Data", "PLC data types/Data", "DataType", "Type", null)
+        }));
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "blocked delete");
+        service.AddDeleteTypeTransactionOperation(draft.TransactionId, "UsedType", null);
+
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        Assert.AreEqual("ImpactBlocked", plan.State);
+        Assert.AreEqual("Blocked", plan.ImpactAnalysis!.Status);
+        Assert.IsNull(plan.ApplyToken);
+        StringAssert.Contains(plan.ImpactAnalysis.Targets.Single().Reasons.Last(), "blocked");
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_UnknownImpact_RequiresExplicitUnknownAcceptance()
+    {
+        WriteUtf8Bom("ImpactProbe.s7dcl", "FUNCTION \"ImpactProbe\" : Void\r\nVAR_INPUT\r\n    Changed : Bool;\r\nEND_VAR\r\nEND_FUNCTION");
+        var existing = new FakeBlock { Name = "ImpactProbe", Type = "FC", ExportContent = "FUNCTION \"ImpactProbe\" : Void\r\nEND_FUNCTION" };
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetCrossReferencesAsync("ImpactProbe")).ReturnsAsync(new PlcCrossReferenceResult(false, "ImpactProbe", "CrossReference service unavailable."));
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "unknown impact");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "ImpactProbe", null, "Override");
+        PlcCodeTransaction reviewed = await service.PlanTransactionAsync(draft.TransactionId);
+
+        Assert.AreEqual("Unknown", reviewed.ImpactAnalysis!.Status);
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.ApproveTransactionImpactAsync(reviewed.TransactionId, reviewed.ImpactAnalysis.Fingerprint, false));
+
+        PlcCodeTransaction plan = await service.ApproveTransactionImpactAsync(reviewed.TransactionId, reviewed.ImpactAnalysis.Fingerprint, true);
+
+        Assert.AreEqual("Planned", plan.State);
+        Assert.IsNotNull(plan.ApplyToken);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_UnresolvedExternalDependency_IsReportedAsUnknownImpact()
+    {
+        WriteUtf8Bom("Consumer.s7dcl", "FUNCTION \"Consumer\" : Void\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail \"MissingProvider\"() END_RUNG END_NETWORK\r\nEND_FUNCTION");
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups());
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "unknown dependency");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Consumer", null, "Override");
+
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        Assert.AreEqual("ImpactReviewRequired", plan.State);
+        Assert.AreEqual("Unknown", plan.ImpactAnalysis!.Status);
+        Assert.AreEqual("MissingProvider", plan.ImpactAnalysis.Dependencies.Single().Name);
+        Assert.AreEqual("Unknown", plan.ImpactAnalysis.Dependencies.Single().Status);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_DataLayoutAttributeChange_RequiresNonPlcConsumerReview()
+    {
+        string asset = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "skills", "s7dcl-data-authoring", "assets", "Codex_Data_Probe.s7dcl"))
+            .Replace("Codex_Data_Probe", "DataImpact")
+            .Replace("59994", "63994");
+        WriteUtf8Bom("DataImpact.s7dcl", asset.Replace("S7_Optimized := \"TRUE\"", "S7_Optimized := \"FALSE\""));
+        var existing = new FakeBlock { Name = "DataImpact", Type = "GlobalDB", Number = 63994, ExportContent = asset };
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetCrossReferencesAsync("DataImpact")).ReturnsAsync(new PlcCrossReferenceResult(true, "DataImpact", "No external PLC consumers."));
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "optimized layout impact");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "DataImpact", null, "Override");
+
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        Assert.AreEqual("ImpactReviewRequired", plan.State);
+        Assert.AreEqual("LayoutChange", plan.ImpactAnalysis!.Targets.Single().ChangeKind);
+        Assert.IsTrue(plan.ImpactAnalysis.Warnings.Any(warning => warning.Contains("HMI")));
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_BlockNumberChange_IsClassifiedAsIdentityImpact()
+    {
+        const string baseline = "{ S7_BlockNumber := \"64001\"; }\r\nFUNCTION \"IdentityImpact\" : Void\r\nEND_FUNCTION";
+        WriteUtf8Bom("IdentityImpact.s7dcl", baseline.Replace("64001", "64002"));
+        var existing = new FakeBlock { Name = "IdentityImpact", Type = "FC", Number = 64001, ExportContent = baseline };
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetCrossReferencesAsync("IdentityImpact")).ReturnsAsync(new PlcCrossReferenceResult(true, "IdentityImpact", "No external PLC consumers."));
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "identity impact");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "IdentityImpact", null, "Override");
+
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        Assert.AreEqual("ImpactReviewRequired", plan.State);
+        Assert.AreEqual("IdentityChange", plan.ImpactAnalysis!.Targets.Single().ChangeKind);
         Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
     }
 

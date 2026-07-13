@@ -63,7 +63,43 @@ public sealed class PlanPlcCodeTransactionCommand : ICommand
     public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         PlcCodeTransaction result = await _service.PlanTransactionAsync(args.GetString("transaction-id")).ConfigureAwait(false);
-        return CommandResult.CreateSuccess(result, "Transaction planned. Review every operation and the one-use apply token.");
+        string message = result.State == "Planned"
+            ? "Transaction impact is safe and the plan is ready. Review every operation and the one-use apply token."
+            : result.State == "ImpactBlocked"
+                ? "Transaction planning completed, but impact findings block mutation. Review the persisted impact analysis and recreate a narrower transaction."
+                : "Transaction planning completed without an apply token. Review the persisted impact analysis, then explicitly acknowledge its exact fingerprint.";
+        return CommandResult.CreateSuccess(result, message);
+    }
+}
+
+public sealed class GetPlcCodeImpactCommand : ICommand
+{
+    private readonly PlcDocumentWorkflowService _service;
+    public GetPlcCodeImpactCommand(PlcDocumentWorkflowService service) => _service = service;
+    public string Name => "get-plc-code-impact";
+    public string Description => "Gets the semantic delta, resolved dependencies, live PLC consumers, policy status, and fingerprint for a planned PLC code transaction";
+    public CommandSchema Schema => new CommandSchema(Description, new[] { new CommandParameter("transaction-id", CommandParameterType.String, "Planned or impact-review PLC code transaction id", true) });
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger) => Task.FromResult(CommandResult.CreateSuccess(_service.GetTransactionImpact(args.GetString("transaction-id")), "PLC code impact analysis loaded."));
+}
+
+public sealed class ApprovePlcCodeImpactCommand : ICommand
+{
+    private readonly PlcDocumentWorkflowService _service;
+    public ApprovePlcCodeImpactCommand(PlcDocumentWorkflowService service) => _service = service;
+    public string Name => "approve-plc-code-impact";
+    public string Description => "Revalidates and explicitly acknowledges a fingerprint-bound ReviewRequired or Unknown PLC code impact before issuing an apply token";
+    public CommandSchema Schema => new CommandSchema(Description, new[]
+    {
+        new CommandParameter("transaction-id", CommandParameterType.String, "ImpactReviewRequired PLC code transaction id", true),
+        new CommandParameter("impact-fingerprint", CommandParameterType.String, "Exact fingerprint returned by transaction planning", true),
+        new CommandParameter("accept-unknown", CommandParameterType.Boolean, "Explicitly accept unresolved impact evidence after review", false, false),
+        new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm the reviewed impact acknowledgement", true)
+    });
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    {
+        if (!args.GetBool("confirm")) return CommandResult.CreateFailure("Approving PLC code impact requires confirm=true.");
+        PlcCodeTransaction result = await _service.ApproveTransactionImpactAsync(args.GetString("transaction-id"), args.GetString("impact-fingerprint"), args.GetBool("accept-unknown")).ConfigureAwait(false);
+        return CommandResult.CreateSuccess(result, "Impact evidence was revalidated and acknowledged. Review the new one-use apply token before mutation.");
     }
 }
 

@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **169**
+Commands: **171**
 
 ## Devices
 
@@ -521,6 +521,17 @@ Atomically preflights, applies, compiles, verifies, or fully rolls back a planne
 | `apply-token` | String | yes |  | One-use token returned by transaction planning |
 | `confirm` | Boolean | yes |  | Confirm the complete reviewed transaction |
 
+### approve-plc-code-impact
+
+Revalidates and explicitly acknowledges a fingerprint-bound ReviewRequired or Unknown PLC code impact before issuing an apply token
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | ImpactReviewRequired PLC code transaction id |
+| `impact-fingerprint` | String | yes |  | Exact fingerprint returned by transaction planning |
+| `accept-unknown` | Boolean | no | False | Explicitly accept unresolved impact evidence after review |
+| `confirm` | Boolean | yes |  | Confirm the reviewed impact acknowledgement |
+
 ### begin-plc-code-transaction
 
 Begins a persistent PLC code transaction bound to the current TIA process, project, and PLC
@@ -798,6 +809,14 @@ Gets PLC online status, optionally going online first
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `go-online` | Boolean | no | True | Attempt to go online before reading status |
+
+### get-plc-code-impact
+
+Gets the semantic delta, resolved dependencies, live PLC consumers, policy status, and fingerprint for a planned PLC code transaction
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Planned or impact-review PLC code transaction id |
 
 ### get-plc-code-transaction
 
