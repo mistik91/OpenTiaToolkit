@@ -90,6 +90,20 @@ public sealed class PlcCodeFormatServiceTests
     }
 
     [TestMethod]
+    public void ValidateSimaticMl_PlcStructBaseline_IsVerifiedAsType()
+    {
+        string baseline = Write("type-baseline.xml", TypeXml("ProbeType", "before"));
+        string candidate = Write("type-candidate.xml", TypeXml("ProbeType", "after"));
+
+        var result = _service.ValidateSimaticMl(candidate, baseline, false);
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("verified", result.Classification);
+        Assert.AreEqual("TYPE", result.DeclaredObjects.Single().ObjectType);
+        Assert.AreEqual("ProbeType", result.DeclaredObjects.Single().Name);
+    }
+
+    [TestMethod]
     public void ValidateSimaticMl_Dtd_IsRejected()
     {
         string path = Write("bad.xml", "<!DOCTYPE x [<!ENTITY y SYSTEM 'file:///c:/windows/win.ini'>]><Document xmlns=\"urn:test\">&y;</Document>");
@@ -106,6 +120,7 @@ public sealed class PlcCodeFormatServiceTests
     }
 
     private static string Xml(string id, string uid) => $"<?xml version=\"1.0\"?><Document xmlns=\"urn:siemens:test\"><SW.Blocks.FC ID=\"{id}\"><AttributeList><Name>Probe</Name><Original>Original</Original></AttributeList><ObjectList><SW.Blocks.CompileUnit ID=\"cu\"><AttributeList><NetworkSource><FlgNet><Parts><Part UId=\"{uid}\" /></Parts></FlgNet></NetworkSource></AttributeList></SW.Blocks.CompileUnit></ObjectList></SW.Blocks.FC></Document>";
+    private static string TypeXml(string name, string marker) => $"<?xml version=\"1.0\"?><Document><SW.Types.PlcStruct ID=\"0\"><AttributeList><Interface xmlns=\"urn:siemens:test\"><Marker>{marker}</Marker></Interface><Name>{name}</Name></AttributeList></SW.Types.PlcStruct></Document>";
 
     private static string FindRepositoryRoot()
     {

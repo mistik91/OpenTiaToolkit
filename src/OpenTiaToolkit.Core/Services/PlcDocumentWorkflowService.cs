@@ -27,7 +27,8 @@ public sealed partial class PlcDocumentWorkflowService
     {
         "Contact", "I_Contact", "Coil", "I_Coil", "S_Coil", "R_Coil", "Not", "P_Trig",
         "GT_Contact", "LT_Contact", "EQ_Contact", "NE_Contact", "GE_Contact", "LE_Contact",
-        "Move", "Add", "Sub", "Mul", "Div", "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil", "ATTR_DB"
+        "P_Contact", "N_Contact", "Move", "Add", "Sub", "Mul", "Div", "Normalize", "Scale",
+        "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil", "TONR_Coil", "RT_Coil", "ATTR_DB"
     };
     private static readonly HashSet<string> KnownUnsupportedInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -35,7 +36,11 @@ public sealed partial class PlcDocumentWorkflowService
     };
     private static readonly HashSet<string> TypedInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        "GT_Contact", "LT_Contact", "EQ_Contact", "NE_Contact", "GE_Contact", "LE_Contact", "Add", "Sub", "Mul", "Div"
+        "GT_Contact", "LT_Contact", "EQ_Contact", "NE_Contact", "GE_Contact", "LE_Contact", "Add", "Sub", "Mul", "Div", "Normalize", "Scale"
+    };
+    private static readonly HashSet<string> DualTypedInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Normalize", "Scale"
     };
     private static readonly HashSet<string> StatefulInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -102,6 +107,12 @@ public sealed partial class PlcDocumentWorkflowService
         }
 
         IReadOnlyList<PlcDocumentInstructionValidation> instructions = ValidateInstructions(text, blockType, errors, warnings);
+        string[] dependencies = instructions
+            .Where(item => item.Classification == "unknown-requires-live-probe" && item.Guidance != null && item.Guidance.IndexOf("Block calls", StringComparison.OrdinalIgnoreCase) >= 0)
+            .Select(item => item.Instruction)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         string classification = errors.Any(error => error.IndexOf("known-unsupported", StringComparison.OrdinalIgnoreCase) >= 0)
             ? "known-unsupported"
             : instructions.Any(item => item.Classification == "unknown-requires-live-probe") ? "unknown-requires-live-probe" : "verified";
@@ -123,6 +134,7 @@ public sealed partial class PlcDocumentWorkflowService
             ResourceRequired = resourceRequired,
             ResourceReferences = references,
             Instructions = instructions,
+            Dependencies = dependencies,
             Errors = errors,
             Warnings = warnings
         };
@@ -295,7 +307,7 @@ public sealed partial class PlcDocumentWorkflowService
             }
             if (VerifiedInstructions.Contains(name))
             {
-                bool inferredType = TypedInstructions.Contains(name) && !HasSourceTypeTemplateBeforeCall(text, match.Index);
+                bool inferredType = TypedInstructions.Contains(name) && !HasSourceTypeTemplateBeforeCall(text, match.Index, DualTypedInstructions.Contains(name));
                 string classification = inferredType ? "unknown-requires-live-probe" : "verified";
                 results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = classification, Line = line, Guidance = inferredType ? "Siemens may infer the operand type from connected values, but agent-authored calls should emit an explicit S7_Templates SrcType and require a live compile when it is absent." : null });
                 if (inferredType) warnings.Add($"Typed instruction {name} at line {line} has no preceding S7_Templates SrcType in its network. Siemens-exported inferred forms are accepted only with guarded live compile verification.");
@@ -303,7 +315,8 @@ public sealed partial class PlcDocumentWorkflowService
             }
             else
             {
-                results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = "unknown-requires-live-probe", Line = line, Guidance = "Keep the guarded apply and require Siemens import plus zero-error compile verification." });
+                bool projectCall = !StatefulInstructions.Contains(name) && !name.Equals("N_Trig", StringComparison.OrdinalIgnoreCase);
+                results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = "unknown-requires-live-probe", Line = line, Guidance = projectCall ? "Block calls are project-specific and require Siemens import plus compile verification." : "Keep the guarded apply and require Siemens import plus zero-error compile verification." });
                 warnings.Add($"Line {line}: instruction or block call '{name}' is not in the import-verified registry and requires a live probe.");
                 if (StatefulInstructions.Contains(name) || name.Equals("N_Trig", StringComparison.OrdinalIgnoreCase)) ValidateInstructionArguments(text, match, name, blockType, errors);
             }
@@ -326,15 +339,26 @@ public sealed partial class PlcDocumentWorkflowService
         bool Has(string parameter) => Regex.IsMatch(arguments, @"(?i)\b" + Regex.Escape(parameter) + @"\s*(?::=|=>)");
         if (name.Equals("Move", StringComparison.OrdinalIgnoreCase) && (!Has("in") || !Has("out1"))) errors.Add($"Instruction Move at line {LineOf(text, call.Index)} requires named 'in' and 'out1' parameters.");
         if (new[] { "Add", "Sub", "Mul", "Div" }.Contains(name, StringComparer.OrdinalIgnoreCase) && (!Has("in1") || !Has("in2") || !Has("out"))) errors.Add($"Instruction {name} at line {LineOf(text, call.Index)} requires named 'in1', 'in2', and 'out' parameters.");
+        if (new[] { "Normalize", "Scale" }.Contains(name, StringComparer.OrdinalIgnoreCase))
+            foreach (string parameter in new[] { "min", "value", "max", "out" })
+                if (!Has(parameter)) errors.Add($"Instruction {name} at line {LineOf(text, call.Index)} requires named '{parameter}'.");
         if (name.Equals("ATTR_DB", StringComparison.OrdinalIgnoreCase))
             foreach (string parameter in new[] { "REQ", "DB_NUMBER", "RET_VAL", "DB_LENGTH", "ATTRIB" })
                 if (!Has(parameter)) errors.Add($"Instruction ATTR_DB at line {LineOf(text, call.Index)} requires named '{parameter}'.");
         if (TypedInstructions.Contains(name) && name.EndsWith("_Contact", StringComparison.OrdinalIgnoreCase) && (!Has("in1") || !Has("in2"))) errors.Add($"Instruction {name} at line {LineOf(text, call.Index)} requires named 'in1' and 'in2' parameters.");
-        if (new[] { "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil" }.Contains(name, StringComparer.OrdinalIgnoreCase))
+        if (new[] { "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil", "TONR_Coil" }.Contains(name, StringComparer.OrdinalIgnoreCase))
         {
             if (!Has("pt")) errors.Add($"Timer instruction {name} at line {LineOf(text, call.Index)} requires named 'pt'.");
+            if (name.EndsWith("_Coil", StringComparison.OrdinalIgnoreCase) && !Has("timer")) errors.Add($"Timer coil {name} at line {LineOf(text, call.Index)} requires named 'timer'.");
             string receiver = call.Value.Substring(0, call.Value.LastIndexOf(name, StringComparison.OrdinalIgnoreCase));
             if (string.Equals(blockType, "FC", StringComparison.OrdinalIgnoreCase) && receiver.TrimStart().StartsWith("#", StringComparison.Ordinal)) errors.Add($"Timer instance {receiver.Trim().TrimEnd('.')} at line {LineOf(text, call.Index)} is local to an FC. Use an FB static or a global DB timer instance.");
+        }
+        if (new[] { "P_Contact", "N_Contact" }.Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            foreach (string parameter in new[] { "operand", "bit" })
+                if (!Has(parameter)) errors.Add($"Edge contact {name} at line {LineOf(text, call.Index)} requires named '{parameter}'.");
+            Match bit = Regex.Match(arguments, @"(?i)\bbit\s*:=\s*#(?<name>[A-Za-z_][A-Za-z0-9_]*)");
+            if (bit.Success && !IsDeclaredInRetainedEdgeSection(text, bit.Groups["name"].Value)) errors.Add($"Edge contact {name} memory '#{bit.Groups["name"].Value}' at line {LineOf(text, call.Index)} must be Bool in FB static VAR or VAR_IN_OUT, not VAR_TEMP.");
         }
         if (new[] { "CTU", "CTD", "CTUD" }.Contains(name, StringComparer.OrdinalIgnoreCase))
         {
@@ -355,11 +379,14 @@ public sealed partial class PlcDocumentWorkflowService
         }
     }
 
-    private static bool HasSourceTypeTemplateBeforeCall(string text, int callIndex)
+    private static bool HasSourceTypeTemplateBeforeCall(string text, int callIndex, bool requireDestinationType)
     {
         int networkStart = text.LastIndexOf("NETWORK", callIndex, StringComparison.OrdinalIgnoreCase);
         string prefix = text.Substring(Math.Max(0, networkStart), callIndex - Math.Max(0, networkStart));
-        return prefix.IndexOf("SrcType", StringComparison.OrdinalIgnoreCase) >= 0;
+        int templateIndex = prefix.LastIndexOf("S7_Templates", StringComparison.OrdinalIgnoreCase);
+        if (templateIndex < 0 || templateIndex < prefix.LastIndexOf(')')) return false;
+        string nearestTemplate = prefix.Substring(templateIndex);
+        return nearestTemplate.IndexOf("SrcType", StringComparison.OrdinalIgnoreCase) >= 0 && (!requireDestinationType || nearestTemplate.IndexOf("DestType", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
     private static void ValidateBlockBoundaries(string text, string? blockType, List<string> errors)
@@ -424,6 +451,7 @@ public sealed partial class PlcDocumentWorkflowService
     }
 
     private object RequireBlockRoot() => TiaReflectionHelper.GetBlockGroup(_sessionContext.PlcSoftware) ?? throw new InvalidOperationException("PLC block root is unavailable.");
+    private object RequireTypeRoot() => TiaReflectionHelper.GetTypeGroup(_sessionContext.PlcSoftware) ?? throw new InvalidOperationException("PLC type root is unavailable.");
 
     private IReadOnlyList<ResolvedBlock> FindBlocks(object root, string name)
     {
@@ -447,6 +475,29 @@ public sealed partial class PlcDocumentWorkflowService
         }
     }
 
+    private IReadOnlyList<ResolvedType> FindTypes(object root, string name)
+    {
+        var results = new List<ResolvedType>();
+        CollectTypes(root, string.Empty, name, results);
+        return results;
+    }
+
+    private void CollectTypes(object group, string path, string name, List<ResolvedType> results)
+    {
+        IEnumerable<object>? types = TiaReflectionHelper.GetTypes(group);
+        if (types != null)
+            foreach (object type in types)
+                if (string.Equals(TiaReflectionHelper.GetName(type), name, StringComparison.OrdinalIgnoreCase))
+                    results.Add(new ResolvedType(type, new PlcBlockIdentity { PlcName = _sessionContext.CurrentPlcName ?? string.Empty, GroupPath = path, Name = name, BlockType = "TYPE" }));
+        IEnumerable<object>? groups = TiaReflectionHelper.GetGroups(group);
+        if (groups == null) return;
+        foreach (object child in groups)
+        {
+            string childName = TiaReflectionHelper.GetName(child) ?? "<unnamed>";
+            CollectTypes(child, CombinePath(path, childName), name, results);
+        }
+    }
+
     private ResolvedBlock? ResolveExact(object root, PlcBlockIdentity identity, bool allowMissing)
     {
         IReadOnlyList<ResolvedBlock> matches = FindBlocks(root, identity.Name).Where(item => GroupEquals(item.Identity.GroupPath, identity.GroupPath) && BlockTypeEquals(item.Identity.BlockType, identity.BlockType)).ToArray();
@@ -454,6 +505,14 @@ public sealed partial class PlcDocumentWorkflowService
         if (matches.Count == 0) { if (allowMissing) return null; throw new InvalidOperationException($"Exact target '{identity}' was not found."); }
         if (!string.IsNullOrWhiteSpace(identity.Number) && !string.Equals(identity.Number, matches[0].Identity.Number, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"Exact target '{identity}' resolved with block number '{matches[0].Identity.Number ?? "<none>"}' instead of planned number '{identity.Number}'.");
+        return matches[0];
+    }
+
+    private ResolvedType? ResolveExactType(object root, PlcBlockIdentity identity, bool allowMissing)
+    {
+        IReadOnlyList<ResolvedType> matches = FindTypes(root, identity.Name).Where(item => GroupEquals(item.Identity.GroupPath, identity.GroupPath)).ToArray();
+        if (matches.Count > 1) throw new InvalidOperationException($"PLC type target '{identity.Name}' is ambiguous in group '{DisplayGroup(identity.GroupPath)}'.");
+        if (matches.Count == 0) { if (allowMissing) return null; throw new InvalidOperationException($"Exact PLC type target '{identity}' was not found."); }
         return matches[0];
     }
 
@@ -472,6 +531,13 @@ public sealed partial class PlcDocumentWorkflowService
     {
         Directory.CreateDirectory(directory);
         return _v21Adapter.TryExportAsDocuments(block.EngineeringObject, new DirectoryInfo(directory), block.Identity.Name, out string? state) && string.Equals(state, "Success", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool ExportExactType(ResolvedType type, string path)
+    {
+        string? directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+        return _v21Adapter.TryExportEngineeringObject(type.EngineeringObject, path, "None", out _);
     }
 
     private static object? ResolveGroup(object root, string path) => TiaReflectionHelper.GetBlockGroupByPath(root, path);
@@ -496,6 +562,17 @@ public sealed partial class PlcDocumentWorkflowService
         string normalized = string.Join("/", path!.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim()));
         if (normalized.Equals("Program Blocks", StringComparison.OrdinalIgnoreCase)) return string.Empty;
         if (normalized.StartsWith("Program Blocks/", StringComparison.OrdinalIgnoreCase)) return normalized.Substring("Program Blocks/".Length);
+        return normalized;
+    }
+    private static string NormalizeTypeGroupPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+        string normalized = string.Join("/", path!.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim()));
+        foreach (string root in new[] { "PLC data types", "PLC types", "Types" })
+        {
+            if (normalized.Equals(root, StringComparison.OrdinalIgnoreCase)) return string.Empty;
+            if (normalized.StartsWith(root + "/", StringComparison.OrdinalIgnoreCase)) return normalized.Substring(root.Length + 1);
+        }
         return normalized;
     }
     private static string DisplayGroup(string path) => string.IsNullOrEmpty(path) ? "<root>" : path;
@@ -553,6 +630,12 @@ public sealed partial class PlcDocumentWorkflowService
             if (Regex.IsMatch(section.Groups["body"].Value, @"(?im)(?:^|;)\s*" + Regex.Escape(name) + @"\s*:\s*" + Regex.Escape(type) + @"\s*;")) return true;
         return false;
     }
+    private static bool IsDeclaredInRetainedEdgeSection(string text, string name)
+    {
+        foreach (Match section in Regex.Matches(text, @"(?is)\b(?:VAR|VAR_IN_OUT)\b(?<body>.*?)\bEND_VAR\b"))
+            if (Regex.IsMatch(section.Groups["body"].Value, @"(?im)(?:^|;)\s*" + Regex.Escape(name) + @"\s*:\s*Bool\s*;")) return true;
+        return false;
+    }
     private static void Cleanup(string directory) { try { if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory)) Directory.Delete(directory, true); } catch { } }
 
     private sealed class ResolvedBlock
@@ -561,6 +644,12 @@ public sealed partial class PlcDocumentWorkflowService
         public object EngineeringObject { get; }
         public PlcBlockIdentity Identity { get; }
         public BlockInfoDetail Info { get; }
+    }
+    private sealed class ResolvedType
+    {
+        public ResolvedType(object engineeringObject, PlcBlockIdentity identity) { EngineeringObject = engineeringObject; Identity = identity; }
+        public object EngineeringObject { get; }
+        public PlcBlockIdentity Identity { get; }
     }
     private sealed class RollbackEvidence
     {

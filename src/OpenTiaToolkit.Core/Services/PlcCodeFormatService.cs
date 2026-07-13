@@ -29,11 +29,11 @@ public sealed class PlcCodeFormatService
             new[] { "GlobalDB" }, new[] { "layout impact", "exact identity", "canonical export", "compile" },
             new[] { "instance DB recreation unsupported", "UDT existence requires project discovery" }),
         Capability("SCL", new[] { ".scl" }, "verified-subset", "guarded-scl-source", true, true,
-            new[] { "FC", "FB", "OB", "GlobalDB" }, new[] { "declared object set", "generated identities", "compile", "source and block rollback" },
-            new[] { "PLC TYPE generation is not transactionally supported", "safety source unsupported", "indirect/project calls require live compile" }),
+            new[] { "FC", "FB", "OB", "GlobalDB", "TYPE" }, new[] { "declared object set", "dependency order", "generated identities", "compile", "source/block/type rollback" },
+            new[] { "safety source unsupported", "indirect/project calls require live compile" }),
         Capability("SimaticML", new[] { ".xml" }, "patch-only", "guarded-simaticml-import", true, true,
-            new[] { "exported PLC block XML", "exported PLC type XML (validation only)" }, new[] { "namespace", "identity", "ID graph", "canonical export", "compile", "XML rollback" },
-            new[] { "transactional apply currently supports existing PLC blocks only", "general FlgNet generation unsupported", "baseline export required for mutation" }),
+            new[] { "exported PLC block XML", "exported PLC type XML" }, new[] { "namespace", "identity", "ID graph", "canonical export", "compile", "XML rollback" },
+            new[] { "transactional apply requires an existing baseline-bound object", "general FlgNet generation unsupported", "baseline export required for mutation" }),
         Capability("VCI", Array.Empty<string>(), "transport", "guarded-vci-sync", true, false,
             new[] { "mapped PLC objects" }, new[] { "mapping", "direction", "workspace file validation", "pre/post status" },
             new[] { "workspace-to-project is not a multi-object atomic transaction", "use narrow exact mappings" })
@@ -58,6 +58,7 @@ public sealed class PlcCodeFormatService
                 HasUtf8Bom = result.HasUtf8Bom,
                 DeclaredObjects = string.IsNullOrWhiteSpace(result.BlockName) ? Array.Empty<PlcCodeDeclaredObject>() : new[] { new PlcCodeDeclaredObject { Name = result.BlockName!, ObjectType = result.BlockType ?? string.Empty, Number = result.BlockNumber, Line = 1 } },
                 Findings = result.Instructions.Select(item => new PlcCodeValidationFinding { Construct = item.Instruction, Classification = item.Classification, Line = item.Line, Message = item.Guidance ?? string.Empty }).ToArray(),
+                Dependencies = result.Dependencies,
                 Errors = result.Errors,
                 Warnings = result.Warnings
             };
@@ -144,9 +145,9 @@ public sealed class PlcCodeFormatService
                 foreach (string uid in uids.Where(value => !int.TryParse(value, out _))) errors.Add($"FlgNet UId '{uid}' is not a decimal integer.");
                 foreach (IGrouping<string, string> duplicate in uids.GroupBy(value => value, StringComparer.Ordinal).Where(group => group.Count() > 1)) errors.Add($"FlgNet UId '{duplicate.Key}' is duplicated in one compile unit.");
             }
-            foreach (XElement element in document.Descendants().Where(element => Regex.IsMatch(element.Name.LocalName, @"\.(FC|FB|OB|GlobalDB|InstanceDB)$")))
+            foreach (XElement element in document.Descendants().Where(IsSupportedXmlObject))
             {
-                string type = element.Name.LocalName.Substring(element.Name.LocalName.LastIndexOf('.') + 1);
+                string type = XmlObjectType(element);
                 string name = element.Descendants().FirstOrDefault(child => child.Name.LocalName == "Name")?.Value ?? string.Empty;
                 objects.Add(new PlcCodeDeclaredObject { Name = name, ObjectType = type, Line = 1 });
             }
@@ -192,7 +193,9 @@ public sealed class PlcCodeFormatService
     private static string NormalizeFormat(string format, string path) { string value = (format ?? string.Empty).Trim().ToUpperInvariant(); if (value.Length > 0 && value != "AUTO") return value.Replace("-LAD", string.Empty).Replace("-DATA", string.Empty); string extension = Path.GetExtension(path).ToLowerInvariant(); return extension == ".scl" ? "SCL" : extension == ".xml" ? "SIMATICML" : "S7DCL"; }
     private static string DecodeUtf8(byte[] bytes, List<string> errors, string label) { if (bytes.Length == 0) return string.Empty; try { return new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF'); } catch (DecoderFallbackException ex) { errors.Add($"{label} is not valid UTF-8: {ex.Message}"); return string.Empty; } }
     private static XDocument? LoadXml(string path, List<string> errors) { if (!File.Exists(path)) return null; try { var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null }; using (XmlReader reader = XmlReader.Create(path, settings)) return XDocument.Load(reader, LoadOptions.PreserveWhitespace); } catch (Exception ex) { errors.Add("SimaticML XML is invalid or unsafe: " + ex.Message); return null; } }
-    private static string[] ExtractXmlObjectKeys(XDocument document) => document.Descendants().Where(element => Regex.IsMatch(element.Name.LocalName, @"\.(FC|FB|OB|GlobalDB|InstanceDB)$")).Select(element => element.Name.LocalName + ":" + (element.Descendants().FirstOrDefault(child => child.Name.LocalName == "Name")?.Value ?? string.Empty)).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+    private static string[] ExtractXmlObjectKeys(XDocument document) => document.Descendants().Where(IsSupportedXmlObject).Select(element => XmlObjectType(element) + ":" + (element.Descendants().FirstOrDefault(child => child.Name.LocalName == "Name")?.Value ?? string.Empty)).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+    private static bool IsSupportedXmlObject(XElement element) => Regex.IsMatch(element.Name.LocalName, @"\.(FC|FB|OB|GlobalDB|InstanceDB)$") || element.Name.LocalName.Equals("SW.Types.PlcStruct", StringComparison.Ordinal);
+    private static string XmlObjectType(XElement element) => element.Name.LocalName.Equals("SW.Types.PlcStruct", StringComparison.Ordinal) ? "TYPE" : element.Name.LocalName.Substring(element.Name.LocalName.LastIndexOf('.') + 1);
     private static string FlgNetTopologyFingerprint(XDocument document) => string.Join("|", document.Descendants().Where(element => new[] { "Parts", "Wires", "Part", "Wire", "NameCon", "IdentCon" }.Contains(element.Name.LocalName, StringComparer.Ordinal)).Select(element => element.ToString(SaveOptions.DisableFormatting)));
     private static PlcCodeValidationFinding Finding(string construct, string classification, string text, int index, string message) => new PlcCodeValidationFinding { Construct = construct, Classification = classification, Line = LineOf(text, index), Message = message };
     private static int LineOf(string text, int index) => 1 + text.Take(Math.Max(0, index)).Count(character => character == '\n');

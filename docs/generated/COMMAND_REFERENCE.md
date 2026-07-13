@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **167**
+Commands: **168**
 
 ## Devices
 
@@ -449,6 +449,18 @@ Saves pending edits in the selected local session without checking in.
 
 ## PLC
 
+### add-delete-plc-type-transaction-operation
+
+Adds an exact PLC type deletion with XML snapshot and rollback proof to a persistent PLC code transaction
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Draft PLC code transaction id |
+| `type-name` | String | yes |  | Exact PLC type name |
+| `group-path` | String | no |  | Exact PLC type group path |
+| `depends-on` | String | no |  | Optional comma-separated operation sequences that must apply first |
+| `confirm` | Boolean | yes |  | Confirm adding the reviewed deletion operation |
+
 ### add-plc-code-transaction-operation
 
 Adds a validated SIMATIC SD block upsert to a draft PLC code transaction
@@ -460,6 +472,7 @@ Adds a validated SIMATIC SD block upsert to a draft PLC code transaction
 | `file-name` | String | yes |  | Block/file name without extension |
 | `group-path` | String | no |  | Exact target block group |
 | `import-option` | String | no | Override | Siemens document import option |
+| `depends-on` | String | no |  | Optional comma-separated operation sequences that must apply first |
 | `confirm` | Boolean | yes |  | Confirm adding this local manifest operation |
 
 ### add-scl-source-transaction-operation
@@ -471,19 +484,22 @@ Adds validated SCL source import and exact generated-block replacement to a pers
 | `transaction-id` | String | yes |  | Draft PLC code transaction id |
 | `source-path` | Path | yes |  | UTF-8 SCL source file |
 | `group-path` | String | no |  | Exact target block group for every declared block |
+| `type-group-path` | String | no |  | Exact target PLC type group for every declared TYPE |
+| `depends-on` | String | no |  | Optional comma-separated operation sequences that must apply first |
 | `confirm` | Boolean | yes |  | Confirm adding the reviewed source operation |
 
 ### add-simaticml-transaction-operation
 
-Adds a baseline-bound SimaticML block patch to a persistent PLC code transaction
+Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code transaction
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `transaction-id` | String | yes |  | Draft PLC code transaction id |
-| `input-path` | Path | yes |  | Patched SimaticML block XML |
+| `input-path` | Path | yes |  | Patched SimaticML block or PLC type XML |
 | `baseline-path` | Path | yes |  | Untouched SimaticML export of the exact target |
-| `group-path` | String | no |  | Exact target block group |
+| `group-path` | String | no |  | Exact target block or PLC type group |
 | `allow-flgnet-topology` | Boolean | no | False | Allow an explicitly reviewed FlgNet topology change |
+| `depends-on` | String | no |  | Optional comma-separated operation sequences that must apply first |
 | `confirm` | Boolean | yes |  | Confirm adding the reviewed XML patch operation |
 
 ### apply-block-document-import
@@ -965,7 +981,7 @@ Binds an exact PLC block identity and creates a state-bound, rollback-capable SI
 
 ### plan-plc-code-transaction
 
-Snapshots every existing target and produces one atomic, state-bound PLC code transaction plan
+Snapshots every existing target and produces one dependency-ordered, atomic, state-bound PLC code transaction plan
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|

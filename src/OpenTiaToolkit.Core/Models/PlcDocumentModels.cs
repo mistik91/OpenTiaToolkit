@@ -23,6 +23,7 @@ public sealed class PlcDocumentValidationResult
     public IReadOnlyList<string> Warnings { get; set; } = Array.Empty<string>();
     public string Classification { get; set; } = "verified";
     public IReadOnlyList<PlcDocumentInstructionValidation> Instructions { get; set; } = Array.Empty<PlcDocumentInstructionValidation>();
+    public IReadOnlyList<string> Dependencies { get; set; } = Array.Empty<string>();
 }
 
 public sealed class PlcDocumentInstructionValidation
@@ -115,6 +116,7 @@ public sealed class PlcCodeTransactionOperation
     public string Kind { get; set; } = "UpsertBlockDocuments";
     public string? SourcePath { get; set; }
     public string? SourceName { get; set; }
+    public string TypeGroupPath { get; set; } = string.Empty;
     public string? BaselinePath { get; set; }
     public string? ValidationBaselineHash { get; set; }
     public bool AllowTopologyChange { get; set; }
@@ -126,6 +128,10 @@ public sealed class PlcCodeTransactionOperation
     public string InputHash { get; set; } = string.Empty;
     public string BaselineHash { get; set; } = string.Empty;
     public string? CanonicalResultHash { get; set; }
+    public IReadOnlyList<string> Dependencies { get; set; } = Array.Empty<string>();
+    public IReadOnlyList<int> ExplicitDependsOn { get; set; } = Array.Empty<int>();
+    public IReadOnlyList<int> DependsOn { get; set; } = Array.Empty<int>();
+    public int ExecutionOrder { get; set; }
     public PlcBlockIdentity? Target { get; set; }
     public IReadOnlyList<PlcCodeTransactionTargetSnapshot> TargetSnapshots { get; set; } = Array.Empty<PlcCodeTransactionTargetSnapshot>();
     public PlcDocumentValidationResult? Validation { get; set; }

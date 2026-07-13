@@ -1,8 +1,52 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 167,
+  "commandCount": 168,
   "commands": [
+    {
+      "name": "add-delete-plc-type-transaction-operation",
+      "description": "Adds an exact PLC type deletion with XML snapshot and rollback proof to a persistent PLC code transaction",
+      "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Draft PLC code transaction id"
+        },
+        {
+          "name": "type-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact PLC type name"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Exact PLC type group path"
+        },
+        {
+          "name": "depends-on",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated operation sequences that must apply first"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm adding the reviewed deletion operation"
+        }
+      ]
+    },
     {
       "name": "add-device",
       "description": "Adds a device with its primary item to the current project",
@@ -83,6 +127,13 @@
           "description": "Siemens document import option"
         },
         {
+          "name": "depends-on",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated operation sequences that must apply first"
+        },
+        {
           "name": "confirm",
           "type": "Boolean",
           "required": true,
@@ -150,6 +201,20 @@
           "description": "Exact target block group for every declared block"
         },
         {
+          "name": "type-group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Exact target PLC type group for every declared TYPE"
+        },
+        {
+          "name": "depends-on",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated operation sequences that must apply first"
+        },
+        {
           "name": "confirm",
           "type": "Boolean",
           "required": true,
@@ -160,7 +225,7 @@
     },
     {
       "name": "add-simaticml-transaction-operation",
-      "description": "Adds a baseline-bound SimaticML block patch to a persistent PLC code transaction",
+      "description": "Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code transaction",
       "category": "PLC",
       "risk": "Mutating",
       "supportsPreview": false,
@@ -177,7 +242,7 @@
           "type": "Path",
           "required": true,
           "defaultValue": null,
-          "description": "Patched SimaticML block XML"
+          "description": "Patched SimaticML block or PLC type XML"
         },
         {
           "name": "baseline-path",
@@ -191,7 +256,7 @@
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Exact target block group"
+          "description": "Exact target block or PLC type group"
         },
         {
           "name": "allow-flgnet-topology",
@@ -199,6 +264,13 @@
           "required": false,
           "defaultValue": false,
           "description": "Allow an explicitly reviewed FlgNet topology change"
+        },
+        {
+          "name": "depends-on",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated operation sequences that must apply first"
         },
         {
           "name": "confirm",
@@ -5172,7 +5244,7 @@
     },
     {
       "name": "plan-plc-code-transaction",
-      "description": "Snapshots every existing target and produces one atomic, state-bound PLC code transaction plan",
+      "description": "Snapshots every existing target and produces one dependency-ordered, atomic, state-bound PLC code transaction plan",
       "category": "PLC",
       "risk": "ReadOnly",
       "supportsPreview": false,

@@ -1555,11 +1555,13 @@ Use a PLC code transaction for every agent-authored change, including one block.
 ```powershell
 OpenTiaToolkit.CLI.exe begin-plc-code-transaction --plc-name="PLC_1" --description="Add conveyor logic" --compile-policy=NoNewErrors
 OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FB_Conveyor" --group-path="Conveyor" --confirm=true
-OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FC_ConveyorCall" --confirm=true
+OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FC_ConveyorCall" --depends-on=1 --confirm=true
 # Native SCL alternative:
-OpenTiaToolkit.CLI.exe add-scl-source-transaction-operation --transaction-id="<id>" --source-path="C:\changes\Conveyor.scl" --confirm=true
-# Existing-block SimaticML fallback alternative:
-OpenTiaToolkit.CLI.exe add-simaticml-transaction-operation --transaction-id="<id>" --input-path="C:\changes\Motor.patch.xml" --baseline-path="C:\changes\Motor.export.xml" --confirm=true
+OpenTiaToolkit.CLI.exe add-scl-source-transaction-operation --transaction-id="<id>" --source-path="C:\changes\Conveyor.scl" --type-group-path="ConveyorTypes" --confirm=true
+# Existing-block or PLC-type SimaticML fallback alternative:
+OpenTiaToolkit.CLI.exe add-simaticml-transaction-operation --transaction-id="<id>" --input-path="C:\changes\Motor.patch.xml" --baseline-path="C:\changes\Motor.export.xml" --group-path="Conveyor" --confirm=true
+# Guarded PLC-type deletion:
+OpenTiaToolkit.CLI.exe add-delete-plc-type-transaction-operation --transaction-id="<id>" --type-name="T_Obsolete" --group-path="ConveyorTypes" --confirm=true
 OpenTiaToolkit.CLI.exe plan-plc-code-transaction --transaction-id="<id>"
 OpenTiaToolkit.CLI.exe apply-plc-code-transaction --transaction-id="<id>" --apply-token="<token>" --confirm=true
 OpenTiaToolkit.CLI.exe get-plc-code-transaction --transaction-id="<id>"
@@ -1568,11 +1570,11 @@ OpenTiaToolkit.CLI.exe discard-plc-code-transaction --transaction-id="<id>" --co
 
 `begin-plc-code-transaction` binds the manifest to the current TIA process, project, and exact PLC. `NoNewErrors` accepts an already-imperfect baseline only when the transaction introduces no additional compile errors; `CleanCompile` requires a clean final compile. `maximum-new-warnings` can additionally cap warning growth.
 
-`plan-plc-code-transaction` validates every input again, resolves every exact target, rejects duplicate targets, snapshots every existing block before any mutation, records missing baselines for new blocks, and performs a baseline compile. The resulting thirty-minute apply token is one-use.
+`plan-plc-code-transaction` validates every input again, resolves every exact block and PLC-type target, rejects duplicate targets, snapshots existing targets before any mutation, records missing baselines for generated targets, and performs a baseline compile. It derives dependencies from authored calls, merges optional `depends-on` operation sequences, rejects missing or cyclic dependencies, and records a deterministic topological execution order. The resulting thirty-minute apply token is one-use.
 
-`apply-plc-code-transaction` first checks every input and every target hash as one atomic preflight. It then applies operations in reviewed sequence, verifies exact identities, compiles once, and exports canonical TIA documents. Any failure restores all existing targets and removes all newly created targets in reverse order. Success is reported only after compile-policy and canonical-export verification.
+`apply-plc-code-transaction` first checks every input and every target hash as one atomic preflight. It then applies operations in the reviewed dependency order, verifies exact identities, compiles once, and exports canonical TIA documents. Any failure restores all existing targets and removes all newly created targets in reverse execution order. Success is reported only after compile-policy and canonical-export verification.
 
-SCL operations validate every declared block and track each generated target. PLC `TYPE` declarations are rejected until type snapshot/read-back/rollback exists. SimaticML operations require an untouched export of the exact existing block, preserve IDs/namespaces/topology by default, re-export current TIA state during planning, and exclude only volatile export metadata from baseline comparison. VCI workspace-to-project sync is separate from transactions and requires `confirm=true`, validated workspace files, existing mappings, post-sync `Equal` status, and compile verification.
+SCL operations validate every declared block and PLC `TYPE`, track every generated target, and support a separate `type-group-path`. SimaticML operations require an untouched export of the exact existing block or PLC type, preserve IDs/namespaces/topology by default, re-export current TIA state during planning, and exclude only volatile export metadata from baseline comparison. Exact PLC-type deletion uses the same XML snapshot, compile, canonical read-back, and rollback proof. VCI workspace-to-project sync is separate from transactions and requires `confirm=true`, validated workspace files, existing mappings, post-sync `Equal` status, and compile verification.
 
 Manifests, integrity hashes, and append-only `journal.jsonl` records survive CLI/MCP or worker restarts under `%TEMP%\OpenTiaToolkit\plc-code-transactions`. `list-plc-code-transactions` discovers interrupted work. Use `recover-plc-code-transaction --confirm=true` for `Applying`, `Verifying`, `RollingBack`, or `RecoveryRequired` states. Recovery conservatively restores every baseline, including operations whose last journal write may have been interrupted. An unproven recovery also writes `recovery.json`; such a transaction cannot be discarded, and its backup package is never age-cleaned automatically.
 

@@ -40,12 +40,13 @@ public sealed class AddPlcCodeTransactionOperationCommand : ICommand
         new CommandParameter("file-name", CommandParameterType.String, "Block/file name without extension", true),
         new CommandParameter("group-path", CommandParameterType.String, "Exact target block group", false),
         new CommandParameter("import-option", CommandParameterType.String, "Siemens document import option", false, "Override"),
+        new CommandParameter("depends-on", CommandParameterType.String, "Optional comma-separated operation sequences that must apply first", false),
         new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding this local manifest operation", true)
     });
     public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         if (!args.GetBool("confirm")) return Task.FromResult(CommandResult.CreateFailure("Adding a PLC code transaction operation requires confirm=true."));
-        PlcCodeTransaction result = _service.AddTransactionOperation(args.GetString("transaction-id"), args.GetString("import-directory"), args.GetString("file-name"), args.GetString("group-path"), args.GetString("import-option"));
+        PlcCodeTransaction result = _service.AddTransactionOperation(args.GetString("transaction-id"), args.GetString("import-directory"), args.GetString("file-name"), args.GetString("group-path"), args.GetString("import-option"), args.GetString("depends-on"));
         return Task.FromResult(CommandResult.CreateSuccess(result, "Operation added to the draft transaction."));
     }
 }
@@ -55,7 +56,7 @@ public sealed class PlanPlcCodeTransactionCommand : ICommand
     private readonly PlcDocumentWorkflowService _service;
     public PlanPlcCodeTransactionCommand(PlcDocumentWorkflowService service) => _service = service;
     public string Name => "plan-plc-code-transaction";
-    public string Description => "Snapshots every existing target and produces one atomic, state-bound PLC code transaction plan";
+    public string Description => "Snapshots every existing target and produces one dependency-ordered, atomic, state-bound PLC code transaction plan";
     public CommandSchema Schema => new CommandSchema(Description, new[] { new CommandParameter("transaction-id", CommandParameterType.String, "Draft transaction id", true) });
     public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
@@ -75,12 +76,14 @@ public sealed class AddSclSourceTransactionOperationCommand : ICommand
         new CommandParameter("transaction-id", CommandParameterType.String, "Draft PLC code transaction id", true),
         new CommandParameter("source-path", CommandParameterType.Path, "UTF-8 SCL source file", true),
         new CommandParameter("group-path", CommandParameterType.String, "Exact target block group for every declared block", false),
+        new CommandParameter("type-group-path", CommandParameterType.String, "Exact target PLC type group for every declared TYPE", false),
+        new CommandParameter("depends-on", CommandParameterType.String, "Optional comma-separated operation sequences that must apply first", false),
         new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding the reviewed source operation", true)
     });
     public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         if (!args.GetBool("confirm")) return Task.FromResult(CommandResult.CreateFailure("Adding an SCL transaction operation requires confirm=true."));
-        PlcCodeTransaction result = _service.AddSclTransactionOperation(args.GetString("transaction-id"), args.GetString("source-path"), args.GetString("group-path"));
+        PlcCodeTransaction result = _service.AddSclTransactionOperation(args.GetString("transaction-id"), args.GetString("source-path"), args.GetString("group-path"), args.GetString("type-group-path"), args.GetString("depends-on"));
         return Task.FromResult(CommandResult.CreateSuccess(result, "SCL source generation operation added to the transaction."));
     }
 }
@@ -90,21 +93,44 @@ public sealed class AddSimaticMlTransactionOperationCommand : ICommand
     private readonly PlcDocumentWorkflowService _service;
     public AddSimaticMlTransactionOperationCommand(PlcDocumentWorkflowService service) => _service = service;
     public string Name => "add-simaticml-transaction-operation";
-    public string Description => "Adds a baseline-bound SimaticML block patch to a persistent PLC code transaction";
+    public string Description => "Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code transaction";
     public CommandSchema Schema => new CommandSchema(Description, new[]
     {
         new CommandParameter("transaction-id", CommandParameterType.String, "Draft PLC code transaction id", true),
-        new CommandParameter("input-path", CommandParameterType.Path, "Patched SimaticML block XML", true),
+        new CommandParameter("input-path", CommandParameterType.Path, "Patched SimaticML block or PLC type XML", true),
         new CommandParameter("baseline-path", CommandParameterType.Path, "Untouched SimaticML export of the exact target", true),
-        new CommandParameter("group-path", CommandParameterType.String, "Exact target block group", false),
+        new CommandParameter("group-path", CommandParameterType.String, "Exact target block or PLC type group", false),
         new CommandParameter("allow-flgnet-topology", CommandParameterType.Boolean, "Allow an explicitly reviewed FlgNet topology change", false, false),
+        new CommandParameter("depends-on", CommandParameterType.String, "Optional comma-separated operation sequences that must apply first", false),
         new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding the reviewed XML patch operation", true)
     });
     public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         if (!args.GetBool("confirm")) return Task.FromResult(CommandResult.CreateFailure("confirm=true is required to add a SimaticML transaction operation."));
-        PlcCodeTransaction transaction = _service.AddSimaticMlTransactionOperation(args.GetString("transaction-id"), args.GetString("input-path"), args.GetString("baseline-path"), args.GetString("group-path"), args.GetBool("allow-flgnet-topology"));
+        PlcCodeTransaction transaction = _service.AddSimaticMlTransactionOperation(args.GetString("transaction-id"), args.GetString("input-path"), args.GetString("baseline-path"), args.GetString("group-path"), args.GetBool("allow-flgnet-topology"), args.GetString("depends-on"));
         return Task.FromResult(CommandResult.CreateSuccess(transaction, "Baseline-bound SimaticML operation added to the transaction."));
+    }
+}
+
+public sealed class AddDeletePlcTypeTransactionOperationCommand : ICommand
+{
+    private readonly PlcDocumentWorkflowService _service;
+    public AddDeletePlcTypeTransactionOperationCommand(PlcDocumentWorkflowService service) => _service = service;
+    public string Name => "add-delete-plc-type-transaction-operation";
+    public string Description => "Adds an exact PLC type deletion with XML snapshot and rollback proof to a persistent PLC code transaction";
+    public CommandSchema Schema => new CommandSchema(Description, new[]
+    {
+        new CommandParameter("transaction-id", CommandParameterType.String, "Draft PLC code transaction id", true),
+        new CommandParameter("type-name", CommandParameterType.String, "Exact PLC type name", true),
+        new CommandParameter("group-path", CommandParameterType.String, "Exact PLC type group path", false),
+        new CommandParameter("depends-on", CommandParameterType.String, "Optional comma-separated operation sequences that must apply first", false),
+        new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding the reviewed deletion operation", true)
+    });
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    {
+        if (!args.GetBool("confirm")) return Task.FromResult(CommandResult.CreateFailure("confirm=true is required to add a PLC type deletion operation."));
+        PlcCodeTransaction transaction = _service.AddDeleteTypeTransactionOperation(args.GetString("transaction-id"), args.GetString("type-name"), args.GetString("group-path"), args.GetString("depends-on"));
+        return Task.FromResult(CommandResult.CreateSuccess(transaction, "Exact PLC type deletion operation added to the transaction."));
     }
 }
 

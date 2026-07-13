@@ -6,7 +6,7 @@ Every format workflow follows the same transaction boundary:
 2. **Export** every existing target before mutation. A missing target is an explicit `create` baseline, not an empty backup.
 3. **Validate** the authored artifact with `validate-plc-code-artifact`. Stop on errors. Treat `unknown-requires-live-probe` as permission only for a disposable, guarded import/compile probe.
 4. **Plan** the complete user intent once. Bind the plan to the TIA process, project, PLC, group, object type/name/number, input hashes, baseline hashes, compile policy, and all expected generated targets.
-5. **Review** create/override actions, dependencies, warnings, and the one-use apply token. Replan when any input or baseline is stale.
+5. **Review** create/override/delete actions, inferred and explicit dependencies, execution order, warnings, and the one-use apply token. Replan when any input or baseline is stale. Reject dependency cycles; combine mutually dependent blocks in one source when appropriate.
 6. **Apply** once with explicit confirmation. Do not split a multi-object intent into sequential applies.
 7. **Verify** exact object identities, compile policy, and canonical TIA read-back. File-import success alone is not completion.
 8. **Commit or roll back** as one unit. Restore existing objects and delete newly created objects in reverse dependency order. Success after failure requires restored-hash equality and a rollback compile.
@@ -24,8 +24,8 @@ Every format workflow follows the same transaction boundary:
 |---|---|---|---|
 | S7DCL LAD/mixed | LAD power flow and mixed LAD/SCL networks | Document import | Persistent transaction for multi-object work |
 | S7DCL data | Global DBs | Document import | Persistent transaction for dependencies plus consumers |
-| Native SCL | Complex FC/FB/OB source generation | External source generation | `add-scl-source-transaction-operation` |
-| SimaticML | Narrow fallback for features text formats cannot preserve | Guarded XML patch/import | Baseline-bound plan and verified restore required |
+| Native SCL | Complex FC/FB/OB/DB/type source generation | External source generation | `add-scl-source-transaction-operation` with exact block/type groups |
+| SimaticML | Narrow fallback for existing block/type features text formats cannot preserve | Guarded XML patch/import | Baseline-bound plan and verified restore required |
 | VCI | Source-controlled synchronization | Explicit directional sync | Validate workspace artifacts before workspace-to-project |
 
-PLC data types currently require a validated VCI type mapping or guarded SimaticML export/patch/import. They are not silently treated as blocks. Safety/F blocks, protected blocks, and AWL/STL generation are outside the standard authoring contract unless a dedicated, live-proven workflow says otherwise.
+PLC data types are separate targets with type-group identities and canonical XML hashes. Generate them from validated SCL, patch existing ones from untouched SimaticML baselines, or use validated VCI mappings. Delete them only with `add-delete-plc-type-transaction-operation`; the transaction must snapshot the exact type, compile after deletion, verify absence, and restore XML on failure. Safety/F blocks, protected blocks, and AWL/STL generation remain outside the standard authoring contract unless a dedicated, live-proven workflow says otherwise.

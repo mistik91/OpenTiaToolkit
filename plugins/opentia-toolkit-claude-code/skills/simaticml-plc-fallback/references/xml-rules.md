@@ -8,4 +8,4 @@
 - Patch exported known-good XML instead of composing it from memory.
 - Treat `Engineering` and `DocumentInfo` as volatile export metadata. Baseline binding canonicalizes those sections away but compares the complete engineering object payload.
 - Keep the candidate and untouched baseline as separate immutable artifacts for real patches. An identical file is useful only for a round-trip probe.
-- PLC type XML can be validated, but the current persistent XML transaction supports existing PLC blocks only because type snapshot/read-back/rollback is a separate Openness surface.
+- PLC types export as `SW.Types.PlcStruct`. Preserve the embedded `<Name>`, `ID` set, interface namespace, members, and exact type group. Existing types support baseline-bound transactional patch/import with canonical XML verification and XML rollback; creation still belongs to validated SCL or VCI.

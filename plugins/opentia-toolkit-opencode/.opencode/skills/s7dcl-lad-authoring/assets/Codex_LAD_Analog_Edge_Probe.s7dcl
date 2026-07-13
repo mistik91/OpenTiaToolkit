@@ -1,0 +1,48 @@
+{
+    S7_BlockNumber := "59989";
+    S7_Optimized := "TRUE";
+    S7_PreferredLanguage := "LAD";
+    S7_Version := "0.1"
+}
+FUNCTION "Codex_LAD_Analog_Edge_Probe" : Void
+    VAR_INPUT
+        RawValue : Int;
+        EdgeSource : Bool;
+    END_VAR
+    VAR_IN_OUT
+        RisingMemory : Bool;
+        FallingMemory : Bool;
+    END_VAR
+    VAR_OUTPUT
+        ScaledValue : Real;
+        RisingEdge : Bool;
+        FallingEdge : Bool;
+    END_VAR
+    VAR_TEMP
+        NormalizedValue : Real;
+    END_VAR
+
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            { S7_Templates := "[SrcType := Int, DestType := Real]" }
+            Normalize( min := 0, value := #RawValue, max := 27648, out => #NormalizedValue )
+            { S7_Templates := "[SrcType := Real, DestType := Real]" }
+            Scale( min := 0.0, value := #NormalizedValue, max := 100.0, out => #ScaledValue )
+        END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            P_Contact( operand := #EdgeSource, bit := #RisingMemory )
+            Coil( #RisingEdge )
+        END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            N_Contact( operand := #EdgeSource, bit := #FallingMemory )
+            Coil( #FallingEdge )
+        END_RUNG
+    END_NETWORK
+END_FUNCTION

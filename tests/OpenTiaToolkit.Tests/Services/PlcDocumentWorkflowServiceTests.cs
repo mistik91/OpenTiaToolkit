@@ -162,6 +162,43 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
+    public void Validate_NormalizeScaleAndEdgeContacts_WithExportedPins_AreVerified()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\nVAR_IN_OUT EdgeP : Bool; EdgeN : Bool; END_VAR\r\nVAR_TEMP R : Real; END_VAR\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail { S7_Templates := \"[SrcType := Int, DestType := Real]\" } Normalize( min := 0, value := 10, max := 100, out => #R ) { S7_Templates := \"[SrcType := Real, DestType := Int]\" } Scale( min := 0.0, value := #R, max := 100.0, out => #Out ) END_RUNG END_NETWORK\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail P_Contact( operand := #In, bit := #EdgeP ) N_Contact( operand := #In, bit := #EdgeN ) Coil( #Q ) END_RUNG END_NETWORK\r\nEND_FUNCTION");
+
+        var result = _service.Validate(_directory, "Probe");
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("verified", result.Classification);
+        Assert.IsTrue(result.Instructions.Any(item => item.Instruction == "Normalize" && item.Classification == "verified"));
+        Assert.IsTrue(result.Instructions.Any(item => item.Instruction == "N_Contact" && item.Classification == "verified"));
+    }
+
+    [TestMethod]
+    public void Validate_NormalizeWithoutDestTypeAndTimerCoilWithoutTimer_AreRejectedOrProbed()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail { S7_Templates := \"SrcType := Int\" } Normalize( min := 0, value := 10, max := 100, out => #R ) { S7_Templates := \"time_type := Time\" } TON_Coil( pt := T#1s ) END_RUNG END_NETWORK\r\nEND_FUNCTION");
+
+        var result = _service.Validate(_directory, "Probe");
+
+        Assert.IsFalse(result.Valid);
+        Assert.AreEqual("unknown-requires-live-probe", result.Classification);
+        StringAssert.Contains(string.Join("; ", result.Errors), "requires named 'timer'");
+        StringAssert.Contains(string.Join("; ", result.Warnings), "no preceding S7_Templates");
+    }
+
+    [TestMethod]
+    public void Validate_EdgeContactWithTemporaryMemory_IsRejected()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\nVAR_TEMP Edge : Bool; END_VAR\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail P_Contact( operand := #In, bit := #Edge ) Coil( #Q ) END_RUNG END_NETWORK\r\nEND_FUNCTION");
+
+        var result = _service.Validate(_directory, "Probe");
+
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(string.Join("; ", result.Errors), "not VAR_TEMP");
+    }
+
+    [TestMethod]
     public void Validate_LocalTimerInFc_IsRejected()
     {
         WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail #timer.TON( pt := T#1s, et => ) END_RUNG END_NETWORK\r\nEND_FUNCTION");
@@ -206,6 +243,7 @@ public class PlcDocumentWorkflowServiceTests
         {
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_FB_Probe"),
+            (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_Analog_Edge_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_Mixed_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-data-authoring", "assets"), Name: "Codex_Data_Probe")
         })
@@ -641,20 +679,31 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
-    public async Task Transaction_SclSourceWithType_IsRejectedBeforeMutation()
+    public async Task Transaction_SclSourceWithType_GeneratesAndCanonicallyVerifiesType()
     {
         string sourcePath = Path.Combine(_directory, "TypeAndBlock.scl");
-        File.WriteAllText(sourcePath, "TYPE \"UnsafeType\"\r\nSTRUCT\r\nValue : Int;\r\nEND_STRUCT;\r\nEND_TYPE\r\nFUNCTION \"SafeBlock\" : Void\r\nBEGIN\r\nEND_FUNCTION\r\n", new UTF8Encoding(true));
+        File.WriteAllText(sourcePath, "TYPE \"SafeType\"\r\nSTRUCT\r\nValue : Int;\r\nEND_STRUCT;\r\nEND_TYPE\r\nFUNCTION \"SafeBlock\" : Void\r\nBEGIN\r\nEND_FUNCTION\r\n", new UTF8Encoding(true));
         var plc = OpenPlcMock();
-        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups());
-        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "reject unsnapshotted type");
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        plc.Setup(service => service.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        plc.Setup(service => service.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "TypeAndBlock"));
+        plc.Setup(service => service.GenerateBlocksFromSourceAsync("TypeAndBlock", false, true)).ReturnsAsync(() =>
+        {
+            software.TypeGroup.Types.Add(new FakeType { Name = "SafeType", ExportContent = TypeXml("SafeType", "generated") });
+            software.BlockGroup.Blocks.Add(new FakeBlock { Name = "SafeBlock", Type = "FC", ExportContent = "FUNCTION \"SafeBlock\" : Void\r\nEND_FUNCTION" });
+            return new PlcSourceOperationResult(true, true, "generated", "TypeAndBlock");
+        });
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "transactional type generation");
         service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
 
-        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(draft.TransactionId));
-
-        StringAssert.Contains(error.Message, "PLC data type");
-        plc.Verify(candidate => candidate.ImportSourceAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
-        Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
+        Assert.IsTrue(result.Applied, result.Message);
+        Assert.IsTrue(result.Transaction.Operations.Single().TargetSnapshots.Any(snapshot => snapshot.Target.BlockType == "TYPE" && snapshot.CanonicalResultHash != null));
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
     }
 
     [TestMethod]
@@ -744,6 +793,207 @@ public class PlcDocumentWorkflowServiceTests
         Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
     }
 
+    [TestMethod]
+    public async Task Transaction_SimaticMlTypePatch_BindsBaselineAndVerifiesCanonicalType()
+    {
+        string baselinePath = Path.Combine(_directory, "type-baseline.xml");
+        string candidatePath = Path.Combine(_directory, "type-candidate.xml");
+        File.WriteAllText(baselinePath, TypeXml("XmlType", "before"), new UTF8Encoding(true));
+        File.WriteAllText(candidatePath, TypeXml("XmlType", "after"), new UTF8Encoding(true));
+        var type = new FakeType { Name = "XmlType", ExportContent = File.ReadAllText(baselinePath) };
+        var context = ContextWithGroups();
+        ((FakePlcSoftware)context.PlcSoftware!).TypeGroup.Types.Add(type);
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ImportTypeAsync(candidatePath, "")).ReturnsAsync(() => { type.ExportContent = File.ReadAllText(candidatePath); return true; });
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "XML type patch");
+        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false);
+
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.Applied, result.Message);
+        Assert.AreEqual("PatchSimaticMlType", result.Transaction.Operations.Single().Kind);
+        Assert.AreNotEqual(result.Transaction.Operations.Single().BaselineHash, result.Transaction.Operations.Single().CanonicalResultHash);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SimaticMlTypeCompileFailure_RestoresBaselineHash()
+    {
+        string baselinePath = Path.Combine(_directory, "type-baseline.xml");
+        string candidatePath = Path.Combine(_directory, "type-candidate.xml");
+        File.WriteAllText(baselinePath, TypeXml("XmlType", "before"), new UTF8Encoding(true));
+        File.WriteAllText(candidatePath, TypeXml("XmlType", "after"), new UTF8Encoding(true));
+        var type = new FakeType { Name = "XmlType", ExportContent = File.ReadAllText(baselinePath) };
+        var context = ContextWithGroups();
+        ((FakePlcSoftware)context.PlcSoftware!).TypeGroup.Types.Add(type);
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ImportTypeAsync(It.IsAny<string>(), "")).ReturnsAsync((string path, string _) => { type.ExportContent = File.ReadAllText(path); return true; });
+        plc.SetupSequence(service => service.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
+            .ReturnsAsync(new CompilationResult(false, 1, 0, "forced"))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "XML type rollback");
+        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false);
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        StringAssert.Contains(type.ExportContent, "before");
+        Assert.IsTrue(result.Transaction.Operations.Single().RestorationVerified);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_DeletePlcType_CompileFailureRestoresExactType()
+    {
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var type = new FakeType { Name = "DeleteProbe", ExportContent = TypeXml("DeleteProbe", "baseline") };
+        type.OnDelete = () => software.TypeGroup.Types.Remove(type);
+        software.TypeGroup.Types.Add(type);
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ImportTypeAsync(It.IsAny<string>(), "")).ReturnsAsync((string path, string _) =>
+        {
+            type.ExportContent = File.ReadAllText(path);
+            if (!software.TypeGroup.Types.Contains(type)) software.TypeGroup.Types.Add(type);
+            return true;
+        });
+        plc.SetupSequence(service => service.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
+            .ReturnsAsync(new CompilationResult(false, 1, 0, "forced"))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "type delete rollback");
+        service.AddDeleteTypeTransactionOperation(draft.TransactionId, "DeleteProbe", null);
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        Assert.AreSame(type, software.TypeGroup.Types.Single());
+        Assert.IsTrue(result.Transaction.Operations.Single().RestorationVerified);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_AutomaticDependencyOrdering_AppliesProviderBeforeConsumer()
+    {
+        WriteUtf8Bom("Consumer.s7dcl", "FUNCTION \"Consumer\" : Void\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail \"Provider\"() END_RUNG END_NETWORK\r\nEND_FUNCTION");
+        WriteUtf8Bom("Provider.s7dcl", "FUNCTION \"Provider\" : Void\r\nEND_FUNCTION");
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        var importOrder = new List<string>();
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(_directory, It.IsAny<string>(), "", "Override")).ReturnsAsync((string directory, string name, string _, string _) =>
+        {
+            importOrder.Add(name);
+            var created = new FakeBlock { Name = name, Type = "FC", ExportContent = File.ReadAllText(Path.Combine(directory, name + ".s7dcl")) };
+            created.OnDelete = () => software.BlockGroup.Blocks.Remove(created);
+            software.BlockGroup.Blocks.Add(created);
+            return true;
+        });
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "dependency order");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Consumer", null, "Override");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Provider", null, "Override");
+
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.Applied, result.Message);
+        CollectionAssert.AreEqual(new[] { "Provider", "Consumer" }, importOrder);
+        Assert.AreEqual(2, result.Transaction.Operations.Single(operation => operation.Target!.Name == "Consumer").ExecutionOrder);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_DependencyCycle_IsRejectedBeforeMutation()
+    {
+        WriteUtf8Bom("A.s7dcl", "FUNCTION \"A\" : Void\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail \"B\"() END_RUNG END_NETWORK\r\nEND_FUNCTION");
+        WriteUtf8Bom("B.s7dcl", "FUNCTION \"B\" : Void\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail \"A\"() END_RUNG END_NETWORK\r\nEND_FUNCTION");
+        var plc = OpenPlcMock();
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups());
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "dependency cycle");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "A", null, "Override");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "B", null, "Override");
+
+        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(draft.TransactionId));
+
+        StringAssert.Contains(error.Message, "dependency cycle");
+        plc.Verify(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SecondApplyFailure_RollsBackFirstAppliedTarget()
+    {
+        WriteUtf8Bom("First.s7dcl", "FUNCTION \"First\" : Void\r\nEND_FUNCTION");
+        WriteUtf8Bom("Second.s7dcl", "FUNCTION \"Second\" : Void\r\nEND_FUNCTION");
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(_directory, "First", "", "Override")).ReturnsAsync(() =>
+        {
+            var created = new FakeBlock { Name = "First", Type = "FC", ExportContent = File.ReadAllText(Path.Combine(_directory, "First.s7dcl")) };
+            created.OnDelete = () => software.BlockGroup.Blocks.Remove(created);
+            software.BlockGroup.Blocks.Add(created);
+            return true;
+        });
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(_directory, "Second", "", "Override")).ReturnsAsync(false);
+        plc.SetupSequence(service => service.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "mid-apply failure");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "First", null, "Override");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Second", null, "Override");
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        Assert.AreEqual(0, software.BlockGroup.Blocks.Count);
+        Assert.IsTrue(result.Transaction.Operations.All(operation => operation.RestorationVerified));
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_CanonicalExportFailure_RollsBackCreatedTarget()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\nEND_FUNCTION");
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(_directory, "Probe", "", "Override")).ReturnsAsync(() =>
+        {
+            var created = new FakeBlock { Name = "Probe", Type = "FC", ExportContent = File.ReadAllText(Path.Combine(_directory, "Probe.s7dcl")), ExportState = "Failed" };
+            created.OnDelete = () => software.BlockGroup.Blocks.Remove(created);
+            software.BlockGroup.Blocks.Add(created);
+            return true;
+        });
+        plc.SetupSequence(service => service.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "candidate"))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "canonical failure");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Probe", null, "Override");
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        StringAssert.Contains(result.Transaction.Failure!, "canonical export failed");
+        Assert.AreEqual(0, software.BlockGroup.Blocks.Count);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
     private void WriteUtf8Bom(string fileName, string content)
     {
         File.WriteAllText(Path.Combine(_directory, fileName), content, new UTF8Encoding(true));
@@ -783,6 +1033,7 @@ public class PlcDocumentWorkflowServiceTests
     private sealed class FakePlcSoftware
     {
         public FakeBlockGroup BlockGroup { get; } = new FakeBlockGroup();
+        public FakeTypeGroup TypeGroup { get; } = new FakeTypeGroup();
     }
 
     private sealed class FakeBlockGroup
@@ -801,17 +1052,43 @@ public class PlcDocumentWorkflowServiceTests
         public bool IsReadOnly { get; set; }
         public string ExportContent { get; set; } = string.Empty;
         public Action? OnDelete { get; set; }
+        public string ExportState { get; set; } = "Success";
         public FakeDocumentExportResult ExportAsDocuments(DirectoryInfo directory, string baseName)
         {
             directory.Create();
             File.WriteAllText(Path.Combine(directory.FullName, baseName + ".s7dcl"), ExportContent, new UTF8Encoding(true));
-            return new FakeDocumentExportResult { State = "Success" };
+            return new FakeDocumentExportResult { State = ExportState };
         }
         public void Delete() => OnDelete?.Invoke();
     }
+
+    private sealed class FakeTypeGroup
+    {
+        public string Name { get; set; } = "PLC data types";
+        public List<FakeType> Types { get; } = new List<FakeType>();
+        public List<FakeTypeGroup> Groups { get; } = new List<FakeTypeGroup>();
+    }
+
+    private sealed class FakeType
+    {
+        public string Name { get; set; } = string.Empty;
+        public string ExportContent { get; set; } = string.Empty;
+        public Action? OnDelete { get; set; }
+        public void Export(FileInfo file, FakeExportOptions options)
+        {
+            file.Directory?.Create();
+            File.WriteAllText(file.FullName, ExportContent, new UTF8Encoding(true));
+        }
+        public void Export(FileInfo file) => Export(file, FakeExportOptions.None);
+        public void Delete() => OnDelete?.Invoke();
+    }
+
+    private enum FakeExportOptions { None }
 
     private sealed class FakeDocumentExportResult
     {
         public string State { get; set; } = string.Empty;
     }
+
+    private static string TypeXml(string name, string marker) => $"<?xml version=\"1.0\"?><Document><Engineering version=\"V21\"/><SW.Types.PlcStruct ID=\"0\"><AttributeList><Interface xmlns=\"urn:siemens:test\"><Marker>{marker}</Marker></Interface><Name>{name}</Name></AttributeList></SW.Types.PlcStruct></Document>";
 }

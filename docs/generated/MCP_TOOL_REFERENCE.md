@@ -4,11 +4,12 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 
 | Tool | Domain | Parameters | Description |
 |---|---|---|---|
+| `add-delete-plc-type-transaction-operation` | PLC | `transaction-id`, `type-name`, `group-path`, `depends-on`, `confirm` | Adds an exact PLC type deletion with XML snapshot and rollback proof to a persistent PLC code transaction |
 | `add-device` | Portal | `order-number`, `version`, `name`, `confirm` | Adds a device with its primary item to the current project |
-| `add-plc-code-transaction-operation` | PLC | `transaction-id`, `import-directory`, `file-name`, `group-path`, `import-option`, `confirm` | Adds a validated SIMATIC SD block upsert to a draft PLC code transaction |
+| `add-plc-code-transaction-operation` | PLC | `transaction-id`, `import-directory`, `file-name`, `group-path`, `import-option`, `depends-on`, `confirm` | Adds a validated SIMATIC SD block upsert to a draft PLC code transaction |
 | `add-project-to-multiuser-server` | Multiuser | `server-alias`, `project-path`, `confirm` | Adds a closed single-user TIA project to a configured Project Server. |
-| `add-scl-source-transaction-operation` | PLC | `transaction-id`, `source-path`, `group-path`, `confirm` | Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction |
-| `add-simaticml-transaction-operation` | PLC | `transaction-id`, `input-path`, `baseline-path`, `group-path`, `allow-flgnet-topology`, `confirm` | Adds a baseline-bound SimaticML block patch to a persistent PLC code transaction |
+| `add-scl-source-transaction-operation` | PLC | `transaction-id`, `source-path`, `group-path`, `type-group-path`, `depends-on`, `confirm` | Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction |
+| `add-simaticml-transaction-operation` | PLC | `transaction-id`, `input-path`, `baseline-path`, `group-path`, `allow-flgnet-topology`, `depends-on`, `confirm` | Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code transaction |
 | `apply-block-document-import` | PLC | `apply-token`, `confirm` | Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure |
 | `apply-blueprint` | V21 | `apply-token`, `confirm` | Applies a previously reviewed blueprint plan using its state-bound one-use token. |
 | `apply-hardware-patch` | Hardware | `operations`, `operations-path`, `dry-run`, `confirm-destructive`, `transaction-description`, `plc-name`, `safety-password-env`, `confirm` | Dry-runs or applies transactional generic TIA hardware operations |
@@ -149,7 +150,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `open-unified-hmi` | Unified HMI | `hmi-name` | Opens a Unified HMI by device or device item name |
 | `plan-block-document-import` | PLC | `plc-name`, `import-directory`, `file-name`, `group-path`, `import-option` | Binds an exact PLC block identity and creates a state-bound, rollback-capable SIMATIC SD apply plan |
 | `plan-blueprint` | V21 | `blueprint-path` | Builds a state-bound engineering plan and short-lived one-use apply token. |
-| `plan-plc-code-transaction` | PLC | `transaction-id` | Snapshots every existing target and produces one atomic, state-bound PLC code transaction plan |
+| `plan-plc-code-transaction` | PLC | `transaction-id` | Snapshots every existing target and produces one dependency-ordered, atomic, state-bound PLC code transaction plan |
 | `portal-status` | Portal |  | Gets the current TIA Portal connection status |
 | `probe-hmi-faceplate-interface` | Unified HMI | `hmi-name`, `screen-path`, `item-name`, `item-name-path`, `property`, `write`, `value`, `restore`, `confirm` | Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write |
 | `recover-plc-code-transaction` | PLC | `transaction-id`, `confirm` | Conservatively restores every baseline in an interrupted or unverified PLC code transaction |
