@@ -11,7 +11,7 @@ Use this skill for TIA Version Control Interface work. Read the shared [PLC code
 
 ## Standard Workflow
 
-1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven.
+1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven. For code generation or modification, run `discover-plc-code-capabilities` for the exact block and continue with VCI only when `SelectedRoute` is `VCI`; retain the observed workspace, mapping file/format/status, supported formats, and fingerprint as preflight evidence.
 2. Identify the PLC with `list-plcs` or the user-provided `plc-name`.
 3. Inspect VCI state:
    - `list-vci-workspaces`
@@ -19,7 +19,7 @@ Use this skill for TIA Version Control Interface work. Read the shared [PLC code
    - `list-vci-mappings`
    For large mapping reviews, pass `output-path` to `list-vci-mappings` or use the returned CSV artifact path when it auto-spills.
 4. For a block workflow, discover supported formats with `get-vci-block-formats`.
-5. Before synchronization, run `get-vci-block-status` for mapped objects when possible.
+5. Before synchronization, run `get-vci-block-status` for mapped objects when possible. If its mapping, format, or status no longer matches capability discovery, treat the evidence as stale and rediscover before synchronization.
    If a workspace file will be authored or modified, route its content through `plc-code-engineering`, run `validate-plc-code-artifact` for its exact format, and retain the project export as rollback evidence before workspace-to-project sync.
 6. Choose the operation:
    - `create-vci-workspace` for a new workspace root.

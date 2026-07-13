@@ -20,7 +20,8 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<ISessionResetService, EngineeringSessionResetService>();
             services.AddSingleton(serviceProvider => new PlcDocumentWorkflowService(
                 serviceProvider.GetRequiredService<IPlcService>(),
-                serviceProvider.GetRequiredService<EngineeringSessionContext>()));
+                serviceProvider.GetRequiredService<EngineeringSessionContext>(),
+                serviceProvider.GetRequiredService<PlcCodeCapabilityDiscoveryService>()));
             services.AddSingleton<PlcCodeFormatService>();
 
             services.AddSingleton<PortalService>(serviceProvider =>
@@ -62,6 +63,20 @@ namespace OpenTiaToolkit.Core
                 SessionSerializedServiceProxy<IVciService>.Create(
                     serviceProvider.GetRequiredService<VciService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>()));
+            services.AddSingleton(serviceProvider =>
+            {
+                IPortalService portal = serviceProvider.GetRequiredService<IPortalService>();
+                EngineeringSessionContext context = serviceProvider.GetRequiredService<EngineeringSessionContext>();
+                return new PlcCodeCapabilityDiscoveryService(
+                    serviceProvider.GetRequiredService<IPlcService>(),
+                    serviceProvider.GetRequiredService<IVciService>(),
+                    context,
+                    async () =>
+                    {
+                        IReadOnlyList<Models.TiaPortalInstance> instances = await portal.GetInstancesAsync().ConfigureAwait(false);
+                        return instances.FirstOrDefault(instance => instance.ProcessId == context.AttachedPortalProcessId)?.Version ?? portal.Version ?? string.Empty;
+                    });
+            });
 
             services.AddSingleton<HardwareService>(serviceProvider =>
                 new HardwareService(

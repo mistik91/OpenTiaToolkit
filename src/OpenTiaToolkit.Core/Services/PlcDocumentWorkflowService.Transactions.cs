@@ -17,7 +17,7 @@ public sealed partial class PlcDocumentWorkflowService
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task<PlcCodeTransaction> BeginTransactionAsync(string plcName, string? description, string? compilePolicy = null, int? maximumNewWarnings = null)
+    public async Task<PlcCodeTransaction> BeginTransactionAsync(string plcName, string? description, string? compilePolicy = null, int? maximumNewWarnings = null, string? capabilityId = null, string? capabilityIds = null)
     {
         string normalizedPolicy = string.IsNullOrWhiteSpace(compilePolicy) ? "NoNewErrors" : compilePolicy!;
         if (!new[] { "NoNewErrors", "CleanCompile" }.Contains(normalizedPolicy, StringComparer.OrdinalIgnoreCase))
@@ -25,6 +25,21 @@ public sealed partial class PlcDocumentWorkflowService
         normalizedPolicy = normalizedPolicy.Equals("CleanCompile", StringComparison.OrdinalIgnoreCase) ? "CleanCompile" : "NoNewErrors";
         if (maximumNewWarnings < 0) throw new InvalidOperationException("maximum-new-warnings cannot be negative.");
         await EnsurePlcOpen(plcName).ConfigureAwait(false);
+        string[] requestedCapabilities = new[] { capabilityId, capabilityIds }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .SelectMany(value => value!.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            .Select(value => value.Trim()).Distinct(StringComparer.Ordinal).ToArray();
+        if (_capabilityDiscovery != null && requestedCapabilities.Length == 0)
+            throw new InvalidOperationException("At least one capability-id is required. Run discover-plc-code-capabilities for every intended transaction target.");
+        var capabilities = new List<PlcCodeCapabilityDiscovery>();
+        foreach (string requestedCapability in requestedCapabilities)
+        {
+            if (_capabilityDiscovery == null) throw new InvalidOperationException("Capability discovery is unavailable in this host.");
+            PlcCodeCapabilityDiscovery capability = await _capabilityDiscovery.ValidateCurrentAsync(requestedCapability, plcName).ConfigureAwait(false);
+            if (capability.SelectedRoute == "VCI") throw new InvalidOperationException("This capability selected VCI. Use the VCI synchronization workflow; direct-import transactions cannot impersonate a VCI change.");
+            if (capability.SelectedRoute == "Blocked") throw new InvalidOperationException("This capability discovery did not authorize a mutation route.");
+            capabilities.Add(capability);
+        }
         string id = Guid.NewGuid().ToString("N");
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var transaction = new PlcCodeTransaction
@@ -38,6 +53,18 @@ public sealed partial class PlcDocumentWorkflowService
             ProjectName = SessionProjectName(),
             ProjectPath = SessionProjectPath(),
             PlcName = plcName,
+            CapabilityId = capabilities.FirstOrDefault()?.CapabilityId,
+            CapabilityFingerprint = capabilities.FirstOrDefault()?.Fingerprint,
+            CapabilityRoute = capabilities.FirstOrDefault()?.SelectedRoute,
+            CapabilityBindings = capabilities.Select(capability => new PlcCodeCapabilityBinding
+            {
+                CapabilityId = capability.CapabilityId,
+                Fingerprint = capability.Fingerprint,
+                Route = capability.SelectedRoute,
+                ObjectKind = capability.Request.ObjectKind,
+                ObjectName = capability.Request.ObjectName,
+                GroupPath = capability.Request.GroupPath
+            }).ToArray(),
             CompilePolicy = normalizedPolicy,
             MaximumNewWarnings = maximumNewWarnings
         };
@@ -52,6 +79,7 @@ public sealed partial class PlcDocumentWorkflowService
         RequireState(transaction, "Draft");
         PlcDocumentValidationResult validation = Validate(importDirectory, fileName);
         if (!validation.Valid) throw new InvalidDataException("PLC documents are invalid: " + string.Join("; ", validation.Errors));
+        RequireCapabilityOperation(transaction, "UpsertBlockDocuments", "Block", validation.BlockName, validation.BlockType, NormalizeGroupPath(groupPath));
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
         {
@@ -79,6 +107,11 @@ public sealed partial class PlcDocumentWorkflowService
         var formatService = new PlcCodeFormatService(this);
         PlcCodeArtifactValidationResult validation = formatService.ValidateScl(path);
         if (!validation.Valid) throw new InvalidDataException("SCL source is invalid: " + string.Join("; ", validation.Errors));
+        foreach (PlcCodeDeclaredObject declared in validation.DeclaredObjects)
+        {
+            bool isType = declared.ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase);
+            RequireCapabilityOperation(transaction, "GenerateSclSource", isType ? "Type" : "Block", declared.Name, declared.ObjectType, isType ? NormalizeTypeGroupPath(typeGroupPath) : NormalizeGroupPath(groupPath));
+        }
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
         {
@@ -112,6 +145,7 @@ public sealed partial class PlcDocumentWorkflowService
         if (validation.DeclaredObjects.Count != 1 || !new[] { "FC", "FB", "OB", "GlobalDB", "InstanceDB", "TYPE" }.Contains(validation.DeclaredObjects[0].ObjectType, StringComparer.OrdinalIgnoreCase))
             throw new InvalidDataException("SimaticML transactions require exactly one supported PLC block or PLC type identity.");
         bool isType = validation.DeclaredObjects[0].ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase);
+        RequireCapabilityOperation(transaction, isType ? "PatchSimaticMlType" : "PatchSimaticMlBlock", isType ? "Type" : "Block", validation.DeclaredObjects[0].Name, validation.DeclaredObjects[0].ObjectType, isType ? NormalizeTypeGroupPath(groupPath) : NormalizeGroupPath(groupPath));
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
         {
@@ -138,6 +172,7 @@ public sealed partial class PlcDocumentWorkflowService
         RequireState(transaction, "Draft");
         if (string.IsNullOrWhiteSpace(typeName)) throw new InvalidOperationException("type-name is required.");
         string group = NormalizeTypeGroupPath(groupPath);
+        RequireCapabilityOperation(transaction, "DeletePlcType", "Type", typeName.Trim(), "TYPE", group);
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
         {
@@ -160,6 +195,7 @@ public sealed partial class PlcDocumentWorkflowService
         RequireState(transaction, "Draft");
         if (transaction.Operations.Count == 0) throw new InvalidOperationException("The transaction has no operations.");
         await EnsureTransactionContextAsync(transaction).ConfigureAwait(false);
+        await VerifyCapabilityCurrentAsync(transaction).ConfigureAwait(false);
 
         string baselineRoot = TransactionBaselineRoot(transaction.TransactionId);
         Cleanup(baselineRoot);
@@ -246,6 +282,7 @@ public sealed partial class PlcDocumentWorkflowService
         await EnsureTransactionContextAsync(transaction).ConfigureAwait(false);
         try
         {
+            await VerifyCapabilityCurrentAsync(transaction).ConfigureAwait(false);
             VerifyTransactionPreconditions(transaction);
         }
         catch (Exception ex)
@@ -983,6 +1020,10 @@ public sealed partial class PlcDocumentWorkflowService
             transaction.ProjectName,
             transaction.ProjectPath,
             transaction.PlcName,
+            transaction.CapabilityId,
+            transaction.CapabilityFingerprint,
+            transaction.CapabilityRoute,
+            transaction.CapabilityBindings,
             transaction.CompilePolicy,
             transaction.MaximumNewWarnings,
             Operations = transaction.Operations.OrderBy(item => item.Sequence).Select(item => new
@@ -1012,6 +1053,53 @@ public sealed partial class PlcDocumentWorkflowService
             }).ToArray()
         });
         return Hash(System.Text.Encoding.UTF8.GetBytes(canonical));
+    }
+
+    private void RequireCapabilityOperation(PlcCodeTransaction transaction, string operationKind, string objectKind, string? objectName, string? objectType, string groupPath)
+    {
+        if (transaction.CapabilityBindings.Count == 0 && string.IsNullOrWhiteSpace(transaction.CapabilityId)) return;
+        if (_capabilityDiscovery == null) throw new InvalidOperationException("Capability discovery is unavailable in this host.");
+        PlcCodeCapabilityBinding? binding = transaction.CapabilityBindings.FirstOrDefault(item =>
+            item.ObjectKind.Equals(objectKind, StringComparison.OrdinalIgnoreCase) &&
+            item.ObjectName.Equals(objectName ?? string.Empty, StringComparison.OrdinalIgnoreCase) &&
+            item.GroupPath.Trim().Trim('/').Equals((groupPath ?? string.Empty).Trim().Trim('/'), StringComparison.OrdinalIgnoreCase));
+        PlcCodeCapabilityDiscovery capability = binding != null ? _capabilityDiscovery.Get(binding.CapabilityId) : _capabilityDiscovery.Get(transaction.CapabilityId!);
+        _capabilityDiscovery.RequireOperationRoute(capability, operationKind);
+        if (!capability.Request.ObjectKind.Equals(objectKind, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Capability discovery is bound to object kind '{capability.Request.ObjectKind}', but the operation targets '{objectKind}'.");
+        if (!capability.Request.ObjectName.Equals(objectName ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Capability discovery is bound to '{capability.Request.ObjectName}', but the operation targets '{objectName}'.");
+        if (!string.IsNullOrWhiteSpace(capability.Request.BlockType) && !BlockTypesCompatible(capability.Request.BlockType!, objectType ?? string.Empty))
+            throw new InvalidOperationException($"Capability discovery is bound to object type '{capability.Request.BlockType}', but the operation declares '{objectType}'.");
+        string expectedGroup = (capability.Request.GroupPath ?? string.Empty).Trim().Trim('/');
+        string actualGroup = (groupPath ?? string.Empty).Trim().Trim('/');
+        if (!expectedGroup.Equals(actualGroup, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Capability discovery is bound to group '{expectedGroup}', but the operation targets '{actualGroup}'.");
+    }
+
+    private static bool BlockTypesCompatible(string expected, string actual)
+    {
+        if (expected.Equals(actual, StringComparison.OrdinalIgnoreCase)) return true;
+        return expected.Equals("DB", StringComparison.OrdinalIgnoreCase) && (actual.Equals("GlobalDB", StringComparison.OrdinalIgnoreCase) || actual.Equals("InstanceDB", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task VerifyCapabilityCurrentAsync(PlcCodeTransaction transaction)
+    {
+        if (transaction.CapabilityBindings.Count == 0 && string.IsNullOrWhiteSpace(transaction.CapabilityId)) return;
+        if (_capabilityDiscovery == null) throw new InvalidOperationException("Capability discovery is unavailable in this host.");
+        if (transaction.CapabilityBindings.Count > 0)
+        {
+            foreach (PlcCodeCapabilityBinding binding in transaction.CapabilityBindings)
+            {
+                PlcCodeCapabilityDiscovery current = await _capabilityDiscovery.ValidateCurrentAsync(binding.CapabilityId, transaction.PlcName).ConfigureAwait(false);
+                if (!FixedEquals(binding.Fingerprint, current.Fingerprint) || !string.Equals(binding.Route, current.SelectedRoute, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"Transaction capability binding '{binding.CapabilityId}' does not match the current discovery manifest.");
+            }
+            return;
+        }
+        PlcCodeCapabilityDiscovery legacy = await _capabilityDiscovery.ValidateCurrentAsync(transaction.CapabilityId!, transaction.PlcName).ConfigureAwait(false);
+        if (!FixedEquals(transaction.CapabilityFingerprint ?? string.Empty, legacy.Fingerprint) || !string.Equals(transaction.CapabilityRoute, legacy.SelectedRoute, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The transaction capability binding does not match the current discovery manifest.");
     }
 
     private static string Message(Exception exception) => exception.InnerException?.Message ?? exception.Message;

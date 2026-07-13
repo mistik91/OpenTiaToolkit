@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 168,
+  "commandCount": 169,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -816,6 +816,20 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional maximum warning increase accepted by final compile"
+        },
+        {
+          "name": "capability-id",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "One live capability discovery id to bind and revalidate at plan/apply"
+        },
+        {
+          "name": "capability-ids",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Comma-separated capability ids for an atomic multi-target transaction"
         }
       ]
     },
@@ -1949,6 +1963,71 @@
           "required": false,
           "defaultValue": false,
           "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "discover-plc-code-capabilities",
+      "description": "Discovers and fingerprints the live TIA, PLC, target, safety, VCI, and import/export evidence before PLC code generation",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact PLC device name"
+        },
+        {
+          "name": "object-kind",
+          "type": "String",
+          "required": false,
+          "defaultValue": "Block",
+          "description": "Block or Type"
+        },
+        {
+          "name": "object-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact existing or intended object name"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Exact PLC block or type group"
+        },
+        {
+          "name": "operation",
+          "type": "String",
+          "required": false,
+          "defaultValue": "Modify",
+          "description": "Modify or Create"
+        },
+        {
+          "name": "block-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "FB, FC, OB, DB, GlobalDB, InstanceDB, or TYPE when known"
+        },
+        {
+          "name": "requested-language",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Requested code language such as LAD, FBD, or SCL"
+        },
+        {
+          "name": "prefer-source-control",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Rank an observed exact VCI mapping first"
         }
       ]
     },

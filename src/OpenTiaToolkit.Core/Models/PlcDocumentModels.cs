@@ -96,6 +96,10 @@ public sealed class PlcCodeTransaction
     public string ProjectName { get; set; } = string.Empty;
     public string ProjectPath { get; set; } = string.Empty;
     public string PlcName { get; set; } = string.Empty;
+    public string? CapabilityId { get; set; }
+    public string? CapabilityFingerprint { get; set; }
+    public string? CapabilityRoute { get; set; }
+    public IReadOnlyList<PlcCodeCapabilityBinding> CapabilityBindings { get; set; } = Array.Empty<PlcCodeCapabilityBinding>();
     public string CompilePolicy { get; set; } = "NoNewErrors";
     public int? MaximumNewWarnings { get; set; }
     public string? ApplyToken { get; set; }
@@ -108,6 +112,16 @@ public sealed class PlcCodeTransaction
     public IReadOnlyList<string> Warnings { get; set; } = Array.Empty<string>();
     public string? Failure { get; set; }
     public bool RecoveryPackageRetained { get; set; }
+}
+
+public sealed class PlcCodeCapabilityBinding
+{
+    public string CapabilityId { get; set; } = string.Empty;
+    public string Fingerprint { get; set; } = string.Empty;
+    public string Route { get; set; } = string.Empty;
+    public string ObjectKind { get; set; } = string.Empty;
+    public string ObjectName { get; set; } = string.Empty;
+    public string GroupPath { get; set; } = string.Empty;
 }
 
 public sealed class PlcCodeTransactionOperation

@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **168**
+Commands: **169**
 
 ## Devices
 
@@ -531,6 +531,8 @@ Begins a persistent PLC code transaction bound to the current TIA process, proje
 | `description` | String | no |  | Human-readable engineering intent |
 | `compile-policy` | String | no | NoNewErrors | NoNewErrors (default) or CleanCompile |
 | `maximum-new-warnings` | Integer | no |  | Optional maximum warning increase accepted by final compile |
+| `capability-id` | String | no |  | One live capability discovery id to bind and revalidate at plan/apply |
+| `capability-ids` | String | no |  | Comma-separated capability ids for an atomic multi-target transaction |
 
 ### compare-software
 
@@ -597,6 +599,21 @@ Deletes a terminal or never-applied PLC code transaction and its retained local 
 |---|---|---:|---|---|
 | `transaction-id` | String | yes |  | Transaction id |
 | `confirm` | Boolean | yes |  | Confirm local transaction artifact deletion |
+
+### discover-plc-code-capabilities
+
+Discovers and fingerprints the live TIA, PLC, target, safety, VCI, and import/export evidence before PLC code generation
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | Exact PLC device name |
+| `object-kind` | String | no | Block | Block or Type |
+| `object-name` | String | yes |  | Exact existing or intended object name |
+| `group-path` | String | no |  | Exact PLC block or type group |
+| `operation` | String | no | Modify | Modify or Create |
+| `block-type` | String | no |  | FB, FC, OB, DB, GlobalDB, InstanceDB, or TYPE when known |
+| `requested-language` | String | no |  | Requested code language such as LAD, FBD, or SCL |
+| `prefer-source-control` | Boolean | no | False | Rank an observed exact VCI mapping first |
 
 ### download-software
 

@@ -9,6 +9,8 @@ description: Use for OpenTiaToolkit PLC workflows in Siemens TIA Portal, includi
 
 Use this skill for PLC software work through OpenTiaToolkit. Start with target discovery, preview any broad mutation, apply narrowly, then verify with reads, compile, and the guarded online/simulator loop when behavior or consistency may be affected.
 
+For any request that generates or modifies PLC code, route through `plc-code-engineering` and run `discover-plc-code-capabilities` for every exact target. Do not select VCI, S7DCL, SCL, or SimaticML from language assumptions alone.
+
 ## Standard Workflow
 
 1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven.

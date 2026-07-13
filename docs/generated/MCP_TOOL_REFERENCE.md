@@ -19,7 +19,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `archive-project` | Portal | `archive-path`, `mode`, `confirm` | Archives the current project to a .zap21 archive |
 | `audit-hardware-tag-mappings` | Hardware | `plc-name`, `tag-table-filter`, `catalog-search-text`, `max-unmatched-tags`, `output-path` | Audits PLC I/Q tag addresses against discovered hardware IO ranges and optional catalog evidence |
 | `audit-hmi-label-proximity` | Unified HMI | `input-path`, `screen-path`, `target-items`, `target-types`, `label-texts`, `label-types`, `max-candidates`, `output-path` | Creates an auditable nearest-label mapping report from an exported Unified HMI JSON file |
-| `begin-plc-code-transaction` | PLC | `plc-name`, `description`, `compile-policy`, `maximum-new-warnings` | Begins a persistent PLC code transaction bound to the current TIA process, project, and PLC |
+| `begin-plc-code-transaction` | PLC | `plc-name`, `description`, `compile-policy`, `maximum-new-warnings`, `capability-id`, `capability-ids` | Begins a persistent PLC code transaction bound to the current TIA process, project, and PLC |
 | `can-plug-hardware-item` | Hardware | `target`, `device-name`, `item-path`, `expected-type-identifier`, `type-identifier`, `item-name`, `position-number` | Checks whether a hardware module or submodule can be plugged at a target position |
 | `capabilities` | V21 |  | Reports the worker capability profile and exact Siemens assembly hashes. |
 | `check-library-updates` | Libraries | `library-scope`, `global-library`, `include-up-to-date`, `output-path` | Reports project instances that are outdated against the project library or an open global library |
@@ -53,6 +53,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `diff-hmi-json` | Unified HMI | `base-path`, `modified-path`, `patch-path`, `screens`, `item-names`, `properties` | Creates a minimal Unified HMI JSON patch from two exports |
 | `discard-plc-code-transaction` | PLC | `transaction-id`, `confirm` | Deletes a terminal or never-applied PLC code transaction and its retained local artifacts |
 | `disconnect-portal` | Portal | `confirm` | Disconnects from the TIA Portal instance |
+| `discover-plc-code-capabilities` | PLC | `plc-name`, `object-kind`, `object-name`, `group-path`, `operation`, `block-type`, `requested-language`, `prefer-source-control` | Discovers and fingerprints the live TIA, PLC, target, safety, VCI, and import/export evidence before PLC code generation |
 | `doctor` | V21 |  | Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture. |
 | `download-software` | PLC | `plc-name`, `to-simulator`, `dry-run`, `only-changes`, `confirm` | Downloads PLC software to PLCSIM Advanced with dry-run and confirmation gates |
 | `ensure-multiuser-server` | Multiuser | `server-alias`, `protocol`, `host`, `port`, `confirm` | Creates or updates a TIA Project Server connection. |

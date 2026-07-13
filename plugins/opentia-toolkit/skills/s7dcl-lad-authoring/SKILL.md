@@ -7,12 +7,12 @@ description: Author, modify, validate, and safely import Siemens SIMATIC SD LAD 
 
 1. Read [grammar.md](references/grammar.md), [instruction-catalog.md](references/instruction-catalog.md), and the shared [format contract](../plc-code-engineering/references/format-contract.md) before changing LAD instructions.
    Start new FC/FB/mixed blocks from the live-tested templates in `assets/`. Choose the smallest matching asset: basic Boolean/math, analog/edge, stateful FB, branch/timer, or mixed LAD/SCL.
-2. Export nearby blocks for naming, numbering, operands, comments, and calls. An export is evidence, not proof that every emitted form re-imports.
+2. Run `discover-plc-code-capabilities` for each exact target with the LAD/mixed language and create/modify intent. Continue here only when it selects `DirectDocuments`; use VCI when selected and stop when blocked. Retain every capability id for the transaction. Export nearby blocks for naming, numbering, operands, comments, and calls. An export is evidence, not proof that every emitted form re-imports.
 3. Create UTF-8-with-BOM `.s7dcl`; create `.s7res` whenever `MLC_*` is referenced.
 4. Keep interfaces explicit. Put IEC instances in FB static data or a global DB, never FC temporary data.
 5. Use LAD for visible power flow and SCL networks for arithmetic or complex expressions. Preserve branch junction direction exactly: each named `wire#wN` must have a tap and a matching join.
 6. Run `validate-plc-code-artifact --code-format=s7dcl` and `validate-plc-documents`; require `verified` for catalog instructions, reject `known-unsupported`, and treat `unknown-requires-live-probe` as a mandatory guarded Siemens import/compile probe. Missing typed templates are probe-only even when an untouched Siemens export round-trips. Never relabel a project call as a built-in.
-7. Use a persistent PLC code transaction even for one block. Add the complete operation set, then plan once. Review inferred `dependsOn` sequences and `executionOrder`; use explicit `depends-on` for DB/type/library prerequisites that calls do not expose. Do not proceed on ambiguity or dependency cycles.
+7. Use a persistent PLC code transaction even for one block, binding its capability id at begin. Bind all per-target ids for a multi-block transaction. Add the complete operation set, then plan once. Review fingerprints, inferred `dependsOn` sequences, and `executionOrder`; use explicit `depends-on` for DB/type/library prerequisites that calls do not expose. Do not proceed on stale evidence, ambiguity, or dependency cycles.
 8. Apply only with the persistent one-use token and `confirm=true`. Failed read-back or compile must report `RolledBackAndVerified`; use recovery for `RecoveryRequired`.
 9. Re-read and compile after adding callers.
 

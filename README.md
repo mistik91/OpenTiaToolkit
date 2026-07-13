@@ -17,7 +17,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#what-you-can-automate">Capabilities</a> ·
   <a href="#architecture">Architecture</a> ·
-  <a href="docs/generated/COMMAND_REFERENCE.md">168 commands</a> ·
+  <a href="docs/generated/COMMAND_REFERENCE.md">169 commands</a> ·
   <a href="docs/BLUEPRINTS.md">Blueprints</a> ·
   <a href="docs/SETUP.md">Documentation</a>
 </p>
@@ -35,7 +35,7 @@ The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and late
 
 | Capability | What it provides |
 |---|---|
-| One shared surface | 168 commands implemented once and exposed consistently through CLI and MCP |
+| One shared surface | 169 commands implemented once and exposed consistently through CLI and MCP |
 | Safe mutations | Central policy, previews, explicit confirmation, typed outcomes, read-back checks, and redacted audit records |
 | Process isolation | Siemens objects stay inside a disposable V21 worker with a serialized request queue |
 | Declarative automation | State-bound blueprints turn reviewed PLC, HMI, and hardware intent into previewable plans |
@@ -62,7 +62,7 @@ Browse the [generated command reference](docs/generated/COMMAND_REFERENCE.md), [
 flowchart LR
     U["Engineer or automation agent"]
     CLI["CLI"]
-    MCP["MCP server — 171 tools"]
+    MCP["MCP server — 172 tools"]
     APP["Vendor-free application host<br/>validation · policy · typed results"]
     W["Isolated V21 worker<br/>single request queue"]
     TIA["TIA Portal V21<br/>Siemens Openness API"]
@@ -230,7 +230,7 @@ The `1.0.0-preview.1` release passed:
 - all 142 CLI help cases and six negative CLI cases
 - worker, MCP, disposable-project, blueprint and archive integration suites
 - generated-reference, packaged-skill, formatting, locked-restore, and vulnerability checks
-- staged MCP initialization with 171 tools
+- staged MCP initialization with 172 tools
 - live V21 end-to-end workflows and independent-machine use
 
 Run the vendor-free fast suite locally with:

@@ -1536,7 +1536,8 @@ Use the guarded workflow for agent-authored or modified `.s7dcl` files:
 ```bash
 OpenTiaToolkit.CLI.exe validate-plc-code-artifact --code-format=s7dcl --input-path="C:\Imports\Docs\Motor.s7dcl"
 OpenTiaToolkit.CLI.exe validate-plc-documents --import-directory="C:\Imports\Docs" --file-name="Motor"
-OpenTiaToolkit.CLI.exe begin-plc-code-transaction --plc-name="PLC_1" --description="Update Motor"
+OpenTiaToolkit.CLI.exe discover-plc-code-capabilities --plc-name="PLC_1" --object-name="Motor" --block-type=FB --operation=Modify --requested-language=LAD
+OpenTiaToolkit.CLI.exe begin-plc-code-transaction --plc-name="PLC_1" --description="Update Motor" --capability-id="<capability-id>"
 OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\Imports\Docs" --file-name="Motor" --import-option="Override" --confirm=true
 OpenTiaToolkit.CLI.exe plan-plc-code-transaction --transaction-id="<id>"
 OpenTiaToolkit.CLI.exe apply-plc-code-transaction --transaction-id="<id>" --apply-token="<token-from-plan>" --confirm=true
@@ -1553,7 +1554,9 @@ The persistent transaction validates the input and binds one exact target identi
 Use a PLC code transaction for every agent-authored change, including one block. The lifecycle is explicit and persistent:
 
 ```powershell
-OpenTiaToolkit.CLI.exe begin-plc-code-transaction --plc-name="PLC_1" --description="Add conveyor logic" --compile-policy=NoNewErrors
+OpenTiaToolkit.CLI.exe discover-plc-code-capabilities --plc-name="PLC_1" --object-name="FB_Conveyor" --block-type=FB --operation=Create --requested-language=LAD
+OpenTiaToolkit.CLI.exe discover-plc-code-capabilities --plc-name="PLC_1" --object-name="FC_ConveyorCall" --block-type=FC --operation=Create --requested-language=LAD
+OpenTiaToolkit.CLI.exe begin-plc-code-transaction --plc-name="PLC_1" --description="Add conveyor logic" --compile-policy=NoNewErrors --capability-ids="<fb-capability-id>,<fc-capability-id>"
 OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FB_Conveyor" --group-path="Conveyor" --confirm=true
 OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FC_ConveyorCall" --depends-on=1 --confirm=true
 # Native SCL alternative:
@@ -1568,7 +1571,9 @@ OpenTiaToolkit.CLI.exe get-plc-code-transaction --transaction-id="<id>"
 OpenTiaToolkit.CLI.exe discard-plc-code-transaction --transaction-id="<id>" --confirm=true
 ```
 
-`begin-plc-code-transaction` binds the manifest to the current TIA process, project, and exact PLC. `NoNewErrors` accepts an already-imperfect baseline only when the transaction introduces no additional compile errors; `CleanCompile` requires a clean final compile. `maximum-new-warnings` can additionally cap warning growth.
+`discover-plc-code-capabilities` reads the attached TIA version, project, PLC family/type, exact target identity/language/protection, safety context, VCI mappings/status/formats, and live document/source/XML export evidence. It ranks VCI, native documents, native SCL, and SimaticML with explicit eligibility reasons. Safety targets, read-only targets, and ambiguous name-only identities fail closed. VCI selection routes to guarded directional synchronization rather than a direct-import transaction.
+
+`begin-plc-code-transaction` requires and binds one capability id per exact target plus the current TIA process, project, and PLC. Every fingerprint is re-observed at begin, plan, and apply; changed target existence, language, protection, safety, VCI evidence, route evidence, or environment is stale and requires rediscovery. `NoNewErrors` accepts an already-imperfect baseline only when the transaction introduces no additional compile errors; `CleanCompile` requires a clean final compile. `maximum-new-warnings` can additionally cap warning growth.
 
 `plan-plc-code-transaction` validates every input again, resolves every exact block and PLC-type target, rejects duplicate targets, snapshots existing targets before any mutation, records missing baselines for generated targets, and performs a baseline compile. It derives dependencies from authored calls, merges optional `depends-on` operation sequences, rejects missing or cyclic dependencies, and records a deterministic topological execution order. The resulting thirty-minute apply token is one-use.
 

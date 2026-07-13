@@ -17,12 +17,14 @@ public sealed class BeginPlcCodeTransactionCommand : ICommand
         new CommandParameter("plc-name", CommandParameterType.String, "Exact PLC device name", true),
         new CommandParameter("description", CommandParameterType.String, "Human-readable engineering intent", false),
         new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile", false, "NoNewErrors"),
-        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile", false)
+        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile", false),
+        new CommandParameter("capability-id", CommandParameterType.String, "One live capability discovery id to bind and revalidate at plan/apply", false),
+        new CommandParameter("capability-ids", CommandParameterType.String, "Comma-separated capability ids for an atomic multi-target transaction", false)
     });
     public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         int? maximumNewWarnings = args.Has("maximum-new-warnings") ? args.GetInt("maximum-new-warnings") : (int?)null;
-        PlcCodeTransaction result = await _service.BeginTransactionAsync(args.GetString("plc-name"), args.GetString("description"), args.GetString("compile-policy"), maximumNewWarnings).ConfigureAwait(false);
+        PlcCodeTransaction result = await _service.BeginTransactionAsync(args.GetString("plc-name"), args.GetString("description"), args.GetString("compile-policy"), maximumNewWarnings, args.GetString("capability-id"), args.GetString("capability-ids")).ConfigureAwait(false);
         return CommandResult.CreateSuccess(result, "PLC code transaction started.");
     }
 }
