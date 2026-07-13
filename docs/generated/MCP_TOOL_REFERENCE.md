@@ -98,6 +98,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `get-multiuser-status` | Insights |  | Reports project/local-session multiuser state and ownership through the official V21 API. |
 | `get-online-status` | PLC | `plc-name`, `go-online` | Gets PLC online status, optionally going online first |
 | `get-plc-alarm-text-list-details` | Insights | `max-results` | Reads PLC alarm system/user text-list metadata through the official V21 API. |
+| `get-plc-code-evidence` | PLC | `evidence-id` | Gets one persistent PLC code qualification evidence manifest |
 | `get-plc-code-impact` | PLC | `transaction-id` | Gets the semantic delta, resolved dependencies, live PLC consumers, policy status, and fingerprint for a planned PLC code transaction |
 | `get-plc-code-transaction` | PLC | `transaction-id` | Gets the persistent manifest, journal, hashes, compile evidence, and recovery state for one PLC code transaction |
 | `get-project-info` | Portal |  | Gets information about the currently open project |
@@ -135,6 +136,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `list-multiuser-servers` | Multiuser | `page-size`, `continuation-token` | Lists configured TIA Project Server connections. |
 | `list-multiuser-sessions` | Multiuser | `server-alias`, `project-name`, `page-size`, `continuation-token` | Lists local sessions registered for a server project. |
 | `list-plc-alarm-text-lists` | PLC | `plc-name`, `output-path`, `page-size`, `continuation-token` | PLC alarm text lists |
+| `list-plc-code-evidence` | PLC | `status`, `code-format`, `page-size`, `continuation-token` | Lists versioned PLC code evidence, including failed and cleanup-quarantined probes |
 | `list-plc-code-transactions` | PLC | `page-size`, `continuation-token` | Lists persistent PLC code transactions, including interrupted and recovery-required changes |
 | `list-plcs` | PLC | `page-size`, `continuation-token` | Lists all PLC devices found in the project |
 | `list-project-languages` | Project Texts | `page-size`, `continuation-token` | Lists project languages and active language settings |
@@ -156,10 +158,12 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `plan-plc-code-transaction` | PLC | `transaction-id` | Snapshots every existing target and produces one dependency-ordered, atomic, state-bound PLC code transaction plan |
 | `portal-status` | Portal |  | Gets the current TIA Portal connection status |
 | `probe-hmi-faceplate-interface` | Unified HMI | `hmi-name`, `screen-path`, `item-name`, `item-name-path`, `property`, `write`, `value`, `restore`, `confirm` | Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write |
+| `query-plc-code-evidence` | PLC | `capability-ids`, `code-format`, `input-path` | Finds verified evidence matching the current exact TIA/PLC/route compatibility fingerprint and normalized code construct signature |
 | `recover-plc-code-transaction` | PLC | `transaction-id`, `confirm` | Conservatively restores every baseline in an interrupted or unverified PLC code transaction |
 | `remove-hmi-logging-tag` | Unified HMI | `hmi-name`, `tag-path`, `datalog-name`, `logging-tag-name`, `confirm` | Removes one Unified HMI logging tag after verifying its data log association |
 | `remove-hmi-logging-tags` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or removes multiple Unified HMI logging tags after data log verification |
 | `retrieve-project` | Portal | `archive-path`, `target-directory`, `upgrade`, `umac-user`, `umac-password-env`, `umac-user-type`, `confirm` | Retrieves an archived project and selects it as the current project |
+| `run-plc-code-probe` | PLC | `plc-name`, `capability-ids`, `code-format`, `input-path`, `group-path`, `type-group-path`, `compile-policy`, `maximum-new-warnings`, `accept-unknown-impact`, `force`, `confirm` | Runs an exact all-create SCL or S7DCL probe, verifies it, removes every probe artifact, and records versioned evidence |
 | `save-as-project` | Portal | `destination-path`, `confirm` | Saves the project to a new location |
 | `save-multiuser-session` | Multiuser | `confirm` | Saves pending edits in the selected local session without checking in. |
 | `save-project` | Portal | `confirm` | Saves the current project |

@@ -662,6 +662,29 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
+    public async Task Transaction_InterruptedProbeDisposal_IsProtectedAndRecoverable()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\nEND_FUNCTION");
+        var context = ContextWithGroups();
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "interrupted probe disposal");
+        service.AddTransactionOperation(draft.TransactionId, _directory, "Probe", null, "Override");
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        plan.State = "DisposingProbe";
+        plan.ApplyToken = null;
+        string manifest = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", plan.TransactionId, "manifest.json");
+        File.WriteAllText(manifest, JsonSerializer.Serialize(plan, new JsonSerializerOptions { WriteIndented = true }));
+
+        Assert.ThrowsException<InvalidOperationException>(() => service.DiscardTransaction(plan.TransactionId));
+        PlcCodeTransactionApplyResult result = await service.RecoverTransactionAsync(plan.TransactionId);
+
+        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
     public async Task Transaction_SclSource_GeneratesMultipleExactBlocksAndCanonicalEvidence()
     {
         string sourcePath = Path.Combine(_directory, "UniqueSource.scl");
@@ -1217,6 +1240,47 @@ public class PlcDocumentWorkflowServiceTests
     private void WriteUtf8Bom(string fileName, string content)
     {
         File.WriteAllText(Path.Combine(_directory, fileName), content, new UTF8Encoding(true));
+    }
+
+    [TestMethod]
+    public async Task ProbeRunner_VerifiesThenRemovesExactTargetAndPromotesEvidence()
+    {
+        WriteUtf8Bom("DisposableProbe.s7dcl", "{ S7_BlockNumber := \"65001\"; S7_PreferredLanguage := \"LAD\" }\r\nFUNCTION \"DisposableProbe\" : Void\r\n{ S7_Language := \"LAD\" }\r\nNETWORK\r\nRUNG wire#powerrail END_RUNG\r\nEND_NETWORK\r\nEND_FUNCTION");
+        var context = ContextWithGroups();
+        context.AttachedPortalProcessId = 42;
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<BlockInfo>());
+        plc.Setup(service => service.GetSoftwareTreeAsync(null)).ReturnsAsync((SoftwareTreeNode?)null);
+        plc.Setup(service => service.GetCrossReferencesAsync("DisposableProbe")).ReturnsAsync(new PlcCrossReferenceResult(true, "DisposableProbe", "No external PLC consumers."));
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(_directory, "DisposableProbe", "", "Override"))
+            .ReturnsAsync(() =>
+            {
+                var created = new FakeBlock { Name = "DisposableProbe", Type = "FC", Number = 65001, ExportContent = File.ReadAllText(Path.Combine(_directory, "DisposableProbe.s7dcl")) };
+                created.OnDelete = () => software.BlockGroup.Blocks.Remove(created);
+                software.BlockGroup.Blocks.Add(created);
+                return true;
+            });
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var discovery = new PlcCodeCapabilityDiscoveryService(
+            plc.Object,
+            new Mock<IVciService>().Object,
+            context,
+            environmentProvider: name => Task.FromResult(new PlcCodeEnvironmentEvidence { TiaProcessId = 42, TiaVersion = "V21 Update 2", TiaBuild = "21.0.2", PlcName = name, PlcFamily = "S7-1500", PlcTypeIdentifier = "CPU 1511" }),
+            safetyProvider: target => new PlcCodeSafetyEvidence());
+        PlcCodeCapabilityDiscovery capability = await discovery.DiscoverAsync(new PlcCodeCapabilityRequest { PlcName = "PLC_1", ObjectKind = "Block", ObjectName = "DisposableProbe", Operation = "Create", BlockType = "FC", RequestedLanguage = "LAD" });
+        var registry = new PlcCodeEvidenceRegistry(Path.Combine(_directory, "evidence"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, registry);
+
+        PlcCodeProbeRunResult result = await service.RunProbeAsync("PLC_1", capability.CapabilityId, "s7dcl", Path.Combine(_directory, "DisposableProbe.s7dcl"), null, null, "NoNewErrors", null, false, true);
+
+        Assert.AreEqual("Verified", result.Evidence.Status, result.Evidence.Failure);
+        Assert.IsTrue(result.ProbeApplied);
+        Assert.IsTrue(result.CleanupProven);
+        Assert.AreEqual(0, software.BlockGroup.Blocks.Count);
+        Assert.IsTrue(result.Evidence.CleanupCompilation?.Success);
+        Assert.AreEqual(1, registry.FindVerified(result.Evidence.Compatibility.Fingerprint, result.Evidence.QualificationSignature).Count);
+        Assert.IsFalse(Directory.Exists(Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", result.Evidence.TransactionId)));
     }
 
     private static Mock<IPlcService> OpenPlcMock()

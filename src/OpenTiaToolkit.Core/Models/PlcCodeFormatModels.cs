@@ -23,6 +23,7 @@ public sealed class PlcCodeArtifactValidationResult
     public string Classification { get; set; } = "verified";
     public string InputPath { get; set; } = string.Empty;
     public string InputHash { get; set; } = string.Empty;
+    public string QualificationSignature { get; set; } = string.Empty;
     public bool HasUtf8Bom { get; set; }
     public IReadOnlyList<PlcCodeDeclaredObject> DeclaredObjects { get; set; } = Array.Empty<PlcCodeDeclaredObject>();
     public IReadOnlyList<PlcCodeValidationFinding> Findings { get; set; } = Array.Empty<PlcCodeValidationFinding>();

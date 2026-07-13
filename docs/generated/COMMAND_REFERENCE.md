@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **171**
+Commands: **175**
 
 ## Devices
 
@@ -810,6 +810,14 @@ Gets PLC online status, optionally going online first
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `go-online` | Boolean | no | True | Attempt to go online before reading status |
 
+### get-plc-code-evidence
+
+Gets one persistent PLC code qualification evidence manifest
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `evidence-id` | String | yes |  | Evidence id |
+
 ### get-plc-code-impact
 
 Gets the semantic delta, resolved dependencies, live PLC consumers, policy status, and fingerprint for a planned PLC code transaction
@@ -941,6 +949,17 @@ PLC alarm text lists
 | `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
 | `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 
+### list-plc-code-evidence
+
+Lists versioned PLC code evidence, including failed and cleanup-quarantined probes
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `status` | String | no |  | Optional Running, Verified, Failed, or Quarantined filter |
+| `code-format` | String | no |  | Optional exact code-format filter |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
+
 ### list-plc-code-transactions
 
 Lists persistent PLC code transactions, including interrupted and recovery-required changes
@@ -1023,6 +1042,16 @@ Snapshots every existing target and produces one dependency-ordered, atomic, sta
 |---|---|---:|---|---|
 | `transaction-id` | String | yes |  | Draft transaction id |
 
+### query-plc-code-evidence
+
+Finds verified evidence matching the current exact TIA/PLC/route compatibility fingerprint and normalized code construct signature
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `capability-ids` | String | yes |  | Comma-separated current capability ids for every declared object |
+| `code-format` | String | no | auto | auto, scl, or s7dcl |
+| `input-path` | Path | yes |  | SCL or S7DCL artifact to qualify |
+
 ### recover-plc-code-transaction
 
 Conservatively restores every baseline in an interrupted or unverified PLC code transaction
@@ -1031,6 +1060,24 @@ Conservatively restores every baseline in an interrupted or unverified PLC code 
 |---|---|---:|---|---|
 | `transaction-id` | String | yes |  | Interrupted or recovery-required transaction id |
 | `confirm` | Boolean | yes |  | Confirm restoration from the retained recovery package |
+
+### run-plc-code-probe
+
+Runs an exact all-create SCL or S7DCL probe, verifies it, removes every probe artifact, and records versioned evidence
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | Exact PLC device name |
+| `capability-ids` | String | yes |  | Comma-separated Create capability id for every declared probe object |
+| `code-format` | String | no | auto | auto, scl, or s7dcl |
+| `input-path` | Path | yes |  | Disposable SCL or S7DCL probe artifact |
+| `group-path` | String | no |  | Exact target block group |
+| `type-group-path` | String | no |  | Exact target PLC type group for SCL TYPE declarations |
+| `compile-policy` | String | no | NoNewErrors | NoNewErrors (default) or CleanCompile |
+| `maximum-new-warnings` | Integer | no |  | Optional maximum warning increase accepted by the probe |
+| `accept-unknown-impact` | Boolean | no | False | Explicitly accept reviewed unresolved impact in the disposable target |
+| `force` | Boolean | no | False | Run again even when exact verified evidence already exists |
+| `confirm` | Boolean | yes |  | Confirm temporary live mutation and mandatory cleanup |
 
 ### search-blocks
 

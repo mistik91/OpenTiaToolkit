@@ -37,6 +37,7 @@ public sealed class PlcCodeEnvironmentEvidence
 {
     public int? TiaProcessId { get; set; }
     public string TiaVersion { get; set; } = string.Empty;
+    public string TiaBuild { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
     public string ProjectPath { get; set; } = string.Empty;
     public string PlcName { get; set; } = string.Empty;

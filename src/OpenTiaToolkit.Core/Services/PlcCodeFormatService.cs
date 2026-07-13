@@ -13,6 +13,7 @@ namespace OpenTiaToolkit.Core.Services;
 
 public sealed class PlcCodeFormatService
 {
+    public const string ValidatorCatalogVersion = "plc-code-formats/1.1";
     private static readonly Regex SclDeclarationRegex = new Regex(@"(?im)^\s*(FUNCTION_BLOCK|FUNCTION|ORGANIZATION_BLOCK|DATA_BLOCK|TYPE)\s+(?:""(?<quoted>[^""]+)""|(?<plain>[^\s:]+))", RegexOptions.Compiled);
     private static readonly Regex SclCallRegex = new Regex(@"(?im)(?<![#\w])(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*\(", RegexOptions.Compiled);
     private static readonly Regex StatefulTypeRegex = new Regex(@"\b(TON|TOF|TP|TON_TIME|TOF_TIME|TP_TIME|IEC_TIMER|R_TRIG|F_TRIG|CTU|CTD|CTUD|IEC_COUNTER)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -42,28 +43,60 @@ public sealed class PlcCodeFormatService
     public PlcCodeArtifactValidationResult Validate(string format, string inputPath, string? baselinePath = null, bool allowFlgNetTopology = false)
     {
         string normalized = NormalizeFormat(format, inputPath);
-        if (normalized == "SCL") return ValidateScl(inputPath);
-        if (normalized == "SIMATICML") return ValidateSimaticMl(inputPath, baselinePath, allowFlgNetTopology);
-        if (normalized == "S7DCL")
+        PlcCodeArtifactValidationResult result;
+        if (normalized == "SCL") result = ValidateScl(inputPath);
+        else if (normalized == "SIMATICML") result = ValidateSimaticMl(inputPath, baselinePath, allowFlgNetTopology);
+        else if (normalized == "S7DCL")
         {
             string fullPath = Path.GetFullPath(inputPath);
-            PlcDocumentValidationResult result = _documentWorkflow.Validate(Path.GetDirectoryName(fullPath)!, Path.GetFileNameWithoutExtension(fullPath));
-            return new PlcCodeArtifactValidationResult
+            PlcDocumentValidationResult document = _documentWorkflow.Validate(Path.GetDirectoryName(fullPath)!, Path.GetFileNameWithoutExtension(fullPath));
+            result = new PlcCodeArtifactValidationResult
             {
-                Valid = result.Valid,
-                Format = result.BlockType == "GlobalDB" ? "S7DCL-DATA" : "S7DCL-LAD",
-                Classification = result.Classification,
-                InputPath = result.S7dclPath,
-                InputHash = result.DocumentHash,
-                HasUtf8Bom = result.HasUtf8Bom,
-                DeclaredObjects = string.IsNullOrWhiteSpace(result.BlockName) ? Array.Empty<PlcCodeDeclaredObject>() : new[] { new PlcCodeDeclaredObject { Name = result.BlockName!, ObjectType = result.BlockType ?? string.Empty, Number = result.BlockNumber, Line = 1 } },
-                Findings = result.Instructions.Select(item => new PlcCodeValidationFinding { Construct = item.Instruction, Classification = item.Classification, Line = item.Line, Message = item.Guidance ?? string.Empty }).ToArray(),
-                Dependencies = result.Dependencies,
-                Errors = result.Errors,
-                Warnings = result.Warnings
+                Valid = document.Valid,
+                Format = document.BlockType == "GlobalDB" ? "S7DCL-DATA" : "S7DCL-LAD",
+                Classification = document.Classification,
+                InputPath = document.S7dclPath,
+                InputHash = document.DocumentHash,
+                HasUtf8Bom = document.HasUtf8Bom,
+                DeclaredObjects = string.IsNullOrWhiteSpace(document.BlockName) ? Array.Empty<PlcCodeDeclaredObject>() : new[] { new PlcCodeDeclaredObject { Name = document.BlockName!, ObjectType = document.BlockType ?? string.Empty, Number = document.BlockNumber, Line = 1 } },
+                Findings = document.Instructions.Select(item => new PlcCodeValidationFinding { Construct = item.Instruction, Classification = item.Classification, Line = item.Line, Message = item.Guidance ?? string.Empty }).ToArray(),
+                Dependencies = document.Dependencies,
+                Errors = document.Errors,
+                Warnings = document.Warnings
             };
         }
-        throw new InvalidOperationException($"Unsupported PLC code format '{format}'.");
+        else throw new InvalidOperationException($"Unsupported PLC code format '{format}'.");
+        result.QualificationSignature = ComputeQualificationSignature(result);
+        return result;
+    }
+
+    public string ComputeQualificationSignature(PlcCodeArtifactValidationResult validation)
+    {
+        string normalizedContent;
+        if (validation.Format.Equals("SimaticML", StringComparison.OrdinalIgnoreCase)) normalizedContent = ComputeSimaticMlContentHash(validation.InputPath);
+        else
+        {
+            string text = File.Exists(validation.InputPath) ? DecodeUtf8(File.ReadAllBytes(validation.InputPath), new List<string>(), validation.Format) : string.Empty;
+            int identity = 0;
+            foreach (PlcCodeDeclaredObject declared in validation.DeclaredObjects.OrderBy(item => item.Line).ThenBy(item => item.ObjectType, StringComparer.Ordinal))
+            {
+                string placeholder = "__PLC_OBJECT_" + (++identity) + "__";
+                string pattern = "\"" + Regex.Escape(declared.Name) + "\"|(?<![A-Za-z0-9_])" + Regex.Escape(declared.Name) + "(?![A-Za-z0-9_])";
+                text = Regex.Replace(text, pattern, placeholder, RegexOptions.IgnoreCase);
+            }
+            if (validation.Format.StartsWith("S7DCL", StringComparison.OrdinalIgnoreCase))
+                text = Regex.Replace(text, @"(?i)(S7_BlockNumber\s*:=\s*"")[^""]+("")", "$1__PLC_BLOCK_NUMBER__$2");
+            normalizedContent = string.Join("\n", text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Select(line => line.TrimEnd()).Where(line => line.Length > 0));
+            if (validation.Format.StartsWith("S7DCL", StringComparison.OrdinalIgnoreCase))
+            {
+                string resource = Path.ChangeExtension(validation.InputPath, ".s7res");
+                normalizedContent += "|resource:" + (File.Exists(resource) ? Hash(File.ReadAllBytes(resource)) : "missing");
+            }
+        }
+        string constructCatalog = string.Join("|", validation.DeclaredObjects.Select(item => item.ObjectType).OrderBy(value => value, StringComparer.Ordinal)
+            .Concat(validation.Findings.Select(item => item.Construct + ":" + item.Classification).OrderBy(value => value, StringComparer.Ordinal))
+            .Concat(validation.Dependencies.Select(value => "dependency:" + value).OrderBy(value => value, StringComparer.Ordinal)));
+        return Hash(Encoding.UTF8.GetBytes(ValidatorCatalogVersion + "|" + validation.Format + "|" + constructCatalog + "|" + normalizedContent));
     }
 
     public PlcCodeArtifactValidationResult ValidateScl(string inputPath)

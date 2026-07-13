@@ -390,7 +390,7 @@ public sealed partial class PlcDocumentWorkflowService
     public async Task<PlcCodeTransactionApplyResult> RecoverTransactionAsync(string transactionId)
     {
         PlcCodeTransaction transaction = LoadTransaction(transactionId, updateExpiry: false);
-        if (!new[] { "Applying", "Verifying", "RollingBack", "RecoveryRequired" }.Contains(transaction.State, StringComparer.Ordinal))
+        if (!new[] { "Applying", "Verifying", "DisposingProbe", "RollingBack", "RecoveryRequired" }.Contains(transaction.State, StringComparer.Ordinal))
             throw new InvalidOperationException($"Transaction '{transaction.TransactionId}' is in state '{transaction.State}' and does not require recovery.");
         if (string.IsNullOrWhiteSpace(transaction.PlanHash) || !FixedEquals(transaction.PlanHash!, ComputeTransactionPlanHash(transaction)))
         {
@@ -424,7 +424,7 @@ public sealed partial class PlcDocumentWorkflowService
     public bool DiscardTransaction(string transactionId)
     {
         PlcCodeTransaction transaction = LoadTransaction(transactionId, updateExpiry: false);
-        if (new[] { "Applying", "Verifying", "RollingBack", "RecoveryRequired" }.Contains(transaction.State, StringComparer.Ordinal))
+        if (new[] { "Applying", "Verifying", "DisposingProbe", "RollingBack", "RecoveryRequired" }.Contains(transaction.State, StringComparer.Ordinal))
             throw new InvalidOperationException("A transaction with unverified recovery state cannot be discarded. Recover it first.");
         string directory = TransactionDirectory(transaction.TransactionId);
         Cleanup(directory);

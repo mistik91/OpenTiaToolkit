@@ -17,11 +17,13 @@ namespace OpenTiaToolkit.Core
         public static IServiceCollection AddOpenTiaToolkitCoreServices(this IServiceCollection services)
         {
             services.AddSingleton<EngineeringSessionContext>();
+            services.AddSingleton<PlcCodeEvidenceRegistry>();
             services.AddSingleton<ISessionResetService, EngineeringSessionResetService>();
             services.AddSingleton(serviceProvider => new PlcDocumentWorkflowService(
                 serviceProvider.GetRequiredService<IPlcService>(),
                 serviceProvider.GetRequiredService<EngineeringSessionContext>(),
-                serviceProvider.GetRequiredService<PlcCodeCapabilityDiscoveryService>()));
+                serviceProvider.GetRequiredService<PlcCodeCapabilityDiscoveryService>(),
+                serviceProvider.GetRequiredService<PlcCodeEvidenceRegistry>()));
             services.AddSingleton<PlcCodeFormatService>();
 
             services.AddSingleton<PortalService>(serviceProvider =>

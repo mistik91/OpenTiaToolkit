@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 171,
+  "commandCount": 175,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -3538,6 +3538,22 @@
       ]
     },
     {
+      "name": "get-plc-code-evidence",
+      "description": "Gets one persistent PLC code qualification evidence manifest",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "evidence-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Evidence id"
+        }
+      ]
+    },
+    {
       "name": "get-plc-code-impact",
       "description": "Gets the semantic delta, resolved dependencies, live PLC consumers, policy status, and fingerprint for a planned PLC code transaction",
       "category": "PLC",
@@ -4849,6 +4865,43 @@
       ]
     },
     {
+      "name": "list-plc-code-evidence",
+      "description": "Lists versioned PLC code evidence, including failed and cleanup-quarantined probes",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "status",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional Running, Verified, Failed, or Quarantined filter"
+        },
+        {
+          "name": "code-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional exact code-format filter"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
+    },
+    {
       "name": "list-plc-code-transactions",
       "description": "Lists persistent PLC code transactions, including interrupted and recovery-required changes",
       "category": "PLC",
@@ -5471,6 +5524,36 @@
       ]
     },
     {
+      "name": "query-plc-code-evidence",
+      "description": "Finds verified evidence matching the current exact TIA/PLC/route compatibility fingerprint and normalized code construct signature",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "capability-ids",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Comma-separated current capability ids for every declared object"
+        },
+        {
+          "name": "code-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": "auto",
+          "description": "auto, scl, or s7dcl"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "SCL or S7DCL artifact to qualify"
+        }
+      ]
+    },
+    {
       "name": "recover-plc-code-transaction",
       "description": "Conservatively restores every baseline in an interrupted or unverified PLC code transaction",
       "category": "PLC",
@@ -5629,6 +5712,92 @@
           "required": false,
           "defaultValue": false,
           "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "run-plc-code-probe",
+      "description": "Runs an exact all-create SCL or S7DCL probe, verifies it, removes every probe artifact, and records versioned evidence",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact PLC device name"
+        },
+        {
+          "name": "capability-ids",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Comma-separated Create capability id for every declared probe object"
+        },
+        {
+          "name": "code-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": "auto",
+          "description": "auto, scl, or s7dcl"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Disposable SCL or S7DCL probe artifact"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Exact target block group"
+        },
+        {
+          "name": "type-group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Exact target PLC type group for SCL TYPE declarations"
+        },
+        {
+          "name": "compile-policy",
+          "type": "String",
+          "required": false,
+          "defaultValue": "NoNewErrors",
+          "description": "NoNewErrors (default) or CleanCompile"
+        },
+        {
+          "name": "maximum-new-warnings",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum warning increase accepted by the probe"
+        },
+        {
+          "name": "accept-unknown-impact",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly accept reviewed unresolved impact in the disposable target"
+        },
+        {
+          "name": "force",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Run again even when exact verified evidence already exists"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm temporary live mutation and mandatory cleanup"
         }
       ]
     },

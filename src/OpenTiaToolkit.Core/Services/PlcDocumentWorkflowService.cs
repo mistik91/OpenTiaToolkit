@@ -49,19 +49,21 @@ public sealed partial class PlcDocumentWorkflowService
     private readonly IPlcService _plcService;
     private readonly EngineeringSessionContext _sessionContext;
     private readonly PlcCodeCapabilityDiscoveryService? _capabilityDiscovery;
+    private readonly PlcCodeEvidenceRegistry _evidenceRegistry;
     private readonly V21OpennessAdapter _v21Adapter = new V21OpennessAdapter();
     private readonly Dictionary<string, StoredPlan> _plans = new Dictionary<string, StoredPlan>(StringComparer.Ordinal);
     private readonly object _sync = new object();
 
-    public PlcDocumentWorkflowService(IPlcService plcService) : this(plcService, new EngineeringSessionContext(), null) { }
+    public PlcDocumentWorkflowService(IPlcService plcService) : this(plcService, new EngineeringSessionContext(), null, new PlcCodeEvidenceRegistry()) { }
 
-    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext) : this(plcService, sessionContext, null) { }
+    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext) : this(plcService, sessionContext, null, new PlcCodeEvidenceRegistry()) { }
 
-    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext, PlcCodeCapabilityDiscoveryService? capabilityDiscovery)
+    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext, PlcCodeCapabilityDiscoveryService? capabilityDiscovery, PlcCodeEvidenceRegistry? evidenceRegistry = null)
     {
         _plcService = plcService;
         _sessionContext = sessionContext;
         _capabilityDiscovery = capabilityDiscovery;
+        _evidenceRegistry = evidenceRegistry ?? new PlcCodeEvidenceRegistry();
         CleanupOrphanedPlanDirectories();
     }
 

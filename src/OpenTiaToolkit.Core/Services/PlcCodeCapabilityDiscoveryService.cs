@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -267,10 +268,22 @@ public sealed class PlcCodeCapabilityDiscoveryService
         string instanceVersion = string.Empty;
         try { instanceVersion = await _versionProvider().ConfigureAwait(false); }
         catch { }
+        string tiaBuild = string.Empty;
+        try
+        {
+            string assemblyPath = portal?.GetType().Assembly.Location ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(assemblyPath))
+            {
+                FileVersionInfo version = FileVersionInfo.GetVersionInfo(assemblyPath);
+                tiaBuild = FirstNonEmpty(version.ProductVersion, version.FileVersion, portal?.GetType().Assembly.GetName().Version?.ToString());
+            }
+        }
+        catch { }
         return new PlcCodeEnvironmentEvidence
         {
             TiaProcessId = _context.AttachedPortalProcessId,
             TiaVersion = FirstNonEmpty(instanceVersion, Scalar(portal, "Version", "ProductVersion"), Scalar(project, "Version"), portal?.GetType().Assembly.GetName().Version?.ToString()),
+            TiaBuild = tiaBuild,
             ProjectName = TiaReflectionHelper.GetName(project) ?? string.Empty,
             ProjectPath = TiaReflectionHelper.GetProperty(project, "Path")?.ToString() ?? string.Empty,
             PlcName = plcName,

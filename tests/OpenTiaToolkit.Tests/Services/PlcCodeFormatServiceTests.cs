@@ -81,6 +81,21 @@ public sealed class PlcCodeFormatServiceTests
     }
 
     [TestMethod]
+    public void QualificationSignature_NormalizesDisposableIdentityButNotCodeShape()
+    {
+        string first = Write("First.scl", "FUNCTION \"First\" : Void\r\nBEGIN\r\n#Result := ABS(#Value);\r\nEND_FUNCTION\r\n");
+        string second = Write("Second.scl", "FUNCTION \"Second\" : Void\r\nBEGIN\r\n#Result := ABS(#Value);\r\nEND_FUNCTION\r\n");
+        string changed = Write("Changed.scl", "FUNCTION \"Changed\" : Void\r\nBEGIN\r\n#Result := MAX(#Value, 0);\r\nEND_FUNCTION\r\n");
+
+        string firstSignature = _service.Validate("scl", first).QualificationSignature;
+        string secondSignature = _service.Validate("scl", second).QualificationSignature;
+        string changedSignature = _service.Validate("scl", changed).QualificationSignature;
+
+        Assert.AreEqual(firstSignature, secondSignature);
+        Assert.AreNotEqual(firstSignature, changedSignature);
+    }
+
+    [TestMethod]
     public void ValidateScl_LocalFbInstances_AreNotProjectDependencies()
     {
         string path = Write("Stateful.scl", "FUNCTION_BLOCK \"Stateful\"\r\nVAR_INPUT Enable : Bool; END_VAR\r\nVAR_OUTPUT Active : Bool; Rising : Bool; END_VAR\r\nVAR DelayTimer : TON_TIME; RisingEdge : R_TRIG; END_VAR\r\nBEGIN\r\n#DelayTimer.TON(IN := #Enable, PT := T#1s);\r\n#RisingEdge(CLK := #Enable);\r\n#Active := #DelayTimer.Q;\r\n#Rising := #RisingEdge.Q;\r\nEND_FUNCTION_BLOCK\r\n");

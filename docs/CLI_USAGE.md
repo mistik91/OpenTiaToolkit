@@ -1577,7 +1577,7 @@ OpenTiaToolkit.CLI.exe get-plc-code-transaction --transaction-id="<id>"
 OpenTiaToolkit.CLI.exe discard-plc-code-transaction --transaction-id="<id>" --confirm=true
 ```
 
-`discover-plc-code-capabilities` reads the attached TIA version, project, PLC family/type, exact target identity/language/protection, safety context, VCI mappings/status/formats, and live document/source/XML export evidence. It ranks VCI, native documents, native SCL, and SimaticML with explicit eligibility reasons. Safety targets, read-only targets, and ambiguous name-only identities fail closed. VCI selection routes to guarded directional synchronization rather than a direct-import transaction.
+`discover-plc-code-capabilities` reads the attached TIA version and installed build/update evidence, project, PLC family/type, exact target identity/language/protection, safety context, VCI mappings/status/formats, and live document/source/XML export evidence. It ranks VCI, native documents, native SCL, and SimaticML with explicit eligibility reasons. Safety targets, read-only targets, and ambiguous name-only identities fail closed. VCI selection routes to guarded directional synchronization rather than a direct-import transaction.
 
 `begin-plc-code-transaction` requires and binds one capability id per exact target plus the current TIA process, project, and PLC. Every fingerprint is re-observed at begin, plan, and apply; changed target existence, language, protection, safety, VCI evidence, route evidence, or environment is stale and requires rediscovery. `NoNewErrors` accepts an already-imperfect baseline only when the transaction introduces no additional compile errors; `CleanCompile` requires a clean final compile. `maximum-new-warnings` can additionally cap warning growth.
 
@@ -1589,11 +1589,32 @@ Planning also computes a deterministic impact report over every target. It compa
 
 SCL operations validate every declared block and PLC `TYPE`, track every generated target, and support a separate `type-group-path`. SimaticML operations require an untouched export of the exact existing block or PLC type, preserve IDs/namespaces/topology by default, re-export current TIA state during planning, and exclude only volatile export metadata from baseline comparison. Exact PLC-type deletion uses the same XML snapshot, compile, canonical read-back, and rollback proof. VCI workspace-to-project sync is separate from transactions and requires `confirm=true`, validated workspace files, existing mappings, post-sync `Equal` status, and compile verification.
 
-Manifests, integrity hashes, and append-only `journal.jsonl` records survive CLI/MCP or worker restarts under `%TEMP%\OpenTiaToolkit\plc-code-transactions`. `list-plc-code-transactions` discovers interrupted work. Use `recover-plc-code-transaction --confirm=true` for `Applying`, `Verifying`, `RollingBack`, or `RecoveryRequired` states. Recovery conservatively restores every baseline, including operations whose last journal write may have been interrupted. An unproven recovery also writes `recovery.json`; such a transaction cannot be discarded, and its backup package is never age-cleaned automatically.
+Manifests, integrity hashes, and append-only `journal.jsonl` records survive CLI/MCP or worker restarts under `%TEMP%\OpenTiaToolkit\plc-code-transactions`. `list-plc-code-transactions` discovers interrupted work. Use `recover-plc-code-transaction --confirm=true` for `Applying`, `Verifying`, `DisposingProbe`, `RollingBack`, or `RecoveryRequired` states. Recovery conservatively restores every baseline, including operations whose last journal write may have been interrupted. An unproven recovery also writes `recovery.json`; such a transaction cannot be discarded, and its backup package is never age-cleaned automatically.
 
 Transactions do not save the TIA project and do not create Git or VCI commits. Saving and source-control synchronization remain separate explicit decisions after transaction verification.
 
-For native-source probes, `delete-external-source --plc-name="PLC_1" --source-name="Probe" --confirm=true` removes the source definition after its generated blocks have been reviewed and deleted. The older `plan-block-document-import` token is process-local and should be used only when plan/apply share one persistent host session; separate CLI invocations should use the persistent transaction.
+### Disposable PLC code qualification probes
+
+Use the automated runner only with uniquely named missing targets and `Create` capability manifests. Supply one capability id per SCL declaration or the single S7DCL block:
+
+```powershell
+OpenTiaToolkit.CLI.exe validate-plc-code-artifact --code-format=s7dcl --input-path="C:\probes\Codex_LAD_Probe.s7dcl"
+OpenTiaToolkit.CLI.exe discover-plc-code-capabilities --plc-name="PLC_1" --object-name="Codex_LAD_Probe" --block-type=FC --operation=Create --requested-language=LAD
+OpenTiaToolkit.CLI.exe run-plc-code-probe --plc-name="PLC_1" --capability-ids="<probe-capability-id>" --code-format=s7dcl --input-path="C:\probes\Codex_LAD_Probe.s7dcl" --confirm=true
+OpenTiaToolkit.CLI.exe get-plc-code-evidence --evidence-id="<evidence-id>"
+OpenTiaToolkit.CLI.exe list-plc-code-evidence --status=Verified
+
+# Query the intended artifact with freshly discovered intended-target capabilities.
+OpenTiaToolkit.CLI.exe query-plc-code-evidence --capability-ids="<intended-capability-ids>" --code-format=s7dcl --input-path="C:\changes\ProductionShape.s7dcl"
+```
+
+`run-plc-code-probe` composes the normal transaction engine. It validates every create capability, proves every target is missing, snapshots the baseline compile, applies once, verifies exact generated identities, compiles, and exports canonical hashes. Even after success it rolls the transaction back: exact new blocks and PLC types are deleted in reverse order, an SCL external source is removed, absence is re-read, and the baseline compile condition is proven. The local transaction package is discarded only after that cleanup proof.
+
+The persistent evidence registry is stored under `%LOCALAPPDATA%\OpenTiaToolkit\plc-code-evidence\v1`. Only `Verified` records are eligible for reuse. `Failed` means qualification failed but cleanup was proven. `Quarantined` means cleanup was not proven and must be treated as an incident; it is never promoted. `Running` may identify an interrupted probe and is also never promoted.
+
+Evidence matching is deliberately narrow. The qualification signature normalizes disposable object names and S7DCL block numbers while retaining the code shape, declared object kinds, constructs, dependencies, resource content, and validator catalog version. The compatibility fingerprint binds TIA version/build, CPU family/type/order number, selected route and format, safety context, and declared object shapes. Evidence with external project or library dependencies is additionally bound to the project fingerprint. An evidence miss does not change the artifact's offline classification. Use `force=true` only when an exact verified probe must be repeated. `accept-unknown-impact=true` is a separate explicit acknowledgement for a reviewed `Unknown` disposable impact; it does not relax cleanup or evidence matching.
+
+For manual native-source diagnostics that cannot use the automated runner, `delete-external-source --plc-name="PLC_1" --source-name="Probe" --confirm=true` removes the source definition after every generated block/type has been reviewed and deleted; this path does not create promotable evidence. The older `plan-block-document-import` token is process-local and should be used only when plan/apply share one persistent host session; separate CLI invocations should use the persistent transaction.
 
 #### import-block-from-docs
 

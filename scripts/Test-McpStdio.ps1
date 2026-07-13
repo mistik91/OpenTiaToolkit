@@ -168,7 +168,7 @@ try {
         throw "Expected the shared command surface, but tools/list returned only $($tools.Count) tools."
     }
 
-    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'discover-plc-code-capabilities', 'begin-plc-code-transaction', 'add-plc-code-transaction-operation', 'add-delete-plc-type-transaction-operation', 'plan-plc-code-transaction', 'get-plc-code-impact', 'approve-plc-code-impact', 'apply-plc-code-transaction', 'get-plc-code-transaction', 'list-plc-code-transactions', 'recover-plc-code-transaction', 'discard-plc-code-transaction', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
+    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'discover-plc-code-capabilities', 'begin-plc-code-transaction', 'add-plc-code-transaction-operation', 'add-delete-plc-type-transaction-operation', 'plan-plc-code-transaction', 'get-plc-code-impact', 'approve-plc-code-impact', 'apply-plc-code-transaction', 'get-plc-code-transaction', 'list-plc-code-transactions', 'recover-plc-code-transaction', 'discard-plc-code-transaction', 'run-plc-code-probe', 'query-plc-code-evidence', 'get-plc-code-evidence', 'list-plc-code-evidence', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
         if (-not ($tools.name -contains $requiredTool)) {
             throw "tools/list did not include required tool '$requiredTool'."
         }
@@ -277,6 +277,35 @@ try {
             $dataDirectory = Join-Path $assetRoot 's7dcl-data-authoring\assets'
             $sclDirectory = Join-Path $assetRoot 'scl-source-authoring\assets'
             $sclCases = @('Codex_SCL_Probe', 'Codex_SCL_Stateful_Probe', 'Codex_SCL_Type_Probe')
+            $qualificationRoot = Join-Path (Join-Path ([System.IO.Path]::GetTempPath()) 'OpenTiaToolkit') ('Qualification-' + [Guid]::NewGuid().ToString('N'))
+            New-Item -ItemType Directory -Force -Path $qualificationRoot | Out-Null
+            $qualificationName = 'Codex_Qualification_' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
+            $qualificationPath = Join-Path $qualificationRoot ($qualificationName + '.s7dcl')
+            $qualificationText = [IO.File]::ReadAllText((Join-Path $ladDirectory 'Codex_LAD_Probe.s7dcl')).Replace('Codex_LAD_Probe', $qualificationName).Replace('59991', '65010')
+            [IO.File]::WriteAllText($qualificationPath, $qualificationText, [Text.UTF8Encoding]::new($true))
+            [void](Invoke-McpTool -Name 'validate-plc-code-artifact' -Arguments @{ 'code-format' = 's7dcl'; 'input-path' = $qualificationPath })
+            $qualificationCapability = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Block'; 'object-name' = $qualificationName; 'group-path' = ''; 'operation' = 'Create'; 'block-type' = 'FC'; 'requested-language' = 'LAD' }).result.structuredContent.data
+            if ([string]::IsNullOrWhiteSpace([string]$qualificationCapability.Environment.TiaVersion) -or [string]::IsNullOrWhiteSpace([string]$qualificationCapability.Environment.TiaBuild)) {
+                throw "Qualification capability did not capture exact TIA version/build evidence: $($qualificationCapability.Environment | ConvertTo-Json -Compress -Depth 10)"
+            }
+            $qualificationRun = (Invoke-McpTool -Name 'run-plc-code-probe' -Arguments @{ 'plc-name' = $plcNames[0]; 'capability-ids' = [string]$qualificationCapability.CapabilityId; 'code-format' = 's7dcl'; 'input-path' = $qualificationPath; 'group-path' = ''; 'force' = $true; 'confirm' = $true }).result.structuredContent.data
+            if ([string]$qualificationRun.Evidence.Status -ne 'Verified' -or $qualificationRun.ProbeApplied -ne $true -or $qualificationRun.CleanupProven -ne $true -or $qualificationRun.Evidence.CleanupProven -ne $true) {
+                throw "Disposable qualification probe was not fully verified and cleaned: $($qualificationRun | ConvertTo-Json -Compress -Depth 30)"
+            }
+            $qualificationEvidence = (Invoke-McpTool -Name 'get-plc-code-evidence' -Arguments @{ 'evidence-id' = [string]$qualificationRun.Evidence.EvidenceId }).result.structuredContent.data
+            if ([string]$qualificationEvidence.Status -ne 'Verified') { throw 'Persisted qualification evidence was not Verified.' }
+            $qualificationQuery = (Invoke-McpTool -Name 'query-plc-code-evidence' -Arguments @{ 'capability-ids' = [string]$qualificationCapability.CapabilityId; 'code-format' = 's7dcl'; 'input-path' = $qualificationPath }).result.structuredContent.data
+            if ($qualificationQuery.Qualified -ne $true -or @($qualificationQuery.Matches).Count -lt 1) { throw 'Exact compatible qualification evidence was not queryable.' }
+            $qualificationRecords = @((Invoke-McpTool -Name 'list-plc-code-evidence' -Arguments @{ 'status' = 'Verified'; 'code-format' = 'S7DCL-LAD' }).result.structuredContent.data)
+            if (@($qualificationRecords | Where-Object { [string]$_.EvidenceId -eq [string]$qualificationRun.Evidence.EvidenceId }).Count -ne 1) { throw 'Verified qualification evidence was not listed.' }
+            $qualificationBlockSearch = Invoke-McpTool -Name 'search-blocks' -Arguments @{ 'plc-name' = $plcNames[0]; 'pattern' = ('^' + [Regex]::Escape($qualificationName) + '$'); 'search-in' = 'name' }
+            if (@($qualificationBlockSearch.result.structuredContent.data).Count -ne 0) { throw 'Disposable qualification block remains after runner cleanup.' }
+            $qualificationTransactions = @((Invoke-McpTool -Name 'list-plc-code-transactions').result.structuredContent.data)
+            if (@($qualificationTransactions | Where-Object { [string]$_.TransactionId -eq [string]$qualificationRun.Evidence.TransactionId }).Count -ne 0) { throw 'Disposable qualification transaction package remains after proven cleanup.' }
+            Remove-Item -LiteralPath $qualificationRoot -Recurse -Force
+            $summary['QualificationProbeVerified'] = $true
+            $summary['QualificationEvidenceId'] = [string]$qualificationRun.Evidence.EvidenceId
+            $summary['QualificationCleanupVerified'] = $true
             $documentCases = @(
                 @{ Directory = $ladDirectory; Name = 'Codex_LAD_Branch_Timer_Probe'; Type = 'FB'; Number = '59988' },
                 @{ Directory = $ladDirectory; Name = 'Codex_LAD_Analog_Edge_Probe'; Type = 'FC'; Number = '59989' },
@@ -306,6 +335,13 @@ try {
                 }
                 [void](Invoke-McpTool -Name 'apply-block-document-import' -Arguments @{ 'apply-token' = $token; 'confirm' = $true })
             }
+
+            $productionQualificationCapability = (Invoke-McpTool -Name 'discover-plc-code-capabilities' -Arguments @{ 'plc-name' = $plcNames[0]; 'object-kind' = 'Block'; 'object-name' = 'Codex_LAD_Probe'; 'group-path' = ''; 'operation' = 'Modify'; 'block-type' = 'FC'; 'requested-language' = 'LAD' }).result.structuredContent.data
+            $productionQualificationQuery = (Invoke-McpTool -Name 'query-plc-code-evidence' -Arguments @{ 'capability-ids' = [string]$productionQualificationCapability.CapabilityId; 'code-format' = 's7dcl'; 'input-path' = (Join-Path $ladDirectory 'Codex_LAD_Probe.s7dcl') }).result.structuredContent.data
+            if ($productionQualificationQuery.Qualified -ne $true -or @($productionQualificationQuery.Matches | Where-Object { [string]$_.EvidenceId -eq [string]$qualificationRun.Evidence.EvidenceId }).Count -ne 1) {
+                throw 'Disposable qualification evidence did not match the same production code shape under a different exact block identity.'
+            }
+            $summary['ProductionIdentityEvidenceMatchVerified'] = $true
 
             $adversarialRoot = Join-Path (Join-Path ([System.IO.Path]::GetTempPath()) 'OpenTiaToolkit') ('PlcDocuments-' + [Guid]::NewGuid().ToString('N'))
             $staleRoot = Join-Path $adversarialRoot 'stale'
