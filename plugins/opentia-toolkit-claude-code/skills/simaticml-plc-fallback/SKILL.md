@@ -5,10 +5,10 @@ description: Safely patch Siemens SimaticML PLC XML with OpenTiaToolkit when S7D
 
 # SimaticML PLC Fallback
 
-1. Read [xml-rules.md](references/xml-rules.md) and the shared [format contract](../plc-code-engineering/references/format-contract.md).
+1. Read [xml-rules.md](references/xml-rules.md), [patch-recipes.md](references/patch-recipes.md), and the shared [format contract](../plc-code-engineering/references/format-contract.md).
 2. Prove text paths are unsuitable through live format discovery or export failure.
 3. Export the exact existing block or PLC type and retain that untouched XML as the validation baseline. Inspect the exact block/type group; type names alone are insufficient when groups are present. Re-export if TIA changes before planning.
-4. Patch the smallest subtree. Preserve namespaces, IDs, language attributes, interfaces, and unrelated compile units.
+4. Patch the smallest subtree. Preserve namespaces, IDs, language attributes, interfaces, and unrelated compile units. Produce a semantic diff summary before validation; raw line diffs are insufficient for exported XML.
 5. Run `validate-plc-code-artifact --code-format=simaticml --input-path=<patch> --baseline-path=<untouched-export>`. Reject changed object identity, IDs, unsafe XML, or unreviewed FlgNet topology.
 6. Begin a persistent PLC code transaction and use `add-simaticml-transaction-operation` with the candidate, untouched baseline, exact block/type group, and `confirm=true`. The planner re-exports the current object and compares canonical XML excluding volatile export metadata.
 7. Review the exact existing block/type identity, current baseline hash, candidate/baseline hashes, dependencies, compile policy, and token. SimaticML remains patch-only: it does not create a missing object.

@@ -40,7 +40,7 @@ The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and late
 | Process isolation | Siemens objects stay inside a disposable V21 worker with a serialized request queue |
 | Declarative automation | State-bound blueprints turn reviewed PLC, HMI, and hardware intent into previewable plans |
 | Explicit compatibility | `doctor`, assembly hashes, API self-description, capability probes, and migration diffs |
-| Agent-ready workflows | Packaged skills for guarded LAD/S7DCL, SCL source, DB document, SimaticML fallback, and other TIA workflows across Codex, Claude, OpenCode, VS Code, and MCP clients |
+| Agent-ready workflows | Evidence-tier format skills with live-tested LAD/S7DCL, SCL, DB, and SimaticML catalogs and assets across Codex, Claude, OpenCode, VS Code, and MCP clients |
 
 ## What You Can Automate
 

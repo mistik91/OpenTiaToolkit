@@ -5,12 +5,12 @@ description: Author and safely generate Siemens TIA Portal PLC blocks and PLC da
 
 # SCL Source Authoring
 
-1. Read [patterns.md](references/patterns.md) and the shared [format contract](../plc-code-engineering/references/format-contract.md) before writing stateful instructions or interfaces.
-   Use `assets/Codex_SCL_Probe.scl` as the minimal live-tested complex-control-flow source shape.
+1. Read [patterns.md](references/patterns.md), [declaration-catalog.md](references/declaration-catalog.md), and the shared [format contract](../plc-code-engineering/references/format-contract.md) before writing stateful instructions or interfaces.
+   Use `assets/Codex_SCL_Probe.scl` for control flow, `assets/Codex_SCL_Stateful_Probe.scl` for FB statics, and `assets/Codex_SCL_Type_Probe.scl` for a multi-target TYPE plus FC source.
 2. Inspect project blocks, types, DBs, tags, cross-references, and conventions.
 3. Prefer a new unique block name and number for the first compile.
 4. Write complete native Siemens SCL as UTF-8 with BOM.
-5. Run `validate-plc-code-artifact --code-format=scl --input-path=<file>`. Stop on validation errors; review dependencies and every declared FC/FB/OB/DB/TYPE identity.
+5. Run `validate-plc-code-artifact --code-format=scl --input-path=<file>`. Stop on validation errors; review dependencies and every declared FC/FB/OB/DB/TYPE identity. Static validation does not type-check Siemens expressions, library calls, or hardware identifiers; the guarded compile remains authoritative.
 6. Begin a PLC code transaction and add the source with `add-scl-source-transaction-operation --transaction-id=<id> --source-path=<file> --group-path=<block-group> --type-group-path=<type-group> --confirm=true`. Add every related source/document. Planning infers cross-operation block calls; use `depends-on=<sequence,...>` for UDT/DB/library prerequisites it cannot infer.
 7. Plan once. Review every generated block/type target, existing/missing baseline, source hash, inferred/explicit dependencies, execution order, compile policy, and token. Cycles are rejected. The transaction rejects an existing external source with the same name because that source cannot be losslessly backed up.
 8. Apply once with `apply-plc-code-transaction --transaction-id=<id> --apply-token=<token> --confirm=true`. Completion requires exact generated identities, compile policy, and canonical exports for every target.

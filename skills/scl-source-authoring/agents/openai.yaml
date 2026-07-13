@@ -1,4 +1,4 @@
 interface:
   display_name: "SCL Source Authoring"
-  short_description: "Author native Siemens SCL external sources safely"
-  default_prompt: "Create or modify native SCL source, dry-run the import and generation, apply with confirmation, and compile."
+  short_description: "Generate Siemens blocks and PLC types from SCL"
+  default_prompt: "Use $scl-source-authoring to generate Siemens blocks and PLC types from native SCL in one verified transaction."

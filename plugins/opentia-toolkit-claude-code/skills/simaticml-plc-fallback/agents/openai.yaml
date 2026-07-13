@@ -1,4 +1,4 @@
 interface:
   display_name: "SimaticML PLC Fallback"
-  short_description: "Use Siemens PLC XML only when text formats are unsuitable"
-  default_prompt: "Export and minimally patch SimaticML XML, import it carefully, verify the block, and compile."
+  short_description: "Patch existing Siemens PLC XML with baselines"
+  default_prompt: "Use $simaticml-plc-fallback to make a minimal baseline-bound XML patch to an existing PLC block or type."

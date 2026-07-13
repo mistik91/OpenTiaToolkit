@@ -2116,6 +2116,7 @@ Project2             C:\Path2.ap21        V21        2025-01-02
 
 **Codex skill packaging**:
 - Agent workflow skills are versioned in `skills/`, including the top-level router, PLC code engineering router, S7DCL LAD/data authoring, native SCL source authoring, SimaticML fallback, session selection, HMI, hardware, library, trend logging, VCI, multiuser, and repo-development workflows.
+- PLC code skills include a shared verified/probe/unsupported coverage matrix, format-specific catalogs, and V21-tested reusable assets for branches, timers, analog scaling, edge memory, nested DB layouts, stateful SCL FBs, and TYPE-plus-block generation.
 - Run `powershell -ExecutionPolicy Bypass -File .\scripts\Package-HmiUnifiedAgentSkill.ps1` to validate and zip the default HMI skill under `artifacts\skills`.
 - Pass `-SkillSourcePath .\skills\basic-tia-interaction -PackageName basic-tia-interaction.zip` to package the TIA session-selection skill.
 - Add `-Install` to refresh `$CODEX_HOME\skills\<skill-name>`.

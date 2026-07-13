@@ -47,6 +47,20 @@ public sealed class PlcCodeFormatServiceTests
     }
 
     [TestMethod]
+    public void ValidateScl_BundledStatefulAndTypeAssets_AreVerified()
+    {
+        string root = FindRepositoryRoot();
+        foreach (string name in new[] { "Codex_SCL_Stateful_Probe", "Codex_SCL_Type_Probe" })
+        {
+            string path = Path.Combine(root, "skills", "scl-source-authoring", "assets", name + ".scl");
+            var result = _service.ValidateScl(path);
+            Assert.IsTrue(result.Valid, name + ": " + string.Join("; ", result.Errors));
+            Assert.AreEqual("verified", result.Classification, name + ": " + string.Join("; ", result.Warnings));
+            Assert.AreEqual(0, result.Dependencies.Count, name);
+        }
+    }
+
+    [TestMethod]
     public void ValidateScl_StatefulTempAndMissingBoundary_AreRejected()
     {
         string path = Write("Bad.scl", "FUNCTION \"Bad\" : Void\r\nVAR_TEMP T : TON; END_VAR\r\nBEGIN\r\n#T(IN := TRUE, PT := T#1S);\r\n");
@@ -64,6 +78,29 @@ public sealed class PlcCodeFormatServiceTests
         Assert.IsTrue(result.Valid);
         Assert.AreEqual("unknown-requires-live-probe", result.Classification);
         CollectionAssert.Contains(result.Dependencies.ToArray(), "ProjectFC");
+    }
+
+    [TestMethod]
+    public void ValidateScl_LocalFbInstances_AreNotProjectDependencies()
+    {
+        string path = Write("Stateful.scl", "FUNCTION_BLOCK \"Stateful\"\r\nVAR_INPUT Enable : Bool; END_VAR\r\nVAR_OUTPUT Active : Bool; Rising : Bool; END_VAR\r\nVAR DelayTimer : TON_TIME; RisingEdge : R_TRIG; END_VAR\r\nBEGIN\r\n#DelayTimer.TON(IN := #Enable, PT := T#1s);\r\n#RisingEdge(CLK := #Enable);\r\n#Active := #DelayTimer.Q;\r\n#Rising := #RisingEdge.Q;\r\nEND_FUNCTION_BLOCK\r\n");
+
+        var result = _service.ValidateScl(path);
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("verified", result.Classification);
+        Assert.AreEqual(0, result.Dependencies.Count);
+    }
+
+    [TestMethod]
+    public void ValidateScl_TimerStorageAliasInTemp_IsRejected()
+    {
+        string path = Write("BadTimer.scl", "FUNCTION_BLOCK \"BadTimer\"\r\nVAR_TEMP DelayTimer : TON_TIME; END_VAR\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\n");
+
+        var result = _service.ValidateScl(path);
+
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(string.Join("; ", result.Errors), "VAR_TEMP");
     }
 
     [TestMethod]

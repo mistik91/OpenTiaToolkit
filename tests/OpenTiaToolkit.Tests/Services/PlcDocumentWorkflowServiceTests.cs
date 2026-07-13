@@ -244,8 +244,10 @@ public class PlcDocumentWorkflowServiceTests
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_FB_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_Analog_Edge_Probe"),
+            (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_Branch_Timer_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_Mixed_Probe"),
-            (Directory: Path.Combine(root, "skills", "s7dcl-data-authoring", "assets"), Name: "Codex_Data_Probe")
+            (Directory: Path.Combine(root, "skills", "s7dcl-data-authoring", "assets"), Name: "Codex_Data_Probe"),
+            (Directory: Path.Combine(root, "skills", "s7dcl-data-authoring", "assets"), Name: "Codex_Data_Struct_Probe")
         })
         {
             var result = _service.Validate(item.Directory, item.Name);
@@ -281,6 +283,18 @@ public class PlcDocumentWorkflowServiceTests
         Assert.IsFalse(result.Valid);
         StringAssert.Contains(string.Join("; ", result.Errors), "declared more than once");
         StringAssert.Contains(string.Join("; ", result.Errors), "undeclared");
+    }
+
+    [TestMethod]
+    public void Validate_GlobalDbAuthoredMemberRetainAttribute_IsRejected()
+    {
+        WriteUtf8Bom("Data.s7dcl", "{ S7_Optimized := \"TRUE\"; S7_StandardRetain := \"FALSE\" }\r\nDATA_BLOCK Data\r\nVAR\r\n{ S7_Retain := \"Retain\" }\r\nCounter : DInt;\r\nEND_VAR\r\nCounter := 0;\r\nEND_DATA_BLOCK");
+
+        var result = _service.Validate(_directory, "Data");
+
+        Assert.IsFalse(result.Valid);
+        Assert.AreEqual("known-unsupported", result.Classification);
+        StringAssert.Contains(string.Join("; ", result.Errors), "S7_Retain");
     }
 
     [TestMethod]

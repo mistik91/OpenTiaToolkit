@@ -11,13 +11,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added a shared PLC code-format capability/validation contract and format-specific hardening for native SCL, S7DCL LAD/data, baseline-bound SimaticML, and confirmed directional VCI synchronization.
 - Extended persistent PLC code transactions with dependency-ordered multi-target SCL generation, PLC `TYPE` generation/deletion, and existing block/type SimaticML patch adapters, including source/XML stale checks, canonical read-back, compile policy, reverse rollback, and restart-safe recovery.
 - Grounded LAD validation in live V21 exports: `Normalize`, `Scale`, positive/negative edge contacts, retentive timers, inferred typed calls, exact `ATTR_DB` pins, and project calls now have instruction-specific templates, pin contracts, and edge-memory placement rules.
+- Expanded the format-specific authoring skills with an evidence-tier coverage matrix, complete LAD instruction catalog, DB layout catalog, SCL declaration/state catalog, SimaticML patch recipes, aligned UI prompts, and live-tested branch/timer, structured DB, stateful FB, and TYPE-plus-FC assets.
 - Hardened global DB validation for quoted members, duplicate start values, array/string bounds, structure balance, optimized-layout impact, and explicit instance-DB/type workflow boundaries.
+- Corrected SCL dependency extraction for local FB instances and rejected the V21-proven invalid authored member-level `S7_Retain` form before mutation.
 - Required `confirm=true` for VCI workspace-to-project synchronization and rejected implicit mapping creation in that direction.
 - Added persistent multi-block PLC code transactions with TIA/project/PLC binding, whole-set stale preflight, baseline compile evidence, canonical result exports, reverse-order rollback, restart recovery, retained unverified recovery packages, and live V21 success/failure coverage.
 - Hardened SIMATIC SD planning around exact PLC/group/type/name/number identities, ambiguity rejection, exact deletion, stale-target detection, startup cleanup of orphaned plans, and byte-hash proof after rollback.
 - Added instruction-aware S7DCL validation with verified/known-unsupported/unknown classifications, pin/template checks, timer/counter/edge placement rules, branch/resource consistency, and standard-versus-safety boundaries.
 - Extended live MCP PLC-code testing with deliberate stale-state rejection and forced compile-failure restoration verified by the original document hash.
-- Extended the staged MCP live test to generate, verify, compile, and clean up the complete PLC code-authoring corpus against an open V21 project.
+- Extended the staged MCP live test to generate, verify, compile, and clean up twelve PLC code-authoring blocks plus a source-generated PLC type against an open V21 project.
 
 ### Added
 - Added `describe-plc-code-formats`, `validate-plc-code-artifact`, `add-scl-source-transaction-operation`, `add-simaticml-transaction-operation`, and `add-delete-plc-type-transaction-operation`.

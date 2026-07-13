@@ -408,6 +408,7 @@ public sealed partial class PlcDocumentWorkflowService
             return;
         }
         string body = variableSection.Groups["body"].Value;
+        if (Regex.IsMatch(body, @"(?i)\bS7_Retain\s*:=")) errors.Add("Member-level S7_Retain is known-unsupported: TIA Portal V21 rejected this authored attribute form. Preserve an exported member attribute or use the block-level S7_StandardRetain policy.");
         int structStarts = Regex.Matches(body, @"(?i)\bSTRUCT\b").Count;
         int structEnds = Regex.Matches(body, @"(?i)\bEND_STRUCT\b").Count;
         if (structStarts != structEnds) errors.Add($"Global DB STRUCT/END_STRUCT counts do not match ({structStarts}/{structEnds}).");

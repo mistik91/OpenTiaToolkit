@@ -1,0 +1,23 @@
+{
+    S7_BlockNumber := "59987";
+    S7_Optimized := "TRUE";
+    S7_StandardRetain := "FALSE";
+    S7_Version := "0.1"
+}
+DATA_BLOCK Codex_Data_Struct_Probe
+    VAR
+        Enabled : Bool;
+        Mode : USInt;
+        Label : String[32];
+        Samples : Array[0..3] of Real;
+        Limits : STRUCT
+            Low : Real;
+            High : Real;
+        END_STRUCT;
+        RestartCount : DInt;
+    END_VAR
+
+    Enabled := FALSE;
+    Mode := 0;
+    RestartCount := 0;
+END_DATA_BLOCK

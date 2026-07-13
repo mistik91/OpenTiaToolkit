@@ -1,4 +1,4 @@
 interface:
   display_name: "S7DCL LAD Authoring"
-  short_description: "Author and safely import Siemens LAD documents"
-  default_prompt: "Create or modify LAD in import-verified S7DCL, validate it, plan the import, apply it, and compile."
+  short_description: "Author verified Siemens LAD documents safely"
+  default_prompt: "Use $s7dcl-lad-authoring to create or modify a V21-supported LAD block and apply it through a verified PLC code transaction."

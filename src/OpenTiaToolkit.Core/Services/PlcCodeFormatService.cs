@@ -14,8 +14,8 @@ namespace OpenTiaToolkit.Core.Services;
 public sealed class PlcCodeFormatService
 {
     private static readonly Regex SclDeclarationRegex = new Regex(@"(?im)^\s*(FUNCTION_BLOCK|FUNCTION|ORGANIZATION_BLOCK|DATA_BLOCK|TYPE)\s+(?:""(?<quoted>[^""]+)""|(?<plain>[^\s:]+))", RegexOptions.Compiled);
-    private static readonly Regex SclCallRegex = new Regex(@"(?im)(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*\(", RegexOptions.Compiled);
-    private static readonly Regex StatefulTypeRegex = new Regex(@"\b(TON|TOF|TP|R_TRIG|F_TRIG|CTU|CTD|CTUD)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex SclCallRegex = new Regex(@"(?im)(?<![#\w])(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*\(", RegexOptions.Compiled);
+    private static readonly Regex StatefulTypeRegex = new Regex(@"\b(TON|TOF|TP|TON_TIME|TOF_TIME|TP_TIME|IEC_TIMER|R_TRIG|F_TRIG|CTU|CTD|CTUD|IEC_COUNTER)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private readonly PlcDocumentWorkflowService _documentWorkflow;
 
     public PlcCodeFormatService(PlcDocumentWorkflowService documentWorkflow) => _documentWorkflow = documentWorkflow;

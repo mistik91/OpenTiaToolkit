@@ -1,4 +1,4 @@
 interface:
   display_name: "S7DCL Data Authoring"
-  short_description: "Author Siemens DB documents with guarded import"
-  default_prompt: "Create or modify a DB in S7DCL, validate it, plan the import, apply it, and compile."
+  short_description: "Author guarded Siemens global DB documents"
+  default_prompt: "Use $s7dcl-data-authoring to modify a global DB while preserving layout, dependencies, initialization, and rollback safety."

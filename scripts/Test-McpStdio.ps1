@@ -168,7 +168,7 @@ try {
         throw "Expected the shared command surface, but tools/list returned only $($tools.Count) tools."
     }
 
-    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'begin-plc-code-transaction', 'add-plc-code-transaction-operation', 'plan-plc-code-transaction', 'apply-plc-code-transaction', 'get-plc-code-transaction', 'list-plc-code-transactions', 'recover-plc-code-transaction', 'discard-plc-code-transaction', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
+    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'begin-plc-code-transaction', 'add-plc-code-transaction-operation', 'add-delete-plc-type-transaction-operation', 'plan-plc-code-transaction', 'apply-plc-code-transaction', 'get-plc-code-transaction', 'list-plc-code-transactions', 'recover-plc-code-transaction', 'discard-plc-code-transaction', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
         if (-not ($tools.name -contains $requiredTool)) {
             throw "tools/list did not include required tool '$requiredTool'."
         }
@@ -275,12 +275,16 @@ try {
             $assetRoot = [System.IO.Path]::GetFullPath($PlcCodeAssetsRoot)
             $ladDirectory = Join-Path $assetRoot 's7dcl-lad-authoring\assets'
             $dataDirectory = Join-Path $assetRoot 's7dcl-data-authoring\assets'
-            $sclPath = Join-Path $assetRoot 'scl-source-authoring\assets\Codex_SCL_Probe.scl'
+            $sclDirectory = Join-Path $assetRoot 'scl-source-authoring\assets'
+            $sclCases = @('Codex_SCL_Probe', 'Codex_SCL_Stateful_Probe', 'Codex_SCL_Type_Probe')
             $documentCases = @(
+                @{ Directory = $ladDirectory; Name = 'Codex_LAD_Branch_Timer_Probe'; Type = 'FB'; Number = '59988' },
+                @{ Directory = $ladDirectory; Name = 'Codex_LAD_Analog_Edge_Probe'; Type = 'FC'; Number = '59989' },
                 @{ Directory = $ladDirectory; Name = 'Codex_LAD_Probe'; Type = 'FC'; Number = '59991' },
                 @{ Directory = $ladDirectory; Name = 'Codex_LAD_FB_Probe'; Type = 'FB'; Number = '59992' },
                 @{ Directory = $ladDirectory; Name = 'Codex_Mixed_Probe'; Type = 'FB'; Number = '59993' },
-                @{ Directory = $dataDirectory; Name = 'Codex_Data_Probe'; Type = 'GlobalDB'; Number = '59994' }
+                @{ Directory = $dataDirectory; Name = 'Codex_Data_Probe'; Type = 'GlobalDB'; Number = '59994' },
+                @{ Directory = $dataDirectory; Name = 'Codex_Data_Struct_Probe'; Type = 'GlobalDB'; Number = '59987' }
             )
 
             foreach ($case in $documentCases) {
@@ -426,17 +430,21 @@ try {
             [void](Invoke-McpTool -Name 'discard-plc-code-transaction' -Arguments @{ 'transaction-id' = $recoveryTransactionId; 'confirm' = $true })
             Remove-Item -LiteralPath $adversarialRoot -Recurse -Force
 
-            $sourcesResponse = Invoke-McpTool -Name 'list-external-sources' -Arguments @{ 'plc-name' = $plcNames[0] }
-            $sourceNames = @($sourcesResponse.result.structuredContent.data | ForEach-Object { [string]$_.name })
-            if (-not ($sourceNames -contains 'Codex_SCL_Probe')) {
-                [void](Invoke-McpTool -Name 'import-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-path' = $sclPath; 'dry-run' = $true })
-                [void](Invoke-McpTool -Name 'import-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-path' = $sclPath; 'dry-run' = $false; 'confirm' = $true })
+            foreach ($sclCase in $sclCases) {
+                $sclPath = Join-Path $sclDirectory ($sclCase + '.scl')
+                [void](Invoke-McpTool -Name 'validate-plc-code-artifact' -Arguments @{ 'code-format' = 'scl'; 'input-path' = $sclPath })
+                $sourcesResponse = Invoke-McpTool -Name 'list-external-sources' -Arguments @{ 'plc-name' = $plcNames[0] }
+                $sourceNames = @($sourcesResponse.result.structuredContent.data | ForEach-Object { [string]$_.name })
+                if (-not ($sourceNames -contains $sclCase)) {
+                    [void](Invoke-McpTool -Name 'import-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-path' = $sclPath; 'dry-run' = $true })
+                    [void](Invoke-McpTool -Name 'import-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-path' = $sclPath; 'dry-run' = $false; 'confirm' = $true })
+                }
+                [void](Invoke-McpTool -Name 'generate-blocks-from-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = $sclCase; 'dry-run' = $true })
+                [void](Invoke-McpTool -Name 'generate-blocks-from-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = $sclCase; 'dry-run' = $false; 'confirm' = $true })
             }
-            [void](Invoke-McpTool -Name 'generate-blocks-from-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = 'Codex_SCL_Probe'; 'dry-run' = $true })
-            [void](Invoke-McpTool -Name 'generate-blocks-from-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = 'Codex_SCL_Probe'; 'dry-run' = $false; 'confirm' = $true })
             [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
 
-            foreach ($name in @('Codex_LAD_Probe', 'Codex_LAD_FB_Probe', 'Codex_Mixed_Probe', 'Codex_Data_Probe', 'Codex_SCL_Probe')) {
+            foreach ($name in @('Codex_LAD_Branch_Timer_Probe', 'Codex_LAD_Analog_Edge_Probe', 'Codex_LAD_Probe', 'Codex_LAD_FB_Probe', 'Codex_Mixed_Probe', 'Codex_Data_Probe', 'Codex_Data_Struct_Probe', 'Codex_SCL_Probe', 'Codex_SCL_Stateful_Probe', 'Codex_SCL_Type_Probe')) {
                 [void](Invoke-McpTool -Name 'get-block-info' -Arguments @{ 'plc-name' = $plcNames[0]; 'block-name' = $name })
             }
 
@@ -452,11 +460,19 @@ try {
 
             [void](Invoke-McpTool -Name 'delete-blocks' -Arguments @{
                 'plc-name' = $plcNames[0]
-                'filter' = '^Codex_(LAD_Probe|LAD_FB_Probe|Mixed_Probe|Data_Probe|SCL_Probe|TX_A|TX_B)$'
+                'filter' = '^Codex_(LAD_Branch_Timer_Probe|LAD_Analog_Edge_Probe|LAD_Probe|LAD_FB_Probe|Mixed_Probe|Data_Probe|Data_Struct_Probe|SCL_Probe|SCL_Stateful_Probe|SCL_Type_Probe|TX_A|TX_B)$'
                 'confirm' = $true
             })
             [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
-            [void](Invoke-McpTool -Name 'delete-external-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = 'Codex_SCL_Probe'; 'confirm' = $true })
+            $beginTypeDelete = Invoke-McpTool -Name 'begin-plc-code-transaction' -Arguments @{ 'plc-name' = $plcNames[0]; 'description' = 'MCP live source-generated type cleanup' }
+            $typeDeleteId = [string]$beginTypeDelete.result.structuredContent.data.TransactionId
+            [void](Invoke-McpTool -Name 'add-delete-plc-type-transaction-operation' -Arguments @{ 'transaction-id' = $typeDeleteId; 'type-name' = 'Codex_SCL_Type_Probe_Record'; 'group-path' = ''; 'confirm' = $true })
+            $typeDeletePlan = (Invoke-McpTool -Name 'plan-plc-code-transaction' -Arguments @{ 'transaction-id' = $typeDeleteId }).result.structuredContent.data
+            [void](Invoke-McpTool -Name 'apply-plc-code-transaction' -Arguments @{ 'transaction-id' = $typeDeleteId; 'apply-token' = [string]$typeDeletePlan.ApplyToken; 'confirm' = $true })
+            [void](Invoke-McpTool -Name 'discard-plc-code-transaction' -Arguments @{ 'transaction-id' = $typeDeleteId; 'confirm' = $true })
+            foreach ($sclCase in $sclCases) {
+                [void](Invoke-McpTool -Name 'delete-external-source' -Arguments @{ 'plc-name' = $plcNames[0]; 'source-name' = $sclCase; 'confirm' = $true })
+            }
             [void](Invoke-McpTool -Name 'discard-plc-code-transaction' -Arguments @{ 'transaction-id' = $transactionId; 'confirm' = $true })
             $remainingBlocksResponse = Invoke-McpTool -Name 'search-blocks' -Arguments @{ 'plc-name' = $plcNames[0]; 'pattern' = 'Codex_'; 'search-in' = 'name' }
             if (@($remainingBlocksResponse.result.structuredContent.data).Count -ne 0) { throw 'Disposable Codex PLC blocks remain after cleanup.' }
@@ -464,7 +480,7 @@ try {
             if (@($remainingSourcesResponse.result.structuredContent.data | Where-Object { [string]$_.name -like 'Codex_*' }).Count -ne 0) { throw 'Disposable Codex PLC external sources remain after cleanup.' }
             [void](Invoke-McpTool -Name 'compile-software' -Arguments @{ 'plc-name' = $plcNames[0] })
             $summary['PlcCodeWorkflowVerified'] = $true
-            $summary['PlcCodeBlocksCreatedAndRemoved'] = 8
+            $summary['PlcCodeBlocksCreatedAndRemoved'] = 12
             $summary['SimaticMlFallbackVerified'] = $true
             $summary['StaleDocumentStateRejected'] = $true
             $summary['CompileFailureRollbackHashVerified'] = $true

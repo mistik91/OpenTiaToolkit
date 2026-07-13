@@ -5,10 +5,10 @@ description: Route safe Siemens TIA Portal PLC code generation and modification 
 
 # PLC Code Engineering
 
-1. Read [format-contract.md](references/format-contract.md). Establish the exact TIA project and PLC with `basic-tia-interaction`.
+1. Read [format-contract.md](references/format-contract.md) and [format-coverage.md](references/format-coverage.md). Establish the exact TIA project and PLC with `basic-tia-interaction`.
 2. Inspect `get-software-tree`, `get-blocks`, `get-block-info`, and concrete cross-references before modifying an existing object.
 3. Run `describe-plc-code-formats`. Use `get-vci-block-formats` for the exact block/type when VCI or several representations are available.
-4. Route general LAD or mixed LAD/SCL to `s7dcl-lad-authoring`; complex SCL and source-generated PLC types to `scl-source-authoring`; global DBs to `s7dcl-data-authoring`; existing PLC type XML patches to `simaticml-plc-fallback`; and source-controlled types to validated VCI mappings.
+4. Route general LAD or mixed LAD/SCL to `s7dcl-lad-authoring`; complex SCL and source-generated PLC types to `scl-source-authoring`; global DBs to `s7dcl-data-authoring`; existing block/type XML patches to `simaticml-plc-fallback`; and source-controlled objects to validated VCI mappings. Do not cross a format's coverage boundary merely because its file parses.
 5. Prefer a new uniquely named block for generated logic. Connect it to existing code only after it compiles.
 6. For every agent-authored change, use the persistent transaction lifecycle: begin, add the complete operation set, plan, review, then apply once. Planning infers dependencies from project/block calls and topologically orders them. Use `depends-on=<sequence,...>` for UDT, DB, library, or other dependencies that cannot be inferred from calls; reject cycles instead of guessing.
 7. Never replace a multi-object intent with sequential single-block applies. The older `plan-block-document-import` token is process-local and is suitable only when plan and apply are guaranteed to share one persistent host session.
