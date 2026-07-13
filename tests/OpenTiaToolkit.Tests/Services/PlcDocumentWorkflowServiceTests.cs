@@ -70,6 +70,45 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
+    public void ValidateBehaviorPackage_AcceptsMixedSclAndS7dclDisposableObjects()
+    {
+        WriteUtf8Bom("Behavior.scl", "FUNCTION \"Behavior\" : DInt\r\nBEGIN\r\nBehavior := 1;\r\nEND_FUNCTION\r\nORGANIZATION_BLOCK \"BehaviorCycle\"\r\nBEGIN\r\nEND_ORGANIZATION_BLOCK");
+        WriteUtf8Bom("BehaviorIO.s7dcl", "{ S7_Optimized := \"TRUE\" }\r\nDATA_BLOCK \"BehaviorIO\"\r\nVAR Value : DInt; END_VAR\r\nValue := 0;\r\nEND_DATA_BLOCK");
+        string package = Path.Combine(_directory, "package.json");
+        File.WriteAllText(package, "{\"schemaVersion\":\"1.0\",\"packageId\":\"behavior\",\"artifacts\":[{\"codeFormat\":\"scl\",\"inputPath\":\"Behavior.scl\"},{\"codeFormat\":\"s7dcl\",\"inputPath\":\"BehaviorIO.s7dcl\"}]}");
+
+        PlcCodeArtifactValidationResult result = _service.ValidateBehaviorPackageArtifact(package);
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("BehaviorPackage", result.Format);
+        CollectionAssert.AreEquivalent(new[] { "Behavior", "BehaviorCycle", "BehaviorIO" }, result.DeclaredObjects.Select(item => item.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void ValidateBehaviorPackage_RejectsPackageWithoutSchedulerOb()
+    {
+        WriteUtf8Bom("Behavior.scl", "FUNCTION \"Behavior\" : DInt\r\nBEGIN\r\nBehavior := 1;\r\nEND_FUNCTION");
+        WriteUtf8Bom("BehaviorIO.s7dcl", "DATA_BLOCK \"BehaviorIO\"\r\nVAR Value : DInt; END_VAR\r\nEND_DATA_BLOCK");
+        string package = Path.Combine(_directory, "package.json");
+        File.WriteAllText(package, "{\"schemaVersion\":\"1.0\",\"packageId\":\"behavior\",\"artifacts\":[{\"codeFormat\":\"scl\",\"inputPath\":\"Behavior.scl\"},{\"codeFormat\":\"s7dcl\",\"inputPath\":\"BehaviorIO.s7dcl\"}]}");
+
+        InvalidDataException error = Assert.ThrowsException<InvalidDataException>(() => _service.ValidateBehaviorPackageArtifact(package));
+
+        StringAssert.Contains(error.Message, "ORGANIZATION_BLOCK");
+    }
+
+    [TestMethod]
+    public void ValidateBehaviorPackage_RejectsArtifactOutsidePackageDirectory()
+    {
+        string package = Path.Combine(_directory, "package.json");
+        File.WriteAllText(package, "{\"schemaVersion\":\"1.0\",\"packageId\":\"behavior\",\"artifacts\":[{\"codeFormat\":\"scl\",\"inputPath\":\"..\\\\outside.scl\"},{\"codeFormat\":\"s7dcl\",\"inputPath\":\"inside.s7dcl\"}]}");
+
+        InvalidDataException error = Assert.ThrowsException<InvalidDataException>(() => _service.ValidateBehaviorPackageArtifact(package));
+
+        StringAssert.Contains(error.Message, "cannot escape");
+    }
+
+    [TestMethod]
     public void Validate_BlockAndFileNameMismatch_Fails()
     {
         WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Different\" : Void\r\nEND_FUNCTION");

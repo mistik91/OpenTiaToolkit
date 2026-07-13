@@ -264,6 +264,12 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
+        public async Task<PlcOnlineStatusResult> GoOfflineAsync()
+        {
+            return await _verificationService.GoOfflineAsync();
+        }
+
+        /// <inheritdoc/>
         public async Task<PlcCpuControlResult> StartCpuAsync(bool confirm = false)
         {
             return await _verificationService.ControlCpuAsync("start", confirm);

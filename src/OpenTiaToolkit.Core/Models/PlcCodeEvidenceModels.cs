@@ -25,6 +25,7 @@ public sealed class PlcCodeEvidenceRecord
     public string SchemaVersion { get; set; } = "1.0";
     public int RegistryVersion { get; set; } = 1;
     public string EvidenceId { get; set; } = string.Empty;
+    public string EvidenceKind { get; set; } = "Qualification";
     public string Status { get; set; } = "Running";
     public DateTimeOffset StartedAtUtc { get; set; }
     public DateTimeOffset? CompletedAtUtc { get; set; }
@@ -44,6 +45,7 @@ public sealed class PlcCodeEvidenceRecord
     public PlcCodeTransactionCompileEvidence? CleanupCompilation { get; set; }
     public IReadOnlyList<string> CanonicalResultHashes { get; set; } = Array.Empty<string>();
     public bool CleanupProven { get; set; }
+    public PlcCodeBehaviorEvidence? Behavior { get; set; }
     public string Failure { get; set; } = string.Empty;
 }
 

@@ -12,7 +12,12 @@ internal static class CommandContractMapper
 {
     private static readonly HashSet<string> OnlineCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        "download-software", "start-cpu", "stop-cpu"
+        "download-software", "start-cpu", "stop-cpu", "run-plc-code-behavior-probe", "recover-plc-code-behavior-probe"
+    };
+
+    private static readonly HashSet<string> ExplicitMutatingCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "run-plc-code-probe"
     };
 
     private static readonly HashSet<string> DestructiveCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -98,6 +103,7 @@ internal static class CommandContractMapper
     {
         if (OnlineCommands.Contains(name)) return CommandRisk.Online;
         if (DestructiveCommands.Contains(name)) return CommandRisk.Destructive;
+        if (ExplicitMutatingCommands.Contains(name)) return CommandRisk.Mutating;
         return MutationPrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             ? CommandRisk.Mutating
             : CommandRisk.ReadOnly;

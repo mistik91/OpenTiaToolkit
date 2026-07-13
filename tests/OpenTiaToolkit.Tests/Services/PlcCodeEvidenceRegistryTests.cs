@@ -39,6 +39,21 @@ public sealed class PlcCodeEvidenceRegistryTests
         Assert.AreEqual(verified.EvidenceId, registry.Get(verified.EvidenceId).EvidenceId);
     }
 
+    [TestMethod]
+    public void Registry_BehaviorEvidenceRequiresVectorAndSimulatorFingerprint()
+    {
+        var registry = new PlcCodeEvidenceRegistry(_root);
+        var behavior = Record("Verified", "environment-a", "shape-a");
+        behavior.EvidenceKind = "Behavior";
+        behavior.Behavior = new PlcCodeBehaviorEvidence { VectorHash = "vector-a", SimulatorFingerprint = "sim-a" };
+        registry.Save(behavior);
+
+        Assert.AreEqual(0, registry.FindVerified("environment-a", "shape-a").Count);
+        Assert.AreEqual(1, registry.FindVerifiedBehavior("environment-a", "shape-a", "vector-a", "sim-a").Count);
+        Assert.AreEqual(0, registry.FindVerifiedBehavior("environment-a", "shape-a", "vector-b", "sim-a").Count);
+        Assert.AreEqual(0, registry.FindVerifiedBehavior("environment-a", "shape-a", "vector-a", "sim-b").Count);
+    }
+
     private static PlcCodeEvidenceRecord Record(string status, string environment, string shape) => new PlcCodeEvidenceRecord
     {
         EvidenceId = Guid.NewGuid().ToString("N"),

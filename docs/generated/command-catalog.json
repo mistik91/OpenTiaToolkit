@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 175,
+  "commandCount": 181,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -2060,11 +2060,48 @@
           "description": "Requested code language such as LAD, FBD, or SCL"
         },
         {
+          "name": "requested-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Intended artifact format such as SCL, S7DCL, SimaticML, or VCI"
+        },
+        {
           "name": "prefer-source-control",
           "type": "Boolean",
           "required": false,
           "defaultValue": false,
           "description": "Rank an observed exact VCI mapping first"
+        }
+      ]
+    },
+    {
+      "name": "discover-plc-simulator-capabilities",
+      "description": "Discovers the installed PLCSIM Advanced Runtime API and selects a powered local simulator by exact controller or instance identity",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact TIA PLC device name"
+        },
+        {
+          "name": "instance-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional exact PLCSIM Advanced instance name"
+        },
+        {
+          "name": "refresh-tags",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Refresh and count the downloaded runtime tag list"
         }
       ]
     },
@@ -5524,6 +5561,50 @@
       ]
     },
     {
+      "name": "query-plc-behavior-evidence",
+      "description": "Finds behavior evidence matching the exact code signature, TIA/PLC environment, vector hash, and simulator fingerprint",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact PLC device name"
+        },
+        {
+          "name": "capability-ids",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Comma-separated current Create capability id for every declared probe object"
+        },
+        {
+          "name": "package-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Versioned behavior probe package manifest listing all disposable code, contract DB, and scheduler artifacts"
+        },
+        {
+          "name": "vector-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Versioned behavior vector JSON"
+        },
+        {
+          "name": "instance-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional exact PLCSIM Advanced instance name"
+        }
+      ]
+    },
+    {
       "name": "query-plc-code-evidence",
       "description": "Finds verified evidence matching the current exact TIA/PLC/route compatibility fingerprint and normalized code construct signature",
       "category": "PLC",
@@ -5550,6 +5631,36 @@
           "required": true,
           "defaultValue": null,
           "description": "SCL or S7DCL artifact to qualify"
+        }
+      ]
+    },
+    {
+      "name": "recover-plc-code-behavior-probe",
+      "description": "Recovers an interrupted behavior probe, removes its disposable objects offline and from PLCSIM, and never promotes its behavior evidence",
+      "category": "PLC",
+      "risk": "Online",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "evidence-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Behavior evidence id in Running or Quarantined state"
+        },
+        {
+          "name": "only-changes",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Use a software-changes cleanup download"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm mandatory offline and simulator cleanup"
         }
       ]
     },
@@ -5716,10 +5827,96 @@
       ]
     },
     {
+      "name": "run-plc-code-behavior-probe",
+      "description": "Runs a disposable code probe through compile, simulator-only download, deterministic stimulation/observation, rollback, cleanup download, and online comparison",
+      "category": "PLC",
+      "risk": "Online",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact PLC device name"
+        },
+        {
+          "name": "capability-ids",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Comma-separated current Create capability id for every declared probe object"
+        },
+        {
+          "name": "package-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Versioned behavior probe package manifest listing all disposable code, contract DB, and scheduler artifacts"
+        },
+        {
+          "name": "vector-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Versioned behavior vector JSON"
+        },
+        {
+          "name": "instance-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional exact PLCSIM Advanced instance name"
+        },
+        {
+          "name": "compile-policy",
+          "type": "String",
+          "required": false,
+          "defaultValue": "NoNewErrors",
+          "description": "NoNewErrors (default) or CleanCompile"
+        },
+        {
+          "name": "maximum-new-warnings",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum warning increase"
+        },
+        {
+          "name": "accept-unknown-impact",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Accept a reviewed Unknown impact fingerprint"
+        },
+        {
+          "name": "only-changes",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Use software-changes downloads for probe and cleanup"
+        },
+        {
+          "name": "force",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Run despite exact existing behavioral evidence"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm temporary project mutation, simulator download/stimulation, and mandatory cleanup"
+        }
+      ]
+    },
+    {
       "name": "run-plc-code-probe",
       "description": "Runs an exact all-create SCL or S7DCL probe, verifies it, removes every probe artifact, and records versioned evidence",
       "category": "PLC",
-      "risk": "ReadOnly",
+      "risk": "Mutating",
       "supportsPreview": false,
       "parameters": [
         {
@@ -6275,6 +6472,38 @@
           "required": true,
           "defaultValue": null,
           "description": "Blueprint JSON file"
+        }
+      ]
+    },
+    {
+      "name": "validate-plc-behavior-package",
+      "description": "Validates a versioned multi-artifact disposable behavior package and its required contract DB and scheduler OB",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "package-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Behavior probe package JSON file"
+        }
+      ]
+    },
+    {
+      "name": "validate-plc-behavior-vector",
+      "description": "Validates a versioned deterministic PLCSIM behavior vector without changing TIA or simulator state",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "vector-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Behavior vector JSON file"
         }
       ]
     },

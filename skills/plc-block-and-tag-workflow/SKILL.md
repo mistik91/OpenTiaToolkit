@@ -70,6 +70,8 @@ Treat cross-reference output as impact-analysis evidence, not as permission to m
 
 Use the online/simulator loop after intentional PLC software changes when the user wants behavior-oriented verification and a PLCSIM Advanced target is already configured:
 
+For agent-generated code that needs deterministic stimulation and assertions, use `plc-behavior-verification` instead of assembling this loop manually. The generic loop below is for inspecting an intentional retained change; it does not create reusable behavioral evidence.
+
 1. Run `compile-software --plc-name <name>` and stop on compile errors.
 2. Run `download-software --plc-name <name> --to-simulator=true` first as a dry-run.
 3. Apply only with `download-software --plc-name <name> --to-simulator=true --dry-run=false --confirm=true`.

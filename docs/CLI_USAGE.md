@@ -1616,6 +1616,24 @@ Evidence matching is deliberately narrow. The qualification signature normalizes
 
 For manual native-source diagnostics that cannot use the automated runner, `delete-external-source --plc-name="PLC_1" --source-name="Probe" --confirm=true` removes the source definition after every generated block/type has been reviewed and deleted; this path does not create promotable evidence. The older `plan-block-document-import` token is process-local and should be used only when plan/apply share one persistent host session; separate CLI invocations should use the persistent transaction.
 
+### Disposable PLCSIM behavioral verification
+
+Behavioral verification extends qualification with a versioned multi-artifact package, a deterministic reset/stimulate/assert/cleanup vector, and an exact PLCSIM Advanced Runtime API fingerprint. It is intentionally limited to uniquely named missing targets. A typical package contains native SCL logic and scheduler OB sources plus an S7DCL contract DB whose tags are the only runtime values the vector may write.
+
+```powershell
+OpenTiaToolkit.CLI.exe validate-plc-behavior-package --package-path="C:\probes\Behavior_Package.json"
+OpenTiaToolkit.CLI.exe validate-plc-behavior-vector --vector-path="C:\probes\Behavior_Vector.json"
+OpenTiaToolkit.CLI.exe discover-plc-simulator-capabilities --plc-name="PLC_1" --instance-name="PLCaa" --refresh-tags=true
+
+# Discover a fresh Create capability for every declared object, then pass all ids together.
+OpenTiaToolkit.CLI.exe query-plc-behavior-evidence --plc-name="PLC_1" --capability-ids="<fc-id>,<db-id>,<ob-id>" --package-path="C:\probes\Behavior_Package.json" --vector-path="C:\probes\Behavior_Vector.json" --instance-name="PLCaa"
+OpenTiaToolkit.CLI.exe run-plc-code-behavior-probe --plc-name="PLC_1" --capability-ids="<fc-id>,<db-id>,<ob-id>" --package-path="C:\probes\Behavior_Package.json" --vector-path="C:\probes\Behavior_Vector.json" --instance-name="PLCaa" --only-changes=true --confirm=true
+```
+
+The runner records the pre-existing offline/online difference set, returns TIA offline, applies and canonically verifies one persistent transaction, downloads only to the selected local simulator, proves the comparison did not gain differences, executes typed bounded assertions, restores every written tag, rolls back all generated objects, recompiles, downloads the clean program, restores the original difference set, and verifies that disposable runtime tags are absent. Only `Verified` evidence with the same code signature, capability compatibility, vector hash, and simulator fingerprint can be reused.
+
+`Quarantined` means either offline or simulator cleanup is unproven. Do not start another probe over it. Reconnect the exact project/PLC and run `recover-plc-code-behavior-probe --evidence-id="<id>" --only-changes=true --confirm=true`. Recovery can turn the record into non-reusable `Failed` evidence with `cleanupProven=true`; it never promotes behavior.
+
 #### import-block-from-docs
 
 Imports a single PLC block from SIMATIC SD documents (.s7dcl + .s7res) in the supported TIA Portal V21 workflow.

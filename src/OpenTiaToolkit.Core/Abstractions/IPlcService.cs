@@ -80,6 +80,11 @@ public interface IPlcService
     Task<PlcOnlineStatusResult> GetOnlineStatusAsync(bool goOnline = true);
 
     /// <summary>
+    /// Explicitly disconnects the currently selected PLC online provider.
+    /// </summary>
+    Task<PlcOnlineStatusResult> GoOfflineAsync();
+
+    /// <summary>
     /// Attempts to start the CPU when the selected online provider exposes a supported operation.
     /// </summary>
     /// <param name="confirm">Explicit confirmation for runtime state changes.</param>

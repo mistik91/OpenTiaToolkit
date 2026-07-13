@@ -47,7 +47,7 @@ The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and late
 | Domain | Representative workflows |
 |---|---|
 | Projects and sessions | Discover or launch TIA, connect to instances, create/open/retrieve/archive projects, inspect project trees |
-| PLC engineering | Browse software, compile, import/export blocks and sources, manage tags, cross-references, online compare, guarded PLCSIM Advanced operations |
+| PLC engineering | Browse software, compile, import/export blocks and sources, manage tags, cross-references, persistent code transactions, guarded PLCSIM Advanced downloads, and deterministic disposable behavioral probes |
 | Unified HMI | Browse and edit screens, tags, trends and logging; JSON snapshot/diff/patch/import; alarms, runtime settings, text lists and faceplate probes |
 | Hardware and drives | Catalog discovery, module placement, PROFINET identity and wiring, IO addressing, Startdrive telegrams and parameters, GSD/GSDML changes |
 | VCI | Create workspaces, map S7DCL content, inspect status, and synchronize individual objects or complete PLC selections |

@@ -21,6 +21,7 @@ public sealed class DiscoverPlcCodeCapabilitiesCommand : ICommand
         new CommandParameter("operation", CommandParameterType.String, "Modify or Create", false, "Modify"),
         new CommandParameter("block-type", CommandParameterType.String, "FB, FC, OB, DB, GlobalDB, InstanceDB, or TYPE when known", false),
         new CommandParameter("requested-language", CommandParameterType.String, "Requested code language such as LAD, FBD, or SCL", false),
+        new CommandParameter("requested-format", CommandParameterType.String, "Intended artifact format such as SCL, S7DCL, SimaticML, or VCI", false),
         new CommandParameter("prefer-source-control", CommandParameterType.Boolean, "Rank an observed exact VCI mapping first", false, false)
     });
 
@@ -35,6 +36,7 @@ public sealed class DiscoverPlcCodeCapabilitiesCommand : ICommand
             Operation = string.IsNullOrWhiteSpace(args.GetString("operation")) ? "Modify" : args.GetString("operation"),
             BlockType = args.GetString("block-type"),
             RequestedLanguage = args.GetString("requested-language"),
+            RequestedFormat = args.GetString("requested-format"),
             PreferSourceControl = args.GetBool("prefer-source-control")
         }).ConfigureAwait(false);
         string message = result.SelectedRoute == "Blocked"

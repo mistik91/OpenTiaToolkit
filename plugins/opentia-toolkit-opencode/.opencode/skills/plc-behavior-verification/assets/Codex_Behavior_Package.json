@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "codex-behavior-basic-1",
+  "artifacts": [
+    { "codeFormat": "scl", "inputPath": "Codex_Behavior_Function.scl", "groupPath": "" },
+    { "codeFormat": "s7dcl", "inputPath": "Codex_Behavior_IO.s7dcl", "groupPath": "" },
+    { "codeFormat": "scl", "inputPath": "Codex_Behavior_Cycle.scl", "groupPath": "" }
+  ]
+}

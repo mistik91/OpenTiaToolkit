@@ -136,6 +136,8 @@ It covers:
 
 Applied PLC downloads are not part of the generic `ReadOnly` suite. Validate `download-software --dry-run=false --confirm=true` only against an explicitly configured PLCSIM Advanced target. For fail-safe projects, prefer `--only-changes=true`; Siemens Openness may reject full fail-safe software loads even when the simulator connection is valid.
 
+Behavioral probe tests additionally require a local PLCSIM Advanced Runtime API, one powered simulator whose controller identity matches the selected TIA PLC, a configured simulator download connection, and uniquely named disposable FC/DB/OB targets. Validate the package/vector and simulator discovery first. A successful live test must return `Verified`, pass every vector assertion, preserve the recorded baseline compare differences, report both cleanup flags, and leave no disposable blocks or runtime tags. If the process is interrupted, run `recover-plc-code-behavior-probe` and require non-reusable `Failed` evidence with `cleanupProven=true` before retrying.
+
 ### Mutation
 
 The `Mutation` suite starts by creating a disposable copy with `save-as-project`, then runs all mutation checks against that copy.
@@ -151,6 +153,7 @@ It covers:
 - XML block import/export roundtrips using an existing exportable block
 - SIMATIC SD instruction validation and exact-target guarded roundtrips using `validate-plc-documents`, `plan-block-document-import`, and `apply-block-document-import`, including stale-state rejection, forced compile-failure rollback, restored-hash equality, and low-level export/import commands
 - persistent multi-block PLC code transactions, including whole-set preflight, canonical result hashes, forced final-compile failure, reverse-order full rollback, persistent manifest discovery, and cleanup
+- versioned behavioral vector/package validation, exact PLCSIM capability fingerprints, evidence matching, and interrupted-run recovery; the applied end-to-end path is an explicit simulator-only live test
 - type XML roundtrips using `export-type`, `export-types`, `import-type`, and `import-types`
 
 ## Expected Skips

@@ -54,7 +54,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `diff-hmi-json` | Unified HMI | `base-path`, `modified-path`, `patch-path`, `screens`, `item-names`, `properties` | Creates a minimal Unified HMI JSON patch from two exports |
 | `discard-plc-code-transaction` | PLC | `transaction-id`, `confirm` | Deletes a terminal or never-applied PLC code transaction and its retained local artifacts |
 | `disconnect-portal` | Portal | `confirm` | Disconnects from the TIA Portal instance |
-| `discover-plc-code-capabilities` | PLC | `plc-name`, `object-kind`, `object-name`, `group-path`, `operation`, `block-type`, `requested-language`, `prefer-source-control` | Discovers and fingerprints the live TIA, PLC, target, safety, VCI, and import/export evidence before PLC code generation |
+| `discover-plc-code-capabilities` | PLC | `plc-name`, `object-kind`, `object-name`, `group-path`, `operation`, `block-type`, `requested-language`, `requested-format`, `prefer-source-control` | Discovers and fingerprints the live TIA, PLC, target, safety, VCI, and import/export evidence before PLC code generation |
+| `discover-plc-simulator-capabilities` | PLC | `plc-name`, `instance-name`, `refresh-tags` | Discovers the installed PLCSIM Advanced Runtime API and selects a powered local simulator by exact controller or instance identity |
 | `doctor` | V21 |  | Checks the isolated worker runtime, Siemens V21 API, paths, and process architecture. |
 | `download-software` | PLC | `plc-name`, `to-simulator`, `dry-run`, `only-changes`, `confirm` | Downloads PLC software to PLCSIM Advanced with dry-run and confirmation gates |
 | `ensure-multiuser-server` | Multiuser | `server-alias`, `protocol`, `host`, `port`, `confirm` | Creates or updates a TIA Project Server connection. |
@@ -158,11 +159,14 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `plan-plc-code-transaction` | PLC | `transaction-id` | Snapshots every existing target and produces one dependency-ordered, atomic, state-bound PLC code transaction plan |
 | `portal-status` | Portal |  | Gets the current TIA Portal connection status |
 | `probe-hmi-faceplate-interface` | Unified HMI | `hmi-name`, `screen-path`, `item-name`, `item-name-path`, `property`, `write`, `value`, `restore`, `confirm` | Inspects Unified HMI faceplate interface metadata and optionally probes one reversible value write |
+| `query-plc-behavior-evidence` | PLC | `plc-name`, `capability-ids`, `package-path`, `vector-path`, `instance-name` | Finds behavior evidence matching the exact code signature, TIA/PLC environment, vector hash, and simulator fingerprint |
 | `query-plc-code-evidence` | PLC | `capability-ids`, `code-format`, `input-path` | Finds verified evidence matching the current exact TIA/PLC/route compatibility fingerprint and normalized code construct signature |
+| `recover-plc-code-behavior-probe` | PLC | `evidence-id`, `only-changes`, `confirm` | Recovers an interrupted behavior probe, removes its disposable objects offline and from PLCSIM, and never promotes its behavior evidence |
 | `recover-plc-code-transaction` | PLC | `transaction-id`, `confirm` | Conservatively restores every baseline in an interrupted or unverified PLC code transaction |
 | `remove-hmi-logging-tag` | Unified HMI | `hmi-name`, `tag-path`, `datalog-name`, `logging-tag-name`, `confirm` | Removes one Unified HMI logging tag after verifying its data log association |
 | `remove-hmi-logging-tags` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or removes multiple Unified HMI logging tags after data log verification |
 | `retrieve-project` | Portal | `archive-path`, `target-directory`, `upgrade`, `umac-user`, `umac-password-env`, `umac-user-type`, `confirm` | Retrieves an archived project and selects it as the current project |
+| `run-plc-code-behavior-probe` | PLC | `plc-name`, `capability-ids`, `package-path`, `vector-path`, `instance-name`, `compile-policy`, `maximum-new-warnings`, `accept-unknown-impact`, `only-changes`, `force`, `confirm` | Runs a disposable code probe through compile, simulator-only download, deterministic stimulation/observation, rollback, cleanup download, and online comparison |
 | `run-plc-code-probe` | PLC | `plc-name`, `capability-ids`, `code-format`, `input-path`, `group-path`, `type-group-path`, `compile-policy`, `maximum-new-warnings`, `accept-unknown-impact`, `force`, `confirm` | Runs an exact all-create SCL or S7DCL probe, verifies it, removes every probe artifact, and records versioned evidence |
 | `save-as-project` | Portal | `destination-path`, `confirm` | Saves the project to a new location |
 | `save-multiuser-session` | Multiuser | `confirm` | Saves pending edits in the selected local session without checking in. |
@@ -175,6 +179,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `sync-vci-blocks` | VCI | `workspace-name`, `plc-name`, `direction`, `filter-regex`, `block-types`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes selected PLC blocks with a VCI workspace |
 | `sync-vci-plc` | VCI | `workspace-name`, `plc-name`, `direction`, `scope`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes supported objects of a PLC with a VCI workspace |
 | `validate-blueprint` | V21 | `blueprint-path` | Validates a declarative engineering blueprint against the V21 worker command contract. |
+| `validate-plc-behavior-package` | PLC | `package-path` | Validates a versioned multi-artifact disposable behavior package and its required contract DB and scheduler OB |
+| `validate-plc-behavior-vector` | PLC | `vector-path` | Validates a versioned deterministic PLCSIM behavior vector without changing TIA or simulator state |
 | `validate-plc-code-artifact` | PLC | `code-format`, `input-path`, `baseline-path`, `allow-flgnet-topology` | Validates SCL, S7DCL, or SimaticML with format-specific structural and semantic guardrails |
 | `validate-plc-documents` | PLC | `import-directory`, `file-name` | Validates SIMATIC SD structure, resources, and instruction forms offline before PLC import |
 | `validate-safety-configuration` | Insights |  | Validates official SafetyAdministration availability and offline login state for the selected PLC. |

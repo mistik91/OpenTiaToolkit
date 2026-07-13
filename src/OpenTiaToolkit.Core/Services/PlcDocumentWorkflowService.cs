@@ -50,20 +50,22 @@ public sealed partial class PlcDocumentWorkflowService
     private readonly EngineeringSessionContext _sessionContext;
     private readonly PlcCodeCapabilityDiscoveryService? _capabilityDiscovery;
     private readonly PlcCodeEvidenceRegistry _evidenceRegistry;
+    private readonly IPlcSimulationRuntime _simulationRuntime;
     private readonly V21OpennessAdapter _v21Adapter = new V21OpennessAdapter();
     private readonly Dictionary<string, StoredPlan> _plans = new Dictionary<string, StoredPlan>(StringComparer.Ordinal);
     private readonly object _sync = new object();
 
-    public PlcDocumentWorkflowService(IPlcService plcService) : this(plcService, new EngineeringSessionContext(), null, new PlcCodeEvidenceRegistry()) { }
+    public PlcDocumentWorkflowService(IPlcService plcService) : this(plcService, new EngineeringSessionContext(), null, new PlcCodeEvidenceRegistry(), new PlcSimulationRuntime()) { }
 
-    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext) : this(plcService, sessionContext, null, new PlcCodeEvidenceRegistry()) { }
+    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext) : this(plcService, sessionContext, null, new PlcCodeEvidenceRegistry(), new PlcSimulationRuntime()) { }
 
-    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext, PlcCodeCapabilityDiscoveryService? capabilityDiscovery, PlcCodeEvidenceRegistry? evidenceRegistry = null)
+    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext, PlcCodeCapabilityDiscoveryService? capabilityDiscovery, PlcCodeEvidenceRegistry? evidenceRegistry = null, IPlcSimulationRuntime? simulationRuntime = null)
     {
         _plcService = plcService;
         _sessionContext = sessionContext;
         _capabilityDiscovery = capabilityDiscovery;
         _evidenceRegistry = evidenceRegistry ?? new PlcCodeEvidenceRegistry();
+        _simulationRuntime = simulationRuntime ?? new PlcSimulationRuntime();
         CleanupOrphanedPlanDirectories();
     }
 

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "vectorId": "codex-behavior-basic-1",
+  "description": "Proves deterministic SCL arithmetic through a disposable cycle OB and contract DB.",
+  "reset": [
+    { "tag": "Codex_Behavior_IO.Seed", "type": "Int32", "value": 0 },
+    { "tag": "Codex_Behavior_IO.Selector", "type": "Int16", "value": 0 }
+  ],
+  "steps": [
+    {
+      "name": "base-branch",
+      "writes": [
+        { "tag": "Codex_Behavior_IO.Seed", "type": "Int32", "value": 7 },
+        { "tag": "Codex_Behavior_IO.Selector", "type": "Int16", "value": 0 }
+      ],
+      "settleMilliseconds": 25,
+      "assertions": [
+        { "tag": "Codex_Behavior_IO.Result", "type": "Int32", "operator": "Equal", "expected": 13, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "Codex_Behavior_IO.Heartbeat", "type": "UInt32", "operator": "GreaterThan", "expected": 0, "timeoutMilliseconds": 2000, "pollMilliseconds": 25 }
+      ]
+    },
+    {
+      "name": "double-branch",
+      "writes": [
+        { "tag": "Codex_Behavior_IO.Selector", "type": "Int16", "value": 1 }
+      ],
+      "settleMilliseconds": 25,
+      "assertions": [
+        { "tag": "Codex_Behavior_IO.Result", "type": "Int32", "operator": "Equal", "expected": 26, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 }
+      ]
+    }
+  ],
+  "cleanup": [
+    { "tag": "Codex_Behavior_IO.Seed", "type": "Int32", "value": 0 },
+    { "tag": "Codex_Behavior_IO.Selector", "type": "Int16", "value": 0 }
+  ]
+}

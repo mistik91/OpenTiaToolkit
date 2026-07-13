@@ -194,6 +194,22 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
+        public async Task<PlcOnlineStatusResult> GoOfflineAsync()
+        {
+            return await Task.Run(() =>
+            {
+                var onlineProvider = GetOnlineProvider(out var failure);
+                if (onlineProvider == null) return new PlcOnlineStatusResult(false, "Unavailable", false, failure ?? "OnlineProvider is not available.");
+                if (!_v21Adapter.TryGoOffline(onlineProvider, out var offlineFailure))
+                {
+                    string currentState = _v21Adapter.GetOnlineState(onlineProvider);
+                    return new PlcOnlineStatusResult(false, currentState, IsOnline(currentState), offlineFailure ?? "Failed to go offline.");
+                }
+                string state = _v21Adapter.GetOnlineState(onlineProvider);
+                return new PlcOnlineStatusResult(true, state, IsOnline(state), $"PLC online state: {state}.");
+            });
+        }
+
         public async Task<PlcCpuControlResult> ControlCpuAsync(string action, bool confirm = false)
         {
             return await Task.Run(() =>

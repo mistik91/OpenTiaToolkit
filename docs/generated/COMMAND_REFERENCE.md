@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **175**
+Commands: **181**
 
 ## Devices
 
@@ -624,7 +624,18 @@ Discovers and fingerprints the live TIA, PLC, target, safety, VCI, and import/ex
 | `operation` | String | no | Modify | Modify or Create |
 | `block-type` | String | no |  | FB, FC, OB, DB, GlobalDB, InstanceDB, or TYPE when known |
 | `requested-language` | String | no |  | Requested code language such as LAD, FBD, or SCL |
+| `requested-format` | String | no |  | Intended artifact format such as SCL, S7DCL, SimaticML, or VCI |
 | `prefer-source-control` | Boolean | no | False | Rank an observed exact VCI mapping first |
+
+### discover-plc-simulator-capabilities
+
+Discovers the installed PLCSIM Advanced Runtime API and selects a powered local simulator by exact controller or instance identity
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | Exact TIA PLC device name |
+| `instance-name` | String | no |  | Optional exact PLCSIM Advanced instance name |
+| `refresh-tags` | Boolean | no | False | Refresh and count the downloaded runtime tag list |
 
 ### download-software
 
@@ -1042,6 +1053,18 @@ Snapshots every existing target and produces one dependency-ordered, atomic, sta
 |---|---|---:|---|---|
 | `transaction-id` | String | yes |  | Draft transaction id |
 
+### query-plc-behavior-evidence
+
+Finds behavior evidence matching the exact code signature, TIA/PLC environment, vector hash, and simulator fingerprint
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | Exact PLC device name |
+| `capability-ids` | String | yes |  | Comma-separated current Create capability id for every declared probe object |
+| `package-path` | Path | yes |  | Versioned behavior probe package manifest listing all disposable code, contract DB, and scheduler artifacts |
+| `vector-path` | Path | yes |  | Versioned behavior vector JSON |
+| `instance-name` | String | no |  | Optional exact PLCSIM Advanced instance name |
+
 ### query-plc-code-evidence
 
 Finds verified evidence matching the current exact TIA/PLC/route compatibility fingerprint and normalized code construct signature
@@ -1052,6 +1075,16 @@ Finds verified evidence matching the current exact TIA/PLC/route compatibility f
 | `code-format` | String | no | auto | auto, scl, or s7dcl |
 | `input-path` | Path | yes |  | SCL or S7DCL artifact to qualify |
 
+### recover-plc-code-behavior-probe
+
+Recovers an interrupted behavior probe, removes its disposable objects offline and from PLCSIM, and never promotes its behavior evidence
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `evidence-id` | String | yes |  | Behavior evidence id in Running or Quarantined state |
+| `only-changes` | Boolean | no | True | Use a software-changes cleanup download |
+| `confirm` | Boolean | yes |  | Confirm mandatory offline and simulator cleanup |
+
 ### recover-plc-code-transaction
 
 Conservatively restores every baseline in an interrupted or unverified PLC code transaction
@@ -1060,6 +1093,24 @@ Conservatively restores every baseline in an interrupted or unverified PLC code 
 |---|---|---:|---|---|
 | `transaction-id` | String | yes |  | Interrupted or recovery-required transaction id |
 | `confirm` | Boolean | yes |  | Confirm restoration from the retained recovery package |
+
+### run-plc-code-behavior-probe
+
+Runs a disposable code probe through compile, simulator-only download, deterministic stimulation/observation, rollback, cleanup download, and online comparison
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | Exact PLC device name |
+| `capability-ids` | String | yes |  | Comma-separated current Create capability id for every declared probe object |
+| `package-path` | Path | yes |  | Versioned behavior probe package manifest listing all disposable code, contract DB, and scheduler artifacts |
+| `vector-path` | Path | yes |  | Versioned behavior vector JSON |
+| `instance-name` | String | no |  | Optional exact PLCSIM Advanced instance name |
+| `compile-policy` | String | no | NoNewErrors | NoNewErrors (default) or CleanCompile |
+| `maximum-new-warnings` | Integer | no |  | Optional maximum warning increase |
+| `accept-unknown-impact` | Boolean | no | False | Accept a reviewed Unknown impact fingerprint |
+| `only-changes` | Boolean | no | True | Use software-changes downloads for probe and cleanup |
+| `force` | Boolean | no | False | Run despite exact existing behavioral evidence |
+| `confirm` | Boolean | yes |  | Confirm temporary project mutation, simulator download/stimulation, and mandatory cleanup |
 
 ### run-plc-code-probe
 
@@ -1110,6 +1161,22 @@ Stops the PLC CPU when a supported online runtime operation is available
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `confirm` | Boolean | no | False | Explicitly confirm CPU runtime state change |
+
+### validate-plc-behavior-package
+
+Validates a versioned multi-artifact disposable behavior package and its required contract DB and scheduler OB
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `package-path` | Path | yes |  | Behavior probe package JSON file |
+
+### validate-plc-behavior-vector
+
+Validates a versioned deterministic PLCSIM behavior vector without changing TIA or simulator state
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `vector-path` | Path | yes |  | Behavior vector JSON file |
 
 ### validate-plc-code-artifact
 

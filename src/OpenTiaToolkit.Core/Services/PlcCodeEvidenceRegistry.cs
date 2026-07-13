@@ -44,7 +44,15 @@ public sealed class PlcCodeEvidenceRegistry
 
     public IReadOnlyList<PlcCodeEvidenceRecord> FindVerified(string compatibilityFingerprint, string qualificationSignature) =>
         List("Verified", null)
+            .Where(record => !record.EvidenceKind.Equals("Behavior", StringComparison.OrdinalIgnoreCase))
             .Where(record => FixedEquals(record.Compatibility.Fingerprint, compatibilityFingerprint) && FixedEquals(record.QualificationSignature, qualificationSignature))
+            .ToArray();
+
+    public IReadOnlyList<PlcCodeEvidenceRecord> FindVerifiedBehavior(string compatibilityFingerprint, string qualificationSignature, string vectorHash, string simulatorFingerprint) =>
+        List("Verified", null)
+            .Where(record => record.EvidenceKind.Equals("Behavior", StringComparison.OrdinalIgnoreCase) && record.Behavior != null)
+            .Where(record => FixedEquals(record.Compatibility.Fingerprint, compatibilityFingerprint) && FixedEquals(record.QualificationSignature, qualificationSignature))
+            .Where(record => FixedEquals(record.Behavior!.VectorHash, vectorHash) && FixedEquals(record.Behavior.SimulatorFingerprint, simulatorFingerprint))
             .ToArray();
 
     internal void Save(PlcCodeEvidenceRecord record)
@@ -70,9 +78,8 @@ public sealed class PlcCodeEvidenceRegistry
             throw new InvalidOperationException("Exact TIA version and build/update evidence are required before code evidence can be queried or promoted.");
         if (string.IsNullOrWhiteSpace(first.Environment.PlcFamily) && string.IsNullOrWhiteSpace(first.Environment.PlcTypeIdentifier) && string.IsNullOrWhiteSpace(first.Environment.PlcOrderNumber))
             throw new InvalidOperationException("Exact PLC family, type identifier, or order-number evidence is required before code evidence can be queried or promoted.");
-        string route = first.SelectedRoute;
-        if (capabilities.Any(capability => !capability.SelectedRoute.Equals(route, StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException("All probe capabilities must select the same mutation route.");
+        string[] routes = capabilities.Select(capability => capability.SelectedRoute).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToArray();
+        string route = routes.Length == 1 ? routes[0] : validation.Format.Equals("BehaviorPackage", StringComparison.OrdinalIgnoreCase) ? "TransactionPackage:" + string.Join("+", routes) : throw new InvalidOperationException("All non-package probe capabilities must select the same mutation route.");
         if (capabilities.Any(capability => !SameEnvironment(first.Environment, capability.Environment)))
             throw new InvalidOperationException("All probe capabilities must describe the same TIA and PLC environment.");
         bool projectBound = validation.Dependencies.Count > 0;

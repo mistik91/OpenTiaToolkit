@@ -85,6 +85,18 @@ public sealed class PlcCodeCapabilityDiscoveryServiceTests
     }
 
     [TestMethod]
+    public void EvaluateRoutes_ExplicitS7DclSclTarget_SelectsDocuments()
+    {
+        PlcCodeRouteDecision selected = Routes(
+            new PlcCodeCapabilityRequest { ObjectName = "CycleProbe", RequestedLanguage = "SCL", RequestedFormat = "S7DCL", Operation = "Create" },
+            new PlcCodeTargetEvidence { Exists = false, ProgrammingLanguage = "SCL" },
+            new PlcCodeVciEvidence(),
+            new PlcCodeImportExportEvidence()).First(route => route.Eligible);
+
+        Assert.AreEqual("DirectDocuments", selected.Route);
+    }
+
+    [TestMethod]
     public void EvaluateRoutes_FailsafeTarget_BlocksEveryMutationRoute()
     {
         var routes = PlcCodeCapabilityDiscoveryService.EvaluateRoutes(

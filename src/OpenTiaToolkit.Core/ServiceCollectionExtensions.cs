@@ -18,12 +18,15 @@ namespace OpenTiaToolkit.Core
         {
             services.AddSingleton<EngineeringSessionContext>();
             services.AddSingleton<PlcCodeEvidenceRegistry>();
+            services.AddSingleton<PlcBehaviorVectorService>();
+            services.AddSingleton<IPlcSimulationRuntime, PlcSimulationRuntime>();
             services.AddSingleton<ISessionResetService, EngineeringSessionResetService>();
             services.AddSingleton(serviceProvider => new PlcDocumentWorkflowService(
                 serviceProvider.GetRequiredService<IPlcService>(),
                 serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                 serviceProvider.GetRequiredService<PlcCodeCapabilityDiscoveryService>(),
-                serviceProvider.GetRequiredService<PlcCodeEvidenceRegistry>()));
+                serviceProvider.GetRequiredService<PlcCodeEvidenceRegistry>(),
+                serviceProvider.GetRequiredService<IPlcSimulationRuntime>()));
             services.AddSingleton<PlcCodeFormatService>();
 
             services.AddSingleton<PortalService>(serviceProvider =>

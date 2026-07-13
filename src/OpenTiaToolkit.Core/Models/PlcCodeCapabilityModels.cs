@@ -12,6 +12,7 @@ public sealed class PlcCodeCapabilityRequest
     public string Operation { get; set; } = "Modify";
     public string? BlockType { get; set; }
     public string? RequestedLanguage { get; set; }
+    public string? RequestedFormat { get; set; }
     public bool PreferSourceControl { get; set; }
 }
 

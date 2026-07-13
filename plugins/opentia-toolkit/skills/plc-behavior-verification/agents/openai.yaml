@@ -1,0 +1,4 @@
+interface:
+  display_name: "PLC Behavior Verification"
+  short_description: "Verify disposable PLC code behavior safely in PLCSIM Advanced"
+  default_prompt: "Use $plc-behavior-verification to validate a versioned behavior vector and run a transaction-bound disposable PLC code probe in PLCSIM Advanced with cleanup proof."
