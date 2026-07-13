@@ -21,6 +21,7 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton(serviceProvider => new PlcDocumentWorkflowService(
                 serviceProvider.GetRequiredService<IPlcService>(),
                 serviceProvider.GetRequiredService<EngineeringSessionContext>()));
+            services.AddSingleton<PlcCodeFormatService>();
 
             services.AddSingleton<PortalService>(serviceProvider =>
                 new PortalService(

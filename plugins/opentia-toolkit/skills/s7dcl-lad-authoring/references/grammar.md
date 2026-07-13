@@ -17,12 +17,13 @@ END_FUNCTION
 - Compare: `{ S7_Templates := "SrcType := Int" } GT_Contact( in1 := #A, in2 := #B )`; corresponding LT/EQ/NE/GE/LE forms.
 - Move: `Move( in := value, out1 => target )`.
 - Arithmetic: typed `Add`, `Sub`, `Mul`, `Div` with `in1`, `in2`, and `out`.
+- DB attributes: `ATTR_DB( REQ := ..., DB_NUMBER := ..., RET_VAL => ..., DB_LENGTH => ..., ATTRIB => ... )`. This exact pin shape round-tripped in TIA V21; the referenced DB remains a project dependency.
 - Calls: use the syntax exported by the target project.
 - Static timer: typed `#tonInst.TON( pt := T#500ms, et => )`, with `tonInst : TON_TIME` in FB `VAR`.
 
-Avoid bare export forms such as `Gt(...)`, `PBox(...)`, or decorated `Move{ Card := ... }` unless live import proves them.
+Avoid bare export forms such as `Gt(...)`, `PBox(...)`, or decorated `Move{ Card := ... }` unless live import proves them. Siemens exports may omit `S7_Templates SrcType` when connected operands make the type inferable; accept that form only as `unknown-requires-live-probe`. Agent-authored typed calls should emit the explicit template.
 
-The validator rejects those known export-only forms, missing named pins, missing `SrcType` templates, unpaired `wire#wN` junctions, local FC timer instances, incorrectly placed FB stateful instances, invalid edge memory, duplicate resources, and F-language documents. Project-specific block calls and unregistered instructions are classified `unknown-requires-live-probe` rather than assumed safe.
+The validator rejects known export-only forms, missing named pins, unpaired `wire#wN` junctions, local FC timer instances, incorrectly placed FB stateful instances, invalid edge memory, duplicate resources, and F-language documents. Missing `SrcType`, project-specific block calls, and unregistered instructions are classified `unknown-requires-live-probe` rather than assumed safe.
 
 Use `wire#wN` as a branch junction. A LAD-preferred block may include complete `{ S7_Language := "SCL" }` networks.
 

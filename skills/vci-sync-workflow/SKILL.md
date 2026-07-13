@@ -7,7 +7,7 @@ description: Use for Siemens TIA Portal Version Control Interface workflows thro
 
 ## Overview
 
-Use this skill for TIA Version Control Interface work. Treat sync direction as the central safety decision: `project-to-workspace` exports from TIA, while `workspace-to-project` imports file contents back into TIA.
+Use this skill for TIA Version Control Interface work. Read the shared [PLC code format contract](../plc-code-engineering/references/format-contract.md) before syncing authored code. Treat sync direction as the central safety decision: `project-to-workspace` exports from TIA, while `workspace-to-project` imports file contents back into TIA.
 
 ## Standard Workflow
 
@@ -20,7 +20,7 @@ Use this skill for TIA Version Control Interface work. Treat sync direction as t
    For large mapping reviews, pass `output-path` to `list-vci-mappings` or use the returned CSV artifact path when it auto-spills.
 4. For a block workflow, discover supported formats with `get-vci-block-formats`.
 5. Before synchronization, run `get-vci-block-status` for mapped objects when possible.
-   If a workspace file will be authored or modified, route its content through `plc-code-engineering` and its format skill before workspace-to-project sync.
+   If a workspace file will be authored or modified, route its content through `plc-code-engineering`, run `validate-plc-code-artifact` for its exact format, and retain the project export as rollback evidence before workspace-to-project sync.
 6. Choose the operation:
    - `create-vci-workspace` for a new workspace root.
    - `export-vci-block` to export one PLC block and create its mapping.
@@ -34,7 +34,7 @@ Use this skill for TIA Version Control Interface work. Treat sync direction as t
 
 Use `project-to-workspace` when the user's intent is backup, export, refresh files from TIA, or create source-controlled files.
 
-Use `workspace-to-project` only when the user clearly wants to import file changes into TIA. Before doing so, inspect mappings/status and prefer a narrow block filter or exact block name.
+Use `workspace-to-project` only when the user clearly wants to import file changes into TIA. Before doing so, inspect mappings/status, validate every changed artifact, prefer an exact block or narrow filter, and pass `confirm=true`. The commands reject implicit mapping creation in this direction; connect the exact file first.
 
 Do not guess direction from vague words like "sync this" if both directions are plausible. Ask for direction or state the chosen direction when the user's wording is clear.
 
@@ -43,6 +43,8 @@ Do not guess direction from vague words like "sync this" if both directions are 
 Use `create-mapping` or `create-mappings` only when the user wants unmapped objects exported from TIA into the workspace. For workspace-to-project, unmapped file imports should be explicit through `connect-vci-block` or a user-confirmed mapping step.
 
 Keep `relative-directory`, `file-name`, `file-format`, `block-type`, and `group-path` explicit when supplied. Avoid changing established workspace layout unless requested.
+
+For the workspace root itself, pass `relative-directory=.`. An empty value fails required-parameter validation, and Siemens may reject a newly invented subdirectory until it is a valid workspace-relative target.
 
 For broad syncs, use `filter-regex`, `block-types`, `scope`, and `include-skipped` to make the result reviewable.
 
@@ -56,4 +58,4 @@ Deleting a VCI workspace definition requires explicit confirmation with `confirm
 
 After project-to-workspace sync, verify that mapped objects report clean or expected status and that skipped unmapped items are intentional.
 
-After workspace-to-project sync, verify the affected block with `get-block-info` or `get-blocks`, then compile the PLC when imported code may affect consistency.
+After workspace-to-project sync, require the post-sync status to be `Equal`, verify the affected block with `get-block-info` or `get-blocks`, and compile the PLC. VCI sync is not a multi-object atomic transaction; use exact/narrow mappings and retain exported baselines for recovery.

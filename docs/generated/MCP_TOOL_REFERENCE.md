@@ -7,6 +7,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `add-device` | Portal | `order-number`, `version`, `name`, `confirm` | Adds a device with its primary item to the current project |
 | `add-plc-code-transaction-operation` | PLC | `transaction-id`, `import-directory`, `file-name`, `group-path`, `import-option`, `confirm` | Adds a validated SIMATIC SD block upsert to a draft PLC code transaction |
 | `add-project-to-multiuser-server` | Multiuser | `server-alias`, `project-path`, `confirm` | Adds a closed single-user TIA project to a configured Project Server. |
+| `add-scl-source-transaction-operation` | PLC | `transaction-id`, `source-path`, `group-path`, `confirm` | Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction |
+| `add-simaticml-transaction-operation` | PLC | `transaction-id`, `input-path`, `baseline-path`, `group-path`, `allow-flgnet-topology`, `confirm` | Adds a baseline-bound SimaticML block patch to a persistent PLC code transaction |
 | `apply-block-document-import` | PLC | `apply-token`, `confirm` | Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure |
 | `apply-blueprint` | V21 | `apply-token`, `confirm` | Applies a previously reviewed blueprint plan using its state-bound one-use token. |
 | `apply-hardware-patch` | Hardware | `operations`, `operations-path`, `dry-run`, `confirm-destructive`, `transaction-description`, `plc-name`, `safety-password-env`, `confirm` | Dry-runs or applies transactional generic TIA hardware operations |
@@ -45,6 +47,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `delete-hmi-data-logs` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or deletes multiple unreferenced Unified HMI data log archives |
 | `delete-vci-workspace` | VCI | `workspace-name`, `confirm` | Deletes a Version Control Interface workspace definition |
 | `describe-api` | V21 |  | Self-describes the installed V21 public API surface and prioritized feature availability. |
+| `describe-plc-code-formats` | PLC |  | Describes format-specific PLC authoring support, mutation routes, verification requirements, and limitations |
 | `diff-api-profile` | V21 | `baseline-path` | Compares the installed V21 public API self-description with a committed migration baseline. |
 | `diff-hmi-json` | Unified HMI | `base-path`, `modified-path`, `patch-path`, `screens`, `item-names`, `properties` | Creates a minimal Unified HMI JSON patch from two exports |
 | `discard-plc-code-transaction` | PLC | `transaction-id`, `confirm` | Deletes a terminal or never-applied PLC code transaction and its retained local artifacts |
@@ -99,7 +102,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `get-technology-object-details` | Insights | `max-results` | Reads PLC technology object metadata and parameters through the official V21 API. |
 | `get-unified-runtime-settings` | Insights | `max-results` | Reads scalar Unified HMI runtime settings through the official V21 API. |
 | `get-vci-block-formats` | VCI | `plc-name`, `block-name`, `block-type`, `group-path` | Gets VCI-supported workspace file formats for one PLC block |
-| `get-vci-block-status` | VCI | `workspace-name`, `plc-name`, `block-name`, `block-type`, `group-path` | Gets VCI comparison status for one mapped PLC block |
+| `get-vci-block-status` | VCI | `workspace-name`, `plc-name`, `block-name`, `block-type`, `group-path`, `confirm` | Gets VCI comparison status for one mapped PLC block |
 | `get-vci-workspace` | VCI | `workspace-name` | Gets details for a Version Control Interface workspace |
 | `get-watch-table-details` | Insights | `max-results` | Reads PLC watch/force tables and their entry metadata through the official V21 API. |
 | `hmi-status` | Unified HMI | `hmi-name`, `screen-path`, `open-if-needed` | Gets Unified HMI session status and optionally probes a screen |
@@ -164,6 +167,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `sync-vci-blocks` | VCI | `workspace-name`, `plc-name`, `direction`, `filter-regex`, `block-types`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes selected PLC blocks with a VCI workspace |
 | `sync-vci-plc` | VCI | `workspace-name`, `plc-name`, `direction`, `scope`, `create-mappings`, `relative-directory`, `file-format`, `include-skipped`, `output-path`, `confirm` | Synchronizes supported objects of a PLC with a VCI workspace |
 | `validate-blueprint` | V21 | `blueprint-path` | Validates a declarative engineering blueprint against the V21 worker command contract. |
+| `validate-plc-code-artifact` | PLC | `code-format`, `input-path`, `baseline-path`, `allow-flgnet-topology` | Validates SCL, S7DCL, or SimaticML with format-specific structural and semantic guardrails |
 | `validate-plc-documents` | PLC | `import-directory`, `file-name` | Validates SIMATIC SD structure, resources, and instruction forms offline before PLC import |
 | `validate-safety-configuration` | Insights |  | Validates official SafetyAdministration availability and offline login state for the selected PLC. |
 | `version` | V21 |  | Reports toolkit, IPC, worker, runtime, and target TIA versions. |

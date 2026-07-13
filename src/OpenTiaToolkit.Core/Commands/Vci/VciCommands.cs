@@ -42,6 +42,13 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             throw new ArgumentException("scope must be blocks, blocks-and-types, or all-supported");
         }
 
+        public static void RequireSyncConfirmation(CommandArgs args, VciSyncDirection direction, bool createMappings)
+        {
+            if (direction != VciSyncDirection.WorkspaceToProject) return;
+            if (!args.GetBool("confirm")) throw new InvalidOperationException("workspace-to-project synchronization mutates TIA and requires confirm=true after mapping, status, direction, and workspace artifacts are reviewed.");
+            if (createMappings) throw new InvalidOperationException("workspace-to-project synchronization cannot create mappings implicitly. Connect the exact workspace file first and review its status.");
+        }
+
         public static CommandResult Failure(string operation, Exception ex, ILogger logger)
         {
             logger.LogError(ex, "VCI command failed: {Operation}", operation);
@@ -432,7 +439,8 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("plc-name", CommandParameterType.String, "PLC device name", true),
             new CommandParameter("block-name", CommandParameterType.String, "Exact block name", true),
             new CommandParameter("block-type", CommandParameterType.String, "Optional block type"),
-            new CommandParameter("group-path", CommandParameterType.String, "Optional block group path")
+            new CommandParameter("group-path", CommandParameterType.String, "Optional block group path"),
+            new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm workspace-to-project mutation after review", false, false)
         });
         public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
@@ -481,7 +489,9 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             try
             {
                 context.StartCommand(Name, "Synchronizing one VCI block.");
-                var result = await _service.SynchronizeBlockAsync(VciCommandSupport.Required(args, "workspace-name"), VciCommandSupport.Required(args, "plc-name"), VciCommandSupport.Required(args, "block-name"), VciCommandSupport.Direction(args), args.GetBool("create-mapping"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-name"), VciCommandSupport.Optional(args, "file-format"), VciCommandSupport.Optional(args, "block-type"), VciCommandSupport.Optional(args, "group-path"));
+                VciSyncDirection direction = VciCommandSupport.Direction(args);
+                VciCommandSupport.RequireSyncConfirmation(args, direction, args.GetBool("create-mapping"));
+                var result = await _service.SynchronizeBlockAsync(VciCommandSupport.Required(args, "workspace-name"), VciCommandSupport.Required(args, "plc-name"), VciCommandSupport.Required(args, "block-name"), direction, args.GetBool("create-mapping"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-name"), VciCommandSupport.Optional(args, "file-format"), VciCommandSupport.Optional(args, "block-type"), VciCommandSupport.Optional(args, "group-path"));
                 context.CompleteCommand(Name, result.Message ?? "VCI block synchronized.");
                 return result.Success ? CommandResult.CreateSuccess(result, result.Message ?? "VCI block synchronized.") : CommandResult.CreateFailure(result.Message ?? "VCI block was not synchronized.", result);
             }
@@ -506,7 +516,8 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("relative-directory", CommandParameterType.String, "Base path relative to workspace root", false, ""),
             new CommandParameter("file-format", CommandParameterType.String, "Optional supported file format"),
             new CommandParameter("include-skipped", CommandParameterType.Boolean, "Include per-item results for skipped unmapped objects", false, false),
-            new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the bulk sync result")
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the bulk sync result"),
+            new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm workspace-to-project mutation after review", false, false)
         });
         public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
@@ -521,6 +532,7 @@ namespace OpenTiaToolkit.Core.Commands.Vci
                 var workspaceName = VciCommandSupport.Required(args, "workspace-name");
                 var plcName = VciCommandSupport.Required(args, "plc-name");
                 var direction = VciCommandSupport.Direction(args);
+                VciCommandSupport.RequireSyncConfirmation(args, direction, args.GetBool("create-mappings"));
                 var result = await _service.SynchronizeBlocksAsync(workspaceName, plcName, direction, VciCommandSupport.Optional(args, "filter-regex"), args.GetStringArray("block-types"), args.GetBool("create-mappings"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-format"), args.GetBool("include-skipped"));
                 context.Checkpoint("Preparing VCI block synchronization result.", 85, "prepare-result");
                 context.CompleteCommand(Name, "VCI block synchronization completed.");
@@ -557,7 +569,8 @@ namespace OpenTiaToolkit.Core.Commands.Vci
             new CommandParameter("relative-directory", CommandParameterType.String, "Base path relative to workspace root", false, ""),
             new CommandParameter("file-format", CommandParameterType.String, "Optional supported file format"),
             new CommandParameter("include-skipped", CommandParameterType.Boolean, "Include per-item results for skipped unmapped objects", false, false),
-            new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the PLC sync result")
+            new CommandParameter("output-path", CommandParameterType.Path, "Optional JSON file or folder path for the PLC sync result"),
+            new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm workspace-to-project mutation after review", false, false)
         });
         public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
         {
@@ -572,6 +585,7 @@ namespace OpenTiaToolkit.Core.Commands.Vci
                 var workspaceName = VciCommandSupport.Required(args, "workspace-name");
                 var plcName = VciCommandSupport.Required(args, "plc-name");
                 var direction = VciCommandSupport.Direction(args);
+                VciCommandSupport.RequireSyncConfirmation(args, direction, args.GetBool("create-mappings"));
                 var scope = VciCommandSupport.Scope(args);
                 var result = await _service.SynchronizePlcAsync(workspaceName, plcName, direction, scope, args.GetBool("create-mappings"), args.GetString("relative-directory"), VciCommandSupport.Optional(args, "file-format"), args.GetBool("include-skipped"));
                 context.Checkpoint("Preparing VCI PLC synchronization result.", 85, "prepare-result");

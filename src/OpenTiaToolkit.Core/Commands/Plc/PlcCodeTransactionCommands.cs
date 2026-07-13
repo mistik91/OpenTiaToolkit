@@ -64,6 +64,50 @@ public sealed class PlanPlcCodeTransactionCommand : ICommand
     }
 }
 
+public sealed class AddSclSourceTransactionOperationCommand : ICommand
+{
+    private readonly PlcDocumentWorkflowService _service;
+    public AddSclSourceTransactionOperationCommand(PlcDocumentWorkflowService service) => _service = service;
+    public string Name => "add-scl-source-transaction-operation";
+    public string Description => "Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction";
+    public CommandSchema Schema => new CommandSchema(Description, new[]
+    {
+        new CommandParameter("transaction-id", CommandParameterType.String, "Draft PLC code transaction id", true),
+        new CommandParameter("source-path", CommandParameterType.Path, "UTF-8 SCL source file", true),
+        new CommandParameter("group-path", CommandParameterType.String, "Exact target block group for every declared block", false),
+        new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding the reviewed source operation", true)
+    });
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    {
+        if (!args.GetBool("confirm")) return Task.FromResult(CommandResult.CreateFailure("Adding an SCL transaction operation requires confirm=true."));
+        PlcCodeTransaction result = _service.AddSclTransactionOperation(args.GetString("transaction-id"), args.GetString("source-path"), args.GetString("group-path"));
+        return Task.FromResult(CommandResult.CreateSuccess(result, "SCL source generation operation added to the transaction."));
+    }
+}
+
+public sealed class AddSimaticMlTransactionOperationCommand : ICommand
+{
+    private readonly PlcDocumentWorkflowService _service;
+    public AddSimaticMlTransactionOperationCommand(PlcDocumentWorkflowService service) => _service = service;
+    public string Name => "add-simaticml-transaction-operation";
+    public string Description => "Adds a baseline-bound SimaticML block patch to a persistent PLC code transaction";
+    public CommandSchema Schema => new CommandSchema(Description, new[]
+    {
+        new CommandParameter("transaction-id", CommandParameterType.String, "Draft PLC code transaction id", true),
+        new CommandParameter("input-path", CommandParameterType.Path, "Patched SimaticML block XML", true),
+        new CommandParameter("baseline-path", CommandParameterType.Path, "Untouched SimaticML export of the exact target", true),
+        new CommandParameter("group-path", CommandParameterType.String, "Exact target block group", false),
+        new CommandParameter("allow-flgnet-topology", CommandParameterType.Boolean, "Allow an explicitly reviewed FlgNet topology change", false, false),
+        new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding the reviewed XML patch operation", true)
+    });
+    public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    {
+        if (!args.GetBool("confirm")) return Task.FromResult(CommandResult.CreateFailure("confirm=true is required to add a SimaticML transaction operation."));
+        PlcCodeTransaction transaction = _service.AddSimaticMlTransactionOperation(args.GetString("transaction-id"), args.GetString("input-path"), args.GetString("baseline-path"), args.GetString("group-path"), args.GetBool("allow-flgnet-topology"));
+        return Task.FromResult(CommandResult.CreateSuccess(transaction, "Baseline-bound SimaticML operation added to the transaction."));
+    }
+}
+
 public sealed class ApplyPlcCodeTransactionCommand : ICommand
 {
     private readonly PlcDocumentWorkflowService _service;

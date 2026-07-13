@@ -8,6 +8,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Changed
+- Added a shared PLC code-format capability/validation contract and format-specific hardening for native SCL, S7DCL LAD/data, baseline-bound SimaticML, and confirmed directional VCI synchronization.
+- Extended persistent PLC code transactions with exact multi-target SCL generation and existing-block SimaticML patch adapters, including source/XML stale checks, canonical read-back, compile policy, reverse rollback, and restart-safe recovery.
+- Grounded LAD validation in live V21 exports: inferred typed calls are probe-only, exact `ATTR_DB` pins are verified, and project calls remain target-specific.
+- Hardened global DB validation for quoted members, duplicate start values, array/string bounds, structure balance, optimized-layout impact, and explicit instance-DB/type workflow boundaries.
+- Required `confirm=true` for VCI workspace-to-project synchronization and rejected implicit mapping creation in that direction.
 - Added persistent multi-block PLC code transactions with TIA/project/PLC binding, whole-set stale preflight, baseline compile evidence, canonical result exports, reverse-order rollback, restart recovery, retained unverified recovery packages, and live V21 success/failure coverage.
 - Hardened SIMATIC SD planning around exact PLC/group/type/name/number identities, ambiguity rejection, exact deletion, stale-target detection, startup cleanup of orphaned plans, and byte-hash proof after rollback.
 - Added instruction-aware S7DCL validation with verified/known-unsupported/unknown classifications, pin/template checks, timer/counter/edge placement rules, branch/resource consistency, and standard-versus-safety boundaries.
@@ -15,6 +20,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Extended the staged MCP live test to generate, verify, compile, and clean up the complete PLC code-authoring corpus against an open V21 project.
 
 ### Added
+- Added `describe-plc-code-formats`, `validate-plc-code-artifact`, `add-scl-source-transaction-operation`, and `add-simaticml-transaction-operation`.
 - Added offline SIMATIC SD validation and state-bound `plan-block-document-import` / `apply-block-document-import` workflows with input and target hashes, one-use tokens, read-back, compile verification, and automatic rollback.
 - Added guarded PLC external-source deletion for disposable native SCL workflows.
 - Added PLC code engineering, S7DCL LAD/data, native SCL source, and SimaticML fallback skills with live-tested FC, FB, mixed LAD/SCL, global DB, and SCL assets.

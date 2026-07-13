@@ -1534,25 +1534,32 @@ Failed:
 Use the guarded workflow for agent-authored or modified `.s7dcl` files:
 
 ```bash
+OpenTiaToolkit.CLI.exe validate-plc-code-artifact --code-format=s7dcl --input-path="C:\Imports\Docs\Motor.s7dcl"
 OpenTiaToolkit.CLI.exe validate-plc-documents --import-directory="C:\Imports\Docs" --file-name="Motor"
-OpenTiaToolkit.CLI.exe plan-block-document-import --plc-name="PLC_1" --import-directory="C:\Imports\Docs" --file-name="Motor" --import-option="Override"
-OpenTiaToolkit.CLI.exe apply-block-document-import --apply-token="<token-from-plan>" --confirm=true
+OpenTiaToolkit.CLI.exe begin-plc-code-transaction --plc-name="PLC_1" --description="Update Motor"
+OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\Imports\Docs" --file-name="Motor" --import-option="Override" --confirm=true
+OpenTiaToolkit.CLI.exe plan-plc-code-transaction --transaction-id="<id>"
+OpenTiaToolkit.CLI.exe apply-plc-code-transaction --transaction-id="<id>" --apply-token="<token-from-plan>" --confirm=true
 ```
 
 `validate-plc-documents` runs without TIA and checks UTF-8 decoding, block/file-name agreement, block/network/rung boundaries, conditional S7RES presence, duplicate/missing `MLC_*` resources, branch junctions, instruction arguments, typed templates, timer/counter/edge instance rules, and safety-language boundaries. Each instruction is classified as `verified`, `known-unsupported`, or `unknown-requires-live-probe`. Known-unsupported forms fail validation; unknown project-specific calls remain valid but require guarded Siemens import and compile verification. UTF-8 without BOM is reported as a warning.
 
-`plan-block-document-import` validates the input and binds one exact target identity: PLC, normalized block-group path, declared block type, name, and block number when present. Ambiguous names and wrong-type collisions fail closed. It exports that exact block, computes input and baseline hashes, and returns a ten-minute one-use apply token. Use `group-path` whenever the target is not in the root Program blocks group.
+The persistent transaction validates the input and binds one exact target identity: PLC, normalized block-group path, declared block type, name, and block number when present. Ambiguous names and wrong-type collisions fail closed. It exports that exact block, computes input and baseline hashes, and returns a restart-safe thirty-minute one-use apply token. Use `group-path` whenever the target is not in the root Program blocks group.
 
 `apply-block-document-import` rejects changed input or exact-target state, consumes the token once, imports into the planned group, verifies group/type/name/number, and compiles. If import/read-back/compile fails, it restores the exact prior document or deletes only the exact newly created target, re-exports the restoration, requires the restored hash to equal the baseline hash, and recompiles. An unproven rollback is reported as a hard failure requiring inspection. It does not save the project.
 
 ### Persistent multi-block PLC code transactions
 
-Use a PLC code transaction when one engineering intent changes two or more SIMATIC SD blocks. The lifecycle is explicit and persistent:
+Use a PLC code transaction for every agent-authored change, including one block. The lifecycle is explicit and persistent:
 
 ```powershell
 OpenTiaToolkit.CLI.exe begin-plc-code-transaction --plc-name="PLC_1" --description="Add conveyor logic" --compile-policy=NoNewErrors
 OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FB_Conveyor" --group-path="Conveyor" --confirm=true
 OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FC_ConveyorCall" --confirm=true
+# Native SCL alternative:
+OpenTiaToolkit.CLI.exe add-scl-source-transaction-operation --transaction-id="<id>" --source-path="C:\changes\Conveyor.scl" --confirm=true
+# Existing-block SimaticML fallback alternative:
+OpenTiaToolkit.CLI.exe add-simaticml-transaction-operation --transaction-id="<id>" --input-path="C:\changes\Motor.patch.xml" --baseline-path="C:\changes\Motor.export.xml" --confirm=true
 OpenTiaToolkit.CLI.exe plan-plc-code-transaction --transaction-id="<id>"
 OpenTiaToolkit.CLI.exe apply-plc-code-transaction --transaction-id="<id>" --apply-token="<token>" --confirm=true
 OpenTiaToolkit.CLI.exe get-plc-code-transaction --transaction-id="<id>"
@@ -1565,11 +1572,13 @@ OpenTiaToolkit.CLI.exe discard-plc-code-transaction --transaction-id="<id>" --co
 
 `apply-plc-code-transaction` first checks every input and every target hash as one atomic preflight. It then applies operations in reviewed sequence, verifies exact identities, compiles once, and exports canonical TIA documents. Any failure restores all existing targets and removes all newly created targets in reverse order. Success is reported only after compile-policy and canonical-export verification.
 
+SCL operations validate every declared block and track each generated target. PLC `TYPE` declarations are rejected until type snapshot/read-back/rollback exists. SimaticML operations require an untouched export of the exact existing block, preserve IDs/namespaces/topology by default, re-export current TIA state during planning, and exclude only volatile export metadata from baseline comparison. VCI workspace-to-project sync is separate from transactions and requires `confirm=true`, validated workspace files, existing mappings, post-sync `Equal` status, and compile verification.
+
 Manifests, integrity hashes, and append-only `journal.jsonl` records survive CLI/MCP or worker restarts under `%TEMP%\OpenTiaToolkit\plc-code-transactions`. `list-plc-code-transactions` discovers interrupted work. Use `recover-plc-code-transaction --confirm=true` for `Applying`, `Verifying`, `RollingBack`, or `RecoveryRequired` states. Recovery conservatively restores every baseline, including operations whose last journal write may have been interrupted. An unproven recovery also writes `recovery.json`; such a transaction cannot be discarded, and its backup package is never age-cleaned automatically.
 
 Transactions do not save the TIA project and do not create Git or VCI commits. Saving and source-control synchronization remain separate explicit decisions after transaction verification.
 
-For native-source probes, `delete-external-source --plc-name="PLC_1" --source-name="Probe" --confirm=true` removes the source definition after its generated blocks have been reviewed and deleted.
+For native-source probes, `delete-external-source --plc-name="PLC_1" --source-name="Probe" --confirm=true` removes the source definition after its generated blocks have been reviewed and deleted. The older `plan-block-document-import` token is process-local and should be used only when plan/apply share one persistent host session; separate CLI invocations should use the persistent transaction.
 
 #### import-block-from-docs
 

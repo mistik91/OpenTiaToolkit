@@ -27,7 +27,7 @@ public sealed partial class PlcDocumentWorkflowService
     {
         "Contact", "I_Contact", "Coil", "I_Coil", "S_Coil", "R_Coil", "Not", "P_Trig",
         "GT_Contact", "LT_Contact", "EQ_Contact", "NE_Contact", "GE_Contact", "LE_Contact",
-        "Move", "Add", "Sub", "Mul", "Div", "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil"
+        "Move", "Add", "Sub", "Mul", "Div", "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil", "ATTR_DB"
     };
     private static readonly HashSet<string> KnownUnsupportedInstructions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -79,6 +79,7 @@ public sealed partial class PlcDocumentWorkflowService
         string? blockType = blockMatch.Success ? NormalizeBlockType(blockMatch.Groups[1].Value) : null;
         if (!string.IsNullOrWhiteSpace(blockName) && !string.Equals(blockName, baseName, StringComparison.Ordinal)) errors.Add($"Document block name '{blockName}' does not match file-name '{baseName}'.");
         ValidateBlockBoundaries(text, blockType, errors);
+        if (string.Equals(blockType, "GlobalDB", StringComparison.OrdinalIgnoreCase)) ValidateDataBlockDocument(text, errors, warnings);
         if (Regex.IsMatch(text, @"S7_PreferredLanguage\s*:=\s*""F_", RegexOptions.IgnoreCase) || Regex.IsMatch(text, @"\bS7_F", RegexOptions.IgnoreCase))
             errors.Add("Safety-language S7DCL authoring is known-unsupported by this standard-block workflow. Use a separately validated safety workflow.");
 
@@ -294,7 +295,10 @@ public sealed partial class PlcDocumentWorkflowService
             }
             if (VerifiedInstructions.Contains(name))
             {
-                results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = "verified", Line = line });
+                bool inferredType = TypedInstructions.Contains(name) && !HasSourceTypeTemplateBeforeCall(text, match.Index);
+                string classification = inferredType ? "unknown-requires-live-probe" : "verified";
+                results.Add(new PlcDocumentInstructionValidation { Instruction = name, Classification = classification, Line = line, Guidance = inferredType ? "Siemens may infer the operand type from connected values, but agent-authored calls should emit an explicit S7_Templates SrcType and require a live compile when it is absent." : null });
+                if (inferredType) warnings.Add($"Typed instruction {name} at line {line} has no preceding S7_Templates SrcType in its network. Siemens-exported inferred forms are accepted only with guarded live compile verification.");
                 ValidateInstructionArguments(text, match, name, blockType, errors);
             }
             else
@@ -322,13 +326,10 @@ public sealed partial class PlcDocumentWorkflowService
         bool Has(string parameter) => Regex.IsMatch(arguments, @"(?i)\b" + Regex.Escape(parameter) + @"\s*(?::=|=>)");
         if (name.Equals("Move", StringComparison.OrdinalIgnoreCase) && (!Has("in") || !Has("out1"))) errors.Add($"Instruction Move at line {LineOf(text, call.Index)} requires named 'in' and 'out1' parameters.");
         if (new[] { "Add", "Sub", "Mul", "Div" }.Contains(name, StringComparer.OrdinalIgnoreCase) && (!Has("in1") || !Has("in2") || !Has("out"))) errors.Add($"Instruction {name} at line {LineOf(text, call.Index)} requires named 'in1', 'in2', and 'out' parameters.");
+        if (name.Equals("ATTR_DB", StringComparison.OrdinalIgnoreCase))
+            foreach (string parameter in new[] { "REQ", "DB_NUMBER", "RET_VAL", "DB_LENGTH", "ATTRIB" })
+                if (!Has(parameter)) errors.Add($"Instruction ATTR_DB at line {LineOf(text, call.Index)} requires named '{parameter}'.");
         if (TypedInstructions.Contains(name) && name.EndsWith("_Contact", StringComparison.OrdinalIgnoreCase) && (!Has("in1") || !Has("in2"))) errors.Add($"Instruction {name} at line {LineOf(text, call.Index)} requires named 'in1' and 'in2' parameters.");
-        if (TypedInstructions.Contains(name))
-        {
-            int networkStart = text.LastIndexOf("NETWORK", call.Index, StringComparison.OrdinalIgnoreCase);
-            string prefix = text.Substring(Math.Max(0, networkStart), call.Index - Math.Max(0, networkStart));
-            if (prefix.IndexOf("SrcType", StringComparison.OrdinalIgnoreCase) < 0) errors.Add($"Typed instruction {name} at line {LineOf(text, call.Index)} requires an S7_Templates SrcType declaration in the same network before the call.");
-        }
         if (new[] { "TON", "TOF", "TP", "TON_Coil", "TOF_Coil", "TP_Coil" }.Contains(name, StringComparer.OrdinalIgnoreCase))
         {
             if (!Has("pt")) errors.Add($"Timer instruction {name} at line {LineOf(text, call.Index)} requires named 'pt'.");
@@ -354,6 +355,13 @@ public sealed partial class PlcDocumentWorkflowService
         }
     }
 
+    private static bool HasSourceTypeTemplateBeforeCall(string text, int callIndex)
+    {
+        int networkStart = text.LastIndexOf("NETWORK", callIndex, StringComparison.OrdinalIgnoreCase);
+        string prefix = text.Substring(Math.Max(0, networkStart), callIndex - Math.Max(0, networkStart));
+        return prefix.IndexOf("SrcType", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     private static void ValidateBlockBoundaries(string text, string? blockType, List<string> errors)
     {
         if (blockType == "FC" && !Regex.IsMatch(text, @"(?im)^\s*END_FUNCTION\s*$")) errors.Add("FUNCTION is missing END_FUNCTION.");
@@ -362,6 +370,57 @@ public sealed partial class PlcDocumentWorkflowService
         if (blockType == "OB" && !Regex.IsMatch(text, @"(?im)^\s*END_ORGANIZATION_BLOCK\s*$")) errors.Add("ORGANIZATION_BLOCK is missing END_ORGANIZATION_BLOCK.");
         if (Regex.Matches(text, @"(?i)(?<!END_)\bNETWORK\b").Count != Regex.Matches(text, @"(?i)\bEND_NETWORK\b").Count) errors.Add("NETWORK and END_NETWORK counts do not match.");
         if (Regex.Matches(text, @"(?i)(?<!END_)\bRUNG\b").Count != Regex.Matches(text, @"(?i)\bEND_RUNG\b").Count) errors.Add("RUNG and END_RUNG counts do not match.");
+    }
+
+    private static void ValidateDataBlockDocument(string text, List<string> errors, List<string> warnings)
+    {
+        Match variableSection = Regex.Match(text, @"(?is)\bVAR\b(?<body>.*?)\bEND_VAR\b");
+        if (!variableSection.Success)
+        {
+            errors.Add("Global DATA_BLOCK must contain a VAR/END_VAR declaration section.");
+            return;
+        }
+        string body = variableSection.Groups["body"].Value;
+        int structStarts = Regex.Matches(body, @"(?i)\bSTRUCT\b").Count;
+        int structEnds = Regex.Matches(body, @"(?i)\bEND_STRUCT\b").Count;
+        if (structStarts != structEnds) errors.Add($"Global DB STRUCT/END_STRUCT counts do not match ({structStarts}/{structEnds}).");
+        var declarations = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match declaration in Regex.Matches(body, @"(?im)^\s*(?:\{[^\r\n]*\}\s*)?(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*:\s*(?<type>[^;]+);"))
+        {
+            string name = FirstNonEmpty(declaration.Groups["quoted"].Value, declaration.Groups["plain"].Value)!;
+            string type = declaration.Groups["type"].Value.Trim();
+            if (declarations.ContainsKey(name)) errors.Add($"Global DB member '{name}' is declared more than once.");
+            else declarations.Add(name, type);
+            foreach (Match array in Regex.Matches(type, @"(?i)Array\s*\[\s*(?<lower>-?\d+)\s*\.\.\s*(?<upper>-?\d+)\s*\]"))
+            {
+                long lower = long.Parse(array.Groups["lower"].Value, System.Globalization.CultureInfo.InvariantCulture);
+                long upper = long.Parse(array.Groups["upper"].Value, System.Globalization.CultureInfo.InvariantCulture);
+                if (upper < lower) errors.Add($"Global DB member '{name}' has descending array bounds {lower}..{upper}.");
+                else if (upper - lower > 1000000) errors.Add($"Global DB member '{name}' declares an implausibly large array; review the bounds explicitly.");
+            }
+            Match stringLength = Regex.Match(type, @"(?i)^(?<kind>W?String)\s*\[\s*(?<length>\d+)\s*\]$");
+            if (stringLength.Success)
+            {
+                int length = int.Parse(stringLength.Groups["length"].Value, System.Globalization.CultureInfo.InvariantCulture);
+                int maximum = stringLength.Groups["kind"].Value.Equals("WString", StringComparison.OrdinalIgnoreCase) ? 16382 : 254;
+                if (length < 1 || length > maximum) errors.Add($"Global DB member '{name}' has invalid {stringLength.Groups["kind"].Value} length {length}; expected 1..{maximum}.");
+            }
+            if (!Regex.IsMatch(type, @"(?i)^(Bool|Byte|Word|DWord|LWord|SInt|USInt|Int|UInt|DInt|UDInt|LInt|ULInt|Real|LReal|Time|LTime|Date|Time_Of_Day|TOD|String|WString|Char|WChar|Array|Struct)\b"))
+                warnings.Add($"Global DB member '{name}' references project type '{type}'. Confirm that the PLC data type exists before apply.");
+        }
+        if (declarations.Count == 0) warnings.Add("Global DB declares no members.");
+        string initialization = text.Substring(variableSection.Index + variableSection.Length);
+        var assigned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match assignment in Regex.Matches(initialization, @"(?im)^\s*(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*:=\s*(?<value>[^;]+);"))
+        {
+            string name = FirstNonEmpty(assignment.Groups["quoted"].Value, assignment.Groups["plain"].Value)!;
+            if (!assigned.Add(name)) errors.Add($"Global DB member '{name}' has more than one start-value assignment.");
+            if (!declarations.TryGetValue(name, out string? type)) errors.Add($"Start-value assignment targets undeclared global DB member '{name}'.");
+            else if (type.Trim().Equals("Bool", StringComparison.OrdinalIgnoreCase) && !Regex.IsMatch(assignment.Groups["value"].Value.Trim(), @"^(TRUE|FALSE)$", RegexOptions.IgnoreCase)) errors.Add($"Bool member '{name}' requires TRUE or FALSE start value.");
+        }
+        if (!Regex.IsMatch(text, @"(?i)S7_Optimized\s*:=")) warnings.Add("Global DB does not declare S7_Optimized explicitly; preserve the exported access mode before applying a modification.");
+        if (Regex.IsMatch(text, @"(?i)S7_Optimized\s*:=\s*""FALSE""")) warnings.Add("Non-optimized DB layout is address-sensitive; run cross-reference and HMI impact checks before changing members or order.");
+        if (Regex.IsMatch(text, @"(?i)InstanceDB|InstanceOf")) errors.Add("Instance DB documents are not supported by the global DB authoring workflow.");
     }
 
     private object RequireBlockRoot() => TiaReflectionHelper.GetBlockGroup(_sessionContext.PlcSoftware) ?? throw new InvalidOperationException("PLC block root is unavailable.");

@@ -134,7 +134,7 @@ namespace OpenTiaToolkit.Tests.Commands
             var result = await command.ExecuteAsync(Args(
                 ("workspace-name", "Git"), ("plc-name", "PLC_1"),
                 ("direction", "workspace-to-project"), ("filter-regex", "^FC_"),
-                ("block-types", new[] { "FC" })), NullLogger.Instance);
+                ("block-types", new[] { "FC" }), ("confirm", true)), NullLogger.Instance);
 
             Assert.IsFalse(result.Success);
             Assert.IsNotNull(result.Data);
@@ -167,7 +167,7 @@ namespace OpenTiaToolkit.Tests.Commands
                 var result = await command.ExecuteAsync(Args(
                     ("workspace-name", "Git"), ("plc-name", "PLC_1"),
                     ("direction", "workspace-to-project"), ("filter-regex", "^FC_"),
-                    ("block-types", new[] { "FC" }), ("output-path", outputPath)), NullLogger.Instance);
+                    ("block-types", new[] { "FC" }), ("output-path", outputPath), ("confirm", true)), NullLogger.Instance);
 
                 Assert.IsFalse(result.Success);
                 var artifact = result.Data as CommandArtifactResult;
@@ -204,6 +204,40 @@ namespace OpenTiaToolkit.Tests.Commands
 
             Assert.IsTrue(result.Success);
             service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task SynchronizeBlock_WorkspaceToProjectRequiresConfirmationBeforeServiceCall()
+        {
+            var service = new Mock<IVciService>();
+            var command = new SyncVciBlockCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("workspace-name", "Git"), ("plc-name", "PLC_1"), ("block-name", "FC_Test"),
+                ("direction", "workspace-to-project")), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "confirm=true");
+            service.Verify(candidate => candidate.SynchronizeBlockAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VciSyncDirection>(),
+                It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task SynchronizeBlocks_WorkspaceToProjectRejectsImplicitMappingCreation()
+        {
+            var service = new Mock<IVciService>();
+            var command = new SyncVciBlocksCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("workspace-name", "Git"), ("plc-name", "PLC_1"),
+                ("direction", "workspace-to-project"), ("create-mappings", true), ("confirm", true)), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "cannot create mappings implicitly");
+            service.Verify(candidate => candidate.SynchronizeBlocksAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<VciSyncDirection>(), It.IsAny<string>(), It.IsAny<string[]>(),
+                It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
         }
 
         [TestMethod]

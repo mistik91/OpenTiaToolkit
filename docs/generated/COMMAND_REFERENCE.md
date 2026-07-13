@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **163**
+Commands: **167**
 
 ## Devices
 
@@ -462,6 +462,30 @@ Adds a validated SIMATIC SD block upsert to a draft PLC code transaction
 | `import-option` | String | no | Override | Siemens document import option |
 | `confirm` | Boolean | yes |  | Confirm adding this local manifest operation |
 
+### add-scl-source-transaction-operation
+
+Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Draft PLC code transaction id |
+| `source-path` | Path | yes |  | UTF-8 SCL source file |
+| `group-path` | String | no |  | Exact target block group for every declared block |
+| `confirm` | Boolean | yes |  | Confirm adding the reviewed source operation |
+
+### add-simaticml-transaction-operation
+
+Adds a baseline-bound SimaticML block patch to a persistent PLC code transaction
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `transaction-id` | String | yes |  | Draft PLC code transaction id |
+| `input-path` | Path | yes |  | Patched SimaticML block XML |
+| `baseline-path` | Path | yes |  | Untouched SimaticML export of the exact target |
+| `group-path` | String | no |  | Exact target block group |
+| `allow-flgnet-topology` | Boolean | no | False | Allow an explicitly reviewed FlgNet topology change |
+| `confirm` | Boolean | yes |  | Confirm adding the reviewed XML patch operation |
+
 ### apply-block-document-import
 
 Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure
@@ -542,6 +566,12 @@ Deletes one PLC external source after explicit confirmation
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `source-name` | String | yes |  | Exact external source name |
 | `confirm` | Boolean | yes |  | Confirm external source deletion |
+
+### describe-plc-code-formats
+
+Describes format-specific PLC authoring support, mutation routes, verification requirements, and limitations
+
+No parameters.
 
 ### discard-plc-code-transaction
 
@@ -981,6 +1011,17 @@ Stops the PLC CPU when a supported online runtime operation is available
 |---|---|---:|---|---|
 | `plc-name` | String | yes |  | The name of the PLC device |
 | `confirm` | Boolean | no | False | Explicitly confirm CPU runtime state change |
+
+### validate-plc-code-artifact
+
+Validates SCL, S7DCL, or SimaticML with format-specific structural and semantic guardrails
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `code-format` | String | no | auto | auto, scl, s7dcl, or simaticml |
+| `input-path` | Path | yes |  | PLC code artifact path |
+| `baseline-path` | Path | no |  | Untouched exported SimaticML baseline for patch validation |
+| `allow-flgnet-topology` | Boolean | no | False | Allow reviewed FlgNet topology changes to proceed as a live probe |
 
 ### validate-plc-documents
 
@@ -1700,6 +1741,7 @@ Gets VCI comparison status for one mapped PLC block
 | `block-name` | String | yes |  | Exact block name |
 | `block-type` | String | no |  | Optional block type |
 | `group-path` | String | no |  | Optional block group path |
+| `confirm` | Boolean | no | False | Confirm workspace-to-project mutation after review |
 
 ### get-vci-workspace
 
@@ -1763,7 +1805,7 @@ Synchronizes selected PLC blocks with a VCI workspace
 | `file-format` | String | no |  | Optional supported file format |
 | `include-skipped` | Boolean | no | False | Include per-item results for skipped unmapped objects |
 | `output-path` | Path | no |  | Optional JSON file or folder path for the bulk sync result |
-| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+| `confirm` | Boolean | no | False | Confirm workspace-to-project mutation after review |
 
 ### sync-vci-plc
 
@@ -1780,4 +1822,4 @@ Synchronizes supported objects of a PLC with a VCI workspace
 | `file-format` | String | no |  | Optional supported file format |
 | `include-skipped` | Boolean | no | False | Include per-item results for skipped unmapped objects |
 | `output-path` | Path | no |  | Optional JSON file or folder path for the PLC sync result |
-| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
+| `confirm` | Boolean | no | False | Confirm workspace-to-project mutation after review |

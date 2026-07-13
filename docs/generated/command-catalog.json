@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 163,
+  "commandCount": 167,
   "commands": [
     {
       "name": "add-device",
@@ -118,6 +118,94 @@
           "required": false,
           "defaultValue": false,
           "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "add-scl-source-transaction-operation",
+      "description": "Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction",
+      "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Draft PLC code transaction id"
+        },
+        {
+          "name": "source-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "UTF-8 SCL source file"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Exact target block group for every declared block"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm adding the reviewed source operation"
+        }
+      ]
+    },
+    {
+      "name": "add-simaticml-transaction-operation",
+      "description": "Adds a baseline-bound SimaticML block patch to a persistent PLC code transaction",
+      "category": "PLC",
+      "risk": "Mutating",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "transaction-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Draft PLC code transaction id"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Patched SimaticML block XML"
+        },
+        {
+          "name": "baseline-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Untouched SimaticML export of the exact target"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Exact target block group"
+        },
+        {
+          "name": "allow-flgnet-topology",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Allow an explicitly reviewed FlgNet topology change"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": null,
+          "description": "Confirm adding the reviewed XML patch operation"
         }
       ]
     },
@@ -1674,6 +1762,14 @@
       "name": "describe-api",
       "description": "Self-describes the installed V21 public API surface and prioritized feature availability.",
       "category": "V21",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": []
+    },
+    {
+      "name": "describe-plc-code-formats",
+      "description": "Describes format-specific PLC authoring support, mutation routes, verification requirements, and limitations",
+      "category": "PLC",
       "risk": "ReadOnly",
       "supportsPreview": false,
       "parameters": []
@@ -3433,6 +3529,13 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional block group path"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm workspace-to-project mutation after review"
         }
       ]
     },
@@ -5703,7 +5806,7 @@
           "type": "Boolean",
           "required": false,
           "defaultValue": false,
-          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+          "description": "Confirm workspace-to-project mutation after review"
         }
       ]
     },
@@ -5782,7 +5885,7 @@
           "type": "Boolean",
           "required": false,
           "defaultValue": false,
-          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+          "description": "Confirm workspace-to-project mutation after review"
         }
       ]
     },
@@ -5799,6 +5902,43 @@
           "required": true,
           "defaultValue": null,
           "description": "Blueprint JSON file"
+        }
+      ]
+    },
+    {
+      "name": "validate-plc-code-artifact",
+      "description": "Validates SCL, S7DCL, or SimaticML with format-specific structural and semantic guardrails",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "code-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": "auto",
+          "description": "auto, scl, s7dcl, or simaticml"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "PLC code artifact path"
+        },
+        {
+          "name": "baseline-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Untouched exported SimaticML baseline for patch validation"
+        },
+        {
+          "name": "allow-flgnet-topology",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Allow reviewed FlgNet topology changes to proceed as a live probe"
         }
       ]
     },

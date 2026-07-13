@@ -69,6 +69,62 @@ public sealed partial class PlcDocumentWorkflowService
         return transaction;
     }
 
+    public PlcCodeTransaction AddSclTransactionOperation(string transactionId, string sourcePath, string? groupPath)
+    {
+        PlcCodeTransaction transaction = LoadTransaction(transactionId);
+        RequireState(transaction, "Draft");
+        string path = Path.GetFullPath(sourcePath);
+        var formatService = new PlcCodeFormatService(this);
+        PlcCodeArtifactValidationResult validation = formatService.ValidateScl(path);
+        if (!validation.Valid) throw new InvalidDataException("SCL source is invalid: " + string.Join("; ", validation.Errors));
+        var operations = transaction.Operations.ToList();
+        operations.Add(new PlcCodeTransactionOperation
+        {
+            Sequence = operations.Count + 1,
+            Kind = "GenerateSclSource",
+            SourcePath = path,
+            SourceName = Path.GetFileNameWithoutExtension(path),
+            GroupPath = NormalizeGroupPath(groupPath),
+            InputHash = validation.InputHash,
+            Validation = new PlcDocumentValidationResult { Valid = true, Classification = validation.Classification, Warnings = validation.Warnings }
+        });
+        transaction.Operations = operations;
+        AddJournal(transaction, operations.Count, "Authoring", "Added", $"Added guarded SCL source generation for {validation.DeclaredObjects.Count} declared object(s).");
+        SaveTransaction(transaction);
+        return transaction;
+    }
+
+    public PlcCodeTransaction AddSimaticMlTransactionOperation(string transactionId, string inputPath, string baselinePath, string? groupPath, bool allowTopologyChange)
+    {
+        PlcCodeTransaction transaction = LoadTransaction(transactionId);
+        RequireState(transaction, "Draft");
+        string candidate = Path.GetFullPath(inputPath);
+        string baseline = Path.GetFullPath(baselinePath);
+        var formatService = new PlcCodeFormatService(this);
+        PlcCodeArtifactValidationResult validation = formatService.ValidateSimaticMl(candidate, baseline, allowTopologyChange);
+        if (!validation.Valid || !string.Equals(validation.Classification, "verified", StringComparison.Ordinal))
+            throw new InvalidDataException("SimaticML patch is not baseline-verified: " + string.Join("; ", validation.Errors.Concat(validation.Warnings)));
+        if (validation.DeclaredObjects.Count != 1 || !new[] { "FC", "FB", "OB", "GlobalDB", "InstanceDB" }.Contains(validation.DeclaredObjects[0].ObjectType, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidDataException("SimaticML transactions currently require exactly one supported PLC block identity. PLC type XML is not yet transactionally supported.");
+        var operations = transaction.Operations.ToList();
+        operations.Add(new PlcCodeTransactionOperation
+        {
+            Sequence = operations.Count + 1,
+            Kind = "PatchSimaticMlBlock",
+            SourcePath = candidate,
+            BaselinePath = baseline,
+            ValidationBaselineHash = formatService.ComputeSimaticMlContentHash(baseline),
+            AllowTopologyChange = allowTopologyChange,
+            GroupPath = NormalizeGroupPath(groupPath),
+            InputHash = validation.InputHash,
+            Validation = new PlcDocumentValidationResult { Valid = true, Classification = validation.Classification, Warnings = validation.Warnings }
+        });
+        transaction.Operations = operations;
+        AddJournal(transaction, operations.Count, "Authoring", "Added", $"Added baseline-bound SimaticML patch for '{validation.DeclaredObjects[0].ObjectType}:{validation.DeclaredObjects[0].Name}'.");
+        SaveTransaction(transaction);
+        return transaction;
+    }
+
     public async Task<PlcCodeTransaction> PlanTransactionAsync(string transactionId)
     {
         PlcCodeTransaction transaction = LoadTransaction(transactionId);
@@ -85,13 +141,22 @@ public sealed partial class PlcDocumentWorkflowService
         {
             foreach (PlcCodeTransactionOperation source in transaction.Operations.OrderBy(item => item.Sequence))
             {
-                PlcDocumentValidationResult validation = Validate(source.ImportDirectory, source.FileName);
-                if (!validation.Valid) throw new InvalidDataException($"Operation {source.Sequence} documents are invalid: {string.Join("; ", validation.Errors)}");
-                if (!FixedEquals(source.InputHash, HashDocumentPair(source.ImportDirectory, source.FileName)))
-                    throw new InvalidOperationException($"Operation {source.Sequence} input changed after it was added. Recreate the transaction.");
-                PlcCodeTransactionOperation operation = PrepareTransactionOperation(transaction, source, validation, baselineRoot);
-                string identityKey = operation.Target!.ToString();
-                if (!identities.Add(identityKey)) throw new InvalidOperationException($"The transaction targets '{identityKey}' more than once. Combine the intended change into one operation.");
+                PlcCodeTransactionOperation operation;
+                if (source.Kind == "GenerateSclSource") operation = await PrepareSclTransactionOperationAsync(transaction, source).ConfigureAwait(false);
+                else if (source.Kind == "PatchSimaticMlBlock") operation = await PrepareSimaticMlTransactionOperationAsync(transaction, source).ConfigureAwait(false);
+                else
+                {
+                    PlcDocumentValidationResult validation = Validate(source.ImportDirectory, source.FileName);
+                    if (!validation.Valid) throw new InvalidDataException($"Operation {source.Sequence} documents are invalid: {string.Join("; ", validation.Errors)}");
+                    if (!FixedEquals(source.InputHash, HashDocumentPair(source.ImportDirectory, source.FileName)))
+                        throw new InvalidOperationException($"Operation {source.Sequence} input changed after it was added. Recreate the transaction.");
+                    operation = PrepareTransactionOperation(transaction, source, validation, baselineRoot);
+                }
+                foreach (PlcBlockIdentity target in OperationTargets(operation))
+                {
+                    string identityKey = target.ToString();
+                    if (!identities.Add(identityKey)) throw new InvalidOperationException($"The transaction targets '{identityKey}' more than once. Combine the intended change into one operation.");
+                }
                 prepared.Add(operation);
             }
         }
@@ -116,7 +181,9 @@ public sealed partial class PlcDocumentWorkflowService
         transaction.State = "Planned";
         transaction.RecoveryPackageRetained = true;
         transaction.Warnings = prepared.SelectMany(item => item.Validation?.Warnings ?? Array.Empty<string>()).Distinct(StringComparer.Ordinal).ToArray();
-        AddJournal(transaction, null, "Planning", "Planned", $"Snapshotted {prepared.Count(item => item.Action == "Override")} existing target(s); {prepared.Count(item => item.Action == "Create")} target(s) will be created.");
+        int overrides = prepared.Sum(item => item.TargetSnapshots.Count > 0 ? item.TargetSnapshots.Count(target => target.Action == "Override") : item.Action == "Override" ? 1 : 0);
+        int creates = prepared.Sum(item => item.TargetSnapshots.Count > 0 ? item.TargetSnapshots.Count(target => target.Action == "Create") : item.Action == "Create" ? 1 : 0);
+        AddJournal(transaction, null, "Planning", "Planned", $"Snapshotted {overrides} existing target(s); {creates} target(s) will be created.");
         SaveTransaction(transaction);
         return transaction;
     }
@@ -168,13 +235,24 @@ public sealed partial class PlcDocumentWorkflowService
         {
             foreach (PlcCodeTransactionOperation operation in transaction.Operations.OrderBy(item => item.Sequence))
             {
-                AddJournal(transaction, operation.Sequence, "Apply", "Starting", $"Importing exact target '{operation.Target}'.");
+                AddJournal(transaction, operation.Sequence, "Apply", "Starting", operation.Kind == "GenerateSclSource" ? $"Importing and generating SCL source '{operation.SourceName}'." : operation.Kind == "PatchSimaticMlBlock" ? $"Importing baseline-bound SimaticML patch for '{operation.Target}'." : $"Importing exact target '{operation.Target}'.");
                 operation.ApplyState = "Starting";
                 SaveTransaction(transaction);
-                bool imported = await _plcService.ImportBlockFromDocumentsAsync(operation.ImportDirectory, operation.FileName, operation.Target!.GroupPath, operation.ImportOption).ConfigureAwait(false);
-                ResolvedBlock? resolved = imported ? ResolveExact(RequireBlockRoot(), operation.Target, allowMissing: true) : null;
-                if (!imported || resolved == null || !IdentityMatches(operation.Target, resolved.Identity, requireNumber: !string.IsNullOrWhiteSpace(operation.Target.Number)))
-                    throw new InvalidOperationException($"Operation {operation.Sequence} did not produce the exact planned target '{operation.Target}'.");
+                if (operation.Kind == "GenerateSclSource") await ApplySclOperationAsync(operation).ConfigureAwait(false);
+                else if (operation.Kind == "PatchSimaticMlBlock")
+                {
+                    bool imported = await _plcService.ImportBlockAsync(operation.SourcePath!, operation.Target!.GroupPath).ConfigureAwait(false);
+                    ResolvedBlock? resolved = imported ? ResolveExact(RequireBlockRoot(), operation.Target, allowMissing: true) : null;
+                    if (!imported || resolved == null || !IdentityMatches(operation.Target, resolved.Identity, requireNumber: !string.IsNullOrWhiteSpace(operation.Target.Number)))
+                        throw new InvalidOperationException($"Operation {operation.Sequence} did not produce the exact planned SimaticML target '{operation.Target}'.");
+                }
+                else
+                {
+                    bool imported = await _plcService.ImportBlockFromDocumentsAsync(operation.ImportDirectory, operation.FileName, operation.Target!.GroupPath, operation.ImportOption).ConfigureAwait(false);
+                    ResolvedBlock? resolved = imported ? ResolveExact(RequireBlockRoot(), operation.Target, allowMissing: true) : null;
+                    if (!imported || resolved == null || !IdentityMatches(operation.Target, resolved.Identity, requireNumber: !string.IsNullOrWhiteSpace(operation.Target.Number)))
+                        throw new InvalidOperationException($"Operation {operation.Sequence} did not produce the exact planned target '{operation.Target}'.");
+                }
                 operation.ApplyState = "Applied";
                 AddJournal(transaction, operation.Sequence, "Apply", "Applied", "Exact target imported and read back.");
                 SaveTransaction(transaction);
@@ -295,6 +373,107 @@ public sealed partial class PlcDocumentWorkflowService
         };
     }
 
+    private async Task<PlcCodeTransactionOperation> PrepareSclTransactionOperationAsync(PlcCodeTransaction transaction, PlcCodeTransactionOperation source)
+    {
+        var formatService = new PlcCodeFormatService(this);
+        PlcCodeArtifactValidationResult validation = formatService.ValidateScl(source.SourcePath!);
+        if (!validation.Valid) throw new InvalidDataException($"Operation {source.Sequence} SCL is invalid: {string.Join("; ", validation.Errors)}");
+        if (validation.DeclaredObjects.Any(item => string.Equals(item.ObjectType, "TYPE", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"Operation {source.Sequence} declares a PLC data type. SCL type generation is not transactionally supported because PLC type snapshot, canonical read-back, and rollback are not yet available. Use a validated VCI type mapping or guarded SimaticML type workflow.");
+        if (!FixedEquals(source.InputHash, validation.InputHash)) throw new InvalidOperationException($"Operation {source.Sequence} SCL source changed after it was added.");
+        IReadOnlyList<PlcSurfaceItem> sources = await _plcService.ListExternalSourcesAsync().ConfigureAwait(false);
+        if (sources.Any(item => string.Equals(item.Name, source.SourceName, StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException($"External source '{source.SourceName}' already exists and cannot be backed up through Openness. Use a unique source file name.");
+        string group = NormalizeGroupPath(source.GroupPath);
+        if (ResolveGroup(RequireBlockRoot(), group) == null) throw new InvalidOperationException($"PLC block group was not found: '{DisplayGroup(group)}'.");
+        var snapshots = new List<PlcCodeTransactionTargetSnapshot>();
+        int targetIndex = 0;
+        foreach (PlcCodeDeclaredObject declared in validation.DeclaredObjects)
+        {
+            targetIndex++;
+            IReadOnlyList<ResolvedBlock> matches = FindBlocks(RequireBlockRoot(), declared.Name).Where(item => GroupEquals(item.Identity.GroupPath, group)).ToArray();
+            if (matches.Count > 1) throw Ambiguous(declared.Name, matches);
+            if (matches.Count == 1 && !BlockTypeEquals(matches[0].Identity.BlockType, declared.ObjectType)) throw new InvalidOperationException($"SCL target '{declared.Name}' collides with type '{matches[0].Identity.BlockType}' instead of '{declared.ObjectType}'.");
+            ResolvedBlock? existing = matches.SingleOrDefault();
+            string baseline = "missing";
+            if (existing != null)
+            {
+                string backup = TransactionSclTargetBaseline(transaction.TransactionId, source.Sequence, targetIndex);
+                Directory.CreateDirectory(backup);
+                if (!ExportExact(existing, backup)) throw new InvalidOperationException($"Existing SCL target '{existing.Identity}' could not be snapshotted as SIMATIC SD.");
+                baseline = HashDocumentPair(backup, existing.Identity.Name);
+            }
+            snapshots.Add(new PlcCodeTransactionTargetSnapshot
+            {
+                Target = existing?.Identity ?? new PlcBlockIdentity { PlcName = transaction.PlcName, GroupPath = group, Name = declared.Name, BlockType = declared.ObjectType },
+                Action = existing == null ? "Create" : "Override",
+                BaselineHash = baseline,
+                RollbackMethod = existing == null ? "DeleteExactTarget" : "RestoreDocumentAndVerifyHash"
+            });
+        }
+        if (snapshots.Count == 0) throw new InvalidOperationException("SCL transaction must declare at least one generated PLC block.");
+        source.TargetSnapshots = snapshots;
+        source.Action = "Generate";
+        source.Validation = new PlcDocumentValidationResult { Valid = true, Classification = validation.Classification, Warnings = validation.Warnings };
+        return source;
+    }
+
+    private async Task ApplySclOperationAsync(PlcCodeTransactionOperation operation)
+    {
+        PlcSourceOperationResult imported = await _plcService.ImportSourceAsync(operation.SourcePath!, dryRun: false, confirm: true).ConfigureAwait(false);
+        if (!imported.Success || !imported.Applied) throw new InvalidOperationException($"SCL source import failed: {imported.Message}");
+        PlcSourceOperationResult generated = await _plcService.GenerateBlocksFromSourceAsync(operation.SourceName!, dryRun: false, confirm: true).ConfigureAwait(false);
+        if (!generated.Success || !generated.Applied) throw new InvalidOperationException($"SCL block generation failed: {generated.Message}");
+        foreach (PlcCodeTransactionTargetSnapshot snapshot in operation.TargetSnapshots)
+        {
+            ResolvedBlock? resolved = ResolveExact(RequireBlockRoot(), snapshot.Target, allowMissing: true);
+            if (resolved == null || !IdentityMatches(snapshot.Target, resolved.Identity, requireNumber: !string.IsNullOrWhiteSpace(snapshot.Target.Number))) throw new InvalidOperationException($"SCL generation did not produce exact target '{snapshot.Target}'.");
+        }
+    }
+
+    private async Task<PlcCodeTransactionOperation> PrepareSimaticMlTransactionOperationAsync(PlcCodeTransaction transaction, PlcCodeTransactionOperation source)
+    {
+        var formatService = new PlcCodeFormatService(this);
+        PlcCodeArtifactValidationResult validation = formatService.ValidateSimaticMl(source.SourcePath!, source.BaselinePath, source.AllowTopologyChange);
+        if (!validation.Valid || !string.Equals(validation.Classification, "verified", StringComparison.Ordinal))
+            throw new InvalidDataException($"Operation {source.Sequence} SimaticML patch is not baseline-verified: {string.Join("; ", validation.Errors.Concat(validation.Warnings))}");
+        if (!FixedEquals(source.InputHash, validation.InputHash) || !FixedEquals(source.ValidationBaselineHash!, formatService.ComputeSimaticMlContentHash(source.BaselinePath!)))
+            throw new InvalidOperationException($"Operation {source.Sequence} SimaticML candidate or validation baseline changed after it was added.");
+        if (validation.DeclaredObjects.Count != 1) throw new InvalidOperationException($"Operation {source.Sequence} must contain exactly one PLC block identity.");
+        PlcCodeDeclaredObject declared = validation.DeclaredObjects[0];
+        string group = NormalizeGroupPath(source.GroupPath);
+        object root = RequireBlockRoot();
+        if (ResolveGroup(root, group) == null) throw new InvalidOperationException($"PLC block group was not found: '{DisplayGroup(group)}'.");
+        IReadOnlyList<ResolvedBlock> matches = FindBlocks(root, declared.Name).Where(item => GroupEquals(item.Identity.GroupPath, group) && BlockTypeEquals(item.Identity.BlockType, declared.ObjectType)).ToArray();
+        if (matches.Count != 1) throw new InvalidOperationException(matches.Count == 0
+            ? $"SimaticML patch target '{group}/{declared.ObjectType}:{declared.Name}' does not exist. XML fallback is patch-only."
+            : $"SimaticML patch target '{declared.Name}' is ambiguous in group '{DisplayGroup(group)}'.");
+        ResolvedBlock existing = matches[0];
+        string backup = TransactionOperationBaseline(transaction.TransactionId, source.Sequence);
+        Directory.CreateDirectory(backup);
+        if (!ExportExact(existing, backup)) throw new InvalidOperationException($"Existing SimaticML target '{existing.Identity}' could not be snapshotted as rollback documents.");
+        string currentXml = Path.Combine(backup, "current.xml");
+        if (!await _plcService.ExportBlockAsync(existing.Identity.Name, currentXml).ConfigureAwait(false)) throw new InvalidOperationException($"Existing SimaticML target '{existing.Identity}' could not be exported for baseline binding.");
+        string actualXmlHash = formatService.ComputeSimaticMlContentHash(currentXml);
+        if (!FixedEquals(source.ValidationBaselineHash!, actualXmlHash)) throw new InvalidOperationException($"The untouched SimaticML baseline does not match the current TIA export for '{existing.Identity}' (expected {source.ValidationBaselineHash}, actual {actualXmlHash}). Re-export and replan.");
+        return new PlcCodeTransactionOperation
+        {
+            Sequence = source.Sequence,
+            Kind = source.Kind,
+            SourcePath = source.SourcePath,
+            BaselinePath = source.BaselinePath,
+            ValidationBaselineHash = source.ValidationBaselineHash,
+            AllowTopologyChange = source.AllowTopologyChange,
+            GroupPath = group,
+            Action = "Override",
+            InputHash = source.InputHash,
+            BaselineHash = HashDocumentPair(backup, existing.Identity.Name),
+            Target = existing.Identity,
+            Validation = new PlcDocumentValidationResult { Valid = true, Classification = validation.Classification, Warnings = validation.Warnings },
+            RollbackMethod = "RestoreDocumentAndVerifyHash",
+            ApplyState = "Pending"
+        };
+    }
+
     private void VerifyTransactionPreconditions(PlcCodeTransaction transaction)
     {
         object root = RequireBlockRoot();
@@ -304,19 +483,27 @@ public sealed partial class PlcDocumentWorkflowService
         {
             foreach (PlcCodeTransactionOperation operation in transaction.Operations.OrderBy(item => item.Sequence))
             {
-                if (!FixedEquals(operation.InputHash, HashDocumentPair(operation.ImportDirectory, operation.FileName)))
+                string actualInputHash = operation.Kind == "GenerateSclSource" || operation.Kind == "PatchSimaticMlBlock" ? HashFile(operation.SourcePath!) : HashDocumentPair(operation.ImportDirectory, operation.FileName);
+                if (!FixedEquals(operation.InputHash, actualInputHash))
                     throw new InvalidOperationException($"Operation {operation.Sequence} input documents changed after planning.");
-                ResolvedBlock? current = ResolveExact(root, operation.Target!, allowMissing: true);
-                string actual = "missing";
-                if (current != null)
+                if (operation.Kind == "PatchSimaticMlBlock" && !FixedEquals(operation.ValidationBaselineHash!, new PlcCodeFormatService(this).ComputeSimaticMlContentHash(operation.BaselinePath!)))
+                    throw new InvalidOperationException($"Operation {operation.Sequence} SimaticML validation baseline changed after planning.");
+                IReadOnlyList<PlcCodeTransactionTargetSnapshot> targets = EffectiveSnapshots(operation);
+                int targetIndex = 0;
+                foreach (PlcCodeTransactionTargetSnapshot snapshot in targets)
                 {
-                    string output = Path.Combine(currentRoot, operation.Sequence.ToString());
-                    Directory.CreateDirectory(output);
-                    if (!ExportExact(current, output)) throw new InvalidOperationException($"Operation {operation.Sequence} exact target could not be exported during preflight.");
-                    actual = HashDocumentPair(output, current.Identity.Name);
+                    targetIndex++;
+                    ResolvedBlock? current = ResolveExact(root, snapshot.Target, allowMissing: true);
+                    string actual = "missing";
+                    if (current != null)
+                    {
+                        string output = Path.Combine(currentRoot, operation.Sequence + "-" + targetIndex);
+                        Directory.CreateDirectory(output);
+                        if (!ExportExact(current, output)) throw new InvalidOperationException($"Operation {operation.Sequence} exact target could not be exported during preflight.");
+                        actual = HashDocumentPair(output, current.Identity.Name);
+                    }
+                    if (!FixedEquals(snapshot.BaselineHash, actual)) throw new InvalidOperationException($"Operation {operation.Sequence} target '{snapshot.Target}' changed after planning (expected {snapshot.BaselineHash}, actual {actual}).");
                 }
-                if (!FixedEquals(operation.BaselineHash, actual))
-                    throw new InvalidOperationException($"Operation {operation.Sequence} exact target changed after planning (expected {operation.BaselineHash}, actual {actual}).");
             }
         }
         finally { Cleanup(currentRoot); }
@@ -328,13 +515,19 @@ public sealed partial class PlcDocumentWorkflowService
         Cleanup(resultRoot);
         foreach (PlcCodeTransactionOperation operation in transaction.Operations.OrderBy(item => item.Sequence))
         {
-            ResolvedBlock resolved = ResolveExact(RequireBlockRoot(), operation.Target!, allowMissing: false)!;
-            if (!IdentityMatches(operation.Target!, resolved.Identity, requireNumber: !string.IsNullOrWhiteSpace(operation.Target!.Number)))
-                throw new InvalidOperationException($"Operation {operation.Sequence} canonical identity verification failed.");
-            string output = Path.Combine(resultRoot, operation.Sequence.ToString());
-            Directory.CreateDirectory(output);
-            if (!ExportExact(resolved, output)) throw new InvalidOperationException($"Operation {operation.Sequence} canonical export failed.");
-            operation.CanonicalResultHash = HashDocumentPair(output, resolved.Identity.Name);
+            int targetIndex = 0;
+            foreach (PlcCodeTransactionTargetSnapshot snapshot in EffectiveSnapshots(operation))
+            {
+                targetIndex++;
+                ResolvedBlock resolved = ResolveExact(RequireBlockRoot(), snapshot.Target, allowMissing: false)!;
+                if (!IdentityMatches(snapshot.Target, resolved.Identity, requireNumber: !string.IsNullOrWhiteSpace(snapshot.Target.Number))) throw new InvalidOperationException($"Operation {operation.Sequence} canonical identity verification failed for '{snapshot.Target}'.");
+                string output = Path.Combine(resultRoot, operation.Sequence + "-" + targetIndex);
+                Directory.CreateDirectory(output);
+                if (!ExportExact(resolved, output)) throw new InvalidOperationException($"Operation {operation.Sequence} canonical export failed for '{snapshot.Target}'.");
+                snapshot.CanonicalResultHash = HashDocumentPair(output, resolved.Identity.Name);
+                if (operation.TargetSnapshots.Count == 0) operation.CanonicalResultHash = snapshot.CanonicalResultHash;
+            }
+            operation.CanonicalResultHash = operation.TargetSnapshots.Count == 1 ? operation.TargetSnapshots[0].CanonicalResultHash : operation.TargetSnapshots.Count > 1 ? Hash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", operation.TargetSnapshots.Select(item => item.CanonicalResultHash)))) : operation.CanonicalResultHash;
             operation.ApplyState = "Verified";
             AddJournal(transaction, operation.Sequence, "Verify", "Verified", $"Canonical result hash {operation.CanonicalResultHash}.");
         }
@@ -350,21 +543,31 @@ public sealed partial class PlcDocumentWorkflowService
         {
             try
             {
-                var plan = new PlcDocumentImportPlan
+                bool operationRestored = true;
+                int targetIndex = EffectiveSnapshots(operation).Count;
+                foreach (PlcCodeTransactionTargetSnapshot snapshot in EffectiveSnapshots(operation).Reverse())
                 {
-                    PlcName = transaction.PlcName,
-                    Target = operation.Target!,
-                    FileName = operation.FileName,
-                    BaselineHash = operation.BaselineHash
-                };
-                RollbackEvidence evidence = await RollbackAsync(plan, TransactionOperationBaseline(transaction.TransactionId, operation.Sequence)).ConfigureAwait(false);
-                operation.RestorationVerified = evidence.OperationSucceeded && evidence.HashMatches;
-                operation.ActualRestoredHash = evidence.ActualHash;
-                operation.ApplyState = operation.RestorationVerified ? "RolledBack" : "RecoveryRequired";
-                allRestored &= operation.RestorationVerified;
+                    string backup = operation.Kind == "GenerateSclSource" ? TransactionSclTargetBaseline(transaction.TransactionId, operation.Sequence, targetIndex) : TransactionOperationBaseline(transaction.TransactionId, operation.Sequence);
+                    targetIndex--;
+                    var plan = new PlcDocumentImportPlan { PlcName = transaction.PlcName, Target = snapshot.Target, FileName = snapshot.Target.Name, BaselineHash = snapshot.BaselineHash };
+                    RollbackEvidence evidence = await RollbackAsync(plan, backup).ConfigureAwait(false);
+                    snapshot.RestorationVerified = evidence.OperationSucceeded && evidence.HashMatches;
+                    snapshot.ActualRestoredHash = evidence.ActualHash;
+                    operationRestored &= snapshot.RestorationVerified;
+                }
+                if (operation.Kind == "GenerateSclSource")
+                {
+                    PlcSourceOperationResult deleted = await _plcService.DeleteExternalSourceAsync(operation.SourceName!, confirm: true).ConfigureAwait(false);
+                    IReadOnlyList<PlcSurfaceItem> sources = await _plcService.ListExternalSourcesAsync().ConfigureAwait(false);
+                    operationRestored &= (deleted.Success || !sources.Any(item => string.Equals(item.Name, operation.SourceName, StringComparison.OrdinalIgnoreCase))) && !sources.Any(item => string.Equals(item.Name, operation.SourceName, StringComparison.OrdinalIgnoreCase));
+                }
+                operation.RestorationVerified = operationRestored;
+                operation.ActualRestoredHash = operationRestored ? "all-targets-restored" : "unverified";
+                operation.ApplyState = operationRestored ? "RolledBack" : "RecoveryRequired";
+                allRestored &= operationRestored;
                 AddJournal(transaction, operation.Sequence, "Rollback", operation.ApplyState, operation.RestorationVerified
-                    ? $"Restoration verified ({evidence.ActualHash})."
-                    : $"Restoration could not be proven (expected {evidence.ExpectedHash}, actual {evidence.ActualHash}).");
+                    ? "Every generated target and the external source were restored or removed with proof."
+                    : "One or more generated targets or the external source could not be proven restored.");
                 SaveTransaction(transaction);
             }
             catch (Exception ex)
@@ -520,6 +723,11 @@ public sealed partial class PlcDocumentWorkflowService
             {
                 item.Sequence,
                 item.Kind,
+                item.SourcePath,
+                item.SourceName,
+                item.BaselinePath,
+                item.ValidationBaselineHash,
+                item.AllowTopologyChange,
                 item.ImportDirectory,
                 item.FileName,
                 item.GroupPath,
@@ -528,11 +736,16 @@ public sealed partial class PlcDocumentWorkflowService
                 item.InputHash,
                 item.BaselineHash,
                 item.RollbackMethod,
-                item.Target
+                item.Target,
+                TargetSnapshots = item.TargetSnapshots.Select(target => new { target.Target, target.Action, target.BaselineHash, target.RollbackMethod }).ToArray()
             }).ToArray()
         });
         return Hash(System.Text.Encoding.UTF8.GetBytes(canonical));
     }
 
     private static string Message(Exception exception) => exception.InnerException?.Message ?? exception.Message;
+    private static IReadOnlyList<PlcBlockIdentity> OperationTargets(PlcCodeTransactionOperation operation) => operation.TargetSnapshots.Count > 0 ? operation.TargetSnapshots.Select(item => item.Target).ToArray() : operation.Target == null ? Array.Empty<PlcBlockIdentity>() : new[] { operation.Target };
+    private static IReadOnlyList<PlcCodeTransactionTargetSnapshot> EffectiveSnapshots(PlcCodeTransactionOperation operation) => operation.TargetSnapshots.Count > 0 ? operation.TargetSnapshots : operation.Target == null ? Array.Empty<PlcCodeTransactionTargetSnapshot>() : new[] { new PlcCodeTransactionTargetSnapshot { Target = operation.Target, Action = operation.Action, BaselineHash = operation.BaselineHash, RollbackMethod = operation.RollbackMethod, CanonicalResultHash = operation.CanonicalResultHash, RestorationVerified = operation.RestorationVerified, ActualRestoredHash = operation.ActualRestoredHash } };
+    private static string TransactionSclTargetBaseline(string id, int sequence, int targetIndex) => Path.Combine(TransactionOperationBaseline(id, sequence), targetIndex.ToString());
+    private static string HashFile(string path) => Hash(File.ReadAllBytes(path));
 }

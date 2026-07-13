@@ -113,6 +113,11 @@ public sealed class PlcCodeTransactionOperation
 {
     public int Sequence { get; set; }
     public string Kind { get; set; } = "UpsertBlockDocuments";
+    public string? SourcePath { get; set; }
+    public string? SourceName { get; set; }
+    public string? BaselinePath { get; set; }
+    public string? ValidationBaselineHash { get; set; }
+    public bool AllowTopologyChange { get; set; }
     public string ImportDirectory { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;
     public string GroupPath { get; set; } = string.Empty;
@@ -122,9 +127,21 @@ public sealed class PlcCodeTransactionOperation
     public string BaselineHash { get; set; } = string.Empty;
     public string? CanonicalResultHash { get; set; }
     public PlcBlockIdentity? Target { get; set; }
+    public IReadOnlyList<PlcCodeTransactionTargetSnapshot> TargetSnapshots { get; set; } = Array.Empty<PlcCodeTransactionTargetSnapshot>();
     public PlcDocumentValidationResult? Validation { get; set; }
     public string RollbackMethod { get; set; } = string.Empty;
     public string ApplyState { get; set; } = "Pending";
+    public bool RestorationVerified { get; set; }
+    public string? ActualRestoredHash { get; set; }
+}
+
+public sealed class PlcCodeTransactionTargetSnapshot
+{
+    public PlcBlockIdentity Target { get; set; } = new PlcBlockIdentity();
+    public string Action { get; set; } = string.Empty;
+    public string BaselineHash { get; set; } = "missing";
+    public string RollbackMethod { get; set; } = string.Empty;
+    public string? CanonicalResultHash { get; set; }
     public bool RestorationVerified { get; set; }
     public string? ActualRestoredHash { get; set; }
 }

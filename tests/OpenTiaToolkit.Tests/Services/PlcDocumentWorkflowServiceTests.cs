@@ -125,12 +125,13 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
-    public void Validate_TypedInstructionWithoutTemplate_IsRejected()
+    public void Validate_TypedInstructionWithoutTemplate_RequiresLiveProbe()
     {
         WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail GT_Contact( in1 := #A, in2 := #B ) Coil( #Q ) END_RUNG END_NETWORK\r\nEND_FUNCTION");
         var result = _service.Validate(_directory, "Probe");
-        Assert.IsFalse(result.Valid);
-        StringAssert.Contains(string.Join("; ", result.Errors), "SrcType");
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("unknown-requires-live-probe", result.Classification);
+        StringAssert.Contains(string.Join("; ", result.Warnings), "no preceding S7_Templates SrcType");
     }
 
     [TestMethod]
@@ -140,6 +141,24 @@ public class PlcDocumentWorkflowServiceTests
         var result = _service.Validate(_directory, "Probe");
         Assert.IsFalse(result.Valid);
         StringAssert.Contains(string.Join("; ", result.Errors), "out1");
+    }
+
+    [TestMethod]
+    public void Validate_AttrDbWithExportedPins_IsVerified()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\nVAR_TEMP Ret : Int; Length : UDInt; Attr : Byte; END_VAR\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail ATTR_DB( REQ := TRUE, DB_NUMBER := 1, RET_VAL => #Ret, DB_LENGTH => #Length, ATTRIB => #Attr ) END_RUNG END_NETWORK\r\nEND_FUNCTION");
+        var result = _service.Validate(_directory, "Probe");
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("verified", result.Instructions.Single(item => item.Instruction == "ATTR_DB").Classification);
+    }
+
+    [TestMethod]
+    public void Validate_AttrDbMissingPin_IsRejected()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "FUNCTION \"Probe\" : Void\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail ATTR_DB( REQ := TRUE, DB_NUMBER := 1 ) END_RUNG END_NETWORK\r\nEND_FUNCTION");
+        var result = _service.Validate(_directory, "Probe");
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(string.Join("; ", result.Errors), "RET_VAL");
     }
 
     [TestMethod]
@@ -214,6 +233,47 @@ public class PlcDocumentWorkflowServiceTests
         var result = _service.Validate(_directory, "Probe");
         Assert.IsFalse(result.Valid);
         StringAssert.Contains(string.Join("; ", result.Errors), "more than once");
+    }
+
+    [TestMethod]
+    public void Validate_GlobalDbDuplicateMemberAndUnknownStartTarget_Fails()
+    {
+        WriteUtf8Bom("Data.s7dcl", "DATA_BLOCK Data\r\nVAR\r\nA : Bool;\r\nA : Int;\r\nEND_VAR\r\nMissing := 1;\r\nEND_DATA_BLOCK");
+        var result = _service.Validate(_directory, "Data");
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(string.Join("; ", result.Errors), "declared more than once");
+        StringAssert.Contains(string.Join("; ", result.Errors), "undeclared");
+    }
+
+    [TestMethod]
+    public void Validate_GlobalDbInvalidArrayAndBoolStart_Fails()
+    {
+        WriteUtf8Bom("Data.s7dcl", "DATA_BLOCK Data\r\nVAR\r\nValues : Array[5..1] of Int;\r\nEnabled : Bool;\r\nEND_VAR\r\nEnabled := 1;\r\nEND_DATA_BLOCK");
+        var result = _service.Validate(_directory, "Data");
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(string.Join("; ", result.Errors), "descending array bounds");
+        StringAssert.Contains(string.Join("; ", result.Errors), "TRUE or FALSE");
+    }
+
+    [TestMethod]
+    public void Validate_GlobalDbQuotedMembersAndDuplicateStart_FailsPrecisely()
+    {
+        WriteUtf8Bom("Data.s7dcl", "{ S7_Optimized := \"TRUE\" }\r\nDATA_BLOCK Data\r\nVAR\r\n\"Line Enabled\" : Bool;\r\nEND_VAR\r\n\"Line Enabled\" := TRUE;\r\n\"Line Enabled\" := FALSE;\r\nEND_DATA_BLOCK");
+        var result = _service.Validate(_directory, "Data");
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(string.Join("; ", result.Errors), "more than one start-value");
+        Assert.IsFalse(result.Errors.Any(error => error.Contains("undeclared")));
+    }
+
+    [TestMethod]
+    public void Validate_GlobalDbInvalidStringAndStructBoundary_Fails()
+    {
+        WriteUtf8Bom("Data.s7dcl", "DATA_BLOCK Data\r\nVAR\r\nText : String[255];\r\nNested : Struct;\r\nValue : Int;\r\nEND_VAR\r\nEND_DATA_BLOCK");
+        var result = _service.Validate(_directory, "Data");
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(string.Join("; ", result.Errors), "STRUCT/END_STRUCT");
+        StringAssert.Contains(string.Join("; ", result.Errors), "invalid String length");
+        Assert.IsTrue(result.Warnings.Any(warning => warning.Contains("S7_Optimized")));
     }
 
     [TestMethod]
@@ -548,6 +608,140 @@ public class PlcDocumentWorkflowServiceTests
         string transactionDirectory = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", plan.TransactionId);
         Assert.IsTrue(File.Exists(Path.Combine(transactionDirectory, "recovery.json")));
         if (Directory.Exists(transactionDirectory)) Directory.Delete(transactionDirectory, true);
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclSource_GeneratesMultipleExactBlocksAndCanonicalEvidence()
+    {
+        string sourcePath = Path.Combine(_directory, "UniqueSource.scl");
+        File.WriteAllText(sourcePath, "FUNCTION \"SclA\" : Void\r\nBEGIN\r\nEND_FUNCTION\r\nFUNCTION_BLOCK \"SclB\"\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\n", new UTF8Encoding(true));
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        plc.Setup(service => service.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "UniqueSource"));
+        plc.Setup(service => service.GenerateBlocksFromSourceAsync("UniqueSource", false, true)).ReturnsAsync(() =>
+        {
+            software.BlockGroup.Blocks.Add(new FakeBlock { Name = "SclA", Type = "FC", ExportContent = "FUNCTION \"SclA\" : Void\r\nEND_FUNCTION" });
+            software.BlockGroup.Blocks.Add(new FakeBlock { Name = "SclB", Type = "FB", ExportContent = "FUNCTION_BLOCK \"SclB\"\r\nEND_FUNCTION_BLOCK" });
+            return new PlcSourceOperationResult(true, true, "generated", "UniqueSource");
+        });
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "SCL multi-block");
+        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.Applied, result.Message);
+        Assert.AreEqual(2, result.Transaction.Operations.Single().TargetSnapshots.Count);
+        Assert.IsTrue(result.Transaction.Operations.Single().TargetSnapshots.All(target => !string.IsNullOrWhiteSpace(target.CanonicalResultHash)));
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclSourceWithType_IsRejectedBeforeMutation()
+    {
+        string sourcePath = Path.Combine(_directory, "TypeAndBlock.scl");
+        File.WriteAllText(sourcePath, "TYPE \"UnsafeType\"\r\nSTRUCT\r\nValue : Int;\r\nEND_STRUCT;\r\nEND_TYPE\r\nFUNCTION \"SafeBlock\" : Void\r\nBEGIN\r\nEND_FUNCTION\r\n", new UTF8Encoding(true));
+        var plc = OpenPlcMock();
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups());
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "reject unsnapshotted type");
+        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+
+        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(draft.TransactionId));
+
+        StringAssert.Contains(error.Message, "PLC data type");
+        plc.Verify(candidate => candidate.ImportSourceAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclCompileFailure_RestoresExistingDeletesNewAndSource()
+    {
+        string sourcePath = Path.Combine(_directory, "UniqueSource.scl");
+        File.WriteAllText(sourcePath, "FUNCTION \"SclA\" : Void\r\nBEGIN\r\nEND_FUNCTION\r\nFUNCTION \"SclB\" : Void\r\nBEGIN\r\nEND_FUNCTION\r\n", new UTF8Encoding(true));
+        const string baseline = "FUNCTION \"SclA\" : Void\r\nEND_FUNCTION";
+        var existing = new FakeBlock { Name = "SclA", Type = "FC", ExportContent = baseline };
+        var context = ContextWithGroups(("", existing));
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        plc.Setup(service => service.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "UniqueSource"));
+        plc.Setup(service => service.GenerateBlocksFromSourceAsync("UniqueSource", false, true)).ReturnsAsync(() =>
+        {
+            existing.ExportContent = "FUNCTION \"SclA\" : Void\r\n// changed\r\nEND_FUNCTION";
+            var created = new FakeBlock { Name = "SclB", Type = "FC", ExportContent = "FUNCTION \"SclB\" : Void\r\nEND_FUNCTION" };
+            created.OnDelete = () => software.BlockGroup.Blocks.Remove(created);
+            software.BlockGroup.Blocks.Add(created);
+            return new PlcSourceOperationResult(true, true, "generated", "UniqueSource");
+        });
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), "SclA", "", "Override")).ReturnsAsync((string directory, string _, string _, string _) => { existing.ExportContent = File.ReadAllText(Path.Combine(directory, "SclA.s7dcl")); return true; });
+        plc.Setup(service => service.DeleteExternalSourceAsync("UniqueSource", true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "deleted", "UniqueSource"));
+        plc.SetupSequence(service => service.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
+            .ReturnsAsync(new CompilationResult(false, 1, 0, "forced"))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "SCL rollback");
+        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        Assert.AreEqual(baseline, existing.ExportContent.TrimStart('\uFEFF'));
+        Assert.IsFalse(software.BlockGroup.Blocks.Any(block => block.Name == "SclB"));
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SimaticMlPatch_BindsBaselineAndVerifiesCanonicalBlock()
+    {
+        const string baselineXml = "<?xml version=\"1.0\"?><Document xmlns=\"urn:siemens:test\"><SW.Blocks.FC ID=\"1\"><AttributeList><Name>XmlProbe</Name><Title>Before</Title></AttributeList></SW.Blocks.FC></Document>";
+        string baselinePath = Path.Combine(_directory, "baseline.xml");
+        string candidatePath = Path.Combine(_directory, "candidate.xml");
+        File.WriteAllText(baselinePath, baselineXml, new UTF8Encoding(true));
+        File.WriteAllText(candidatePath, baselineXml.Replace("Before", "After"), new UTF8Encoding(true));
+        var existing = new FakeBlock { Name = "XmlProbe", Type = "FC", Number = 42, ExportContent = "FUNCTION \"XmlProbe\" : Void\r\nEND_FUNCTION" };
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ExportBlockAsync("XmlProbe", It.IsAny<string>())).ReturnsAsync((string _, string path) => { File.Copy(baselinePath, path, true); return true; });
+        plc.Setup(service => service.ImportBlockAsync(candidatePath, "")).ReturnsAsync(true);
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "XML patch");
+        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false);
+
+        PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
+        PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+
+        Assert.IsTrue(result.Applied, result.Message);
+        Assert.AreEqual("PatchSimaticMlBlock", result.Transaction.Operations.Single().Kind);
+        Assert.AreEqual(result.Transaction.Operations.Single().BaselineHash, result.Transaction.Operations.Single().CanonicalResultHash);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SimaticMlBaselineMismatch_RejectsBeforeImport()
+    {
+        const string baselineXml = "<?xml version=\"1.0\"?><Document xmlns=\"urn:siemens:test\"><SW.Blocks.FC ID=\"1\"><AttributeList><Name>XmlProbe</Name></AttributeList></SW.Blocks.FC></Document>";
+        string baselinePath = Path.Combine(_directory, "baseline.xml");
+        string candidatePath = Path.Combine(_directory, "candidate.xml");
+        File.WriteAllText(baselinePath, baselineXml, new UTF8Encoding(true));
+        File.WriteAllText(candidatePath, baselineXml, new UTF8Encoding(true));
+        var existing = new FakeBlock { Name = "XmlProbe", Type = "FC", ExportContent = "FUNCTION \"XmlProbe\" : Void\r\nEND_FUNCTION" };
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.ExportBlockAsync("XmlProbe", It.IsAny<string>())).ReturnsAsync((string _, string path) => { File.WriteAllText(path, baselineXml.Replace("ID=\"1\"", "ID=\"2\""), new UTF8Encoding(true)); return true; });
+        var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
+        PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "stale XML baseline");
+        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false);
+
+        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(draft.TransactionId));
+
+        StringAssert.Contains(error.Message, "does not match the current TIA export");
+        plc.Verify(candidate => candidate.ImportBlockAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
     }
 
     private void WriteUtf8Bom(string fileName, string content)
