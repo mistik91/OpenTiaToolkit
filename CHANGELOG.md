@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-preview.2] - 2026-07-14
+
 ### Changed
 - Made PLC code transaction planning perform mandatory semantic impact analysis: normalized interface/layout deltas, exact external dependency resolution, live PLC cross-reference consumers, deterministic evidence fingerprints, and apply-time stale revalidation now gate every direct-import mutation.
 - Added a shared PLC code-format capability/validation contract and format-specific hardening for native SCL, S7DCL LAD/data, baseline-bound SimaticML, and confirmed directional VCI synchronization.

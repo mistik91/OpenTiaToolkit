@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="TIA Portal V21" src="https://img.shields.io/badge/TIA_Portal-V21_only-0078D4">
-  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.1-orange">
+  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.2-orange">
   <img alt="Platform Windows" src="https://img.shields.io/badge/platform-Windows-0078D6">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-2ea44f">
 </p>
@@ -17,7 +17,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#what-you-can-automate">Capabilities</a> ·
   <a href="#architecture">Architecture</a> ·
-  <a href="docs/generated/COMMAND_REFERENCE.md">175 commands</a> ·
+  <a href="docs/generated/COMMAND_REFERENCE.md">182 commands</a> ·
   <a href="docs/BLUEPRINTS.md">Blueprints</a> ·
   <a href="docs/SETUP.md">Documentation</a>
 </p>
@@ -29,13 +29,13 @@ OpenTiaToolkit is an open-source Windows engineering automation platform for Sie
 The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and later require a dedicated worker package, compatibility profile, and live validation before support is claimed.
 
 > [!IMPORTANT]
-> The current public build is [`1.0.0-preview.1`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.1) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
+> The current public build is [`1.0.0-preview.2`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.2) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
 
 ## Why OpenTiaToolkit
 
 | Capability | What it provides |
 |---|---|
-| One shared surface | 175 commands implemented once and exposed consistently through CLI and MCP |
+| One shared surface | 182 commands implemented once and exposed consistently through CLI and MCP |
 | Safe mutations | Central policy, previews, explicit confirmation, typed outcomes, read-back checks, and redacted audit records |
 | Process isolation | Siemens objects stay inside a disposable V21 worker with a serialized request queue |
 | Declarative automation | State-bound blueprints turn reviewed PLC, HMI, and hardware intent into previewable plans |
