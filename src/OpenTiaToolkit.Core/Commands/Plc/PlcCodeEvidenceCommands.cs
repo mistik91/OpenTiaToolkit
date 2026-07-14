@@ -57,6 +57,33 @@ public sealed class QueryPlcCodeEvidenceCommand : ICommand
     }
 }
 
+public sealed class BeginPromotedPlcCodeTransactionCommand : ICommand
+{
+    private readonly PlcDocumentWorkflowService _service;
+    public BeginPromotedPlcCodeTransactionCommand(PlcDocumentWorkflowService service) => _service = service;
+    public string Name => "begin-promoted-plc-code-transaction";
+    public string Description => "Begins a production transaction bound to exact verified disposable evidence, the intended artifact, current capabilities, and explicit disposition decisions";
+    public CommandSchema Schema => new CommandSchema(Description, new[]
+    {
+        new CommandParameter("plc-name", CommandParameterType.String, "Exact PLC device name", true),
+        new CommandParameter("evidence-id", CommandParameterType.String, "Exact reusable Verified qualification evidence id", true),
+        new CommandParameter("capability-ids", CommandParameterType.String, "Fresh intended-target capability id for every declared production object", true),
+        new CommandParameter("code-format", CommandParameterType.String, "auto, scl, or s7dcl", false, "auto"),
+        new CommandParameter("input-path", CommandParameterType.Path, "Exact production artifact whose normalized shape matches the evidence", true),
+        new CommandParameter("description", CommandParameterType.String, "Human-readable production engineering intent", true),
+        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile", false, "NoNewErrors"),
+        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile", false),
+        new CommandParameter("save-decision", CommandParameterType.String, "Defer or ManualAfterVerification; this command never silently saves the project", true),
+        new CommandParameter("source-control-decision", CommandParameterType.String, "None or VCISeparateAfterSave; direct import never impersonates VCI synchronization", true)
+    });
+    public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+    {
+        int? maximumNewWarnings = args.Has("maximum-new-warnings") ? args.GetInt("maximum-new-warnings") : (int?)null;
+        PlcCodeTransaction result = await _service.BeginPromotedTransactionAsync(args.GetString("plc-name"), args.GetString("evidence-id"), args.GetString("capability-ids"), args.GetString("code-format") ?? "auto", args.GetString("input-path"), args.GetString("description"), args.GetString("compile-policy"), maximumNewWarnings, args.GetString("save-decision"), args.GetString("source-control-decision")).ConfigureAwait(false);
+        return CommandResult.CreateSuccess(result, "Evidence-bound production transaction started. Add only the bound artifact, then plan normally; impact review and rollback gates remain mandatory.");
+    }
+}
+
 public sealed class GetPlcCodeEvidenceCommand : ICommand
 {
     private readonly PlcCodeEvidenceRegistry _registry;

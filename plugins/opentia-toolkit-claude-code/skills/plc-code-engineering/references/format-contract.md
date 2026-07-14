@@ -10,7 +10,8 @@ Every format workflow follows the same transaction boundary:
 6. **Apply** once with explicit confirmation. Do not split a multi-object intent into sequential applies.
 7. **Verify** exact object identities, compile policy, and canonical TIA read-back. File-import success alone is not completion.
 8. **Commit or roll back** as one unit. Restore existing objects and delete newly created objects in reverse dependency order. Success after failure requires restored-hash equality and a rollback compile.
-9. **Retain recovery evidence** when automatic rollback cannot be proven. Treat `RecoveryRequired` as an incident; do not discard its package.
+9. **Promote evidence explicitly.** Query with fresh intended-target capabilities and the production artifact, then use `begin-promoted-plc-code-transaction` with one exact verified evidence id and explicit save/source-control disposition. Plan/apply revalidate the artifact, validator, compatibility, cleanup proof, and exact operation coverage.
+10. **Retain recovery evidence** when automatic rollback cannot be proven. Treat `RecoveryRequired` as an incident; do not discard its package.
 
 ## Evidence classifications
 

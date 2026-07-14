@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 181,
+  "commandCount": 182,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -902,6 +902,85 @@
           "required": false,
           "defaultValue": null,
           "description": "Comma-separated capability ids for an atomic multi-target transaction"
+        }
+      ]
+    },
+    {
+      "name": "begin-promoted-plc-code-transaction",
+      "description": "Begins a production transaction bound to exact verified disposable evidence, the intended artifact, current capabilities, and explicit disposition decisions",
+      "category": "PLC",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "plc-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact PLC device name"
+        },
+        {
+          "name": "evidence-id",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact reusable Verified qualification evidence id"
+        },
+        {
+          "name": "capability-ids",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Fresh intended-target capability id for every declared production object"
+        },
+        {
+          "name": "code-format",
+          "type": "String",
+          "required": false,
+          "defaultValue": "auto",
+          "description": "auto, scl, or s7dcl"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Exact production artifact whose normalized shape matches the evidence"
+        },
+        {
+          "name": "description",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Human-readable production engineering intent"
+        },
+        {
+          "name": "compile-policy",
+          "type": "String",
+          "required": false,
+          "defaultValue": "NoNewErrors",
+          "description": "NoNewErrors (default) or CleanCompile"
+        },
+        {
+          "name": "maximum-new-warnings",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum warning increase accepted by final compile"
+        },
+        {
+          "name": "save-decision",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Defer or ManualAfterVerification; this command never silently saves the project"
+        },
+        {
+          "name": "source-control-decision",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "None or VCISeparateAfterSave; direct import never impersonates VCI synchronization"
         }
       ]
     },

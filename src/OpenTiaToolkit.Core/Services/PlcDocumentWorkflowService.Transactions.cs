@@ -220,6 +220,7 @@ public sealed partial class PlcDocumentWorkflowService
         if (transaction.Operations.Count == 0) throw new InvalidOperationException("The transaction has no operations.");
         await EnsureTransactionContextAsync(transaction).ConfigureAwait(false);
         await VerifyCapabilityCurrentAsync(transaction).ConfigureAwait(false);
+        await VerifyPromotionBindingAsync(transaction).ConfigureAwait(false);
 
         string baselineRoot = TransactionBaselineRoot(transaction.TransactionId);
         Cleanup(baselineRoot);
@@ -319,6 +320,7 @@ public sealed partial class PlcDocumentWorkflowService
         try
         {
             await VerifyCapabilityCurrentAsync(transaction).ConfigureAwait(false);
+            await VerifyPromotionBindingAsync(transaction).ConfigureAwait(false);
             VerifyTransactionPreconditions(transaction);
             PlcCodeImpactAnalysis currentImpact = await AnalyzeTransactionImpactAsync(transaction).ConfigureAwait(false);
             if (transaction.ImpactAnalysis == null || !FixedEquals(transaction.ImpactAnalysis.Fingerprint, currentImpact.Fingerprint))
@@ -1100,6 +1102,7 @@ public sealed partial class PlcDocumentWorkflowService
             transaction.CapabilityFingerprint,
             transaction.CapabilityRoute,
             transaction.CapabilityBindings,
+            transaction.Promotion,
             transaction.CompilePolicy,
             transaction.MaximumNewWarnings,
             transaction.ImpactAnalysis,

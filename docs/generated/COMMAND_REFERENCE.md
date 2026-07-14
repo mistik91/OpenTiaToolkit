@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **181**
+Commands: **182**
 
 ## Devices
 
@@ -549,6 +549,23 @@ Begins a persistent PLC code transaction bound to the current TIA process, proje
 | `maximum-new-warnings` | Integer | no |  | Optional maximum warning increase accepted by final compile |
 | `capability-id` | String | no |  | One live capability discovery id to bind and revalidate at plan/apply |
 | `capability-ids` | String | no |  | Comma-separated capability ids for an atomic multi-target transaction |
+
+### begin-promoted-plc-code-transaction
+
+Begins a production transaction bound to exact verified disposable evidence, the intended artifact, current capabilities, and explicit disposition decisions
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `plc-name` | String | yes |  | Exact PLC device name |
+| `evidence-id` | String | yes |  | Exact reusable Verified qualification evidence id |
+| `capability-ids` | String | yes |  | Fresh intended-target capability id for every declared production object |
+| `code-format` | String | no | auto | auto, scl, or s7dcl |
+| `input-path` | Path | yes |  | Exact production artifact whose normalized shape matches the evidence |
+| `description` | String | yes |  | Human-readable production engineering intent |
+| `compile-policy` | String | no | NoNewErrors | NoNewErrors (default) or CleanCompile |
+| `maximum-new-warnings` | Integer | no |  | Optional maximum warning increase accepted by final compile |
+| `save-decision` | String | yes |  | Defer or ManualAfterVerification; this command never silently saves the project |
+| `source-control-decision` | String | yes |  | None or VCISeparateAfterSave; direct import never impersonates VCI synchronization |
 
 ### compare-software
 

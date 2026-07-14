@@ -83,9 +83,24 @@ public sealed class PlcDocumentImportApplyResult
     public CompilationResult? RollbackCompilation { get; set; }
 }
 
+public sealed class PlcCodePromotionBinding
+{
+    public string SchemaVersion { get; set; } = "1.0";
+    public string EvidenceId { get; set; } = string.Empty;
+    public string QualificationSignature { get; set; } = string.Empty;
+    public string CompatibilityFingerprint { get; set; } = string.Empty;
+    public string ValidatorCatalogVersion { get; set; } = string.Empty;
+    public string CodeFormat { get; set; } = string.Empty;
+    public string ArtifactPath { get; set; } = string.Empty;
+    public string ArtifactInputHash { get; set; } = string.Empty;
+    public string SaveDecision { get; set; } = "Defer";
+    public string SourceControlDecision { get; set; } = "None";
+    public DateTimeOffset BoundAtUtc { get; set; }
+}
+
 public sealed class PlcCodeTransaction
 {
-    public string SchemaVersion { get; set; } = "1.3";
+    public string SchemaVersion { get; set; } = "1.4";
     public string TransactionId { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string State { get; set; } = "Draft";
@@ -100,6 +115,7 @@ public sealed class PlcCodeTransaction
     public string? CapabilityFingerprint { get; set; }
     public string? CapabilityRoute { get; set; }
     public IReadOnlyList<PlcCodeCapabilityBinding> CapabilityBindings { get; set; } = Array.Empty<PlcCodeCapabilityBinding>();
+    public PlcCodePromotionBinding? Promotion { get; set; }
     public string CompilePolicy { get; set; } = "NoNewErrors";
     public int? MaximumNewWarnings { get; set; }
     public string? ApplyToken { get; set; }

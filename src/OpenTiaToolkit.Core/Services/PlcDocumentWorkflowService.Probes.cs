@@ -9,6 +9,35 @@ namespace OpenTiaToolkit.Core.Services;
 
 public sealed partial class PlcDocumentWorkflowService
 {
+    public async Task<PlcCodeTransaction> BeginPromotedTransactionAsync(string plcName, string evidenceId, string capabilityIds, string codeFormat, string inputPath, string? description, string? compilePolicy, int? maximumNewWarnings, string saveDecision, string sourceControlDecision)
+    {
+        string save = NormalizeDecision(saveDecision, "save-decision", "Defer", "ManualAfterVerification");
+        string sourceControl = NormalizeDecision(sourceControlDecision, "source-control-decision", "None", "VCISeparateAfterSave");
+        PlcCodeArtifactValidationResult validation = ValidateProbeArtifact(codeFormat, inputPath);
+        IReadOnlyList<PlcCodeCapabilityDiscovery> capabilities = await ValidateProbeCapabilitiesAsync(capabilityIds, validation, plcName, requireDisposableCreate: false).ConfigureAwait(false);
+        PlcCodeEvidenceCompatibility compatibility = PlcCodeEvidenceRegistry.BuildCompatibility(capabilities, validation);
+        PlcCodeEvidenceRecord evidence = _evidenceRegistry.Get(evidenceId);
+        RequirePromotionEvidence(evidence, validation, compatibility);
+
+        PlcCodeTransaction transaction = await BeginTransactionAsync(plcName, description, compilePolicy, maximumNewWarnings, null, string.Join(",", capabilities.Select(item => item.CapabilityId))).ConfigureAwait(false);
+        transaction.Promotion = new PlcCodePromotionBinding
+        {
+            EvidenceId = evidence.EvidenceId,
+            QualificationSignature = validation.QualificationSignature,
+            CompatibilityFingerprint = compatibility.Fingerprint,
+            ValidatorCatalogVersion = PlcCodeFormatService.ValidatorCatalogVersion,
+            CodeFormat = validation.Format,
+            ArtifactPath = Path.GetFullPath(validation.InputPath),
+            ArtifactInputHash = validation.InputHash,
+            SaveDecision = save,
+            SourceControlDecision = sourceControl,
+            BoundAtUtc = DateTimeOffset.UtcNow
+        };
+        AddJournal(transaction, null, "Promotion", "Bound", $"Verified evidence '{evidence.EvidenceId}' was bound to the exact production artifact and current capability compatibility. Save={save}; SourceControl={sourceControl}.");
+        SaveTransaction(transaction);
+        return transaction;
+    }
+
     public async Task<PlcCodeEvidenceQueryResult> QueryProbeEvidenceAsync(string capabilityIds, string codeFormat, string inputPath)
     {
         PlcCodeArtifactValidationResult validation = ValidateProbeArtifact(codeFormat, inputPath);
@@ -151,6 +180,60 @@ public sealed partial class PlcDocumentWorkflowService
         }
         if (capabilities.Count != validation.DeclaredObjects.Count) throw new InvalidOperationException("Supply exactly one capability id for each declared probe object.");
         return capabilities;
+    }
+
+    private async Task VerifyPromotionBindingAsync(PlcCodeTransaction transaction)
+    {
+        PlcCodePromotionBinding? promotion = transaction.Promotion;
+        if (promotion == null) return;
+        if (_capabilityDiscovery == null) throw new InvalidOperationException("Capability discovery is unavailable in this host.");
+        PlcCodeArtifactValidationResult validation = ValidateProbeArtifact(promotion.CodeFormat, promotion.ArtifactPath);
+        if (!FixedEquals(promotion.ArtifactInputHash, validation.InputHash) || !FixedEquals(promotion.QualificationSignature, validation.QualificationSignature))
+            throw new InvalidOperationException("The promoted production artifact changed after evidence was bound. Begin a new promoted transaction.");
+        if (!string.Equals(promotion.ValidatorCatalogVersion, PlcCodeFormatService.ValidatorCatalogVersion, StringComparison.Ordinal))
+            throw new InvalidOperationException("The PLC code validator catalog changed after promotion was bound. Re-query evidence and begin a new promoted transaction.");
+        var capabilities = new List<PlcCodeCapabilityDiscovery>();
+        foreach (PlcCodeCapabilityBinding binding in transaction.CapabilityBindings)
+            capabilities.Add(await _capabilityDiscovery.ValidateCurrentAsync(binding.CapabilityId, transaction.PlcName).ConfigureAwait(false));
+        PlcCodeEvidenceCompatibility compatibility = PlcCodeEvidenceRegistry.BuildCompatibility(capabilities, validation);
+        if (!FixedEquals(promotion.CompatibilityFingerprint, compatibility.Fingerprint))
+            throw new InvalidOperationException("The promoted artifact is no longer compatible with the current TIA, PLC, route, safety, or object-shape evidence.");
+        RequirePromotionEvidence(_evidenceRegistry.Get(promotion.EvidenceId), validation, compatibility);
+        RequirePromotionOperationCoverage(transaction, promotion);
+    }
+
+    private static void RequirePromotionEvidence(PlcCodeEvidenceRecord evidence, PlcCodeArtifactValidationResult validation, PlcCodeEvidenceCompatibility compatibility)
+    {
+        if (!evidence.Status.Equals("Verified", StringComparison.Ordinal) || !evidence.CleanupProven || evidence.EvidenceKind.Equals("Behavior", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Evidence '{evidence.EvidenceId}' is not reusable verified qualification evidence with proven cleanup.");
+        if (!string.Equals(evidence.ValidatorCatalogVersion, PlcCodeFormatService.ValidatorCatalogVersion, StringComparison.Ordinal))
+            throw new InvalidOperationException($"Evidence '{evidence.EvidenceId}' was produced by validator catalog '{evidence.ValidatorCatalogVersion}', not the current '{PlcCodeFormatService.ValidatorCatalogVersion}'.");
+        if (!FixedEquals(evidence.QualificationSignature, validation.QualificationSignature) || !FixedEquals(evidence.Compatibility.Fingerprint, compatibility.Fingerprint))
+            throw new InvalidOperationException($"Evidence '{evidence.EvidenceId}' does not exactly match this artifact's normalized construct signature and current compatibility fingerprint.");
+    }
+
+    private static void RequirePromotionOperationCoverage(PlcCodeTransaction transaction, PlcCodePromotionBinding promotion)
+    {
+        if (transaction.Operations.Count != 1)
+            throw new InvalidOperationException("An evidence-bound promotion transaction must contain exactly one operation for its bound artifact.");
+        PlcCodeTransactionOperation operation = transaction.Operations[0];
+        string operationPath;
+        if (promotion.CodeFormat.Equals("SCL", StringComparison.OrdinalIgnoreCase) && operation.Kind == "GenerateSclSource")
+            operationPath = Path.GetFullPath(operation.SourcePath ?? string.Empty);
+        else if (promotion.CodeFormat.StartsWith("S7DCL", StringComparison.OrdinalIgnoreCase) && operation.Kind == "UpsertBlockDocuments")
+            operationPath = Path.GetFullPath(Path.Combine(operation.ImportDirectory, operation.FileName + ".s7dcl"));
+        else
+            throw new InvalidOperationException($"The promotion binding for {promotion.CodeFormat} does not match transaction operation kind '{operation.Kind}'.");
+        if (!operationPath.Equals(Path.GetFullPath(promotion.ArtifactPath), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The transaction operation does not use the exact artifact path bound to verified promotion evidence.");
+    }
+
+    private static string NormalizeDecision(string? value, string parameter, params string[] allowed)
+    {
+        string candidate = (value ?? string.Empty).Trim();
+        string? match = allowed.FirstOrDefault(item => item.Equals(candidate, StringComparison.OrdinalIgnoreCase));
+        if (match == null) throw new InvalidOperationException(parameter + " must be " + string.Join(" or ", allowed) + ".");
+        return match;
     }
 
     private void CompleteEvidence(PlcCodeEvidenceRecord evidence, string status, PlcCodeTransactionApplyResult? cleanup, string failure)

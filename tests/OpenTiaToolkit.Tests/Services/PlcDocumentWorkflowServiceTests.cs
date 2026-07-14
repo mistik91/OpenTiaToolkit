@@ -1348,6 +1348,83 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
+    public async Task Promotion_BindsExactEvidenceAndRejectsArtifactDriftBeforePlanning()
+    {
+        const string production = "{ S7_BlockNumber := \"65101\"; S7_PreferredLanguage := \"LAD\" }\r\nFUNCTION \"ProductionShape\" : Void\r\n{ S7_Language := \"LAD\" }\r\nNETWORK\r\nRUNG wire#powerrail END_RUNG\r\nEND_NETWORK\r\nEND_FUNCTION";
+        WriteUtf8Bom("ProductionShape.s7dcl", production);
+        var context = ContextWithGroups();
+        context.AttachedPortalProcessId = 42;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<BlockInfo>());
+        var discovery = new PlcCodeCapabilityDiscoveryService(
+            plc.Object,
+            new Mock<IVciService>().Object,
+            context,
+            environmentProvider: name => Task.FromResult(new PlcCodeEnvironmentEvidence { TiaProcessId = 42, TiaVersion = "V21 Update 2", TiaBuild = "21.0.2", PlcName = name, PlcFamily = "S7-1500", PlcTypeIdentifier = "CPU 1511" }),
+            safetyProvider: target => new PlcCodeSafetyEvidence());
+        PlcCodeCapabilityDiscovery capability = await discovery.DiscoverAsync(new PlcCodeCapabilityRequest { PlcName = "PLC_1", ObjectKind = "Block", ObjectName = "ProductionShape", Operation = "Create", BlockType = "FC", RequestedLanguage = "LAD", RequestedFormat = "S7DCL" });
+        var registry = new PlcCodeEvidenceRegistry(Path.Combine(_directory, "promotion-evidence"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, registry);
+        PlcCodeArtifactValidationResult validation = new PlcCodeFormatService(service).Validate("s7dcl", Path.Combine(_directory, "ProductionShape.s7dcl"));
+        PlcCodeEvidenceCompatibility compatibility = PlcCodeEvidenceRegistry.BuildCompatibility(new[] { capability }, validation);
+        var evidence = new PlcCodeEvidenceRecord
+        {
+            EvidenceId = Guid.NewGuid().ToString("N"),
+            Status = "Verified",
+            StartedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1),
+            CompletedAtUtc = DateTimeOffset.UtcNow,
+            CodeFormat = validation.Format,
+            ValidatorCatalogVersion = PlcCodeFormatService.ValidatorCatalogVersion,
+            QualificationSignature = validation.QualificationSignature,
+            InputHash = validation.InputHash,
+            Compatibility = compatibility,
+            CleanupProven = true
+        };
+        registry.Save(evidence);
+
+        PlcCodeTransaction transaction = await service.BeginPromotedTransactionAsync("PLC_1", evidence.EvidenceId, capability.CapabilityId, "s7dcl", validation.InputPath, "production promotion", null, null, "Defer", "None");
+        service.AddTransactionOperation(transaction.TransactionId, _directory, "ProductionShape", null, "Override", targetMode: "create-only");
+        WriteUtf8Bom("ProductionShape.s7dcl", production.Replace("RUNG wire#powerrail END_RUNG", "RUNG wire#powerrail Coil( #Changed ) END_RUNG"));
+
+        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(transaction.TransactionId));
+
+        StringAssert.Contains(error.Message, "artifact changed");
+        Assert.IsTrue(service.DiscardTransaction(transaction.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Promotion_RejectsEvidenceWithoutCleanupProof()
+    {
+        WriteUtf8Bom("ProductionShape.s7dcl", "FUNCTION \"ProductionShape\" : Void\r\nEND_FUNCTION");
+        var context = ContextWithGroups();
+        context.AttachedPortalProcessId = 42;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<BlockInfo>());
+        var discovery = new PlcCodeCapabilityDiscoveryService(
+            plc.Object,
+            new Mock<IVciService>().Object,
+            context,
+            environmentProvider: name => Task.FromResult(new PlcCodeEnvironmentEvidence { TiaProcessId = 42, TiaVersion = "V21 Update 2", TiaBuild = "21.0.2", PlcName = name, PlcFamily = "S7-1500", PlcTypeIdentifier = "CPU 1511" }),
+            safetyProvider: target => new PlcCodeSafetyEvidence());
+        PlcCodeCapabilityDiscovery capability = await discovery.DiscoverAsync(new PlcCodeCapabilityRequest { PlcName = "PLC_1", ObjectKind = "Block", ObjectName = "ProductionShape", Operation = "Create", BlockType = "FC", RequestedLanguage = "LAD", RequestedFormat = "S7DCL" });
+        var registry = new PlcCodeEvidenceRegistry(Path.Combine(_directory, "promotion-evidence"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, registry);
+        PlcCodeArtifactValidationResult validation = new PlcCodeFormatService(service).Validate("s7dcl", Path.Combine(_directory, "ProductionShape.s7dcl"));
+        var evidence = new PlcCodeEvidenceRecord
+        {
+            EvidenceId = Guid.NewGuid().ToString("N"), Status = "Verified", StartedAtUtc = DateTimeOffset.UtcNow,
+            CodeFormat = validation.Format, ValidatorCatalogVersion = PlcCodeFormatService.ValidatorCatalogVersion,
+            QualificationSignature = validation.QualificationSignature,
+            Compatibility = PlcCodeEvidenceRegistry.BuildCompatibility(new[] { capability }, validation), CleanupProven = false
+        };
+        registry.Save(evidence);
+
+        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.BeginPromotedTransactionAsync("PLC_1", evidence.EvidenceId, capability.CapabilityId, "s7dcl", validation.InputPath, "unsafe", null, null, "Defer", "None"));
+
+        StringAssert.Contains(error.Message, "cleanup");
+    }
+
+    [TestMethod]
     public async Task Transaction_CreateOnlyAndBaselineBoundModes_FailClosedBeforeMutation()
     {
         const string baseline = "{ S7_BlockNumber := \"62001\" }\r\nFUNCTION \"Guarded\" : Void\r\nEND_FUNCTION";
