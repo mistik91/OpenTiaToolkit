@@ -102,12 +102,12 @@ Always review previews and keep project backups before applying engineering chan
 
 ### Install the public preview
 
-1. Download `OpenTiaToolkit-1.0.0-preview.1-Setup.exe` and `INSTALLER-SHA256SUMS.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.1).
+1. Download `OpenTiaToolkit-1.0.0-preview.2-Setup.exe` and `INSTALLER-SHA256SUMS.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.2).
 2. Verify the installer:
 
 ```powershell
 $expected = (Get-Content .\INSTALLER-SHA256SUMS.txt).Split()[0]
-$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.1-Setup.exe -Algorithm SHA256).Hash
+$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.2-Setup.exe -Algorithm SHA256).Hash
 $actual.ToLowerInvariant() -eq $expected.ToLowerInvariant()
 ```
 
@@ -219,19 +219,19 @@ See the [developer guide](docs/DEV_GUIDE.md) for repository architecture and con
 | [Blueprint workflow](docs/BLUEPRINTS.md) | [API compatibility and migration](docs/API_COMPATIBILITY.md) |
 | [Hardware automation](docs/HARDWARE_AUTOMATION.md) | [Production architecture and recovery](docs/PRODUCTION_ARCHITECTURE.md) |
 | [Repository examples](examples/README.md) | [Supply chain and release integrity](docs/SUPPLY_CHAIN.md) |
-| [1.0 release notes](docs/RELEASE_NOTES_1.0.0.md) | [Security policy](SECURITY.md) |
+| [Preview.2 release notes](docs/RELEASE_NOTES_1.0.0-preview.2.md) | [Security policy](SECURITY.md) |
 
 ## Validation
 
-The `1.0.0-preview.1` release passed:
+The `1.0.0-preview.2` release passed:
 
 - Release build with zero warnings and errors
-- 328 fast tests and 10 architecture tests
-- all 142 CLI help cases and six negative CLI cases
-- worker, MCP, disposable-project, blueprint and archive integration suites
+- 442 fast tests and 10 architecture tests
+- generated CLI and MCP reference validation for 182 commands
+- transaction, rollback, stale-state, compile, and behavioral verification coverage for PLC code engineering
 - generated-reference, packaged-skill, formatting, locked-restore, and vulnerability checks
-- staged MCP initialization with 178 tools
-- live V21 end-to-end workflows and independent-machine use
+- staged MCP initialization with 185 tools
+- live V21 and PLCSIM Advanced end-to-end workflows
 
 Run the vendor-free fast suite locally with:
 
