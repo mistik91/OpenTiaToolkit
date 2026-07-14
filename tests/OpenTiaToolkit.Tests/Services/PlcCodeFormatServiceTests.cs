@@ -142,6 +142,33 @@ public sealed class PlcCodeFormatServiceTests
     }
 
     [TestMethod]
+    public void ValidateSimaticMl_ConnectionReferencesMayReuseDefinitionUids()
+    {
+        const string flgNet = "<?xml version=\"1.0\"?><Document><SW.Blocks.FC ID=\"1\"><AttributeList><Name>Probe</Name></AttributeList><ObjectList><SW.Blocks.CompileUnit ID=\"2\"><AttributeList><NetworkSource><FlgNet xmlns=\"urn:siemens:test\"><Parts><Access UId=\"21\"/><Part UId=\"24\"/></Parts><Wires><Wire UId=\"27\"><NameCon UId=\"24\"/><IdentCon UId=\"21\"/></Wire></Wires></FlgNet></NetworkSource></AttributeList></SW.Blocks.CompileUnit></ObjectList></SW.Blocks.FC></Document>";
+        string baseline = Write("flgnet-baseline.xml", flgNet);
+        string candidate = Write("flgnet-candidate.xml", flgNet.Replace("<Name>Probe</Name>", "<Name>Probe</Name><Title>Reviewed</Title>"));
+
+        var result = _service.ValidateSimaticMl(candidate, baseline, false, "/Document/SW.Blocks.FC[@ID='1']/AttributeList/Title");
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        string invalid = Write("flgnet-duplicate.xml", flgNet.Replace("<Part UId=\"24\"/>", "<Part UId=\"24\"/><Part UId=\"24\"/>"));
+        StringAssert.Contains(string.Join("; ", _service.ValidateSimaticMl(invalid, baseline, false).Errors), "definition UId");
+    }
+
+    [TestMethod]
+    public void AnalyzeSimaticMlChange_ReportsPathsAndRejectsUnrelatedLeaves()
+    {
+        string baseline = Write("baseline-path.xml", Xml("1", "10"));
+        string candidate = Write("candidate-path.xml", Xml("1", "10").Replace(">Original<", ">Changed<"));
+        const string titlePath = "/Document/SW.Blocks.FC[@ID='1']/AttributeList/Original";
+
+        var contract = _service.AnalyzeSimaticMlChange(candidate, baseline, false, titlePath);
+
+        Assert.IsTrue(contract.ChangedSections.Single().StartsWith(titlePath, StringComparison.Ordinal));
+        Assert.ThrowsException<InvalidDataException>(() => _service.AnalyzeSimaticMlChange(candidate, baseline, false, "/Document/SW.Blocks.FC[@ID='1']/AttributeList/Name"));
+    }
+
+    [TestMethod]
     public void ValidateSimaticMl_PlcStructBaseline_IsVerifiedAsType()
     {
         string baseline = Write("type-baseline.xml", TypeXml("ProbeType", "before"));

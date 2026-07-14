@@ -11,6 +11,7 @@ Every typed call must have its `S7_Templates` attribute immediately before the c
 | Analog | `Normalize`, `Scale` | Both `SrcType` and `DestType`; `min`, `value`, `max`, `out` |
 | IEC instance timers | `#instance.TON`, `.TOF`, `.TP` | FB static instance; `pt`; use the exported receiver type |
 | Timer coils | `TON_Coil`, `TOF_Coil`, `TP_Coil`, `TONR_Coil`, `RT_Coil` | `time_type := Time`; timer coils require `timer` and `pt`; reset takes the timer target |
+| IEC counter in SCL network | `#instance.CTU` | FB static `IEC_COUNTER`; `CU`, `R`, `PV`, `Q`, `CV`; use the live-tested mixed-network asset. Graphical LAD CTU and `CTD`/`CTUD` remain probe-only |
 | Edge | `P_Trig`, `P_Contact`, `N_Contact` | Trigger memory is Bool local/static; contact `bit` memory is retained FB static or `VAR_IN_OUT`, never FC `VAR_TEMP` |
 | System | `ATTR_DB` | Exact pins `REQ`, `DB_NUMBER`, `RET_VAL`, `DB_LENGTH`, `ATTRIB`; referenced DB is a dependency |
 
@@ -29,5 +30,6 @@ Use distinct names for nested junctions and preserve their direction from a know
 
 - Treat quoted or unregistered calls as project-specific and `unknown-requires-live-probe`.
 - Treat typed calls without the immediate template as probe-only, even if Siemens exported the inferred form.
+- Treat `CTU` as verified only in an `{ S7_Language := "SCL" }` network with the tested static-instance form. A LAD-network CTU, `CTD`, or `CTUD` remains probe-only.
 - Reject `Gt`, `Lt`, `Eq`, `Ne`, `Ge`, `Le`, `PBox`, `NBox`, decorated `Move`, dangling junctions, F-language documents, and stateful FC locals.
 - Do not infer pin names for a new instruction from its graphical appearance. Export a V21 example first.

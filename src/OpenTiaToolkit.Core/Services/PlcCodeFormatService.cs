@@ -13,7 +13,7 @@ namespace OpenTiaToolkit.Core.Services;
 
 public sealed class PlcCodeFormatService
 {
-    public const string ValidatorCatalogVersion = "plc-code-formats/1.2";
+    public const string ValidatorCatalogVersion = "plc-code-formats/1.3";
     private static readonly Regex SclDeclarationRegex = new Regex(@"(?im)^\s*(FUNCTION_BLOCK|FUNCTION|ORGANIZATION_BLOCK|DATA_BLOCK|TYPE)\s+(?:""(?<quoted>[^""]+)""|(?<plain>[^\s:]+))", RegexOptions.Compiled);
     private static readonly Regex SclCallRegex = new Regex(@"(?im)(?<![#\w])(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*\(", RegexOptions.Compiled);
     private static readonly Regex StatefulTypeRegex = new Regex(@"\b(TON|TOF|TP|TON_TIME|TOF_TIME|TP_TIME|IEC_TIMER|R_TRIG|F_TRIG|CTU|CTD|CTUD|IEC_COUNTER)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -40,12 +40,12 @@ public sealed class PlcCodeFormatService
             new[] { "workspace-to-project is not a multi-object atomic transaction", "use narrow exact mappings" })
     };
 
-    public PlcCodeArtifactValidationResult Validate(string format, string inputPath, string? baselinePath = null, bool allowFlgNetTopology = false)
+    public PlcCodeArtifactValidationResult Validate(string format, string inputPath, string? baselinePath = null, bool allowFlgNetTopology = false, string? allowedChangePaths = null)
     {
         string normalized = NormalizeFormat(format, inputPath);
         PlcCodeArtifactValidationResult result;
         if (normalized == "SCL") result = ValidateScl(inputPath);
-        else if (normalized == "SIMATICML") result = ValidateSimaticMl(inputPath, baselinePath, allowFlgNetTopology);
+        else if (normalized == "SIMATICML") result = ValidateSimaticMl(inputPath, baselinePath, allowFlgNetTopology, allowedChangePaths);
         else if (normalized == "S7DCL")
         {
             string fullPath = Path.GetFullPath(inputPath);
@@ -156,7 +156,7 @@ public sealed class PlcCodeFormatService
         return new PlcCodeArtifactValidationResult { Valid = errors.Count == 0, Format = "SCL", Classification = classification, InputPath = path, InputHash = Hash(bytes), HasUtf8Bom = bom, DeclaredObjects = objects, Findings = findings, Dependencies = dependencies, Errors = errors, Warnings = warnings };
     }
 
-    public PlcCodeArtifactValidationResult ValidateSimaticMl(string inputPath, string? baselinePath, bool allowFlgNetTopology)
+    public PlcCodeArtifactValidationResult ValidateSimaticMl(string inputPath, string? baselinePath, bool allowFlgNetTopology, string? allowedChangePaths = null)
     {
         string path = Path.GetFullPath(inputPath);
         var errors = new List<string>();
@@ -176,7 +176,10 @@ public sealed class PlcCodeFormatService
             {
                 string[] uids = compileUnit.Descendants().Attributes("UId").Select(attribute => attribute.Value).ToArray();
                 foreach (string uid in uids.Where(value => !int.TryParse(value, out _))) errors.Add($"FlgNet UId '{uid}' is not a decimal integer.");
-                foreach (IGrouping<string, string> duplicate in uids.GroupBy(value => value, StringComparer.Ordinal).Where(group => group.Count() > 1)) errors.Add($"FlgNet UId '{duplicate.Key}' is duplicated in one compile unit.");
+                string[] definitions = compileUnit.Descendants().Where(element => element.Parent != null && new[] { "Parts", "Wires" }.Contains(element.Parent.Name.LocalName, StringComparer.Ordinal)).Attributes("UId").Select(attribute => attribute.Value).ToArray();
+                foreach (IGrouping<string, string> duplicate in definitions.GroupBy(value => value, StringComparer.Ordinal).Where(group => group.Count() > 1)) errors.Add($"FlgNet definition UId '{duplicate.Key}' is duplicated in one compile unit.");
+                var defined = new HashSet<string>(definitions, StringComparer.Ordinal);
+                foreach (string reference in compileUnit.Descendants().Where(element => new[] { "NameCon", "IdentCon" }.Contains(element.Name.LocalName, StringComparer.Ordinal)).Attributes("UId").Select(attribute => attribute.Value).Where(value => !defined.Contains(value)).Distinct(StringComparer.Ordinal)) errors.Add($"FlgNet connection references undefined UId '{reference}'.");
             }
             foreach (XElement element in document.Descendants().Where(IsSupportedXmlObject))
             {
@@ -188,6 +191,8 @@ public sealed class PlcCodeFormatService
         }
 
         string classification = "unknown-requires-live-probe";
+        string[] changedPaths = Array.Empty<string>();
+        string[] authorizedPaths = Array.Empty<string>();
         if (!string.IsNullOrWhiteSpace(baselinePath) && document != null)
         {
             XDocument? baseline = LoadXml(Path.GetFullPath(baselinePath!), errors);
@@ -203,12 +208,40 @@ public sealed class PlcCodeFormatService
                 string baselineTopology = FlgNetTopologyFingerprint(baseline);
                 string candidateTopology = FlgNetTopologyFingerprint(document);
                 if (!allowFlgNetTopology && !string.Equals(baselineTopology, candidateTopology, StringComparison.Ordinal)) errors.Add("Candidate changes FlgNet topology. Use a disposable-project probe and allow-flgnet-topology only after explicit review.");
+                changedPaths = ChangedXmlPaths(baseline, document);
+                if (!string.IsNullOrWhiteSpace(allowedChangePaths))
+                {
+                    authorizedPaths = ParseAllowedXmlPaths(allowedChangePaths!);
+                    if (changedPaths.Length == 0) errors.Add("Baseline-bound SimaticML patch is a no-op.");
+                    string[] unauthorized = changedPaths.Where(pathValue => !authorizedPaths.Any(prefix => XmlPathIsWithin(pathValue, prefix))).ToArray();
+                    if (unauthorized.Length > 0) errors.Add("Candidate changes unauthorized SimaticML path(s): " + string.Join(", ", unauthorized) + ".");
+                }
                 classification = errors.Count == 0 ? "verified" : "known-unsupported";
-                findings.Add(new PlcCodeValidationFinding { Construct = "baseline-diff", Classification = classification, Message = "Namespace, object identity, IDs, and FlgNet topology compared with the exported baseline." });
+                findings.Add(new PlcCodeValidationFinding { Construct = "baseline-diff", Classification = classification, Message = "Namespace, object identity, IDs, FlgNet topology, and changed XML leaf paths compared with the exported baseline." });
             }
         }
         else warnings.Add("Without an untouched exported baseline, SimaticML is never classified as verified for mutation.");
-        return new PlcCodeArtifactValidationResult { Valid = errors.Count == 0, Format = "SimaticML", Classification = errors.Count > 0 ? "known-unsupported" : classification, InputPath = path, InputHash = Hash(bytes), HasUtf8Bom = bytes.Length >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf, DeclaredObjects = objects, Findings = findings, Errors = errors, Warnings = warnings };
+        return new PlcCodeArtifactValidationResult { Valid = errors.Count == 0, Format = "SimaticML", Classification = errors.Count > 0 ? "known-unsupported" : classification, InputPath = path, InputHash = Hash(bytes), HasUtf8Bom = bytes.Length >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf, DeclaredObjects = objects, Findings = findings, Metadata = new Dictionary<string, string> { ["changedPaths"] = string.Join("\n", changedPaths), ["allowedChangePaths"] = string.Join("\n", authorizedPaths) }, Errors = errors, Warnings = warnings };
+    }
+
+    public PlcCodeChangeContract AnalyzeSimaticMlChange(string candidatePath, string baselinePath, bool allowFlgNetTopology, string allowedChangePaths)
+    {
+        PlcCodeArtifactValidationResult validation = ValidateSimaticMl(candidatePath, baselinePath, allowFlgNetTopology, allowedChangePaths);
+        if (!validation.Valid || !validation.Classification.Equals("verified", StringComparison.Ordinal))
+            throw new InvalidDataException("SimaticML change contract is invalid: " + string.Join("; ", validation.Errors.Concat(validation.Warnings)));
+        string[] changed = validation.Metadata["changedPaths"].Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        string[] allowed = validation.Metadata["allowedChangePaths"].Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        string baselineHash = ComputeSimaticMlContentHash(baselinePath);
+        string candidateHash = ComputeSimaticMlContentHash(candidatePath);
+        return new PlcCodeChangeContract
+        {
+            Mode = "BaselineBound",
+            BaselineHash = baselineHash,
+            CandidateHash = candidateHash,
+            AllowedSections = allowed,
+            ChangedSections = changed,
+            Fingerprint = Hash(Encoding.UTF8.GetBytes("simaticml-change/1.0|" + baselineHash + "|" + candidateHash + "|" + string.Join("\n", allowed) + "|" + string.Join("\n", changed) + "|topology=" + allowFlgNetTopology))
+        };
     }
 
     private static PlcCodeFormatCapability Capability(string format, string[] extensions, string status, string route, bool offline, bool transactional, string[] objects, string[] verification, string[] limitations) => new PlcCodeFormatCapability { Format = format, Extensions = extensions, AuthoringStatus = status, MutationRoute = route, OfflineValidation = offline, TransactionalApply = transactional, SupportedObjects = objects, RequiredVerification = verification, KnownLimitations = limitations };
@@ -218,9 +251,7 @@ public sealed class PlcCodeFormatService
         var errors = new List<string>();
         XDocument? document = LoadXml(Path.GetFullPath(path), errors);
         if (document?.Root == null || errors.Count > 0) throw new InvalidDataException("SimaticML cannot be canonicalized: " + string.Join("; ", errors));
-        XDocument canonical = new XDocument(document);
-        canonical.Root!.Elements().Where(element => element.Name.LocalName == "Engineering" || element.Name.LocalName == "DocumentInfo").Remove();
-        foreach (XText whitespace in canonical.DescendantNodes().OfType<XText>().Where(node => string.IsNullOrWhiteSpace(node.Value)).ToArray()) whitespace.Remove();
+        XDocument canonical = CanonicalSimaticMl(document);
         return Hash(Encoding.UTF8.GetBytes(canonical.ToString(SaveOptions.DisableFormatting)));
     }
 
@@ -299,6 +330,48 @@ public sealed class PlcCodeFormatService
         byte[] resource = s7resPath != null && File.Exists(s7resPath) ? File.ReadAllBytes(s7resPath) : Array.Empty<byte>();
         return Hash(document.Concat(new byte[] { 0 }).Concat(resource).ToArray());
     }
+    private static XDocument CanonicalSimaticMl(XDocument document)
+    {
+        var canonical = new XDocument(document);
+        canonical.Root!.Elements().Where(element => element.Name.LocalName == "Engineering" || element.Name.LocalName == "DocumentInfo").Remove();
+        foreach (XText whitespace in canonical.DescendantNodes().OfType<XText>().Where(node => string.IsNullOrWhiteSpace(node.Value)).ToArray()) whitespace.Remove();
+        return canonical;
+    }
+    private static string[] ChangedXmlPaths(XDocument baseline, XDocument candidate)
+    {
+        IReadOnlyDictionary<string, string> before = XmlLeafValues(CanonicalSimaticMl(baseline));
+        IReadOnlyDictionary<string, string> after = XmlLeafValues(CanonicalSimaticMl(candidate));
+        return before.Keys.Concat(after.Keys).Distinct(StringComparer.Ordinal).Where(path => !before.TryGetValue(path, out string? left) || !after.TryGetValue(path, out string? right) || !string.Equals(left, right, StringComparison.Ordinal)).OrderBy(path => path, StringComparer.Ordinal).ToArray();
+    }
+    private static IReadOnlyDictionary<string, string> XmlLeafValues(XDocument document)
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (document.Root != null) AddXmlLeafValues(document.Root, "/" + XmlPathSegment(document.Root), values);
+        return values;
+    }
+    private static void AddXmlLeafValues(XElement element, string path, IDictionary<string, string> values)
+    {
+        foreach (XAttribute attribute in element.Attributes().Where(item => !item.IsNamespaceDeclaration)) values[path + "/@" + attribute.Name.LocalName] = attribute.Value;
+        XElement[] children = element.Elements().ToArray();
+        if (children.Length == 0) values[path + "/#text"] = element.Value;
+        foreach (XElement child in children) AddXmlLeafValues(child, path + "/" + XmlPathSegment(child), values);
+    }
+    private static string XmlPathSegment(XElement element)
+    {
+        XAttribute? id = element.Attribute("ID");
+        if (id != null) return element.Name.LocalName + "[@ID='" + id.Value.Replace("'", "&apos;") + "']";
+        XElement[] peers = element.Parent?.Elements(element.Name).ToArray() ?? new[] { element };
+        return peers.Length < 2 ? element.Name.LocalName : element.Name.LocalName + "[" + (Array.IndexOf(peers, element) + 1) + "]";
+    }
+    private static string[] ParseAllowedXmlPaths(string value)
+    {
+        string[] paths = value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(item => item.Trim().TrimEnd('/')).Distinct(StringComparer.Ordinal).ToArray();
+        if (paths.Length == 0) throw new InvalidDataException("allowed-change-paths requires at least one SimaticML path.");
+        string[] invalid = paths.Where(path => !path.StartsWith("/Document/", StringComparison.Ordinal)).ToArray();
+        if (invalid.Length > 0) throw new InvalidDataException("Every allowed-change-path must be an absolute /Document/... path: " + string.Join(", ", invalid) + ".");
+        return paths;
+    }
+    private static bool XmlPathIsWithin(string path, string prefix) => path.Equals(prefix, StringComparison.Ordinal) || path.StartsWith(prefix + "/", StringComparison.Ordinal);
     private static string NormalizeFormat(string format, string path) { string value = (format ?? string.Empty).Trim().ToUpperInvariant(); if (value.Length > 0 && value != "AUTO") return value.Replace("-LAD", string.Empty).Replace("-DATA", string.Empty); string extension = Path.GetExtension(path).ToLowerInvariant(); return extension == ".scl" ? "SCL" : extension == ".xml" ? "SIMATICML" : "S7DCL"; }
     private static string DecodeUtf8(byte[] bytes, List<string> errors, string label) { if (bytes.Length == 0) return string.Empty; try { return new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF'); } catch (DecoderFallbackException ex) { errors.Add($"{label} is not valid UTF-8: {ex.Message}"); return string.Empty; } }
     private static XDocument? LoadXml(string path, List<string> errors) { if (!File.Exists(path)) return null; try { var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null }; using (XmlReader reader = XmlReader.Create(path, settings)) return XDocument.Load(reader, LoadOptions.PreserveWhitespace); } catch (Exception ex) { errors.Add("SimaticML XML is invalid or unsafe: " + ex.Message); return null; } }

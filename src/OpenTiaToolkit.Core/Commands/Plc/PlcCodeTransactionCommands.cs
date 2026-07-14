@@ -143,13 +143,14 @@ public sealed class AddSimaticMlTransactionOperationCommand : ICommand
         new CommandParameter("baseline-path", CommandParameterType.Path, "Untouched SimaticML export of the exact target", true),
         new CommandParameter("group-path", CommandParameterType.String, "Exact target block or PLC type group", false),
         new CommandParameter("allow-flgnet-topology", CommandParameterType.Boolean, "Allow an explicitly reviewed FlgNet topology change", false, false),
+        new CommandParameter("allowed-change-paths", CommandParameterType.String, "Comma-separated exact/prefix XML paths returned by validation; required and fail-closed", true),
         new CommandParameter("depends-on", CommandParameterType.String, "Optional comma-separated operation sequences that must apply first", false),
         new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding the reviewed XML patch operation", true)
     });
     public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         if (!args.GetBool("confirm")) return Task.FromResult(CommandResult.CreateFailure("confirm=true is required to add a SimaticML transaction operation."));
-        PlcCodeTransaction transaction = _service.AddSimaticMlTransactionOperation(args.GetString("transaction-id"), args.GetString("input-path"), args.GetString("baseline-path"), args.GetString("group-path"), args.GetBool("allow-flgnet-topology"), args.GetString("depends-on"));
+        PlcCodeTransaction transaction = _service.AddSimaticMlTransactionOperation(args.GetString("transaction-id"), args.GetString("input-path"), args.GetString("baseline-path"), args.GetString("group-path"), args.GetBool("allow-flgnet-topology"), args.GetString("depends-on"), args.GetString("allowed-change-paths"));
         return Task.FromResult(CommandResult.CreateSuccess(transaction, "Baseline-bound SimaticML operation added to the transaction."));
     }
 }

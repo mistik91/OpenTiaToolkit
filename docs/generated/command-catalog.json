@@ -294,6 +294,13 @@
           "description": "Allow an explicitly reviewed FlgNet topology change"
         },
         {
+          "name": "allowed-change-paths",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Comma-separated exact/prefix XML paths returned by validation; required and fail-closed"
+        },
+        {
           "name": "depends-on",
           "type": "String",
           "required": false,
@@ -6569,6 +6576,13 @@
           "required": false,
           "defaultValue": false,
           "description": "Allow reviewed FlgNet topology changes to proceed as a live probe"
+        },
+        {
+          "name": "allowed-change-paths",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional comma-separated exact/prefix SimaticML paths to enforce after inspecting changedPaths"
         }
       ]
     },

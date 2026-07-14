@@ -266,6 +266,30 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
+    public void Validate_SclNetworkIecCounter_IsVerified()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "{ S7_PreferredLanguage := \"LAD\" }\r\nFUNCTION_BLOCK \"Probe\"\r\nVAR counter : IEC_COUNTER; END_VAR\r\n{ S7_Language := \"SCL\" } NETWORK #counter.CTU( CU := #In, R := #Reset, PV := #Preset, Q => #Q, CV => #Value ); END_NETWORK\r\nEND_FUNCTION_BLOCK");
+
+        var result = _service.Validate(_directory, "Probe");
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("verified", result.Classification);
+        Assert.AreEqual("verified", result.Instructions.Single(item => item.Instruction == "CTU").Classification);
+    }
+
+    [TestMethod]
+    public void Validate_GraphicalLadIecCounter_RemainsProbeOnly()
+    {
+        WriteUtf8Bom("Probe.s7dcl", "{ S7_PreferredLanguage := \"LAD\" }\r\nFUNCTION_BLOCK \"Probe\"\r\nVAR counter : IEC_COUNTER; END_VAR\r\n{ S7_Language := \"LAD\" } NETWORK RUNG wire#powerrail #counter.CTU( CU := #In, R := #Reset, PV := #Preset, Q => #Q, CV => #Value ) END_RUNG END_NETWORK\r\nEND_FUNCTION_BLOCK");
+
+        var result = _service.Validate(_directory, "Probe");
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("unknown-requires-live-probe", result.Classification);
+        Assert.AreEqual("unknown-requires-live-probe", result.Instructions.Single(item => item.Instruction == "CTU").Classification);
+    }
+
+    [TestMethod]
     public void Validate_SafetyLanguage_IsRejected()
     {
         WriteUtf8Bom("Probe.s7dcl", "{ S7_PreferredLanguage := \"F_LAD\" }\r\nFUNCTION \"Probe\" : Void\r\nEND_FUNCTION");
@@ -284,6 +308,7 @@ public class PlcDocumentWorkflowServiceTests
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_FB_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_Analog_Edge_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_Branch_Timer_Probe"),
+            (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_LAD_Counter_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-lad-authoring", "assets"), Name: "Codex_Mixed_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-data-authoring", "assets"), Name: "Codex_Data_Probe"),
             (Directory: Path.Combine(root, "skills", "s7dcl-data-authoring", "assets"), Name: "Codex_Data_Struct_Probe")
@@ -835,7 +860,7 @@ public class PlcDocumentWorkflowServiceTests
         plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
         var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "XML patch");
-        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false);
+        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false, allowedChangePaths: "/Document/SW.Blocks.FC[@ID='1']/AttributeList/Title");
 
         PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
         PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
@@ -853,13 +878,13 @@ public class PlcDocumentWorkflowServiceTests
         string baselinePath = Path.Combine(_directory, "baseline.xml");
         string candidatePath = Path.Combine(_directory, "candidate.xml");
         File.WriteAllText(baselinePath, baselineXml, new UTF8Encoding(true));
-        File.WriteAllText(candidatePath, baselineXml, new UTF8Encoding(true));
+        File.WriteAllText(candidatePath, baselineXml.Replace("</AttributeList>", "<Title>After</Title></AttributeList>"), new UTF8Encoding(true));
         var existing = new FakeBlock { Name = "XmlProbe", Type = "FC", ExportContent = "FUNCTION \"XmlProbe\" : Void\r\nEND_FUNCTION" };
         var plc = OpenPlcMock();
         plc.Setup(service => service.ExportBlockAsync("XmlProbe", It.IsAny<string>())).ReturnsAsync((string _, string path) => { File.WriteAllText(path, baselineXml.Replace("ID=\"1\"", "ID=\"2\""), new UTF8Encoding(true)); return true; });
         var service = new PlcDocumentWorkflowService(plc.Object, ContextWithGroups(("", existing)));
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "stale XML baseline");
-        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false);
+        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false, allowedChangePaths: "/Document/SW.Blocks.FC[@ID='1']/AttributeList/Title");
 
         InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(draft.TransactionId));
 
@@ -883,7 +908,7 @@ public class PlcDocumentWorkflowServiceTests
         plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
         var service = new PlcDocumentWorkflowService(plc.Object, context);
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "XML type patch");
-        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false);
+        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false, allowedChangePaths: "/Document/SW.Types.PlcStruct[@ID='0']/AttributeList/Interface/Marker");
 
         PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
         PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
@@ -912,7 +937,7 @@ public class PlcDocumentWorkflowServiceTests
             .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
         var service = new PlcDocumentWorkflowService(plc.Object, context);
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "XML type rollback");
-        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false);
+        service.AddSimaticMlTransactionOperation(draft.TransactionId, candidatePath, baselinePath, null, false, allowedChangePaths: "/Document/SW.Types.PlcStruct[@ID='0']/AttributeList/Interface/Marker");
         PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
 
         PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);

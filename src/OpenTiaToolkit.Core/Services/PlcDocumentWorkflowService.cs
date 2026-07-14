@@ -313,7 +313,8 @@ public sealed partial class PlcDocumentWorkflowService
                 errors.Add($"Line {line}: known-unsupported S7DCL instruction form '{name}'.");
                 continue;
             }
-            if (VerifiedInstructions.Contains(name))
+            bool verifiedSclCounter = name.Equals("CTU", StringComparison.OrdinalIgnoreCase) && IsSclNetworkCall(text, match.Index);
+            if (VerifiedInstructions.Contains(name) || verifiedSclCounter)
             {
                 bool inferredType = TypedInstructions.Contains(name) && !HasSourceTypeTemplateBeforeCall(text, match.Index, DualTypedInstructions.Contains(name));
                 string classification = inferredType ? "unknown-requires-live-probe" : "verified";
@@ -395,6 +396,14 @@ public sealed partial class PlcDocumentWorkflowService
         if (templateIndex < 0 || templateIndex < prefix.LastIndexOf(')')) return false;
         string nearestTemplate = prefix.Substring(templateIndex);
         return nearestTemplate.IndexOf("SrcType", StringComparison.OrdinalIgnoreCase) >= 0 && (!requireDestinationType || nearestTemplate.IndexOf("DestType", StringComparison.OrdinalIgnoreCase) >= 0);
+    }
+
+    private static bool IsSclNetworkCall(string text, int callIndex)
+    {
+        int previousEnd = text.LastIndexOf("END_NETWORK", callIndex, StringComparison.OrdinalIgnoreCase);
+        int segmentStart = previousEnd < 0 ? 0 : previousEnd + "END_NETWORK".Length;
+        string prefix = text.Substring(segmentStart, callIndex - segmentStart);
+        return Regex.IsMatch(prefix, @"S7_Language\s*:=\s*""SCL""", RegexOptions.IgnoreCase);
     }
 
     private static void ValidateBlockBoundaries(string text, string? blockType, List<string> errors)

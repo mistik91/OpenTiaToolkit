@@ -152,19 +152,21 @@ public sealed partial class PlcDocumentWorkflowService
         return transaction;
     }
 
-    public PlcCodeTransaction AddSimaticMlTransactionOperation(string transactionId, string inputPath, string baselinePath, string? groupPath, bool allowTopologyChange, string? dependsOn = null)
+    public PlcCodeTransaction AddSimaticMlTransactionOperation(string transactionId, string inputPath, string baselinePath, string? groupPath, bool allowTopologyChange, string? dependsOn = null, string? allowedChangePaths = null)
     {
         PlcCodeTransaction transaction = LoadTransaction(transactionId);
         RequireState(transaction, "Draft");
         string candidate = Path.GetFullPath(inputPath);
         string baseline = Path.GetFullPath(baselinePath);
         var formatService = new PlcCodeFormatService(this);
-        PlcCodeArtifactValidationResult validation = formatService.ValidateSimaticMl(candidate, baseline, allowTopologyChange);
+        if (string.IsNullOrWhiteSpace(allowedChangePaths)) throw new InvalidOperationException("allowed-change-paths is required for a SimaticML transaction. Validate the candidate first and authorize only the reported changedPaths.");
+        PlcCodeArtifactValidationResult validation = formatService.ValidateSimaticMl(candidate, baseline, allowTopologyChange, allowedChangePaths);
         if (!validation.Valid || !string.Equals(validation.Classification, "verified", StringComparison.Ordinal))
             throw new InvalidDataException("SimaticML patch is not baseline-verified: " + string.Join("; ", validation.Errors.Concat(validation.Warnings)));
         if (validation.DeclaredObjects.Count != 1 || !new[] { "FC", "FB", "OB", "GlobalDB", "InstanceDB", "TYPE" }.Contains(validation.DeclaredObjects[0].ObjectType, StringComparer.OrdinalIgnoreCase))
             throw new InvalidDataException("SimaticML transactions require exactly one supported PLC block or PLC type identity.");
         bool isType = validation.DeclaredObjects[0].ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase);
+        PlcCodeChangeContract changeContract = formatService.AnalyzeSimaticMlChange(candidate, baseline, allowTopologyChange, allowedChangePaths!);
         RequireCapabilityOperation(transaction, isType ? "PatchSimaticMlType" : "PatchSimaticMlBlock", isType ? "Type" : "Block", validation.DeclaredObjects[0].Name, validation.DeclaredObjects[0].ObjectType, isType ? NormalizeTypeGroupPath(groupPath) : NormalizeGroupPath(groupPath));
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
@@ -175,6 +177,8 @@ public sealed partial class PlcDocumentWorkflowService
             BaselinePath = baseline,
             ValidationBaselineHash = formatService.ComputeSimaticMlContentHash(baseline),
             AllowTopologyChange = allowTopologyChange,
+            AllowedChangePaths = changeContract.AllowedSections,
+            ChangeContract = changeContract,
             GroupPath = isType ? NormalizeTypeGroupPath(groupPath) : NormalizeGroupPath(groupPath),
             InputHash = validation.InputHash,
             ExplicitDependsOn = ParseDependencySequences(dependsOn),
@@ -597,11 +601,13 @@ public sealed partial class PlcDocumentWorkflowService
     private async Task<PlcCodeTransactionOperation> PrepareSimaticMlTransactionOperationAsync(PlcCodeTransaction transaction, PlcCodeTransactionOperation source)
     {
         var formatService = new PlcCodeFormatService(this);
-        PlcCodeArtifactValidationResult validation = formatService.ValidateSimaticMl(source.SourcePath!, source.BaselinePath, source.AllowTopologyChange);
+        PlcCodeArtifactValidationResult validation = formatService.ValidateSimaticMl(source.SourcePath!, source.BaselinePath, source.AllowTopologyChange, string.Join(",", source.AllowedChangePaths));
         if (!validation.Valid || !string.Equals(validation.Classification, "verified", StringComparison.Ordinal))
             throw new InvalidDataException($"Operation {source.Sequence} SimaticML patch is not baseline-verified: {string.Join("; ", validation.Errors.Concat(validation.Warnings))}");
         if (!FixedEquals(source.InputHash, validation.InputHash) || !FixedEquals(source.ValidationBaselineHash!, formatService.ComputeSimaticMlContentHash(source.BaselinePath!)))
             throw new InvalidOperationException($"Operation {source.Sequence} SimaticML candidate or validation baseline changed after it was added.");
+        PlcCodeChangeContract currentChangeContract = formatService.AnalyzeSimaticMlChange(source.SourcePath!, source.BaselinePath!, source.AllowTopologyChange, string.Join(",", source.AllowedChangePaths));
+        if (source.ChangeContract == null || !FixedEquals(source.ChangeContract.Fingerprint, currentChangeContract.Fingerprint)) throw new InvalidOperationException($"Operation {source.Sequence} SimaticML changed-path contract changed after it was added.");
         if (validation.DeclaredObjects.Count != 1) throw new InvalidOperationException($"Operation {source.Sequence} must contain exactly one PLC block identity.");
         PlcCodeDeclaredObject declared = validation.DeclaredObjects[0];
         if (declared.ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase))
@@ -627,6 +633,9 @@ public sealed partial class PlcDocumentWorkflowService
                 SourcePath = source.SourcePath,
                 BaselinePath = source.BaselinePath,
                 ValidationBaselineHash = source.ValidationBaselineHash,
+                AllowTopologyChange = source.AllowTopologyChange,
+                AllowedChangePaths = source.AllowedChangePaths,
+                ChangeContract = source.ChangeContract,
                 GroupPath = typeGroup,
                 Action = "Override",
                 InputHash = source.InputHash,
@@ -662,6 +671,8 @@ public sealed partial class PlcDocumentWorkflowService
             BaselinePath = source.BaselinePath,
             ValidationBaselineHash = source.ValidationBaselineHash,
             AllowTopologyChange = source.AllowTopologyChange,
+            AllowedChangePaths = source.AllowedChangePaths,
+            ChangeContract = source.ChangeContract,
             GroupPath = group,
             Action = "Override",
             InputHash = source.InputHash,
@@ -721,6 +732,11 @@ public sealed partial class PlcDocumentWorkflowService
                     throw new InvalidOperationException($"Operation {operation.Sequence} input documents changed after planning.");
                 if ((operation.Kind == "PatchSimaticMlBlock" || operation.Kind == "PatchSimaticMlType") && !FixedEquals(operation.ValidationBaselineHash!, new PlcCodeFormatService(this).ComputeSimaticMlContentHash(operation.BaselinePath!)))
                     throw new InvalidOperationException($"Operation {operation.Sequence} SimaticML validation baseline changed after planning.");
+                if (operation.Kind == "PatchSimaticMlBlock" || operation.Kind == "PatchSimaticMlType")
+                {
+                    PlcCodeChangeContract currentXmlContract = new PlcCodeFormatService(this).AnalyzeSimaticMlChange(operation.SourcePath!, operation.BaselinePath!, operation.AllowTopologyChange, string.Join(",", operation.AllowedChangePaths));
+                    if (operation.ChangeContract == null || !FixedEquals(operation.ChangeContract.Fingerprint, currentXmlContract.Fingerprint)) throw new InvalidOperationException($"Operation {operation.Sequence} SimaticML changed-path contract changed after planning.");
+                }
                 if (operation.TargetMode == "BaselineBound")
                 {
                     if (operation.ChangeContract == null || string.IsNullOrWhiteSpace(operation.AuthoringBaselineDirectory) || string.IsNullOrWhiteSpace(operation.AuthoringBaselineFileName))
@@ -1099,6 +1115,7 @@ public sealed partial class PlcDocumentWorkflowService
                 item.BaselinePath,
                 item.ValidationBaselineHash,
                 item.AllowTopologyChange,
+                item.AllowedChangePaths,
                 item.TargetMode,
                 item.AuthoringBaselineDirectory,
                 item.AuthoringBaselineFileName,

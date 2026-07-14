@@ -6,7 +6,7 @@ description: Author, modify, validate, and safely import Siemens SIMATIC SD LAD 
 # S7DCL LAD Authoring
 
 1. Read [grammar.md](references/grammar.md), [instruction-catalog.md](references/instruction-catalog.md), and the shared [format contract](../plc-code-engineering/references/format-contract.md) before changing LAD instructions.
-   Start new FC/FB/mixed blocks from the live-tested templates in `assets/`. Choose the smallest matching asset: basic Boolean/math, analog/edge, stateful FB, branch/timer, or mixed LAD/SCL.
+   Start new FC/FB/mixed blocks from the live-tested templates in `assets/`. Choose the smallest matching asset: basic Boolean/math, analog/edge, stateful FB, branch/timer, mixed LAD/SCL, or the mixed-network IEC counter.
 2. Run `discover-plc-code-capabilities` for each exact target with the LAD/mixed language and create/modify intent. Continue here only when it selects `DirectDocuments`; use VCI when selected and stop when blocked. Retain every capability id for the transaction. Export nearby blocks for naming, numbering, operands, comments, and calls. An export is evidence, not proof that every emitted form re-imports.
 3. Create UTF-8-with-BOM `.s7dcl`; create `.s7res` whenever `MLC_*` is referenced.
 4. Keep interfaces explicit. Put IEC instances in FB static data or a global DB, never FC temporary data.

@@ -9,7 +9,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `add-plc-code-transaction-operation` | PLC | `transaction-id`, `import-directory`, `file-name`, `group-path`, `import-option`, `target-mode`, `baseline-directory`, `baseline-file-name`, `allowed-changes`, `depends-on`, `confirm` | Adds a create-only or baseline-bound SIMATIC SD block change to a draft PLC code transaction |
 | `add-project-to-multiuser-server` | Multiuser | `server-alias`, `project-path`, `confirm` | Adds a closed single-user TIA project to a configured Project Server. |
 | `add-scl-source-transaction-operation` | PLC | `transaction-id`, `source-path`, `group-path`, `type-group-path`, `depends-on`, `confirm` | Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction |
-| `add-simaticml-transaction-operation` | PLC | `transaction-id`, `input-path`, `baseline-path`, `group-path`, `allow-flgnet-topology`, `depends-on`, `confirm` | Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code transaction |
+| `add-simaticml-transaction-operation` | PLC | `transaction-id`, `input-path`, `baseline-path`, `group-path`, `allow-flgnet-topology`, `allowed-change-paths`, `depends-on`, `confirm` | Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code transaction |
 | `apply-block-document-import` | PLC | `apply-token`, `confirm` | Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure |
 | `apply-blueprint` | V21 | `apply-token`, `confirm` | Applies a previously reviewed blueprint plan using its state-bound one-use token. |
 | `apply-hardware-patch` | Hardware | `operations`, `operations-path`, `dry-run`, `confirm-destructive`, `transaction-description`, `plc-name`, `safety-password-env`, `confirm` | Dry-runs or applies transactional generic TIA hardware operations |
@@ -181,7 +181,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `validate-blueprint` | V21 | `blueprint-path` | Validates a declarative engineering blueprint against the V21 worker command contract. |
 | `validate-plc-behavior-package` | PLC | `package-path` | Validates a versioned multi-artifact disposable behavior package and its required contract DB and scheduler OB |
 | `validate-plc-behavior-vector` | PLC | `vector-path` | Validates a versioned deterministic PLCSIM behavior vector without changing TIA or simulator state |
-| `validate-plc-code-artifact` | PLC | `code-format`, `input-path`, `baseline-path`, `allow-flgnet-topology` | Validates SCL, S7DCL, or SimaticML with format-specific structural and semantic guardrails |
+| `validate-plc-code-artifact` | PLC | `code-format`, `input-path`, `baseline-path`, `allow-flgnet-topology`, `allowed-change-paths` | Validates SCL, S7DCL, or SimaticML with format-specific structural and semantic guardrails |
 | `validate-plc-documents` | PLC | `import-directory`, `file-name` | Validates SIMATIC SD structure, resources, and instruction forms offline before PLC import |
 | `validate-safety-configuration` | Insights |  | Validates official SafetyAdministration availability and offline login state for the selected PLC. |
 | `version` | V21 |  | Reports toolkit, IPC, worker, runtime, and target TIA versions. |

@@ -135,6 +135,19 @@ public sealed class PlcCodeCapabilityDiscoveryServiceTests
     }
 
     [TestMethod]
+    public void EvaluateRoutes_ExplicitSimaticMl_SelectsXmlEvenWhenDocumentsAreObserved()
+    {
+        var routes = Routes(
+            new PlcCodeCapabilityRequest { ObjectName = "XmlPatch", RequestedLanguage = "LAD", RequestedFormat = "SimaticML", Operation = "Modify" },
+            new PlcCodeTargetEvidence { Exists = true, ProgrammingLanguage = "LAD" },
+            new PlcCodeVciEvidence(),
+            new PlcCodeImportExportEvidence { DocumentRouteObserved = true, SimaticMlRouteObserved = true });
+
+        Assert.AreEqual("SimaticML", routes.First(route => route.Eligible).Route);
+        Assert.IsFalse(routes.Single(route => route.Route == "DirectDocuments").Eligible);
+    }
+
+    [TestMethod]
     public void EvaluateRoutes_UnresolvedOrMissingModifyTarget_BlocksAllRoutes()
     {
         var routes = Routes(

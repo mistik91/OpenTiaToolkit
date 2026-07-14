@@ -27,7 +27,7 @@ Route precedence is evidence-based: an exact mapped VCI object is first only whe
 | S7DCL LAD/mixed | LAD power flow and mixed LAD/SCL networks | Document import | Persistent transaction for multi-object work |
 | S7DCL data | Global DBs | Document import | Persistent transaction for dependencies plus consumers |
 | Native SCL | Complex FC/FB/OB/DB/type source generation | External source generation | `add-scl-source-transaction-operation` with exact block/type groups |
-| SimaticML | Narrow fallback for existing block/type features text formats cannot preserve | Guarded XML patch/import | Baseline-bound plan and verified restore required |
+| SimaticML | Narrow fallback for existing block/type features text formats cannot preserve | Guarded XML patch/import | Baseline-bound plan, explicit changed-leaf path contract, and verified restore required |
 | VCI | Source-controlled synchronization | Explicit directional sync | Validate workspace artifacts before workspace-to-project |
 
 PLC data types are separate targets with type-group identities and canonical XML hashes. Generate them from validated SCL, patch existing ones from untouched SimaticML baselines, or use validated VCI mappings. Delete them only with `add-delete-plc-type-transaction-operation`; the transaction must snapshot the exact type, compile after deletion, verify absence, and restore XML on failure. Safety/F blocks, protected blocks, and AWL/STL generation remain outside the standard authoring contract unless a dedicated, live-proven workflow says otherwise.

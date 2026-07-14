@@ -503,6 +503,7 @@ Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code
 | `baseline-path` | Path | yes |  | Untouched SimaticML export of the exact target |
 | `group-path` | String | no |  | Exact target block or PLC type group |
 | `allow-flgnet-topology` | Boolean | no | False | Allow an explicitly reviewed FlgNet topology change |
+| `allowed-change-paths` | String | yes |  | Comma-separated exact/prefix XML paths returned by validation; required and fail-closed |
 | `depends-on` | String | no |  | Optional comma-separated operation sequences that must apply first |
 | `confirm` | Boolean | yes |  | Confirm adding the reviewed XML patch operation |
 
@@ -1192,6 +1193,7 @@ Validates SCL, S7DCL, or SimaticML with format-specific structural and semantic 
 | `input-path` | Path | yes |  | PLC code artifact path |
 | `baseline-path` | Path | no |  | Untouched exported SimaticML baseline for patch validation |
 | `allow-flgnet-topology` | Boolean | no | False | Allow reviewed FlgNet topology changes to proceed as a live probe |
+| `allowed-change-paths` | String | no |  | Optional comma-separated exact/prefix SimaticML paths to enforce after inspecting changedPaths |
 
 ### validate-plc-documents
 

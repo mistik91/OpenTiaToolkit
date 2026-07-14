@@ -1,7 +1,8 @@
 # SimaticML PLC XML Rules
 
 - Preserve every namespace and schema version emitted by the target TIA version. In V21, `Document` itself may be unqualified while nested interface sections carry Siemens namespaces.
-- Block IDs and FlgNet `UId` values are different identifier spaces; FlgNet UIds are decimal and unique in scope.
+- Block IDs and FlgNet `UId` values are different identifier spaces. FlgNet UIds are decimal; definitions are unique across direct children of `Parts` and `Wires`, while `NameCon` and `IdentCon` reuse those values as references and must resolve to a definition.
+- Review `metadata.changedPaths` and authorize only exact or parent prefixes for the requested leaves. A path contract is mandatory even when topology is unchanged.
 - Preserve block-level and per-compile-unit programming-language declarations.
 - Avoid dangling wires, missing operands, duplicate IDs, and references to removed parts.
 - XML-escape values and avoid comments inside fragile FlgNet content.

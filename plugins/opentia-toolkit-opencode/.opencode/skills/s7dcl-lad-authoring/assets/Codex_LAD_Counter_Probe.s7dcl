@@ -1,0 +1,31 @@
+﻿{
+    S7_BlockNumber := "59986";
+    S7_Optimized := "TRUE";
+    S7_PreferredLanguage := "LAD";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Codex_LAD_Counter_Probe"
+    VAR_INPUT
+        CountUp : Bool;
+        Reset : Bool;
+        Preset : Int;
+    END_VAR
+    VAR_OUTPUT
+        Done : Bool;
+        Current : Int;
+    END_VAR
+    VAR
+        CounterInstance : IEC_COUNTER;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+        #CounterInstance.CTU(
+            CU := #CountUp,
+            R := #Reset,
+            PV := #Preset,
+            Q => #Done,
+            CV => #Current
+        );
+    END_NETWORK
+END_FUNCTION_BLOCK
