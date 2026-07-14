@@ -1635,9 +1635,25 @@ OpenTiaToolkit.CLI.exe query-plc-behavior-evidence --plc-name="PLC_1" --capabili
 OpenTiaToolkit.CLI.exe run-plc-code-behavior-probe --plc-name="PLC_1" --capability-ids="<fc-id>,<db-id>,<ob-id>" --package-path="C:\probes\Behavior_Package.json" --vector-path="C:\probes\Behavior_Vector.json" --instance-name="PLCaa" --only-changes=true --confirm=true
 ```
 
-The runner records the pre-existing offline/online difference set, returns TIA offline, applies and canonically verifies one persistent transaction, downloads only to the selected local simulator, proves the comparison did not gain differences, executes typed bounded assertions, restores every written tag, rolls back all generated objects, recompiles, downloads the clean program, restores the original difference set, and verifies that disposable runtime tags are absent. Only `Verified` evidence with the same code signature, capability compatibility, vector hash, and simulator fingerprint can be reused.
+The runner records the pre-existing offline/online difference set, returns TIA offline, applies and canonically verifies one persistent transaction, downloads only to the selected local simulator, proves the comparison did not gain differences, executes typed bounded assertions, restores every written tag, rolls back all generated objects, recompiles, downloads the clean program, proves cleanup introduced no difference outside the recorded baseline set, and verifies that disposable runtime tags are absent. Reducing a pre-existing difference is safe; adding a new one is not. Only `Verified` evidence with the same code signature, capability compatibility, vector hash, and simulator fingerprint can be reused.
 
 `Quarantined` means either offline or simulator cleanup is unproven. Do not start another probe over it. Reconnect the exact project/PLC and run `recover-plc-code-behavior-probe --evidence-id="<id>" --only-changes=true --confirm=true`. Recovery can turn the record into non-reusable `Failed` evidence with `cleanupProven=true`; it never promotes behavior.
+
+#### Repeatable PLC code engineering end-to-end fixture
+
+`scripts/Test-PlcCodeEngineeringE2E.ps1` exercises the complete guarded workflow through one stateful MCP session: capability discovery, disposable S7DCL qualification, evidence-bound production creation, untouched-baseline export, separately qualified baseline-bound modification, canonical compile/readback, deterministic PLCSIM behavior, cleanup download/comparison, transaction disposal, final compile, and exact zero-residue checks. It generates unique `Codex_E2E_*` names and refuses to start if any stale `Codex_E2E_*` or `Codex_Behavior_*` block exists.
+
+Build the exact V21 worker and run `scripts/Register-OpennessAllowList.ps1` before the fixture. TIA Portal must already have the intended project open; the selected PLCSIM Advanced instance must be powered and match the PLC controller/article number. Full downloads are not attempted by default. `-SynchronizeSimulatorBaseline` explicitly permits a simulator-only software-changes download before behavioral probing; omit it when the existing offline/online difference set must remain untouched.
+
+```powershell
+.\scripts\Test-PlcCodeEngineeringE2E.ps1 `
+  -ExecutablePath .\src\OpenTiaToolkit.MCP\bin\Release\net48\OpenTiaToolkit.MCP.exe `
+  -WorkerPath .\src\OpenTiaToolkit.Worker.V21\bin\Release\net48\OpenTiaToolkit.Worker.V21.exe `
+  -TiaProcessId 1234 -PlcName PLC_1 -InstanceName PLCsim1 `
+  -OutputPath "$env:TEMP\OpenTiaToolkit\plc-code-e2e-result.json"
+```
+
+Use `-SkipBehavior` for the offline qualification/promotion fixture only. The script's `finally` block attempts exact cleanup, but a failed run that reports quarantined behavior remains an incident: recover its evidence explicitly and verify the reserved prefixes plus a clean compile before rerunning.
 
 #### import-block-from-docs
 

@@ -129,7 +129,7 @@ public sealed partial class PlcDocumentWorkflowService
             behavior.OnlineStatus = await _plcService.GetOnlineStatusAsync(true).ConfigureAwait(false);
             if (!behavior.OnlineStatus.Success || !behavior.OnlineStatus.IsOnline) throw new InvalidOperationException("TIA could not prove the selected PLC online after simulator download: " + behavior.OnlineStatus.Message);
             behavior.ProbeCompare = CompactCompare(await _plcService.CompareSoftwareToOnlineAsync().ConfigureAwait(false));
-            if (!behavior.ProbeCompare.Success || !behavior.ProbeCompare.ComparedToOnline || !SameCompareDifferences(behavior.BaselineCompare, behavior.ProbeCompare)) throw new InvalidOperationException("Offline/online comparison introduced differences beyond the recorded baseline: " + behavior.ProbeCompare.Message);
+            if (!behavior.ProbeCompare.Success || !behavior.ProbeCompare.ComparedToOnline || !HasNoNewCompareDifferences(behavior.BaselineCompare, behavior.ProbeCompare)) throw new InvalidOperationException("Offline/online comparison introduced differences beyond the recorded baseline: " + behavior.ProbeCompare.Message);
             behavior.LifecycleState = "SimulatorProbeVerified";
             _evidenceRegistry.Save(evidence);
 
@@ -149,6 +149,7 @@ public sealed partial class PlcDocumentWorkflowService
             behavior.LifecycleState = "OfflineCleanupVerified";
             _evidenceRegistry.Save(evidence);
             await ProveSimulatorCleanupAsync(evidence, simulator, owners, onlyChanges).ConfigureAwait(false);
+            await RequireBehaviorOfflineAsync("after simulator cleanup verification").ConfigureAwait(false);
             CompleteBehaviorEvidence(evidence, "Verified", cleanup, string.Empty);
             DiscardTransaction(transactionId);
             return new PlcCodeBehaviorProbeRunResult { Evidence = evidence, ApplyResult = apply, CleanupResult = cleanup };
@@ -156,6 +157,8 @@ public sealed partial class PlcDocumentWorkflowService
         catch (Exception ex)
         {
             string failure = Message(ex);
+            try { await RequireBehaviorOfflineAsync("before behavioral failure cleanup").ConfigureAwait(false); }
+            catch (Exception offlineError) { failure += " Offline transition failed: " + Message(offlineError); }
             bool offlineClean = string.IsNullOrWhiteSpace(transactionId);
             if (!string.IsNullOrWhiteSpace(transactionId))
             {
@@ -168,6 +171,7 @@ public sealed partial class PlcDocumentWorkflowService
                 catch (Exception cleanupError) { failure += " Offline cleanup failed: " + Message(cleanupError); offlineClean = false; }
             }
             bool simulatorClean = !simulatorMayContainProbe;
+            if (simulatorClean) behavior.SimulatorCleanupProven = true;
             if (offlineClean && simulatorMayContainProbe)
             {
                 try { await ProveSimulatorCleanupAsync(evidence, simulator, owners, onlyChanges).ConfigureAwait(false); simulatorClean = behavior.SimulatorCleanupProven; }
@@ -191,10 +195,12 @@ public sealed partial class PlcDocumentWorkflowService
         PlcCodeTransactionApplyResult? cleanup = null;
         try
         {
+            await RequireBehaviorOfflineAsync("before behavioral recovery").ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(evidence.TransactionId)) cleanup = await CleanupBehaviorTransactionAsync(evidence.TransactionId).ConfigureAwait(false);
             bool offlineClean = string.IsNullOrWhiteSpace(evidence.TransactionId) || cleanup?.RolledBackAndVerified == true || IsTransactionClean(evidence.TransactionId);
             if (!offlineClean) throw new InvalidOperationException("Offline transaction recovery was not proven.");
             await ProveSimulatorCleanupAsync(evidence, behavior.Simulator!, owners, onlyChanges).ConfigureAwait(false);
+            await RequireBehaviorOfflineAsync("after behavioral recovery verification").ConfigureAwait(false);
             CompleteBehaviorEvidence(evidence, "Failed", cleanup, "Interrupted behavioral run recovered; behavioral evidence was not promoted.");
             if (!string.IsNullOrWhiteSpace(evidence.TransactionId)) DiscardTransaction(evidence.TransactionId);
         }
@@ -205,27 +211,41 @@ public sealed partial class PlcDocumentWorkflowService
     private async Task ProveSimulatorCleanupAsync(PlcCodeEvidenceRecord evidence, PlcSimulatorCapabilityDiscovery simulator, IReadOnlyList<string> owners, bool onlyChanges)
     {
         PlcCodeBehaviorEvidence behavior = evidence.Behavior!;
-        behavior.CleanupDownload = await _plcService.DownloadSoftwareAsync(true, false, true, onlyChanges).ConfigureAwait(false);
-        if (!behavior.CleanupDownload.Success) throw new InvalidOperationException("Cleanup download failed: " + behavior.CleanupDownload.Message);
-        behavior.OnlineStatus = await _plcService.GetOnlineStatusAsync(true).ConfigureAwait(false);
-        if (!behavior.OnlineStatus.Success || !behavior.OnlineStatus.IsOnline) throw new InvalidOperationException("TIA could not establish an online connection for cleanup verification: " + behavior.OnlineStatus.Message);
-        behavior.CleanupCompare = CompactCompare(await _plcService.CompareSoftwareToOnlineAsync().ConfigureAwait(false));
-        bool compareClean = behavior.BaselineCompare != null
-            ? SameCompareDifferences(behavior.BaselineCompare, behavior.CleanupCompare)
-            : !CompareMentionsOwners(behavior.CleanupCompare, owners);
-        if (!behavior.CleanupCompare.Success || !behavior.CleanupCompare.ComparedToOnline || !compareClean) throw new InvalidOperationException("Cleanup online comparison failed or still references disposable probe objects: " + behavior.CleanupCompare.Message);
-        if (!_simulationRuntime.AreTagsAbsent(simulator, owners, out string absentFailure)) throw new InvalidOperationException(absentFailure);
-        behavior.SimulatorCleanupProven = true;
-        behavior.LifecycleState = "CleanupVerified";
-        _evidenceRegistry.Save(evidence);
+        try
+        {
+            behavior.CleanupDownload = await _plcService.DownloadSoftwareAsync(true, false, true, onlyChanges).ConfigureAwait(false);
+            if (!behavior.CleanupDownload.Success) throw new InvalidOperationException("Cleanup download failed: " + behavior.CleanupDownload.Message);
+            behavior.OnlineStatus = await _plcService.GetOnlineStatusAsync(true).ConfigureAwait(false);
+            if (!behavior.OnlineStatus.Success || !behavior.OnlineStatus.IsOnline) throw new InvalidOperationException("TIA could not establish an online connection for cleanup verification: " + behavior.OnlineStatus.Message);
+            behavior.CleanupCompare = CompactCompare(await _plcService.CompareSoftwareToOnlineAsync().ConfigureAwait(false));
+            bool compareClean = behavior.BaselineCompare != null
+                ? HasNoNewCompareDifferences(behavior.BaselineCompare, behavior.CleanupCompare)
+                : !CompareMentionsOwners(behavior.CleanupCompare, owners);
+            if (!behavior.CleanupCompare.Success || !behavior.CleanupCompare.ComparedToOnline || !compareClean) throw new InvalidOperationException("Cleanup online comparison failed or still references disposable probe objects: " + behavior.CleanupCompare.Message);
+            if (!_simulationRuntime.AreTagsAbsent(simulator, owners, out string absentFailure)) throw new InvalidOperationException(absentFailure);
+            behavior.SimulatorCleanupProven = true;
+            behavior.LifecycleState = "CleanupVerified";
+            _evidenceRegistry.Save(evidence);
+        }
+        finally
+        {
+            await RequireBehaviorOfflineAsync("after simulator cleanup comparison").ConfigureAwait(false);
+        }
     }
 
     private async Task<PlcCodeTransactionApplyResult?> CleanupBehaviorTransactionAsync(string transactionId)
     {
+        await RequireBehaviorOfflineAsync("before deleting disposable behavioral objects").ConfigureAwait(false);
         PlcCodeTransaction current = GetTransaction(transactionId);
         if (current.State == "Succeeded") return await DisposeSuccessfulProbeTransactionAsync(transactionId).ConfigureAwait(false);
         if (new[] { "Applying", "Verifying", "DisposingProbe", "RollingBack", "RecoveryRequired" }.Contains(current.State, StringComparer.Ordinal)) return await RecoverTransactionAsync(transactionId).ConfigureAwait(false);
         return null;
+    }
+
+    private async Task RequireBehaviorOfflineAsync(string phase)
+    {
+        PlcOnlineStatusResult status = await _plcService.GoOfflineAsync().ConfigureAwait(false);
+        if (!status.Success || status.IsOnline) throw new InvalidOperationException("TIA could not return offline " + phase + ": " + status.Message);
     }
 
     private bool IsTransactionClean(string transactionId)
@@ -255,9 +275,11 @@ public sealed partial class PlcDocumentWorkflowService
     }
     private static bool IsDataBlock(PlcCodeDeclaredObject item) => item.ObjectType.Equals("DB", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("DATA_BLOCK", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("GlobalDB", StringComparison.OrdinalIgnoreCase);
     private static bool SameSimulator(PlcSimulatorInstanceCapability left, PlcSimulatorInstanceCapability right) => left.Id == right.Id && left.Name.Equals(right.Name, StringComparison.OrdinalIgnoreCase) && left.ArticleNumber.Equals(right.ArticleNumber, StringComparison.OrdinalIgnoreCase);
-    private static bool SameCompareDifferences(PlcSoftwareCompareResult baseline, PlcSoftwareCompareResult current) =>
-        baseline.Entries.Where(item => item.HasDifference).Select(CompareIdentity).OrderBy(value => value, StringComparer.Ordinal).SequenceEqual(
-            current.Entries.Where(item => item.HasDifference).Select(CompareIdentity).OrderBy(value => value, StringComparer.Ordinal), StringComparer.Ordinal);
+    internal static bool HasNoNewCompareDifferences(PlcSoftwareCompareResult baseline, PlcSoftwareCompareResult current)
+    {
+        var allowed = new HashSet<string>(baseline.Entries.Where(item => item.HasDifference).Select(CompareIdentity), StringComparer.Ordinal);
+        return current.Entries.Where(item => item.HasDifference).Select(CompareIdentity).All(allowed.Contains);
+    }
     private static string CompareIdentity(PlcSoftwareCompareEntry item) => string.Join("\u001f", item.Path, item.State, item.LeftName ?? string.Empty, item.RightName ?? string.Empty, item.Detail ?? string.Empty);
     private static PlcSoftwareCompareResult CompactCompare(PlcSoftwareCompareResult result) => new PlcSoftwareCompareResult(result.Success, result.ComparedToOnline, result.Message, result.Entries.Where(item => item.HasDifference).ToArray());
     private static bool CompareMentionsOwners(PlcSoftwareCompareResult compare, IEnumerable<string> owners) => compare.Entries.Where(item => item.HasDifference).Any(item => owners.Any(owner =>

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services;
 
 namespace OpenTiaToolkit.Tests.Services;
@@ -19,6 +20,18 @@ public sealed class PlcBehaviorVectorServiceTests
 
     [TestCleanup]
     public void Cleanup() { if (Directory.Exists(_root)) Directory.Delete(_root, true); }
+
+    [TestMethod]
+    public void CompareGuard_AcceptsRemovedBaselineDifferencesButRejectsNewOnes()
+    {
+        var known = new PlcSoftwareCompareEntry("Program/Old", "Different", "Old", "Old", "known", true);
+        var unexpected = new PlcSoftwareCompareEntry("Program/New", "Different", "New", "New", "unexpected", true);
+        var baseline = new PlcSoftwareCompareResult(true, true, "baseline", new[] { known });
+
+        Assert.IsTrue(PlcDocumentWorkflowService.HasNoNewCompareDifferences(baseline, new PlcSoftwareCompareResult(true, true, "synchronized")));
+        Assert.IsTrue(PlcDocumentWorkflowService.HasNoNewCompareDifferences(baseline, new PlcSoftwareCompareResult(true, true, "unchanged", new[] { known })));
+        Assert.IsFalse(PlcDocumentWorkflowService.HasNoNewCompareDifferences(baseline, new PlcSoftwareCompareResult(true, true, "new", new[] { known, unexpected })));
+    }
 
     [TestMethod]
     public void Validate_AcceptsDeterministicOwnedVector()
