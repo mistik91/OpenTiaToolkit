@@ -1315,6 +1315,7 @@ public class PlcDocumentWorkflowServiceTests
         var software = (FakePlcSoftware)context.PlcSoftware!;
         var plc = OpenPlcMock();
         plc.Setup(service => service.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<BlockInfo>());
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
         plc.Setup(service => service.GetSoftwareTreeAsync(null)).ReturnsAsync((SoftwareTreeNode?)null);
         plc.Setup(service => service.GetCrossReferencesAsync("DisposableProbe")).ReturnsAsync(new PlcCrossReferenceResult(true, "DisposableProbe", "No external PLC consumers."));
         plc.Setup(service => service.ImportBlockFromDocumentsAsync(_directory, "DisposableProbe", "", "Override"))
@@ -1356,6 +1357,7 @@ public class PlcDocumentWorkflowServiceTests
         context.AttachedPortalProcessId = 42;
         var plc = OpenPlcMock();
         plc.Setup(service => service.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<BlockInfo>());
+        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
         var discovery = new PlcCodeCapabilityDiscoveryService(
             plc.Object,
             new Mock<IVciService>().Object,
@@ -1382,6 +1384,9 @@ public class PlcDocumentWorkflowServiceTests
         };
         registry.Save(evidence);
 
+        StringAssert.Contains((await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.BeginPromotedTransactionAsync("PLC_1", evidence.EvidenceId, capability.CapabilityId, "s7dcl", validation.InputPath, "invalid", null, null, "AutoSave", "None"))).Message, "save-decision");
+        StringAssert.Contains((await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.BeginPromotedTransactionAsync("PLC_1", evidence.EvidenceId, capability.CapabilityId, "s7dcl", validation.InputPath, "invalid", null, null, "Defer", "CommitDirectly"))).Message, "source-control-decision");
+
         PlcCodeTransaction transaction = await service.BeginPromotedTransactionAsync("PLC_1", evidence.EvidenceId, capability.CapabilityId, "s7dcl", validation.InputPath, "production promotion", null, null, "Defer", "None");
         service.AddTransactionOperation(transaction.TransactionId, _directory, "ProductionShape", null, "Override", targetMode: "create-only");
         WriteUtf8Bom("ProductionShape.s7dcl", production.Replace("RUNG wire#powerrail END_RUNG", "RUNG wire#powerrail Coil( #Changed ) END_RUNG"));
@@ -1390,6 +1395,24 @@ public class PlcDocumentWorkflowServiceTests
 
         StringAssert.Contains(error.Message, "artifact changed");
         Assert.IsTrue(service.DiscardTransaction(transaction.TransactionId));
+
+        WriteUtf8Bom("ProductionShape.s7dcl", production);
+        PlcCodeTransaction injected = await service.BeginPromotedTransactionAsync("PLC_1", evidence.EvidenceId, capability.CapabilityId, "s7dcl", validation.InputPath, "operation injection", null, null, "Defer", "None");
+        service.AddTransactionOperation(injected.TransactionId, _directory, "ProductionShape", null, "Override", targetMode: "create-only");
+        service.AddTransactionOperation(injected.TransactionId, _directory, "ProductionShape", null, "Override", targetMode: "create-only");
+
+        StringAssert.Contains((await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(injected.TransactionId))).Message, "exactly one operation");
+        Assert.IsTrue(service.DiscardTransaction(injected.TransactionId));
+
+        PlcCodeTransaction revoked = await service.BeginPromotedTransactionAsync("PLC_1", evidence.EvidenceId, capability.CapabilityId, "s7dcl", validation.InputPath, "revoked before apply", null, null, "Defer", "None");
+        service.AddTransactionOperation(revoked.TransactionId, _directory, "ProductionShape", null, "Override", targetMode: "create-only");
+        PlcCodeTransaction revokedPlan = await service.PlanTransactionAsync(revoked.TransactionId);
+        evidence.CleanupProven = false;
+        registry.Save(evidence);
+
+        StringAssert.Contains((await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.ApplyTransactionAsync(revokedPlan.TransactionId, revokedPlan.ApplyToken!))).Message, "cleanup");
+        Assert.AreEqual("Stale", service.GetTransaction(revokedPlan.TransactionId).State);
+        Assert.IsTrue(service.DiscardTransaction(revokedPlan.TransactionId));
     }
 
     [TestMethod]
@@ -1422,6 +1445,28 @@ public class PlcDocumentWorkflowServiceTests
         InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.BeginPromotedTransactionAsync("PLC_1", evidence.EvidenceId, capability.CapabilityId, "s7dcl", validation.InputPath, "unsafe", null, null, "Defer", "None"));
 
         StringAssert.Contains(error.Message, "cleanup");
+    }
+
+    [TestMethod]
+    public async Task Promotion_RejectsFailSafeTargetBeforeEvidenceLookup()
+    {
+        WriteUtf8Bom("SafetyShape.s7dcl", "{ S7_PreferredLanguage := \"LAD\" }\r\nFUNCTION \"SafetyShape\" : Void\r\nEND_FUNCTION");
+        var context = ContextWithGroups();
+        context.AttachedPortalProcessId = 42;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<BlockInfo>());
+        var discovery = new PlcCodeCapabilityDiscoveryService(
+            plc.Object,
+            new Mock<IVciService>().Object,
+            context,
+            environmentProvider: name => Task.FromResult(new PlcCodeEnvironmentEvidence { TiaProcessId = 42, TiaVersion = "V21 Update 2", TiaBuild = "21.0.2", PlcName = name, PlcFamily = "S7-1500", PlcTypeIdentifier = "CPU 1511" }),
+            safetyProvider: target => new PlcCodeSafetyEvidence { IsFailSafeTarget = true, MutationBlocked = true, Reason = "Safety authorization is unavailable." });
+        PlcCodeCapabilityDiscovery capability = await discovery.DiscoverAsync(new PlcCodeCapabilityRequest { PlcName = "PLC_1", ObjectKind = "Block", ObjectName = "SafetyShape", Operation = "Create", BlockType = "FC", RequestedLanguage = "LAD", RequestedFormat = "S7DCL" });
+        var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, new PlcCodeEvidenceRegistry(Path.Combine(_directory, "promotion-evidence")));
+
+        InvalidOperationException error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.BeginPromotedTransactionAsync("PLC_1", Guid.NewGuid().ToString("N"), capability.CapabilityId, "s7dcl", Path.Combine(_directory, "SafetyShape.s7dcl"), "safety", null, null, "Defer", "None"));
+
+        StringAssert.Contains(error.Message, "fail-safe");
     }
 
     [TestMethod]

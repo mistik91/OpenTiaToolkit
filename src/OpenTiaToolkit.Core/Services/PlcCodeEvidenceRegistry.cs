@@ -45,12 +45,14 @@ public sealed class PlcCodeEvidenceRegistry
     public IReadOnlyList<PlcCodeEvidenceRecord> FindVerified(string compatibilityFingerprint, string qualificationSignature) =>
         List("Verified", null)
             .Where(record => !record.EvidenceKind.Equals("Behavior", StringComparison.OrdinalIgnoreCase))
+            .Where(record => record.CleanupProven)
             .Where(record => FixedEquals(record.Compatibility.Fingerprint, compatibilityFingerprint) && FixedEquals(record.QualificationSignature, qualificationSignature))
             .ToArray();
 
     public IReadOnlyList<PlcCodeEvidenceRecord> FindVerifiedBehavior(string compatibilityFingerprint, string qualificationSignature, string vectorHash, string simulatorFingerprint) =>
         List("Verified", null)
             .Where(record => record.EvidenceKind.Equals("Behavior", StringComparison.OrdinalIgnoreCase) && record.Behavior != null)
+            .Where(record => record.CleanupProven)
             .Where(record => FixedEquals(record.Compatibility.Fingerprint, compatibilityFingerprint) && FixedEquals(record.QualificationSignature, qualificationSignature))
             .Where(record => FixedEquals(record.Behavior!.VectorHash, vectorHash) && FixedEquals(record.Behavior.SimulatorFingerprint, simulatorFingerprint))
             .ToArray();
