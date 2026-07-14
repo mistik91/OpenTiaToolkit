@@ -13,7 +13,7 @@ namespace OpenTiaToolkit.Core.Services;
 
 public sealed class PlcCodeFormatService
 {
-    public const string ValidatorCatalogVersion = "plc-code-formats/1.1";
+    public const string ValidatorCatalogVersion = "plc-code-formats/1.2";
     private static readonly Regex SclDeclarationRegex = new Regex(@"(?im)^\s*(FUNCTION_BLOCK|FUNCTION|ORGANIZATION_BLOCK|DATA_BLOCK|TYPE)\s+(?:""(?<quoted>[^""]+)""|(?<plain>[^\s:]+))", RegexOptions.Compiled);
     private static readonly Regex SclCallRegex = new Regex(@"(?im)(?<![#\w])(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*\(", RegexOptions.Compiled);
     private static readonly Regex StatefulTypeRegex = new Regex(@"\b(TON|TOF|TP|TON_TIME|TOF_TIME|TP_TIME|IEC_TIMER|R_TRIG|F_TRIG|CTU|CTD|CTUD|IEC_COUNTER)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -222,6 +222,82 @@ public sealed class PlcCodeFormatService
         canonical.Root!.Elements().Where(element => element.Name.LocalName == "Engineering" || element.Name.LocalName == "DocumentInfo").Remove();
         foreach (XText whitespace in canonical.DescendantNodes().OfType<XText>().Where(node => string.IsNullOrWhiteSpace(node.Value)).ToArray()) whitespace.Remove();
         return Hash(Encoding.UTF8.GetBytes(canonical.ToString(SaveOptions.DisableFormatting)));
+    }
+
+    public PlcCodeChangeContract AnalyzeS7DclChange(string candidateDirectory, string candidateFileName, string baselineDirectory, string baselineFileName, string? allowedChanges)
+    {
+        PlcDocumentValidationResult candidate = _documentWorkflow.Validate(candidateDirectory, candidateFileName);
+        PlcDocumentValidationResult baseline = _documentWorkflow.Validate(baselineDirectory, baselineFileName);
+        if (!candidate.Valid) throw new InvalidDataException("Candidate SIMATIC SD documents are invalid: " + string.Join("; ", candidate.Errors));
+        if (!baseline.Valid) throw new InvalidDataException("Baseline SIMATIC SD documents are invalid: " + string.Join("; ", baseline.Errors));
+        if (!string.Equals(candidate.BlockName, baseline.BlockName, StringComparison.Ordinal) ||
+            !string.Equals(candidate.BlockType, baseline.BlockType, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(candidate.BlockNumber ?? string.Empty, baseline.BlockNumber ?? string.Empty, StringComparison.Ordinal))
+            throw new InvalidDataException("Baseline-bound modification must preserve the exact block name, type, and number.");
+
+        string[] allowed = ParseAllowedS7DclSections(allowedChanges);
+        string candidateText = ReadUtf8(candidate.S7dclPath);
+        string baselineText = ReadUtf8(baseline.S7dclPath);
+        IReadOnlyDictionary<string, string> candidateSections = S7DclSections(candidateText, candidate.S7resPath);
+        IReadOnlyDictionary<string, string> baselineSections = S7DclSections(baselineText, baseline.S7resPath);
+        string[] changed = new[] { "Attributes", "Interface", "Implementation", "Resources" }
+            .Where(section => !string.Equals(candidateSections[section], baselineSections[section], StringComparison.Ordinal))
+            .ToArray();
+        if (changed.Length == 0) throw new InvalidDataException("Baseline-bound modification is a no-op; candidate and baseline have no semantic section changes.");
+        string[] unauthorized = changed.Where(section => !allowed.Contains(section, StringComparer.OrdinalIgnoreCase)).ToArray();
+        if (unauthorized.Length > 0) throw new InvalidDataException("Candidate changes unauthorized S7DCL section(s): " + string.Join(", ", unauthorized) + ".");
+        string baselineHash = HashDocumentArtifact(baseline.S7dclPath, baseline.S7resPath);
+        string candidateHash = HashDocumentArtifact(candidate.S7dclPath, candidate.S7resPath);
+        string fingerprint = Hash(Encoding.UTF8.GetBytes("s7dcl-change/1.0|" + baselineHash + "|" + candidateHash + "|" + string.Join(",", allowed) + "|" + string.Join(",", changed)));
+        return new PlcCodeChangeContract
+        {
+            Mode = "BaselineBound",
+            BaselineHash = baselineHash,
+            CandidateHash = candidateHash,
+            Fingerprint = fingerprint,
+            AllowedSections = allowed,
+            ChangedSections = changed
+        };
+    }
+
+    private static string[] ParseAllowedS7DclSections(string? value)
+    {
+        string[] allowed = (value ?? string.Empty).Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(item => item.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        string[] supported = { "Attributes", "Interface", "Implementation", "Resources" };
+        string[] invalid = allowed.Where(item => !supported.Contains(item, StringComparer.OrdinalIgnoreCase)).ToArray();
+        if (invalid.Length > 0) throw new InvalidDataException("Unsupported allowed-changes value(s): " + string.Join(", ", invalid) + ".");
+        if (allowed.Length == 0) throw new InvalidDataException("baseline-bound requires at least one allowed-changes section.");
+        return supported.Where(item => allowed.Contains(item, StringComparer.OrdinalIgnoreCase)).ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, string> S7DclSections(string text, string? resourcePath)
+    {
+        Match declaration = Regex.Match(text, @"(?im)^\s*(?:FUNCTION_BLOCK|FUNCTION|DATA_BLOCK|ORGANIZATION_BLOCK)\b[^\r\n]*");
+        if (!declaration.Success) throw new InvalidDataException("S7DCL declaration could not be segmented for change analysis.");
+        string attributes = NormalizeSection(text.Substring(0, declaration.Index));
+        string remainder = text.Substring(declaration.Index + declaration.Length);
+        MatchCollection interfaceMatches = Regex.Matches(remainder, @"(?is)\bVAR(?:_INPUT|_OUTPUT|_IN_OUT|_TEMP|_CONSTANT|_EXTERNAL)?\b.*?\bEND_VAR\b");
+        string interfaces = NormalizeSection(string.Join("\n", interfaceMatches.Cast<Match>().Select(match => match.Value)));
+        string implementation = remainder;
+        foreach (Match match in interfaceMatches.Cast<Match>().Reverse()) implementation = implementation.Remove(match.Index, match.Length);
+        implementation = Regex.Replace(implementation, @"(?im)^\s*END_(?:FUNCTION|FUNCTION_BLOCK|DATA_BLOCK|ORGANIZATION_BLOCK)\s*$", string.Empty);
+        string resources = resourcePath != null && File.Exists(resourcePath) ? NormalizeSection(ReadUtf8(resourcePath)) : string.Empty;
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Attributes"] = attributes,
+            ["Interface"] = interfaces,
+            ["Implementation"] = NormalizeSection(implementation),
+            ["Resources"] = resources
+        };
+    }
+
+    private static string NormalizeSection(string value) => string.Join("\n", value.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Select(line => line.TrimEnd())).Trim();
+    private static string ReadUtf8(string path) => new UTF8Encoding(false, true).GetString(File.ReadAllBytes(path)).TrimStart('\uFEFF');
+    private static string HashDocumentArtifact(string s7dclPath, string? s7resPath)
+    {
+        byte[] document = File.ReadAllBytes(s7dclPath);
+        byte[] resource = s7resPath != null && File.Exists(s7resPath) ? File.ReadAllBytes(s7resPath) : Array.Empty<byte>();
+        return Hash(document.Concat(new byte[] { 0 }).Concat(resource).ToArray());
     }
     private static string NormalizeFormat(string format, string path) { string value = (format ?? string.Empty).Trim().ToUpperInvariant(); if (value.Length > 0 && value != "AUTO") return value.Replace("-LAD", string.Empty).Replace("-DATA", string.Empty); string extension = Path.GetExtension(path).ToLowerInvariant(); return extension == ".scl" ? "SCL" : extension == ".xml" ? "SIMATICML" : "S7DCL"; }
     private static string DecodeUtf8(byte[] bytes, List<string> errors, string label) { if (bytes.Length == 0) return string.Empty; try { return new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF'); } catch (DecoderFallbackException ex) { errors.Add($"{label} is not valid UTF-8: {ex.Message}"); return string.Empty; } }

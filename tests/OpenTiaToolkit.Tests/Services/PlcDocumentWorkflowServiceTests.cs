@@ -1322,6 +1322,31 @@ public class PlcDocumentWorkflowServiceTests
         Assert.IsFalse(Directory.Exists(Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", result.Evidence.TransactionId)));
     }
 
+    [TestMethod]
+    public async Task Transaction_CreateOnlyAndBaselineBoundModes_FailClosedBeforeMutation()
+    {
+        const string baseline = "{ S7_BlockNumber := \"62001\" }\r\nFUNCTION \"Guarded\" : Void\r\nEND_FUNCTION";
+        WriteUtf8Bom("Guarded.s7dcl", baseline.Replace("END_FUNCTION", "// reviewed implementation\r\nEND_FUNCTION"));
+        string baselineDirectory = Path.Combine(_directory, "untouched");
+        Directory.CreateDirectory(baselineDirectory);
+        File.WriteAllText(Path.Combine(baselineDirectory, "Guarded.s7dcl"), baseline, new UTF8Encoding(true));
+        var existing = new FakeBlock { Name = "Guarded", Type = "FC", Number = 62001, ExportContent = baseline };
+        var context = ContextWithGroups(("", existing));
+        var plc = OpenPlcMock();
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+
+        PlcCodeTransaction createDraft = await service.BeginTransactionAsync("PLC_1", "must not override");
+        service.AddTransactionOperation(createDraft.TransactionId, _directory, "Guarded", null, "Override", targetMode: "create-only");
+        StringAssert.Contains((await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(createDraft.TransactionId))).Message, "create-only");
+        Assert.IsTrue(service.DiscardTransaction(createDraft.TransactionId));
+
+        File.WriteAllText(Path.Combine(baselineDirectory, "Guarded.s7dcl"), baseline.Replace("62001", "62002"), new UTF8Encoding(true));
+        PlcCodeTransaction modifyDraft = await service.BeginTransactionAsync("PLC_1", "must bind exact baseline");
+        Assert.ThrowsException<InvalidDataException>(() => service.AddTransactionOperation(modifyDraft.TransactionId, _directory, "Guarded", null, "Override", targetMode: "baseline-bound", baselineDirectory: baselineDirectory, baselineFileName: "Guarded", allowedChanges: "Implementation"));
+        plc.Verify(item => item.ImportBlockFromDocumentsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(modifyDraft.TransactionId));
+    }
+
     private static Mock<IPlcService> OpenPlcMock()
     {
         var plc = new Mock<IPlcService>();

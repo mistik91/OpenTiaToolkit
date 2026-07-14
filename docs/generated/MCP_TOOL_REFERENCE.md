@@ -6,7 +6,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 |---|---|---|---|
 | `add-delete-plc-type-transaction-operation` | PLC | `transaction-id`, `type-name`, `group-path`, `depends-on`, `confirm` | Adds an exact PLC type deletion with XML snapshot and rollback proof to a persistent PLC code transaction |
 | `add-device` | Portal | `order-number`, `version`, `name`, `confirm` | Adds a device with its primary item to the current project |
-| `add-plc-code-transaction-operation` | PLC | `transaction-id`, `import-directory`, `file-name`, `group-path`, `import-option`, `depends-on`, `confirm` | Adds a validated SIMATIC SD block upsert to a draft PLC code transaction |
+| `add-plc-code-transaction-operation` | PLC | `transaction-id`, `import-directory`, `file-name`, `group-path`, `import-option`, `target-mode`, `baseline-directory`, `baseline-file-name`, `allowed-changes`, `depends-on`, `confirm` | Adds a create-only or baseline-bound SIMATIC SD block change to a draft PLC code transaction |
 | `add-project-to-multiuser-server` | Multiuser | `server-alias`, `project-path`, `confirm` | Adds a closed single-user TIA project to a configured Project Server. |
 | `add-scl-source-transaction-operation` | PLC | `transaction-id`, `source-path`, `group-path`, `type-group-path`, `depends-on`, `confirm` | Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction |
 | `add-simaticml-transaction-operation` | PLC | `transaction-id`, `input-path`, `baseline-path`, `group-path`, `allow-flgnet-topology`, `depends-on`, `confirm` | Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code transaction |

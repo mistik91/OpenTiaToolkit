@@ -34,7 +34,7 @@ public sealed class AddPlcCodeTransactionOperationCommand : ICommand
     private readonly PlcDocumentWorkflowService _service;
     public AddPlcCodeTransactionOperationCommand(PlcDocumentWorkflowService service) => _service = service;
     public string Name => "add-plc-code-transaction-operation";
-    public string Description => "Adds a validated SIMATIC SD block upsert to a draft PLC code transaction";
+    public string Description => "Adds a create-only or baseline-bound SIMATIC SD block change to a draft PLC code transaction";
     public CommandSchema Schema => new CommandSchema(Description, new[]
     {
         new CommandParameter("transaction-id", CommandParameterType.String, "Draft transaction id", true),
@@ -42,13 +42,17 @@ public sealed class AddPlcCodeTransactionOperationCommand : ICommand
         new CommandParameter("file-name", CommandParameterType.String, "Block/file name without extension", true),
         new CommandParameter("group-path", CommandParameterType.String, "Exact target block group", false),
         new CommandParameter("import-option", CommandParameterType.String, "Siemens document import option", false, "Override"),
+        new CommandParameter("target-mode", CommandParameterType.String, "create-only (default) or baseline-bound", false, "create-only"),
+        new CommandParameter("baseline-directory", CommandParameterType.Path, "Directory containing the untouched exported S7DCL/S7RES pair; required for baseline-bound", false),
+        new CommandParameter("baseline-file-name", CommandParameterType.String, "Untouched baseline file name without extension; defaults to file-name", false),
+        new CommandParameter("allowed-changes", CommandParameterType.String, "Comma-separated authorized sections: Attributes, Interface, Implementation, Resources", false),
         new CommandParameter("depends-on", CommandParameterType.String, "Optional comma-separated operation sequences that must apply first", false),
         new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding this local manifest operation", true)
     });
     public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         if (!args.GetBool("confirm")) return Task.FromResult(CommandResult.CreateFailure("Adding a PLC code transaction operation requires confirm=true."));
-        PlcCodeTransaction result = _service.AddTransactionOperation(args.GetString("transaction-id"), args.GetString("import-directory"), args.GetString("file-name"), args.GetString("group-path"), args.GetString("import-option"), args.GetString("depends-on"));
+        PlcCodeTransaction result = _service.AddTransactionOperation(args.GetString("transaction-id"), args.GetString("import-directory"), args.GetString("file-name"), args.GetString("group-path"), args.GetString("import-option"), args.GetString("depends-on"), args.GetString("target-mode"), args.GetString("baseline-directory"), args.GetString("baseline-file-name"), args.GetString("allowed-changes"));
         return Task.FromResult(CommandResult.CreateSuccess(result, "Operation added to the draft transaction."));
     }
 }

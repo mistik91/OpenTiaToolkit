@@ -73,12 +73,28 @@ public sealed partial class PlcDocumentWorkflowService
         return transaction;
     }
 
-    public PlcCodeTransaction AddTransactionOperation(string transactionId, string importDirectory, string fileName, string? groupPath, string? importOption, string? dependsOn = null)
+    public PlcCodeTransaction AddTransactionOperation(string transactionId, string importDirectory, string fileName, string? groupPath, string? importOption, string? dependsOn = null, string? targetMode = null, string? baselineDirectory = null, string? baselineFileName = null, string? allowedChanges = null)
     {
         PlcCodeTransaction transaction = LoadTransaction(transactionId);
         RequireState(transaction, "Draft");
         PlcDocumentValidationResult validation = Validate(importDirectory, fileName);
         if (!validation.Valid) throw new InvalidDataException("PLC documents are invalid: " + string.Join("; ", validation.Errors));
+        string mode = string.IsNullOrWhiteSpace(targetMode) ? "Auto" : targetMode!.Trim();
+        if (mode.Equals("create-only", StringComparison.OrdinalIgnoreCase)) mode = "CreateOnly";
+        else if (mode.Equals("baseline-bound", StringComparison.OrdinalIgnoreCase)) mode = "BaselineBound";
+        else if (!mode.Equals("Auto", StringComparison.Ordinal)) throw new InvalidOperationException("target-mode must be create-only or baseline-bound.");
+        PlcCodeChangeContract? changeContract = null;
+        string? normalizedBaselineDirectory = null;
+        string? normalizedBaselineFileName = null;
+        if (mode == "BaselineBound")
+        {
+            if (string.IsNullOrWhiteSpace(baselineDirectory)) throw new InvalidOperationException("baseline-directory is required for target-mode=baseline-bound.");
+            normalizedBaselineDirectory = Path.GetFullPath(baselineDirectory!);
+            normalizedBaselineFileName = string.IsNullOrWhiteSpace(baselineFileName) ? validation.FileName : Path.GetFileNameWithoutExtension(baselineFileName!);
+            changeContract = new PlcCodeFormatService(this).AnalyzeS7DclChange(validation.ImportDirectory, validation.FileName, normalizedBaselineDirectory, normalizedBaselineFileName, allowedChanges);
+        }
+        else if (!string.IsNullOrWhiteSpace(baselineDirectory) || !string.IsNullOrWhiteSpace(allowedChanges))
+            throw new InvalidOperationException("baseline-directory and allowed-changes are valid only for target-mode=baseline-bound.");
         RequireCapabilityOperation(transaction, "UpsertBlockDocuments", "Block", validation.BlockName, validation.BlockType, NormalizeGroupPath(groupPath));
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
@@ -88,6 +104,10 @@ public sealed partial class PlcDocumentWorkflowService
             FileName = validation.FileName,
             GroupPath = NormalizeGroupPath(groupPath),
             ImportOption = string.IsNullOrWhiteSpace(importOption) ? "Override" : importOption!,
+            TargetMode = mode,
+            AuthoringBaselineDirectory = normalizedBaselineDirectory,
+            AuthoringBaselineFileName = normalizedBaselineFileName,
+            ChangeContract = changeContract,
             InputHash = HashDocumentPair(validation.ImportDirectory, validation.FileName),
             Dependencies = validation.Dependencies,
             ExplicitDependsOn = ParseDependencySequences(dependsOn),
@@ -445,6 +465,10 @@ public sealed partial class PlcDocumentWorkflowService
             throw new InvalidOperationException($"Block '{validation.BlockName}' exists outside the root group. Supply group-path explicitly. Candidates: {string.Join(", ", named.Select(item => item.Identity.ToString()))}");
 
         ResolvedBlock? existing = inGroup.SingleOrDefault();
+        if (existing != null && source.TargetMode == "CreateOnly")
+            throw new InvalidOperationException($"Target '{existing.Identity}' already exists, but the operation is create-only. Export it untouched and use target-mode=baseline-bound for modification.");
+        if (existing == null && source.TargetMode == "BaselineBound")
+            throw new InvalidOperationException($"Baseline-bound target '{validation.BlockType}:{validation.BlockName}' does not exist in '{DisplayGroup(normalizedGroup)}'. Use target-mode=create-only for creation.");
         string baselineHash = "missing";
         if (existing != null)
         {
@@ -452,6 +476,14 @@ public sealed partial class PlcDocumentWorkflowService
             Directory.CreateDirectory(backup);
             if (!ExportExact(existing, backup)) throw new InvalidOperationException($"Existing block '{existing.Identity}' could not be snapshotted; the transaction cannot start safely.");
             baselineHash = HashDocumentPair(backup, existing.Identity.Name);
+            if (source.TargetMode == "BaselineBound")
+            {
+                if (source.ChangeContract == null || string.IsNullOrWhiteSpace(source.AuthoringBaselineDirectory) || string.IsNullOrWhiteSpace(source.AuthoringBaselineFileName))
+                    throw new InvalidOperationException($"Operation {source.Sequence} has an incomplete baseline-bound change contract.");
+                PlcCodeChangeContract currentContract = new PlcCodeFormatService(this).AnalyzeS7DclChange(validation.ImportDirectory, validation.FileName, source.AuthoringBaselineDirectory!, source.AuthoringBaselineFileName!, string.Join(",", source.ChangeContract.AllowedSections));
+                if (!FixedEquals(source.ChangeContract.Fingerprint, currentContract.Fingerprint)) throw new InvalidOperationException($"Operation {source.Sequence} change contract changed after it was added.");
+                if (!FixedEquals(currentContract.BaselineHash, baselineHash)) throw new InvalidOperationException($"The untouched S7DCL baseline does not match the current TIA export for '{existing.Identity}' (expected {currentContract.BaselineHash}, actual {baselineHash}). Re-export and recreate the transaction.");
+            }
         }
         return new PlcCodeTransactionOperation
         {
@@ -461,6 +493,10 @@ public sealed partial class PlcDocumentWorkflowService
             FileName = validation.FileName,
             GroupPath = normalizedGroup,
             ImportOption = source.ImportOption,
+            TargetMode = source.TargetMode,
+            AuthoringBaselineDirectory = source.AuthoringBaselineDirectory,
+            AuthoringBaselineFileName = source.AuthoringBaselineFileName,
+            ChangeContract = source.ChangeContract,
             Action = existing == null ? "Create" : "Override",
             InputHash = HashDocumentPair(validation.ImportDirectory, validation.FileName),
             BaselineHash = baselineHash,
@@ -685,6 +721,13 @@ public sealed partial class PlcDocumentWorkflowService
                     throw new InvalidOperationException($"Operation {operation.Sequence} input documents changed after planning.");
                 if ((operation.Kind == "PatchSimaticMlBlock" || operation.Kind == "PatchSimaticMlType") && !FixedEquals(operation.ValidationBaselineHash!, new PlcCodeFormatService(this).ComputeSimaticMlContentHash(operation.BaselinePath!)))
                     throw new InvalidOperationException($"Operation {operation.Sequence} SimaticML validation baseline changed after planning.");
+                if (operation.TargetMode == "BaselineBound")
+                {
+                    if (operation.ChangeContract == null || string.IsNullOrWhiteSpace(operation.AuthoringBaselineDirectory) || string.IsNullOrWhiteSpace(operation.AuthoringBaselineFileName))
+                        throw new InvalidOperationException($"Operation {operation.Sequence} baseline-bound change contract is incomplete.");
+                    PlcCodeChangeContract currentContract = new PlcCodeFormatService(this).AnalyzeS7DclChange(operation.ImportDirectory, operation.FileName, operation.AuthoringBaselineDirectory!, operation.AuthoringBaselineFileName!, string.Join(",", operation.ChangeContract.AllowedSections));
+                    if (!FixedEquals(operation.ChangeContract.Fingerprint, currentContract.Fingerprint)) throw new InvalidOperationException($"Operation {operation.Sequence} baseline-bound candidate or baseline changed after planning.");
+                }
                 IReadOnlyList<PlcCodeTransactionTargetSnapshot> targets = EffectiveSnapshots(operation);
                 int targetIndex = 0;
                 foreach (PlcCodeTransactionTargetSnapshot snapshot in targets)
@@ -1056,6 +1099,10 @@ public sealed partial class PlcDocumentWorkflowService
                 item.BaselinePath,
                 item.ValidationBaselineHash,
                 item.AllowTopologyChange,
+                item.TargetMode,
+                item.AuthoringBaselineDirectory,
+                item.AuthoringBaselineFileName,
+                item.ChangeContract,
                 item.ImportDirectory,
                 item.FileName,
                 item.GroupPath,

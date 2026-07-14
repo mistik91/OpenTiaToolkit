@@ -85,7 +85,7 @@ public sealed class PlcDocumentImportApplyResult
 
 public sealed class PlcCodeTransaction
 {
-    public string SchemaVersion { get; set; } = "1.1";
+    public string SchemaVersion { get; set; } = "1.2";
     public string TransactionId { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string State { get; set; } = "Draft";
@@ -181,6 +181,10 @@ public sealed class PlcCodeTransactionOperation
     public string TypeGroupPath { get; set; } = string.Empty;
     public string? BaselinePath { get; set; }
     public string? ValidationBaselineHash { get; set; }
+    public string TargetMode { get; set; } = "Auto";
+    public string? AuthoringBaselineDirectory { get; set; }
+    public string? AuthoringBaselineFileName { get; set; }
+    public PlcCodeChangeContract? ChangeContract { get; set; }
     public bool AllowTopologyChange { get; set; }
     public string ImportDirectory { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;

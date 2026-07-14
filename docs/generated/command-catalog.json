@@ -86,7 +86,7 @@
     },
     {
       "name": "add-plc-code-transaction-operation",
-      "description": "Adds a validated SIMATIC SD block upsert to a draft PLC code transaction",
+      "description": "Adds a create-only or baseline-bound SIMATIC SD block change to a draft PLC code transaction",
       "category": "PLC",
       "risk": "Mutating",
       "supportsPreview": false,
@@ -125,6 +125,34 @@
           "required": false,
           "defaultValue": "Override",
           "description": "Siemens document import option"
+        },
+        {
+          "name": "target-mode",
+          "type": "String",
+          "required": false,
+          "defaultValue": "create-only",
+          "description": "create-only (default) or baseline-bound"
+        },
+        {
+          "name": "baseline-directory",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Directory containing the untouched exported S7DCL/S7RES pair; required for baseline-bound"
+        },
+        {
+          "name": "baseline-file-name",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Untouched baseline file name without extension; defaults to file-name"
+        },
+        {
+          "name": "allowed-changes",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Comma-separated authorized sections: Attributes, Interface, Implementation, Resources"
         },
         {
           "name": "depends-on",

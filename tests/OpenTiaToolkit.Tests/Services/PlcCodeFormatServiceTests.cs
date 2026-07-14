@@ -164,6 +164,40 @@ public sealed class PlcCodeFormatServiceTests
         StringAssert.Contains(string.Join("; ", result.Errors), "unsafe");
     }
 
+    [TestMethod]
+    public void AnalyzeS7DclChange_ReportsOnlyAuthorizedSemanticSections()
+    {
+        string baselineDirectory = Path.Combine(_root, "baseline");
+        string candidateDirectory = Path.Combine(_root, "candidate");
+        Directory.CreateDirectory(baselineDirectory);
+        Directory.CreateDirectory(candidateDirectory);
+        const string baseline = "{ S7_BlockNumber := \"62001\"; S7_PreferredLanguage := \"LAD\" }\r\nFUNCTION \"Probe\" : Void\r\nVAR_INPUT\r\n  Enable : Bool;\r\nEND_VAR\r\nNETWORK\r\nEND_NETWORK\r\nEND_FUNCTION";
+        File.WriteAllText(Path.Combine(baselineDirectory, "Probe.s7dcl"), baseline, new UTF8Encoding(true));
+        File.WriteAllText(Path.Combine(candidateDirectory, "Probe.s7dcl"), baseline.Replace("END_NETWORK", "// reviewed body\r\nEND_NETWORK"), new UTF8Encoding(true));
+
+        var contract = _service.AnalyzeS7DclChange(candidateDirectory, "Probe", baselineDirectory, "Probe", "Implementation");
+
+        CollectionAssert.AreEqual(new[] { "Implementation" }, contract.ChangedSections.ToArray());
+        Assert.IsFalse(string.IsNullOrWhiteSpace(contract.Fingerprint));
+        Assert.AreEqual("BaselineBound", contract.Mode);
+    }
+
+    [TestMethod]
+    public void AnalyzeS7DclChange_UnauthorizedOrIdentityChange_FailsClosed()
+    {
+        string baselineDirectory = Path.Combine(_root, "baseline");
+        string candidateDirectory = Path.Combine(_root, "candidate");
+        Directory.CreateDirectory(baselineDirectory);
+        Directory.CreateDirectory(candidateDirectory);
+        const string baseline = "{ S7_BlockNumber := \"62001\" }\r\nFUNCTION \"Probe\" : Void\r\nVAR_INPUT\r\n  Enable : Bool;\r\nEND_VAR\r\nEND_FUNCTION";
+        File.WriteAllText(Path.Combine(baselineDirectory, "Probe.s7dcl"), baseline, new UTF8Encoding(true));
+        File.WriteAllText(Path.Combine(candidateDirectory, "Probe.s7dcl"), baseline.Replace("Enable : Bool", "Enable : Bool;\r\n  Mode : Int").Replace(";;", ";"), new UTF8Encoding(true));
+
+        StringAssert.Contains(Assert.ThrowsException<InvalidDataException>(() => _service.AnalyzeS7DclChange(candidateDirectory, "Probe", baselineDirectory, "Probe", "Implementation")).Message, "unauthorized");
+        File.WriteAllText(Path.Combine(candidateDirectory, "Probe.s7dcl"), baseline.Replace("62001", "62002"), new UTF8Encoding(true));
+        StringAssert.Contains(Assert.ThrowsException<InvalidDataException>(() => _service.AnalyzeS7DclChange(candidateDirectory, "Probe", baselineDirectory, "Probe", "Attributes")).Message, "name, type, and number");
+    }
+
     private string Write(string name, string content)
     {
         string path = Path.Combine(_root, name);

@@ -463,7 +463,7 @@ Adds an exact PLC type deletion with XML snapshot and rollback proof to a persis
 
 ### add-plc-code-transaction-operation
 
-Adds a validated SIMATIC SD block upsert to a draft PLC code transaction
+Adds a create-only or baseline-bound SIMATIC SD block change to a draft PLC code transaction
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
@@ -472,6 +472,10 @@ Adds a validated SIMATIC SD block upsert to a draft PLC code transaction
 | `file-name` | String | yes |  | Block/file name without extension |
 | `group-path` | String | no |  | Exact target block group |
 | `import-option` | String | no | Override | Siemens document import option |
+| `target-mode` | String | no | create-only | create-only (default) or baseline-bound |
+| `baseline-directory` | Path | no |  | Directory containing the untouched exported S7DCL/S7RES pair; required for baseline-bound |
+| `baseline-file-name` | String | no |  | Untouched baseline file name without extension; defaults to file-name |
+| `allowed-changes` | String | no |  | Comma-separated authorized sections: Attributes, Interface, Implementation, Resources |
 | `depends-on` | String | no |  | Optional comma-separated operation sequences that must apply first |
 | `confirm` | Boolean | yes |  | Confirm adding this local manifest operation |
 

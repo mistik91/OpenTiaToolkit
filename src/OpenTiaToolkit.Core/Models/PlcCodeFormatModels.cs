@@ -48,3 +48,14 @@ public sealed class PlcCodeValidationFinding
     public int? Line { get; set; }
     public string Message { get; set; } = string.Empty;
 }
+
+public sealed class PlcCodeChangeContract
+{
+    public string SchemaVersion { get; set; } = "1.0";
+    public string Mode { get; set; } = "CreateOnly";
+    public string BaselineHash { get; set; } = string.Empty;
+    public string CandidateHash { get; set; } = string.Empty;
+    public string Fingerprint { get; set; } = string.Empty;
+    public IReadOnlyList<string> AllowedSections { get; set; } = Array.Empty<string>();
+    public IReadOnlyList<string> ChangedSections { get; set; } = Array.Empty<string>();
+}
