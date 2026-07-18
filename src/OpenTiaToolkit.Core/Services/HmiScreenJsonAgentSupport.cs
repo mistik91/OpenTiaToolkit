@@ -9,26 +9,6 @@ namespace OpenTiaToolkit.Core.Services
     {
         private const string TiaOnlineModeBlockedReason = "tia-online-mode";
 
-        private static readonly string[] SupportedOperations =
-        {
-            "set-property",
-            "set-properties",
-            "move-item",
-            "resize-item",
-            "set-layout",
-            "rename-item",
-            "create-item",
-            "delete-item",
-            "duplicate-item",
-            "set-event-handler",
-            "remove-event-handler",
-            "set-property-event-handler",
-            "remove-property-event-handler",
-            "set-dynamization",
-            "remove-dynamization",
-            "set-interface"
-        };
-
         private static readonly string[] CompositeProperties =
         {
             "EventHandlers",
@@ -37,7 +17,7 @@ namespace OpenTiaToolkit.Core.Services
             "Interface"
         };
 
-        public static IReadOnlyList<string> SupportedPatchOperations => SupportedOperations;
+        public static IReadOnlyList<string> SupportedPatchOperations => HmiScreenJsonPatchOperationCatalog.SupportedOperations;
 
         public static IReadOnlyList<string> CompositePropertyNames => CompositeProperties;
 
@@ -45,7 +25,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             return new HmiScreenJsonCapabilities
             {
-                SupportedPatchOperations = SupportedOperations,
+                SupportedPatchOperations = HmiScreenJsonPatchOperationCatalog.SupportedOperations,
                 CompositeProperties = CompositeProperties,
                 OperationHints = new[]
                 {

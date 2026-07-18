@@ -5,7 +5,6 @@
     "src/OpenTiaToolkit.Core/Services/PlcTagService.cs": 2104,
     "src/OpenTiaToolkit.Core/Services/HardwareService.cs": 1842,
     "src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs": 1694,
-    "src/OpenTiaToolkit.Core/Services/HmiScreenJsonPatchApplier.cs": 1609,
     "src/OpenTiaToolkit.Core/Services/HmiJsonImportService.cs": 1502,
     "src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService.Transactions.cs": 1201,
     "src/OpenTiaToolkit.Core/Services/PortalSessionService.cs": 1166
