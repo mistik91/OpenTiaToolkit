@@ -1,4 +1,4 @@
 interface:
   display_name: "Multiuser Collaboration Workflow"
-  short_description: "Coordinate safe TIA Multiuser agent sessions."
-  default_prompt: "Use $multiuser-collaboration-workflow to prepare and operate a conflict-safe agent session on TIA Project Server."
+  short_description: "Run safe same-machine TIA collaboration."
+  default_prompt: "Use $multiuser-collaboration-workflow to run a separate Agent-owned TIA session on this machine and coordinate a safe TIA UI check-in handoff, optionally through harness-provided computer use."

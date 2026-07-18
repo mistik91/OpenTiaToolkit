@@ -28,7 +28,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `close-global-library` | Libraries | `global-library` | Closes an open user global library by name or path |
 | `close-project` | Portal | `save`, `confirm` | Closes the currently open project |
 | `close-tia-portal` | Portal | `confirm` | Closes the current TIA Portal instance |
-| `commit-multiuser-session` | Multiuser | `comment`, `require-up-to-date`, `require-no-conflicts`, `confirm` | Saves and checks in the selected local session, returning the created server revision. |
+| `commit-multiuser-session` | Multiuser | `comment`, `require-up-to-date`, `require-no-conflicts`, `confirm` | Blocks unsupported automated local-session check-in and directs the caller to TIA Portal. |
 | `compare-software` | PLC | `plc-name`, `target`, `output-path` | Compares PLC software to the online target |
 | `compile-software` | PLC | `plc-name`, `password` | Compiles the PLC software |
 | `connect-instance` | Portal | `instance-id` | Connects to a specific TIA Portal instance by process ID |

@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="TIA Portal V21" src="https://img.shields.io/badge/TIA_Portal-V21_only-0078D4">
-  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.2-orange">
+  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.3-orange">
   <img alt="Platform Windows" src="https://img.shields.io/badge/platform-Windows-0078D6">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-2ea44f">
 </p>
@@ -29,7 +29,7 @@ OpenTiaToolkit is an open-source Windows engineering automation platform for Sie
 The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and later require a dedicated worker package, compatibility profile, and live validation before support is claimed.
 
 > [!IMPORTANT]
-> The current public build is [`1.0.0-preview.2`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.2) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
+> The current public build is [`1.0.0-preview.3`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.3) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
 
 ## Why OpenTiaToolkit
 
@@ -102,12 +102,12 @@ Always review previews and keep project backups before applying engineering chan
 
 ### Install the public preview
 
-1. Download `OpenTiaToolkit-1.0.0-preview.2-Setup.exe` and `INSTALLER-SHA256SUMS.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.2).
+1. Download `OpenTiaToolkit-1.0.0-preview.3-Setup.exe` and `INSTALLER-SHA256SUMS.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.3).
 2. Verify the installer:
 
 ```powershell
 $expected = (Get-Content .\INSTALLER-SHA256SUMS.txt).Split()[0]
-$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.2-Setup.exe -Algorithm SHA256).Hash
+$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.3-Setup.exe -Algorithm SHA256).Hash
 $actual.ToLowerInvariant() -eq $expected.ToLowerInvariant()
 ```
 
@@ -219,19 +219,20 @@ See the [developer guide](docs/DEV_GUIDE.md) for repository architecture and con
 | [Blueprint workflow](docs/BLUEPRINTS.md) | [API compatibility and migration](docs/API_COMPATIBILITY.md) |
 | [Hardware automation](docs/HARDWARE_AUTOMATION.md) | [Production architecture and recovery](docs/PRODUCTION_ARCHITECTURE.md) |
 | [Repository examples](examples/README.md) | [Supply chain and release integrity](docs/SUPPLY_CHAIN.md) |
-| [Preview.2 release notes](docs/RELEASE_NOTES_1.0.0-preview.2.md) | [Security policy](SECURITY.md) |
+| [Preview.3 release notes](docs/RELEASE_NOTES_1.0.0-preview.3.md) | [Security policy](SECURITY.md) |
 
 ## Validation
 
-The `1.0.0-preview.2` release passed:
+The `1.0.0-preview.3` release passed:
 
 - Release build with zero warnings and errors
-- 442 fast tests and 10 architecture tests
+- 445 fast tests and 10 architecture tests
 - generated CLI and MCP reference validation for 182 commands
 - transaction, rollback, stale-state, compile, and behavioral verification coverage for PLC code engineering
 - generated-reference, packaged-skill, formatting, locked-restore, and vulnerability checks
 - staged MCP initialization with 185 tools
 - live V21 and PLCSIM Advanced end-to-end workflows
+- same-machine Multiuser identity isolation, markings, conflict/stale detection, safe local save, and exact fresh-session verification
 
 Run the vendor-free fast suite locally with:
 

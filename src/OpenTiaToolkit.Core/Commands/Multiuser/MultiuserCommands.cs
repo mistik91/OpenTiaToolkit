@@ -99,7 +99,7 @@ public sealed class CommitMultiuserSessionCommand : MultiuserCommandBase
 {
     public CommitMultiuserSessionCommand(IMultiuserService service) : base(service) { }
     public override string Name => "commit-multiuser-session";
-    public override string Description => "Saves and checks in the selected local session, returning the created server revision.";
+    public override string Description => "Blocks unsupported automated local-session check-in and directs the caller to TIA Portal.";
     public override CommandSchema Schema => new CommandSchema(Description, new[] { new CommandParameter("comment", CommandParameterType.String, "Server revision comment", true), new CommandParameter("require-up-to-date", CommandParameterType.Boolean, "Block commit when the session is stale", false, true), new CommandParameter("require-no-conflicts", CommandParameterType.Boolean, "Block commit when conflicted markings exist", false, true) });
     protected override async Task<object> ExecuteCoreAsync(CommandArgs args) => await Service.CommitSessionAsync(args.GetString("comment")!, args.GetBool("require-up-to-date", true), args.GetBool("require-no-conflicts", true));
 }

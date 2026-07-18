@@ -85,29 +85,13 @@ internal sealed class MultiuserService : IMultiuserService
         return BuildStatus();
     });
 
-    public Task<MultiuserCommitResult> CommitSessionAsync(string comment, bool requireUpToDate, bool requireNoConflicts) => Run(() =>
+    public Task<MultiuserCommitResult> CommitSessionAsync(string comment, bool requireUpToDate, bool requireNoConflicts) => Run<MultiuserCommitResult>(() =>
     {
-        var portal = RequirePortal();
-        var session = RequireSession();
-        var status = BuildStatus();
-        if (requireUpToDate && status.IsUpToDate != true) throw new InvalidOperationException("The local session is not up to date; commit was blocked.");
-        if (requireNoConflicts && status.ConflictCount != 0) throw new InvalidOperationException($"The local session has {status.ConflictCount} conflicted marking(s); commit was blocked.");
-        var sessionFile = FindSessionFile(session);
-        session.Save();
-        session.Close();
-        _context.ClearProjectSelection();
-        LocalSession? serverProject = null;
-        try
-        {
-            serverProject = portal.LocalSessions.OpenServerProject(sessionFile);
-            var revision = serverProject.CloseAndCommit(comment);
-            return new MultiuserCommitResult { Revision = revision, Comment = comment };
-        }
-        catch
-        {
-            try { serverProject?.Close(); } catch { }
-            throw;
-        }
+        throw new NotSupportedException(
+            "TIA Portal V21 Openness does not expose check-in for Multiuser local-session changes. " +
+            "LocalSession.CloseAndCommit() commits changes made in an opened server-project view and must not be used " +
+            "to check in a local session. Save with save-multiuser-session, check in from TIA Portal under the session owner, " +
+            "then create a fresh local session and verify the committed objects.");
     });
 
     private MultiuserSessionStatus BuildStatus()
@@ -141,13 +125,5 @@ internal sealed class MultiuserService : IMultiuserService
     }
     private static UmacUserType ParseUserType(string value) => string.Equals(value, "global", StringComparison.OrdinalIgnoreCase) ? UmacUserType.Global : UmacUserType.Project;
     private static bool SameHost(string left, string right) => string.Equals(left.TrimEnd('/'), right.TrimEnd('/'), StringComparison.OrdinalIgnoreCase) || left.IndexOf(right.Trim('/'), StringComparison.OrdinalIgnoreCase) >= 0;
-    private static FileInfo FindSessionFile(LocalSession session)
-    {
-        var projectPath = session.Project?.Path?.FullName ?? throw new InvalidOperationException("The local session project path is unavailable.");
-        var projectDirectory = Directory.GetParent(projectPath)?.Parent?.FullName;
-        if (string.IsNullOrWhiteSpace(projectDirectory)) throw new InvalidOperationException("Could not resolve the local session directory.");
-        var path = Directory.GetFiles(projectDirectory, "*.als*", SearchOption.TopDirectoryOnly).FirstOrDefault();
-        return path == null ? throw new FileNotFoundException("Could not find the .als local-session file.", projectDirectory) : new FileInfo(path);
-    }
     private static string TryName(IEngineeringObject value) { try { return Convert.ToString(value.GetAttribute("Name")) ?? string.Empty; } catch { return string.Empty; } }
 }

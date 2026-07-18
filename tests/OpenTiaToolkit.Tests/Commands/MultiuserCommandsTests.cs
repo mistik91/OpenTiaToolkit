@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -14,14 +15,15 @@ namespace OpenTiaToolkit.Tests.Commands;
 public class MultiuserCommandsTests
 {
     [TestMethod]
-    public async Task CommitUsesSafeDefaultsAndReturnsRevision()
+    public async Task CommitSurfacesUnsupportedLocalSessionCheckIn()
     {
         var service = new Mock<IMultiuserService>();
         service.Setup(x => x.CommitSessionAsync("agent change", true, true))
-            .ReturnsAsync(new MultiuserCommitResult { Revision = 7, Comment = "agent change" });
+            .ThrowsAsync(new NotSupportedException("Use TIA Portal for local-session check-in."));
         var command = new CommitMultiuserSessionCommand(service.Object);
         var result = await command.ExecuteAsync(new CommandArgs(new Dictionary<string, object?> { ["comment"] = "agent change" }), NullLogger.Instance);
-        Assert.IsTrue(result.Success);
+        Assert.IsFalse(result.Success);
+        StringAssert.Contains(result.Error!, "TIA Portal");
         service.Verify(x => x.CommitSessionAsync("agent change", true, true), Times.Once);
     }
 

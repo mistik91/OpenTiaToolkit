@@ -1144,7 +1144,7 @@
     },
     {
       "name": "commit-multiuser-session",
-      "description": "Saves and checks in the selected local session, returning the created server revision.",
+      "description": "Blocks unsupported automated local-session check-in and directs the caller to TIA Portal.",
       "category": "Multiuser",
       "risk": "Mutating",
       "supportsPreview": false,

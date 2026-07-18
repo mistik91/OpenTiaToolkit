@@ -1435,10 +1435,14 @@ public class PlcDocumentWorkflowServiceTests
         PlcCodeArtifactValidationResult validation = new PlcCodeFormatService(service).Validate("s7dcl", Path.Combine(_directory, "ProductionShape.s7dcl"));
         var evidence = new PlcCodeEvidenceRecord
         {
-            EvidenceId = Guid.NewGuid().ToString("N"), Status = "Verified", StartedAtUtc = DateTimeOffset.UtcNow,
-            CodeFormat = validation.Format, ValidatorCatalogVersion = PlcCodeFormatService.ValidatorCatalogVersion,
+            EvidenceId = Guid.NewGuid().ToString("N"),
+            Status = "Verified",
+            StartedAtUtc = DateTimeOffset.UtcNow,
+            CodeFormat = validation.Format,
+            ValidatorCatalogVersion = PlcCodeFormatService.ValidatorCatalogVersion,
             QualificationSignature = validation.QualificationSignature,
-            Compatibility = PlcCodeEvidenceRegistry.BuildCompatibility(new[] { capability }, validation), CleanupProven = false
+            Compatibility = PlcCodeEvidenceRegistry.BuildCompatibility(new[] { capability }, validation),
+            CleanupProven = false
         };
         registry.Save(evidence);
 

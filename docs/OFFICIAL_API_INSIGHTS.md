@@ -24,10 +24,16 @@ create-multiuser-session --server-alias <alias> --project-name <project> --sessi
 open-project --project-path <session.als21>
 get-multiuser-session-status
 save-multiuser-session --confirm true
-commit-multiuser-session --comment <comment> --require-up-to-date true --require-no-conflicts true --confirm true
+close-project --save true --confirm true
 ```
 
-`create-multiuser-session` supports the same optional UMAC environment-variable credential parameters as `open-project` for protected projects. Project Server Windows permissions use the identity running TIA Portal/OpenTiaToolkit and cannot be impersonated with a command password. `commit-multiuser-session` saves first, blocks stale/conflicted sessions by default, closes the engineering-session view, opens the associated server-project view, calls `CloseAndCommit`, and returns the created server revision. Siemens V21 exposes an up-to-date check but no public refresh operation; recreate the agent session from the latest server revision when refresh is required.
+`create-multiuser-session` supports the same optional UMAC environment-variable credential parameters as `open-project` for protected projects. Project Server Windows permissions use the identity running TIA Portal/OpenTiaToolkit and cannot be impersonated with a command password. A practical same-machine setup runs a second TIA instance and worker under a dedicated Agent Windows account, with local sessions stored under that account's profile. Wrong-account instance discovery/attachment is rejected by Siemens.
+
+TIA Portal V21 public Openness exposes local-session save, close, freshness, and markings, but no local-session check-in operation. Siemens documents `LocalSession.CloseAndCommit()` as committing changes made in an opened server-project view; live device-rich testing confirmed that using it after closing a local session creates a revision without the local marked changes. `commit-multiuser-session` therefore fails safely and directs callers to save locally, hand off check-in to the session owner's TIA UI, create a fresh session, and verify the exact changed objects. Never treat a returned revision number alone as persistence proof.
+
+The UI handoff is deliberately outside OpenTiaToolkit's supported API surface. It can be performed manually or automated by a user-selected agent harness with computer-use/UI automation. Such automation remains responsible for focus, dialogs, localization, timeouts, and security confirmations; it must not be described as Siemens Openness check-in support. Regardless of the harness, a fresh local session and exact artifact inspection remain the persistence proof.
+
+Siemens V21 also exposes an up-to-date check but no public refresh operation; recreate the agent session from the latest server revision when refresh is required. A fresh Run As TIA process may require the user to confirm the Project Server certificate in the Agent-owned window. Repeated local-session create/open cycles can leave disposed Siemens session objects cached in a long-lived TIA process; restart the empty Agent TIA instance and create a fresh session rather than retrying the disposed object.
 
 `LocalSession.Close()` discards pending edits. Consequently `save-project` and `close-project --save=true` explicitly call `LocalSession.Save()` for local sessions; plain `close-project` continues to discard pending session edits.
 

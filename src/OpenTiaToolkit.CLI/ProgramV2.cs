@@ -82,7 +82,7 @@ public static class Program
             while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
             {
                 lineNumber++;
-                string trimmed = line.Trim();
+                string trimmed = NormalizeScriptLine(line).Trim();
                 if (trimmed.Length == 0 || trimmed.StartsWith("#", StringComparison.Ordinal)) continue;
                 if (string.Equals(trimmed, "exit", StringComparison.OrdinalIgnoreCase)) return 0;
                 if (!CommandLineTokenizer.TryTokenize(trimmed, out string[] commandArgs, out string? error))
@@ -105,6 +105,18 @@ public static class Program
         {
             if (path != "-") reader.Dispose();
         }
+    }
+
+    private static string NormalizeScriptLine(string line)
+    {
+        string normalized = line.TrimStart('\uFEFF');
+        const string utf8BomDecodedAsLatin1 = "\u00EF\u00BB\u00BF";
+        const string utf8BomDecodedAsOem850 = "\u00B4\u2557\u2510";
+        if (normalized.StartsWith(utf8BomDecodedAsLatin1, StringComparison.Ordinal))
+            return normalized.Substring(utf8BomDecodedAsLatin1.Length);
+        return normalized.StartsWith(utf8BomDecodedAsOem850, StringComparison.Ordinal)
+            ? normalized.Substring(utf8BomDecodedAsOem850.Length)
+            : normalized;
     }
 
     private static async Task<int> RunReplAsync(RemoteCommandRouter router)

@@ -7,6 +7,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-preview.3] - 2026-07-18
+
+### Changed
+- Made same-machine `Run As` collaboration the preferred Multiuser workflow, with separate Windows identities, TIA instances, workers, and private local-session directories.
+- Defined the TIA UI check-in as an explicit harness boundary: users may complete it manually or through harness-provided computer-use automation, followed by fresh-session artifact verification.
+- Updated the Multiuser agent-session harness and synchronized the canonical workflow skill across Codex, Claude Code, and OpenCode packages.
+
+### Fixed
+- Blocked `commit-multiuser-session` from misusing `LocalSession.CloseAndCommit()`, which can create a server revision without merging local-session changes in TIA Portal V21.
+- Normalized Unicode and commonly misdecoded UTF-8 byte-order marks in CLI script/stdin mode.
+
 ## [1.0.0-preview.2] - 2026-07-14
 
 ### Changed

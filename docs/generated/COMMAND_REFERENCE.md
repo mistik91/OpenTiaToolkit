@@ -366,7 +366,7 @@ Adds a closed single-user TIA project to a configured Project Server.
 
 ### commit-multiuser-session
 
-Saves and checks in the selected local session, returning the created server revision.
+Blocks unsupported automated local-session check-in and directs the caller to TIA Portal.
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|

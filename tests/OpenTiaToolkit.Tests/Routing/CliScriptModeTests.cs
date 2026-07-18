@@ -67,6 +67,21 @@ namespace OpenTiaToolkit.Tests.Routing
             Assert.AreEqual(string.Empty, result.StdErr);
         }
 
+        [DataTestMethod]
+        [DataRow("\uFEFF")]
+        [DataRow("\u00EF\u00BB\u00BF")]
+        [DataRow("\u00B4\u2557\u2510")]
+        public async Task Main_StripsBomFromFirstScriptCommand(string bom)
+        {
+            var result = await RunCliAsync(
+                new[] { "--script", "-" },
+                bom + "help open-project" + Environment.NewLine);
+
+            Assert.AreEqual(0, result.ExitCode);
+            StringAssert.Contains(result.StdOut, "Command: open-project");
+            Assert.AreEqual(string.Empty, result.StdErr);
+        }
+
         private static string CreateScript(params string[] lines)
         {
             var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".commands.txt");

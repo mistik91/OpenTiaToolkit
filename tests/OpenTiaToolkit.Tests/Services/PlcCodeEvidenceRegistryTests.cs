@@ -98,8 +98,13 @@ public sealed class PlcCodeEvidenceRegistryTests
         Request = new PlcCodeCapabilityRequest { PlcName = "PLC_1", ObjectKind = "Block", ObjectName = "Shape", BlockType = "FC", RequestedLanguage = "LAD" },
         Environment = new PlcCodeEnvironmentEvidence
         {
-            TiaVersion = "V21 Update 2", TiaBuild = "21.0.2", ProjectName = "Project", ProjectPath = "C:\\Projects\\Project.ap21",
-            PlcName = "PLC_1", PlcFamily = "S7-1500", PlcTypeIdentifier = "CPU 1511"
+            TiaVersion = "V21 Update 2",
+            TiaBuild = "21.0.2",
+            ProjectName = "Project",
+            ProjectPath = "C:\\Projects\\Project.ap21",
+            PlcName = "PLC_1",
+            PlcFamily = "S7-1500",
+            PlcTypeIdentifier = "CPU 1511"
         },
         Safety = new PlcCodeSafetyEvidence()
     };
