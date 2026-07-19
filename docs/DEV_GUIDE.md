@@ -109,7 +109,10 @@ The public service interfaces stay stable, but the implementation is now split i
 - [PlcImportExportService.cs](../src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): XML and document import/export flows
 - [LibraryService.cs](../src/OpenTiaToolkit.Core/Services/LibraryService.cs): project/global library listing, master-copy copy workflows, library type versions, and update checks
 - [VciService.cs](../src/OpenTiaToolkit.Core/Services/VciService.cs): VCI workspaces, mappings, comparison state, and surgical/bulk synchronization
-- [HardwareService.cs](../src/OpenTiaToolkit.Core/Services/HardwareService.cs): generic hardware catalog, topology, network, GSD record, and transactional patch operations
+- [HardwareService.cs](../src/OpenTiaToolkit.Core/Services/HardwareService.cs): compatibility facade preserving the shared hardware service contract
+- [Services/Hardware](../src/OpenTiaToolkit.Core/Services/Hardware): focused hardware catalog/capability, topology, drive, PLC-tag audit, target-resolution, reference/value-rule, and transactional patch components
+
+Hardware patches use one Siemens transaction for the complete ordered operation list. Domain handlers are registered through a duplicate-checked catalog; dry-runs execute the real operations and roll back, result references remain patch-local, expected-value guards run before writes, and only a fully successful non-dry-run selects commit-on-dispose. CLI and MCP continue to reach this behavior through the shared Core command and `IHardwareService` surface.
 
 ### Builders
 

@@ -38,15 +38,20 @@ namespace OpenTiaToolkit.Core.Services.PlcTags
                     continue;
                 }
 
-                tags.AddRange(tableTags.Select(tag => new PlcTagState
+                tags.AddRange(tableTags.Select(tag =>
                 {
-                    TagObject = tag,
-                    Table = table,
-                    Name = GetName(tag) ?? string.Empty,
-                    DataType = GetDataType(tag) ?? string.Empty,
-                    LogicalAddress = TagUpdateCsvParser.NormalizeLogicalAddress(GetLogicalAddress(tag) ?? string.Empty),
-                    Comment = GetTagCommentText(tag, "en-US")
-                }).Where(tag => tag.Name.Length > 0));
+                    var rawLogicalAddress = GetLogicalAddress(tag) ?? string.Empty;
+                    return new PlcTagState
+                    {
+                        TagObject = tag,
+                        Table = table,
+                        Name = GetName(tag) ?? string.Empty,
+                        DataType = GetDataType(tag) ?? string.Empty,
+                        RawLogicalAddress = rawLogicalAddress,
+                        LogicalAddress = TagUpdateCsvParser.NormalizeLogicalAddress(rawLogicalAddress),
+                        Comment = GetTagCommentText(tag, "en-US")
+                    };
+                }));
             }
 
             return new PlcTagCatalog(tables, tags);

@@ -12,13 +12,16 @@ namespace OpenTiaToolkit.Core.Services.PlcTags
         public PlcTagCatalog(List<PlcTagTableState> tables, List<PlcTagState> tags)
         {
             Tables = tables;
-            Tags = tags;
+            AllTags = tags;
+            Tags = tags.Where(tag => tag.Name.Length > 0).ToList();
         }
 
         public List<PlcTagTableState> Tables { get; }
+        public List<PlcTagState> AllTags { get; }
         public List<PlcTagState> Tags { get; }
 
         public IEnumerable<PlcTagState> ActiveTags => Tags.Where(tag => !tag.IsDeleted);
+        public IEnumerable<PlcTagState> AllActiveTags => AllTags.Where(tag => !tag.IsDeleted);
     }
 
     internal sealed class PlcTagTableState
@@ -34,6 +37,7 @@ namespace OpenTiaToolkit.Core.Services.PlcTags
         public string Name { get; set; } = string.Empty;
         public string DataType { get; set; } = string.Empty;
         public string LogicalAddress { get; set; } = string.Empty;
+        public string RawLogicalAddress { get; set; } = string.Empty;
         public string? Comment { get; set; }
         public bool IsDeleted { get; set; }
         public bool IsVirtual { get; set; }

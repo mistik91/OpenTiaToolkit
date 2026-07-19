@@ -5,11 +5,15 @@ namespace OpenTiaToolkit.Core.Services.PlcTags
     /// <summary>
     /// Narrow Siemens access boundary used by PLC-tag workflows.
     /// </summary>
-    internal interface IPlcTagRepository
+    internal interface IPlcTagCatalogReader
+    {
+        PlcTagCatalog? ReadCatalog(object plcSoftware);
+    }
+
+    internal interface IPlcTagRepository : IPlcTagCatalogReader
     {
         IReadOnlyList<object>? GetTagTables(object plcSoftware);
         IReadOnlyList<object>? GetTags(object tagTable);
-        PlcTagCatalog? ReadCatalog(object plcSoftware);
         object? FindTagTable(object plcSoftware, string name);
         string? GetName(object item);
         void SetName(object item, string value);
