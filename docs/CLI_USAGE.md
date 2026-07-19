@@ -116,6 +116,9 @@ Opens a TIA Portal project file (.ap21 for local projects, .als21 for multiuser 
 ```bash
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap21"
 
+# Opening a different project while the attached instance is occupied requires an explicit hidden instance
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\OtherProject.ap21" --open-in-new-instance=true
+
 # Protected projects: keep the password out of shell history
 $env:OPENTIA_UMAC_PASSWORD = "<your-project-password>"
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Protected.ap21" --umac-user="Engineer"
@@ -123,6 +126,7 @@ OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Protected.ap21" 
 
 **Parameters**:
 - `project-path` (required): Full path to the project file
+- `open-in-new-instance` (optional, default: `false`): Explicitly open a different project in a dedicated hidden TIA instance. Without this option, the command fails if the attached instance already contains another project.
 - `umac-user` (optional): UMAC user name for protected projects
 - `umac-password-env` (optional, default: `OPENTIA_UMAC_PASSWORD`): Environment variable containing the UMAC password
 - `umac-user-type` (optional, default: `project`): UMAC user type (`project` or `global`)
@@ -135,7 +139,12 @@ Name:     MyProject
 Path:     C:\Projects\MyProject.ap21
 Version:  V21
 Created:  2025-01-15 10:30:00
+PortalProcessId: 1234
+IsPortalVisible: True
+IsToolkitOwned: False
 ```
+
+`close-project` closes the selected Siemens project even when it was discovered by attaching to an existing UI instance. It reports success only after the project is no longer present in that portal.
 
 #### create-project
 

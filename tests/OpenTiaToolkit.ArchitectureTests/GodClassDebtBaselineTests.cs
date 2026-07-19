@@ -39,8 +39,20 @@ public class GodClassDebtBaselineTests
             ["src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService.Two.cs"] = 736,
             ["src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService.Three.cs"] = 737
         };
-        IReadOnlyList<string> aggregateViolations = FindViolations(spreadAcrossPartials, baseline);
-        Assert.IsTrue(aggregateViolations.Any(message => message.Contains(baseline.Aggregate.Name, StringComparison.Ordinal)));
+        var aggregateFixture = new DebtBaseline
+        {
+            ScreeningThreshold = baseline.ScreeningThreshold,
+            Hotspots = baseline.Hotspots,
+            Aggregate = new AggregateBaseline
+            {
+                Name = "Synthetic partial aggregate",
+                PathPrefix = "src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService",
+                PathSuffix = ".cs",
+                Baseline = 2945
+            }
+        };
+        IReadOnlyList<string> aggregateViolations = FindViolations(spreadAcrossPartials, aggregateFixture);
+        Assert.IsTrue(aggregateViolations.Any(message => message.Contains(aggregateFixture.Aggregate!.Name, StringComparison.Ordinal)));
 
         Assert.AreEqual(0, FindViolations(new Dictionary<string, int>(), baseline).Count,
             "Removing a hotspot during decomposition must not fail the ratchet.");
@@ -71,15 +83,18 @@ public class GodClassDebtBaselineTests
             }
         }
 
-        int aggregateLines = sources
-            .Where(source => source.Key.StartsWith(baseline.Aggregate.PathPrefix, StringComparison.Ordinal) &&
-                             source.Key.EndsWith(baseline.Aggregate.PathSuffix, StringComparison.Ordinal))
-            .Sum(source => source.Value);
-        if (aggregateLines > baseline.Aggregate.Baseline)
+        if (baseline.Aggregate != null)
         {
-            violations.Add(
-                $"{baseline.Aggregate.Name}: measured {aggregateLines} physical lines; allowed baseline {baseline.Aggregate.Baseline}. " +
-                $"Splitting a class across partial files does not reduce shared state or coupling. {reviewGuidance}");
+            int aggregateLines = sources
+                .Where(source => source.Key.StartsWith(baseline.Aggregate.PathPrefix, StringComparison.Ordinal) &&
+                                 source.Key.EndsWith(baseline.Aggregate.PathSuffix, StringComparison.Ordinal))
+                .Sum(source => source.Value);
+            if (aggregateLines > baseline.Aggregate.Baseline)
+            {
+                violations.Add(
+                    $"{baseline.Aggregate.Name}: measured {aggregateLines} physical lines; allowed baseline {baseline.Aggregate.Baseline}. " +
+                    $"Splitting a class across partial files does not reduce shared state or coupling. {reviewGuidance}");
+            }
         }
 
         return violations;
@@ -124,7 +139,7 @@ public class GodClassDebtBaselineTests
     {
         public int ScreeningThreshold { get; set; }
         public Dictionary<string, int> Hotspots { get; set; } = new(StringComparer.Ordinal);
-        public AggregateBaseline Aggregate { get; set; } = new();
+        public AggregateBaseline? Aggregate { get; set; }
     }
 
     private sealed class AggregateBaseline

@@ -6,13 +6,6 @@
     "src/OpenTiaToolkit.Core/Services/HardwareService.cs": 1842,
     "src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs": 1694,
     "src/OpenTiaToolkit.Core/Services/HmiJsonImportService.cs": 1502,
-    "src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService.Transactions.cs": 1201,
     "src/OpenTiaToolkit.Core/Services/PortalSessionService.cs": 1166
-  },
-  "aggregate": {
-    "name": "PlcDocumentWorkflowService*.cs aggregate",
-    "pathPrefix": "src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService",
-    "pathSuffix": ".cs",
-    "baseline": 2945
   }
 }

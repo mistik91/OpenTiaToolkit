@@ -58,6 +58,16 @@ namespace OpenTiaToolkit.Core.Commands.Portal
 
                 logger.LogInformation("Closing project (save: {SaveChanges})", saveChanges);
 
+                var projectInfo = await _portalService.GetProjectInfoAsync();
+                if (projectInfo == null)
+                {
+                    var openProjects = await _portalService.GetOpenProjectsAsync();
+                    if (openProjects.Count == 1)
+                    {
+                        projectInfo = openProjects[0];
+                    }
+                }
+
                 context.Checkpoint(saveChanges ? "Saving and closing current project." : "Closing current project without saving.", 55, "close-project");
                 var success = await _portalService.CloseProjectAsync(saveChanges);
 
@@ -65,6 +75,18 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                 {
                     context.CompleteCommand(Name, saveChanges ? "Project saved and closed" : "Project closed (changes not saved)");
                     return CommandResult.CreateSuccess(
+                        data: projectInfo is null
+                            ? null
+                            : new
+                            {
+                                projectInfo.Name,
+                                projectInfo.Path,
+                                projectInfo.PortalProcessId,
+                                projectInfo.IsPortalVisible,
+                                projectInfo.IsToolkitOwned,
+                                Saved = saveChanges,
+                                Closed = true
+                            },
                         message: saveChanges
                             ? "Project saved and closed"
                             : "Project closed (changes not saved)"
@@ -73,9 +95,10 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                 else
                 {
                     context.CompleteCommand(Name, "Failed to close project");
-                    return CommandResult.CreateFailure(
-                        "Failed to close project"
-                    );
+                    var detail = string.IsNullOrWhiteSpace(_portalService.LastError)
+                        ? null
+                        : $": {_portalService.LastError}";
+                    return CommandResult.CreateFailure($"Failed to close project{detail}");
                 }
             }
             catch (System.Exception ex)

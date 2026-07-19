@@ -107,6 +107,15 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
+        public async Task<bool> OpenProjectAsync(
+            string projectPath,
+            ProjectAuthenticationOptions? authentication,
+            bool openInNewInstance)
+        {
+            return await _sessionService.OpenProjectAsync(projectPath, authentication, openInNewInstance);
+        }
+
+        /// <inheritdoc/>
         public async Task<ProjectLifecycleResult?> CreateProjectAsync(string projectPath)
         {
             return await _sessionService.CreateProjectAsync(projectPath);

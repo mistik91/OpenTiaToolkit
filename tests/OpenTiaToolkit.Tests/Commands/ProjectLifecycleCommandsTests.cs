@@ -149,7 +149,10 @@ namespace OpenTiaToolkit.Tests.Commands
             Assert.IsFalse(result.Success);
             StringAssert.Contains(result.Message, envName);
             portalService.Verify(
-                service => service.OpenProjectAsync(It.IsAny<string>(), It.IsAny<ProjectAuthenticationOptions>()),
+                service => service.OpenProjectAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<ProjectAuthenticationOptions>(),
+                    It.IsAny<bool>()),
                 Times.Never);
         }
     }

@@ -2,7 +2,7 @@
 
 The architecture tests record the current physical-line baselines of known large production hotspots. They prevent those files from growing while later roadmap chapters reduce their responsibilities. A 1,000-line screening threshold also flags new, unlisted production files for review; file length is a warning signal, not proof that a type is a god class.
 
-`PlcDocumentWorkflowService` is checked both per known hotspot file and as the sum of every matching partial file. Partial classes can improve navigation, but they retain shared state and coupling and therefore do not constitute decomposition.
+Aggregate checks are optional baseline entries. The ratchet retains a synthetic fixture proving that spreading a class across partial files is detected when an aggregate rule is configured, without retaining an exception for a class that has been decomposed.
 
 Baselines should move downward when hotspots shrink or disappear. To intentionally raise a value, first review the architectural impact, then update `tests/OpenTiaToolkit.ArchitectureTests/god-class-debt-baseline.json` in the same change with the rationale. Tests never rewrite the baseline.
 
@@ -11,3 +11,9 @@ Baselines should move downward when hotspots shrink or disappear. To intentional
 `HmiScreenJsonPatchApplier` is a compatibility facade for the three existing patch, filter-merge, and filter-validation entry points. The pure `HmiScreenJsonPatchEngine` clones the input screen, executes operations sequentially through a duplicate-checked dispatcher, and returns ordered operation results. Cohesive handlers under `Services/HmiScreenJsonPatch` own property/layout, item lifecycle, event, dynamization, and interface mutations; focused collaborators own aliases, filters, target resolution, scalar conversion, cloning, and result construction.
 
 `HmiScreenJsonPatchOperationCatalog` is the ordered source of truth for supported operation names and normalization. When adding a future operation, update the catalog, the appropriate handler registration and implementation, filter metadata, capability hint, and characterization tests together. The former 1,609-line facade is now below the screening threshold, so its hotspot exception has been removed.
+
+## PLC document workflow boundary
+
+`PlcDocumentWorkflowService` is now a small, non-partial compatibility facade. Pure SIMATIC SD validation, short-lived plan storage, exact Siemens target access, persistent transaction storage, plan integrity, capability and promotion binding, transaction coordination, impact analysis, rollback, qualification probes, behavior probes, and online-compare analysis have focused internal owners under `Services/PlcDocumentWorkflow`.
+
+`PlcCodeFormatService` retains its public compatibility constructor, while normal internal composition uses `PlcDocumentValidator`, removing the former facade dependency cycle. The transaction-file hotspot and aggregate partial-class exceptions were removed. Later PLC tag, hardware, Unified HMI adapter, portal session, and general V21 adapter chapters remain outstanding.

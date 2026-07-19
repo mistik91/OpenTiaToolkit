@@ -81,7 +81,10 @@ namespace OpenTiaToolkit.Core.Services
                         project.Name,
                         project.Path.FullName,
                         GetVersion(),
-                        File.GetCreationTime(project.Path.FullName));
+                        File.GetCreationTime(project.Path.FullName),
+                        _sessionContext.AttachedPortalProcessId,
+                        _sessionContext.IsPortalVisible,
+                        _sessionContext.OwnsCurrentProject || _sessionContext.OwnsCurrentSession);
                 }
                 catch (Exception ex)
                 {
@@ -112,7 +115,10 @@ namespace OpenTiaToolkit.Core.Services
                                 project.Name,
                                 project.Path.FullName,
                                 GetVersion(),
-                                File.GetCreationTime(project.Path.FullName)));
+                                File.GetCreationTime(project.Path.FullName),
+                                _sessionContext.AttachedPortalProcessId,
+                                _sessionContext.IsPortalVisible,
+                                ReferenceEquals(project, _sessionContext.Project) && _sessionContext.OwnsCurrentProject));
                         }
                     }
 
@@ -126,7 +132,10 @@ namespace OpenTiaToolkit.Core.Services
                                     session.Project.Name + " (Session)",
                                     session.Project.Path.FullName,
                                     GetVersion(),
-                                    File.GetCreationTime(session.Project.Path.FullName)));
+                                    File.GetCreationTime(session.Project.Path.FullName),
+                                    _sessionContext.AttachedPortalProcessId,
+                                    _sessionContext.IsPortalVisible,
+                                    ReferenceEquals(session, _sessionContext.Session) && _sessionContext.OwnsCurrentSession));
                             }
                         }
                     }

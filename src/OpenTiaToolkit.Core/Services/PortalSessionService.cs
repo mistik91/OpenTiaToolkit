@@ -11,6 +11,7 @@ using System.Linq;
 using System.Security;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using static OpenTiaToolkit.Core.Services.PortalProjectStateInspector;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -58,6 +59,8 @@ namespace OpenTiaToolkit.Core.Services
             set => _sessionContext.OwnsCurrentSession = value;
         }
 
+        private bool OwnsPortalLifecycle => !_attachedPortalProcessId.HasValue;
+
         public string? LastError { get; private set; }
 
         public PortalSessionService(EngineeringSessionContext sessionContext, ILogger? logger)
@@ -82,7 +85,7 @@ namespace OpenTiaToolkit.Core.Services
                         try
                         {
                             TryGetSingleOpenProject(candidatePortal, out var candidateSession, out var candidateProject);
-                            CommitPortalState(candidatePortal, process.Id, candidateSession, candidateProject, false, false);
+                            CommitPortalState(candidatePortal, process.Id, candidateSession, candidateProject, false, false, isPortalVisible: true);
                         }
                         catch
                         {
@@ -94,7 +97,7 @@ namespace OpenTiaToolkit.Core.Services
                     }
 
                     var newPortal = new TiaPortal(TiaPortalMode.WithoutUserInterface);
-                    CommitPortalState(newPortal, null, null, null, false, false);
+                    CommitPortalState(newPortal, null, null, null, false, false, isPortalVisible: false);
                     _logger?.LogInformation("Started new TIA Portal instance.");
                     return true;
                 }
@@ -141,7 +144,7 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     var mode = withUi ? TiaPortalMode.WithUserInterface : TiaPortalMode.WithoutUserInterface;
                     var candidatePortal = new TiaPortal(mode);
-                    CommitPortalState(candidatePortal, null, null, null, false, false);
+                    CommitPortalState(candidatePortal, null, null, null, false, false, isPortalVisible: withUi);
                     _logger?.LogInformation("Started new TIA Portal instance.");
                     return true;
                 }
@@ -198,7 +201,7 @@ namespace OpenTiaToolkit.Core.Services
                     try
                     {
                         TryGetSingleOpenProject(candidatePortal, out var candidateSession, out var candidateProject);
-                        CommitPortalState(candidatePortal, process.Id, candidateSession, candidateProject, false, false);
+                        CommitPortalState(candidatePortal, process.Id, candidateSession, candidateProject, false, false, isPortalVisible: true);
                     }
                     catch
                     {
@@ -238,10 +241,18 @@ namespace OpenTiaToolkit.Core.Services
 
         public async Task<bool> OpenProjectAsync(string projectPath)
         {
-            return await OpenProjectAsync(projectPath, null);
+            return await OpenProjectAsync(projectPath, null, openInNewInstance: false);
         }
 
         public async Task<bool> OpenProjectAsync(string projectPath, ProjectAuthenticationOptions? authentication)
+        {
+            return await OpenProjectAsync(projectPath, authentication, openInNewInstance: false);
+        }
+
+        public async Task<bool> OpenProjectAsync(
+            string projectPath,
+            ProjectAuthenticationOptions? authentication,
+            bool openInNewInstance)
         {
             return await Task.Run(() =>
             {
@@ -278,7 +289,11 @@ namespace OpenTiaToolkit.Core.Services
                             return false;
                         }
 
-                        CommitProjectState(candidateSession, localSessionProject, ownsProject: true, ownsSession: true);
+                        CommitProjectState(
+                            candidateSession,
+                            localSessionProject,
+                            ownsProject: OwnsPortalLifecycle,
+                            ownsSession: OwnsPortalLifecycle);
                         return true;
                     }
 
@@ -294,12 +309,22 @@ namespace OpenTiaToolkit.Core.Services
                         return true;
                     }
 
+                    var currentPortalHasOpenProject = CurrentPortalHasAnyOpenProject();
+                    if (currentPortalHasOpenProject && !openInNewInstance)
+                    {
+                        LastError =
+                            $"The attached TIA Portal instance already has a different project open ({DescribeOpenProjects(_portal)}). " +
+                            "Close it first or pass --open-in-new-instance true to use a dedicated hidden instance.";
+                        _logger?.LogWarning("{LastError}", LastError);
+                        return false;
+                    }
+
                     var targetPortal = _portal!;
-                    var usesCandidatePortal = CurrentPortalHasAnyOpenProject();
+                    var usesCandidatePortal = openInNewInstance;
                     if (usesCandidatePortal)
                     {
                         _logger?.LogInformation(
-                            "Preparing a dedicated hidden TIA Portal instance so the current project remains selected unless {ProjectPath} opens successfully.",
+                            "Opening {ProjectPath} in an explicitly requested dedicated hidden TIA Portal instance.",
                             projectPath);
                         targetPortal = new TiaPortal(TiaPortalMode.WithoutUserInterface);
                     }
@@ -333,13 +358,43 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
+                    if (!PathEquals(TryGetProjectPath(candidateProject), normalizedProjectPath))
+                    {
+                        LastError =
+                            $"Siemens Openness opened project '{TryGetProjectPath(candidateProject) ?? candidateProject.Name}', " +
+                            $"which does not match the requested path '{normalizedProjectPath}'.";
+                        try
+                        {
+                            if (candidateProject is Project mismatchedProject)
+                            {
+                                mismatchedProject.Close();
+                            }
+                        }
+                        finally
+                        {
+                            if (usesCandidatePortal)
+                            {
+                                targetPortal.Dispose();
+                            }
+                        }
+
+                        return false;
+                    }
+
                     if (usesCandidatePortal)
                     {
-                        CommitPortalState(targetPortal, null, null, candidateProject, ownsProject: true, ownsSession: false);
+                        CommitPortalState(
+                            targetPortal,
+                            null,
+                            null,
+                            candidateProject,
+                            ownsProject: true,
+                            ownsSession: false,
+                            isPortalVisible: false);
                     }
                     else
                     {
-                        CommitProjectState(null, candidateProject, ownsProject: true, ownsSession: false);
+                        CommitProjectState(null, candidateProject, ownsProject: OwnsPortalLifecycle, ownsSession: false);
                     }
 
                     return true;
@@ -402,11 +457,11 @@ namespace OpenTiaToolkit.Core.Services
 
                     if (usesCandidatePortal)
                     {
-                        CommitPortalState(targetPortal, null, null, candidateProject, ownsProject: true, ownsSession: false);
+                        CommitPortalState(targetPortal, null, null, candidateProject, ownsProject: true, ownsSession: false, isPortalVisible: false);
                     }
                     else
                     {
-                        CommitProjectState(null, candidateProject, ownsProject: true, ownsSession: false);
+                        CommitProjectState(null, candidateProject, ownsProject: OwnsPortalLifecycle, ownsSession: false);
                     }
 
                     return ToLifecycleResult(candidateProject);
@@ -538,11 +593,11 @@ namespace OpenTiaToolkit.Core.Services
 
                     if (usesCandidatePortal)
                     {
-                        CommitPortalState(targetPortal, null, null, candidateProject, ownsProject: true, ownsSession: false);
+                        CommitPortalState(targetPortal, null, null, candidateProject, ownsProject: true, ownsSession: false, isPortalVisible: false);
                     }
                     else
                     {
-                        CommitProjectState(null, candidateProject, ownsProject: true, ownsSession: false);
+                        CommitProjectState(null, candidateProject, ownsProject: OwnsPortalLifecycle, ownsSession: false);
                     }
 
                     return ToLifecycleResult(candidateProject);
@@ -560,44 +615,64 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                LastError = null;
                 if (_project == null)
                 {
-                    _logger?.LogWarning("No project is currently open");
-                    return true;
+                    if (_portal != null &&
+                        TryGetSingleOpenProject(_portal, out var discoveredSession, out var discoveredProject) &&
+                        discoveredProject != null)
+                    {
+                        _logger?.LogInformation(
+                            "Rediscovered open project {ProjectName} before explicit close.",
+                            discoveredProject.Name);
+                        CommitProjectState(discoveredSession, discoveredProject, ownsProject: false, ownsSession: false);
+                    }
+                    else if (CurrentPortalHasAnyOpenProject())
+                    {
+                        LastError = "No project is selected and the attached portal contains multiple open projects. Connect to the intended instance/project before closing.";
+                        _logger?.LogWarning("{LastError}", LastError);
+                        return false;
+                    }
+                    else
+                    {
+                        _logger?.LogInformation("No project is currently open");
+                        return true;
+                    }
                 }
 
-                _logger?.LogInformation("Closing project...");
+                var projectPath = TryGetProjectPath(_project);
+                var projectName = _project?.Name;
+                _logger?.LogInformation("Closing project {ProjectName}...", projectName);
 
                 try
                 {
                     if (_session != null)
                     {
-                        if (_ownsCurrentSession)
-                        {
-                            if (saveChanges) _session.Save();
+                        if (saveChanges) _session.Save();
 
-                            _session.Close();
-                        }
-                        else
-                        {
-                            _logger?.LogInformation("Leaving externally managed local session open.");
-                        }
+                        _session.Close();
                     }
                     else if (_project is Project project)
                     {
-                        if (_ownsCurrentProject)
+                        if (saveChanges)
                         {
-                            if (saveChanges)
-                            {
-                                project.Save();
-                            }
+                            project.Save();
+                        }
 
-                            project.Close();
-                        }
-                        else
-                        {
-                            _logger?.LogInformation("Leaving externally managed project open: {ProjectName}", project.Name);
-                        }
+                        project.Close();
+                    }
+                    else
+                    {
+                        LastError = $"The selected project type '{_project?.GetType().FullName}' cannot be closed by this command.";
+                        _logger?.LogWarning("{LastError}", LastError);
+                        return false;
+                    }
+
+                    if (PortalContainsProject(_portal, projectPath, projectName))
+                    {
+                        LastError = $"Siemens Openness returned from close, but project '{projectName}' is still open in the attached portal.";
+                        _logger?.LogWarning("{LastError}", LastError);
+                        return false;
                     }
 
                     _sessionContext.ClearProjectSelection();
@@ -605,6 +680,7 @@ namespace OpenTiaToolkit.Core.Services
                 }
                 catch (Exception ex)
                 {
+                    LastError = FormatExceptionMessage(ex);
                     _logger?.LogError(ex, "Failed to close project");
                     return false;
                 }
@@ -749,12 +825,14 @@ namespace OpenTiaToolkit.Core.Services
             LocalSession? session,
             ProjectBase? project,
             bool ownsProject,
-            bool ownsSession)
+            bool ownsSession,
+            bool isPortalVisible)
         {
             var previous = CaptureState();
             _sessionContext.ClearPortalSelection();
             _portal = portal;
             _attachedPortalProcessId = attachedProcessId;
+            _sessionContext.IsPortalVisible = isPortalVisible;
             _session = session;
             _project = project;
             _ownsCurrentProject = ownsProject;
@@ -814,41 +892,6 @@ namespace OpenTiaToolkit.Core.Services
                 _logger?.LogWarning(ex, "Committed new TIA state, but failed to dispose the previous portal attachment.");
                 Trace.TraceWarning($"[PortalSessionService] Failed to dispose previous portal attachment: {FormatExceptionMessage(ex)}");
             }
-        }
-
-        private static bool TryGetSingleOpenProject(
-            TiaPortal portal,
-            out LocalSession? selectedSession,
-            out ProjectBase? selectedProject)
-        {
-            selectedSession = null;
-            selectedProject = null;
-            var count = 0;
-
-            if (portal.LocalSessions != null)
-            {
-                foreach (var session in portal.LocalSessions)
-                {
-                    if (session.Project != null)
-                    {
-                        count++;
-                        selectedSession = session;
-                        selectedProject = session.Project;
-                    }
-                }
-            }
-
-            if (portal.Projects != null)
-            {
-                foreach (var project in portal.Projects)
-                {
-                    count++;
-                    selectedSession = null;
-                    selectedProject = project;
-                }
-            }
-
-            return count == 1 && selectedProject != null;
         }
 
         private static UmacDelegate? CreateUmacDelegate(ProjectAuthenticationOptions? authentication)
@@ -1010,7 +1053,7 @@ namespace OpenTiaToolkit.Core.Services
 
                     if (TrySelectOpenProjectInPortal(attachedPortal, normalizedProjectPath, projectName, out var matchedSession, out var matchedProject))
                     {
-                        CommitPortalState(attachedPortal, process.Id, matchedSession, matchedProject, false, false);
+                        CommitPortalState(attachedPortal, process.Id, matchedSession, matchedProject, false, false, isPortalVisible: true);
                         return true;
                     }
                 }
@@ -1088,61 +1131,6 @@ namespace OpenTiaToolkit.Core.Services
             {
                 return null;
             }
-        }
-
-        private static string? TryGetProjectPath(ProjectBase? project)
-        {
-            try
-            {
-                return project?.Path?.FullName;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static string NormalizeProjectPath(string projectPath)
-        {
-            return Path.GetFullPath(projectPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-
-        private static bool PathEquals(string? left, string? right)
-        {
-            if (left is null || right is null)
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
-            {
-                return false;
-            }
-
-            var normalizedLeft = NormalizeProjectPath(left);
-            var normalizedRight = NormalizeProjectPath(right);
-
-            return string.Equals(
-                normalizedLeft,
-                normalizedRight,
-                StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool ProjectMatches(string? candidatePath, string? candidateName, string normalizedProjectPath, string projectName)
-        {
-            if (PathEquals(candidatePath, normalizedProjectPath))
-            {
-                return true;
-            }
-
-            if (!string.IsNullOrWhiteSpace(candidateName) &&
-                !string.IsNullOrWhiteSpace(projectName) &&
-                string.Equals(candidateName, projectName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            return false;
         }
 
         private sealed class SessionStateSnapshot

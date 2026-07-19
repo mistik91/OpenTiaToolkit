@@ -91,6 +91,11 @@ namespace OpenTiaToolkit.Tests.Integration
 
             // Assert
             Assert.IsTrue(result.Success, $"Failed to close project: {result.Error}");
+            Assert.IsNull(await _portalService.GetProjectInfoAsync(), "Closed project must no longer be selected.");
+            Assert.AreEqual(
+                0,
+                (await _portalService.GetOpenProjectsAsync()).Count,
+                "Close success requires the project to be absent from the Siemens portal collection.");
 
             _logger.LogInformation("Project closed successfully (not saved)");
         }

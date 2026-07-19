@@ -26,6 +26,8 @@ Do not conclude that no project is open from a connect response alone. Project d
 
 ## Project Lifecycle
 
+- `close-project` closes the selected Siemens project even when it was discovered by attaching to an existing UI instance. Verify with `list-projects` after closing.
+- `open-project` fails closed when the attached instance already contains a different project. Close the current project first, or pass `--open-in-new-instance true` only when a dedicated hidden instance is explicitly intended.
 - Use `create-project --project-path` only when the user asks for a greenfield project or discovery proves no suitable project exists.
 - Use `archive-project` before broad mutation sessions or when the user asks for a disposable backup. Run `save-project` first; Siemens Openness rejects archive when the project has unsaved changes.
 - Use `retrieve-project --archive-path --target-directory` for rollback or disposable-copy workflows, then verify with `get-project-info` and `list-devices` or a narrower domain read.
@@ -82,7 +84,7 @@ After the project is selected:
 
 - If an Openness command reports that no project is open, call `list-projects` before asking the user for a path.
 - If a connected instance has stale or surprising state, run `portal-status` and `list-projects`.
-- If the user provided a project path and no running instance has it open, connect to the intended instance or start one, then call `open-project`.
+- If the user provided a project path and no running instance has it open, connect to an empty intended instance or start one, then call `open-project`. Do not silently replace a different open project.
 - If opening a project changes the selected instance/project, re-run target discovery before continuing.
 
 ## Hand-Off

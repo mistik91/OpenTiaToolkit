@@ -7,8 +7,17 @@ using OpenTiaToolkit.Core.Models;
 
 namespace OpenTiaToolkit.Core.Services;
 
-public sealed partial class PlcDocumentWorkflowService
+internal sealed class PlcCodeProbeWorkflow
 {
+    private readonly PlcCodeTransactionCoordinator _transactions;
+    private readonly PlcCodeCapabilityGate _capabilityGate;
+    private readonly PlcCodePromotionGate _promotionGate;
+    private readonly PlcCodeEvidenceRegistry _evidenceRegistry;
+
+    internal PlcCodeProbeWorkflow(PlcCodeTransactionCoordinator transactions, PlcCodeCapabilityGate capabilityGate, PlcCodePromotionGate promotionGate, PlcCodeEvidenceRegistry evidenceRegistry)
+    {
+        _transactions = transactions; _capabilityGate = capabilityGate; _promotionGate = promotionGate; _evidenceRegistry = evidenceRegistry;
+    }
     public async Task<PlcCodeTransaction> BeginPromotedTransactionAsync(string plcName, string evidenceId, string capabilityIds, string codeFormat, string inputPath, string? description, string? compilePolicy, int? maximumNewWarnings, string saveDecision, string sourceControlDecision)
     {
         string save = NormalizeDecision(saveDecision, "save-decision", "Defer", "ManualAfterVerification");
@@ -132,10 +141,10 @@ public sealed partial class PlcDocumentWorkflowService
         }
     }
 
-    private async Task<PlcCodeTransactionApplyResult> DisposeSuccessfulProbeTransactionAsync(string transactionId)
+    internal async Task<PlcCodeTransactionApplyResult> DisposeSuccessfulProbeTransactionAsync(string transactionId)
     {
         PlcCodeTransaction transaction = LoadTransaction(transactionId, updateExpiry: false);
-        RequireState(transaction, "Succeeded");
+        PlcCodeTransactionIntegrity.RequireState(transaction, "Succeeded");
         PlcCodeTransactionTargetSnapshot[] targets = transaction.Operations.SelectMany(EffectiveSnapshots).ToArray();
         if (targets.Length == 0 || targets.Any(target => target.Action != "Create" || target.BaselineHash != "missing"))
             throw new InvalidOperationException("A successful probe can be disposed automatically only when every exact target was newly created from a missing baseline.");
@@ -145,28 +154,22 @@ public sealed partial class PlcDocumentWorkflowService
         return await RollbackTransactionAsync(transaction, "Disposable probe cleanup after successful canonical verification.").ConfigureAwait(false);
     }
 
-    private PlcCodeArtifactValidationResult ValidateProbeArtifact(string codeFormat, string inputPath)
+    internal PlcCodeArtifactValidationResult ValidateProbeArtifact(string codeFormat, string inputPath)
     {
-        var formats = new PlcCodeFormatService(this);
-        PlcCodeArtifactValidationResult validation = formats.Validate(codeFormat, inputPath);
-        if (!validation.Valid) throw new InvalidDataException("Probe artifact validation failed: " + string.Join("; ", validation.Errors));
-        if (!validation.Format.Equals("SCL", StringComparison.OrdinalIgnoreCase) && !validation.Format.StartsWith("S7DCL", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Disposable probe runner increment 1 supports SCL and S7DCL create probes. SimaticML remains baseline-bound and VCI remains a synchronization route.");
-        if (validation.DeclaredObjects.Count == 0) throw new InvalidOperationException("The probe artifact declares no supported PLC object.");
-        return validation;
+        return _promotionGate.ValidateArtifact(codeFormat, inputPath);
     }
 
-    private async Task<IReadOnlyList<PlcCodeCapabilityDiscovery>> ValidateProbeCapabilitiesAsync(string capabilityIds, PlcCodeArtifactValidationResult validation, string? plcName = null, bool requireDisposableCreate = true)
+    internal async Task<IReadOnlyList<PlcCodeCapabilityDiscovery>> ValidateProbeCapabilitiesAsync(string capabilityIds, PlcCodeArtifactValidationResult validation, string? plcName = null, bool requireDisposableCreate = true)
     {
-        if (_capabilityDiscovery == null) throw new InvalidOperationException("Capability discovery is unavailable in this host.");
+        PlcCodeCapabilityDiscoveryService capabilityDiscovery = _capabilityGate.RequireDiscovery();
         string[] ids = (capabilityIds ?? string.Empty).Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(value => value.Trim()).Distinct(StringComparer.Ordinal).ToArray();
         if (ids.Length == 0) throw new InvalidOperationException("capability-ids is required for every declared disposable target.");
         var capabilities = new List<PlcCodeCapabilityDiscovery>();
         foreach (string id in ids)
         {
-            PlcCodeCapabilityDiscovery stored = _capabilityDiscovery.Get(id);
+            PlcCodeCapabilityDiscovery stored = capabilityDiscovery.Get(id);
             string expectedPlc = plcName ?? stored.Request.PlcName;
-            PlcCodeCapabilityDiscovery current = await _capabilityDiscovery.ValidateCurrentAsync(id, expectedPlc).ConfigureAwait(false);
+            PlcCodeCapabilityDiscovery current = await capabilityDiscovery.ValidateCurrentAsync(id, expectedPlc).ConfigureAwait(false);
             if (requireDisposableCreate && (!current.Request.Operation.Equals("Create", StringComparison.OrdinalIgnoreCase) || current.Target.Exists))
                 throw new InvalidOperationException($"Capability '{id}' is not bound to a missing Create target; production objects cannot be used as disposable probes.");
             if (current.Safety.MutationBlocked || current.Safety.IsFailSafeTarget)
@@ -182,35 +185,8 @@ public sealed partial class PlcDocumentWorkflowService
         return capabilities;
     }
 
-    private async Task VerifyPromotionBindingAsync(PlcCodeTransaction transaction)
-    {
-        PlcCodePromotionBinding? promotion = transaction.Promotion;
-        if (promotion == null) return;
-        if (_capabilityDiscovery == null) throw new InvalidOperationException("Capability discovery is unavailable in this host.");
-        PlcCodeArtifactValidationResult validation = ValidateProbeArtifact(promotion.CodeFormat, promotion.ArtifactPath);
-        if (!FixedEquals(promotion.ArtifactInputHash, validation.InputHash) || !FixedEquals(promotion.QualificationSignature, validation.QualificationSignature))
-            throw new InvalidOperationException("The promoted production artifact changed after evidence was bound. Begin a new promoted transaction.");
-        if (!string.Equals(promotion.ValidatorCatalogVersion, PlcCodeFormatService.ValidatorCatalogVersion, StringComparison.Ordinal))
-            throw new InvalidOperationException("The PLC code validator catalog changed after promotion was bound. Re-query evidence and begin a new promoted transaction.");
-        var capabilities = new List<PlcCodeCapabilityDiscovery>();
-        foreach (PlcCodeCapabilityBinding binding in transaction.CapabilityBindings)
-            capabilities.Add(await _capabilityDiscovery.ValidateCurrentAsync(binding.CapabilityId, transaction.PlcName).ConfigureAwait(false));
-        PlcCodeEvidenceCompatibility compatibility = PlcCodeEvidenceRegistry.BuildCompatibility(capabilities, validation);
-        if (!FixedEquals(promotion.CompatibilityFingerprint, compatibility.Fingerprint))
-            throw new InvalidOperationException("The promoted artifact is no longer compatible with the current TIA, PLC, route, safety, or object-shape evidence.");
-        RequirePromotionEvidence(_evidenceRegistry.Get(promotion.EvidenceId), validation, compatibility);
-        RequirePromotionOperationCoverage(transaction, promotion);
-    }
-
     private static void RequirePromotionEvidence(PlcCodeEvidenceRecord evidence, PlcCodeArtifactValidationResult validation, PlcCodeEvidenceCompatibility compatibility)
-    {
-        if (!evidence.Status.Equals("Verified", StringComparison.Ordinal) || !evidence.CleanupProven || evidence.EvidenceKind.Equals("Behavior", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"Evidence '{evidence.EvidenceId}' is not reusable verified qualification evidence with proven cleanup.");
-        if (!string.Equals(evidence.ValidatorCatalogVersion, PlcCodeFormatService.ValidatorCatalogVersion, StringComparison.Ordinal))
-            throw new InvalidOperationException($"Evidence '{evidence.EvidenceId}' was produced by validator catalog '{evidence.ValidatorCatalogVersion}', not the current '{PlcCodeFormatService.ValidatorCatalogVersion}'.");
-        if (!FixedEquals(evidence.QualificationSignature, validation.QualificationSignature) || !FixedEquals(evidence.Compatibility.Fingerprint, compatibility.Fingerprint))
-            throw new InvalidOperationException($"Evidence '{evidence.EvidenceId}' does not exactly match this artifact's normalized construct signature and current compatibility fingerprint.");
-    }
+        => PlcCodePromotionGate.RequireEvidence(evidence, validation, compatibility);
 
     private static void RequirePromotionOperationCoverage(PlcCodeTransaction transaction, PlcCodePromotionBinding promotion)
     {
@@ -245,4 +221,19 @@ public sealed partial class PlcDocumentWorkflowService
         evidence.Failure = failure;
         _evidenceRegistry.Save(evidence);
     }
+
+    private Task<PlcCodeTransaction> BeginTransactionAsync(string plcName, string? description, string? compilePolicy, int? maximumNewWarnings, string? capabilityId, string? capabilityIds) => _transactions.BeginTransactionAsync(plcName, description, compilePolicy, maximumNewWarnings, capabilityId, capabilityIds);
+    private PlcCodeTransaction AddTransactionOperation(string transactionId, string importDirectory, string fileName, string? groupPath, string? importOption) => _transactions.AddTransactionOperation(transactionId, importDirectory, fileName, groupPath, importOption);
+    private PlcCodeTransaction AddSclTransactionOperation(string transactionId, string sourcePath, string? groupPath, string? typeGroupPath) => _transactions.AddSclTransactionOperation(transactionId, sourcePath, groupPath, typeGroupPath);
+    private Task<PlcCodeTransaction> PlanTransactionAsync(string transactionId) => _transactions.PlanTransactionAsync(transactionId);
+    private Task<PlcCodeTransaction> ApproveTransactionImpactAsync(string transactionId, string fingerprint, bool acceptUnknown) => _transactions.ApproveTransactionImpactAsync(transactionId, fingerprint, acceptUnknown);
+    private Task<PlcCodeTransactionApplyResult> ApplyTransactionAsync(string transactionId, string token) => _transactions.ApplyTransactionAsync(transactionId, token);
+    private Task<PlcCodeTransactionApplyResult> RecoverTransactionAsync(string transactionId) => _transactions.RecoverTransactionAsync(transactionId);
+    private PlcCodeTransaction GetTransaction(string transactionId) => _transactions.GetTransaction(transactionId);
+    private bool DiscardTransaction(string transactionId) => _transactions.DiscardTransaction(transactionId);
+    private PlcCodeTransaction LoadTransaction(string transactionId, bool updateExpiry) => _transactions.LoadForRecovery(transactionId);
+    private void SaveTransaction(PlcCodeTransaction transaction) => _transactions.SaveState(transaction);
+    private void AddJournal(PlcCodeTransaction transaction, int? operation, string phase, string state, string message) => _transactions.Journal(transaction, operation, phase, state, message);
+    private Task<PlcCodeTransactionApplyResult> RollbackTransactionAsync(PlcCodeTransaction transaction, string reason) => _transactions.RollbackAsync(transaction, reason);
+    private static IEnumerable<PlcCodeTransactionTargetSnapshot> EffectiveSnapshots(PlcCodeTransactionOperation operation) => PlcCodeTransactionIntegrity.EffectiveSnapshots(operation);
 }

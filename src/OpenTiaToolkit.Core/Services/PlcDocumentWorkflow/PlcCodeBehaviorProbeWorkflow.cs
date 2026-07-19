@@ -6,12 +6,23 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Models;
 
 namespace OpenTiaToolkit.Core.Services;
 
-public sealed partial class PlcDocumentWorkflowService
+internal sealed class PlcCodeBehaviorProbeWorkflow
 {
+    private readonly IPlcService _plcService;
+    private readonly IPlcSimulationRuntime _simulationRuntime;
+    private readonly PlcCodeEvidenceRegistry _evidenceRegistry;
+    private readonly PlcCodeProbeWorkflow _probes;
+    private readonly PlcCodeTransactionCoordinator _transactions;
+
+    internal PlcCodeBehaviorProbeWorkflow(IPlcService plcService, IPlcSimulationRuntime simulationRuntime, PlcCodeEvidenceRegistry evidenceRegistry, PlcCodeProbeWorkflow probes, PlcCodeTransactionCoordinator transactions)
+    {
+        _plcService = plcService; _simulationRuntime = simulationRuntime; _evidenceRegistry = evidenceRegistry; _probes = probes; _transactions = transactions;
+    }
     public PlcBehaviorVectorValidationResult ValidateBehaviorVector(string vectorPath) => new PlcBehaviorVectorService().Validate(vectorPath);
 
     public PlcCodeArtifactValidationResult ValidateBehaviorPackageArtifact(string packagePath) => ValidateBehaviorPackage(packagePath).Composite;
@@ -275,12 +286,7 @@ public sealed partial class PlcDocumentWorkflowService
     }
     private static bool IsDataBlock(PlcCodeDeclaredObject item) => item.ObjectType.Equals("DB", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("DATA_BLOCK", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("GlobalDB", StringComparison.OrdinalIgnoreCase);
     private static bool SameSimulator(PlcSimulatorInstanceCapability left, PlcSimulatorInstanceCapability right) => left.Id == right.Id && left.Name.Equals(right.Name, StringComparison.OrdinalIgnoreCase) && left.ArticleNumber.Equals(right.ArticleNumber, StringComparison.OrdinalIgnoreCase);
-    internal static bool HasNoNewCompareDifferences(PlcSoftwareCompareResult baseline, PlcSoftwareCompareResult current)
-    {
-        var allowed = new HashSet<string>(baseline.Entries.Where(item => item.HasDifference).Select(CompareIdentity), StringComparer.Ordinal);
-        return current.Entries.Where(item => item.HasDifference).Select(CompareIdentity).All(allowed.Contains);
-    }
-    private static string CompareIdentity(PlcSoftwareCompareEntry item) => string.Join("\u001f", item.Path, item.State, item.LeftName ?? string.Empty, item.RightName ?? string.Empty, item.Detail ?? string.Empty);
+    internal static bool HasNoNewCompareDifferences(PlcSoftwareCompareResult baseline, PlcSoftwareCompareResult current) => PlcBehaviorCompareAnalyzer.HasNoNewCompareDifferences(baseline, current);
     private static PlcSoftwareCompareResult CompactCompare(PlcSoftwareCompareResult result) => new PlcSoftwareCompareResult(result.Success, result.ComparedToOnline, result.Message, result.Entries.Where(item => item.HasDifference).ToArray());
     private static bool CompareMentionsOwners(PlcSoftwareCompareResult compare, IEnumerable<string> owners) => compare.Entries.Where(item => item.HasDifference).Any(item => owners.Any(owner =>
         new[] { item.Path, item.LeftName ?? string.Empty, item.RightName ?? string.Empty, item.Detail ?? string.Empty }.Any(value => value.IndexOf(owner, StringComparison.OrdinalIgnoreCase) >= 0)));
@@ -361,4 +367,19 @@ public sealed partial class PlcDocumentWorkflowService
         public IReadOnlyList<BehaviorPackageArtifact> Artifacts { get; }
         public PlcCodeArtifactValidationResult Composite { get; }
     }
+
+    private PlcCodeArtifactValidationResult ValidateProbeArtifact(string format, string path) => _probes.ValidateProbeArtifact(format, path);
+    private Task<IReadOnlyList<PlcCodeCapabilityDiscovery>> ValidateProbeCapabilitiesAsync(string ids, PlcCodeArtifactValidationResult validation, string? plcName, bool requireDisposableCreate) => _probes.ValidateProbeCapabilitiesAsync(ids, validation, plcName, requireDisposableCreate);
+    private Task<PlcCodeTransaction> BeginTransactionAsync(string plcName, string? description, string? compilePolicy, int? maximumNewWarnings, string? capabilityId, string? capabilityIds) => _transactions.BeginTransactionAsync(plcName, description, compilePolicy, maximumNewWarnings, capabilityId, capabilityIds);
+    private PlcCodeTransaction AddTransactionOperation(string id, string directory, string fileName, string? groupPath, string? option) => _transactions.AddTransactionOperation(id, directory, fileName, groupPath, option);
+    private PlcCodeTransaction AddSclTransactionOperation(string id, string path, string? groupPath, string? typeGroupPath) => _transactions.AddSclTransactionOperation(id, path, groupPath, typeGroupPath);
+    private Task<PlcCodeTransaction> PlanTransactionAsync(string id) => _transactions.PlanTransactionAsync(id);
+    private Task<PlcCodeTransaction> ApproveTransactionImpactAsync(string id, string fingerprint, bool acceptUnknown) => _transactions.ApproveTransactionImpactAsync(id, fingerprint, acceptUnknown);
+    private Task<PlcCodeTransactionApplyResult> ApplyTransactionAsync(string id, string token) => _transactions.ApplyTransactionAsync(id, token);
+    private Task<PlcCodeTransactionApplyResult> RecoverTransactionAsync(string id) => _transactions.RecoverTransactionAsync(id);
+    private Task<PlcCodeTransactionApplyResult> DisposeSuccessfulProbeTransactionAsync(string id) => _probes.DisposeSuccessfulProbeTransactionAsync(id);
+    private PlcCodeTransaction GetTransaction(string id) => _transactions.GetTransaction(id);
+    private bool DiscardTransaction(string id) => _transactions.DiscardTransaction(id);
+    private static IEnumerable<PlcCodeTransactionTargetSnapshot> EffectiveSnapshots(PlcCodeTransactionOperation operation) => PlcCodeTransactionIntegrity.EffectiveSnapshots(operation);
+    private static string Message(Exception exception) => PlcWorkflowPrimitives.Message(exception);
 }

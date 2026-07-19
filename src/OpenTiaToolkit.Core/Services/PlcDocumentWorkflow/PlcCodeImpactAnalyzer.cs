@@ -8,57 +8,22 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
+using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Models;
+using ResolvedBlock = OpenTiaToolkit.Core.Services.PlcCodeTargetRepository.ResolvedBlock;
 
 namespace OpenTiaToolkit.Core.Services;
 
-public sealed partial class PlcDocumentWorkflowService
+internal sealed class PlcCodeImpactAnalyzer
 {
     private static readonly string[] ImpactStatuses = { "Safe", "ReviewRequired", "Unknown", "Blocked" };
+    private readonly IPlcService _plcService;
+    private readonly PlcCodeTargetRepository _targets;
+    private readonly PlcCodeTransactionStore _store;
 
-    public PlcCodeImpactAnalysis GetTransactionImpact(string transactionId)
-    {
-        PlcCodeTransaction transaction = LoadTransaction(transactionId);
-        return transaction.ImpactAnalysis ?? throw new InvalidOperationException("The transaction has not been planned, so no impact analysis exists.");
-    }
+    internal PlcCodeImpactAnalyzer(IPlcService plcService, PlcCodeTargetRepository targets, PlcCodeTransactionStore store) { _plcService = plcService; _targets = targets; _store = store; }
 
-    public async Task<PlcCodeTransaction> ApproveTransactionImpactAsync(string transactionId, string impactFingerprint, bool acceptUnknown)
-    {
-        PlcCodeTransaction transaction = LoadTransaction(transactionId);
-        RequireState(transaction, "ImpactReviewRequired");
-        if (transaction.ImpactAnalysis == null) throw new InvalidOperationException("The transaction has no impact analysis to approve.");
-        if (!FixedEquals(transaction.ImpactAnalysis.Fingerprint, impactFingerprint ?? string.Empty))
-            throw new InvalidOperationException("The impact fingerprint does not match the current transaction analysis.");
-        if (transaction.ImpactAnalysis.Status == "Blocked") throw new InvalidOperationException("Blocked impact findings cannot be approved.");
-        if (transaction.ImpactAnalysis.Status == "Unknown" && !acceptUnknown)
-            throw new InvalidOperationException("The impact analysis contains unknown evidence. Set accept-unknown=true only after reviewing the unresolved scope.");
-
-        await EnsureTransactionContextAsync(transaction).ConfigureAwait(false);
-        await VerifyCapabilityCurrentAsync(transaction).ConfigureAwait(false);
-        VerifyTransactionPreconditions(transaction);
-        PlcCodeImpactAnalysis current = await AnalyzeTransactionImpactAsync(transaction).ConfigureAwait(false);
-        if (!FixedEquals(transaction.ImpactAnalysis.Fingerprint, current.Fingerprint))
-        {
-            transaction.State = "Stale";
-            transaction.Failure = "PLC dependencies, consumers, or semantic impact changed after planning.";
-            AddJournal(transaction, null, "Impact", "Stale", transaction.Failure);
-            SaveTransaction(transaction);
-            throw new InvalidOperationException(transaction.Failure);
-        }
-
-        transaction.ImpactAcknowledged = true;
-        transaction.ImpactAcknowledgementFingerprint = current.Fingerprint;
-        transaction.ImpactAnalysis = current;
-        transaction.State = "Planned";
-        transaction.ApplyToken = RandomToken();
-        transaction.ExpiresAtUtc = DateTimeOffset.UtcNow.Add(TransactionLifetime);
-        transaction.PlanHash = ComputeTransactionPlanHash(transaction);
-        AddJournal(transaction, null, "Impact", "Acknowledged", $"Impact {current.Status} was explicitly acknowledged with fingerprint {current.Fingerprint}.");
-        SaveTransaction(transaction);
-        return transaction;
-    }
-
-    private async Task<PlcCodeImpactAnalysis> AnalyzeTransactionImpactAsync(PlcCodeTransaction transaction)
+    internal async Task<PlcCodeImpactAnalysis> AnalyzeAsync(PlcCodeTransaction transaction)
     {
         var targets = new List<PlcCodeImpactTarget>();
         var dependencies = new List<PlcCodeImpactDependency>();
@@ -95,7 +60,7 @@ public sealed partial class PlcDocumentWorkflowService
 
     private PlcCodeImpactDependency ResolveImpactDependency(int operationSequence, string name)
     {
-        IReadOnlyList<ResolvedBlock> matches = FindBlocks(RequireBlockRoot(), name);
+        IReadOnlyList<ResolvedBlock> matches = _targets.FindBlocks(name);
         if (matches.Count == 1)
             return new PlcCodeImpactDependency
             {
@@ -250,15 +215,15 @@ public sealed partial class PlcDocumentWorkflowService
         return Path.Combine(operation.ImportDirectory, operation.FileName + ".s7dcl");
     }
 
-    private static string? BaselineArtifactPath(PlcCodeTransaction transaction, PlcCodeTransactionOperation operation, PlcCodeTransactionTargetSnapshot snapshot, int targetIndex)
+    private string? BaselineArtifactPath(PlcCodeTransaction transaction, PlcCodeTransactionOperation operation, PlcCodeTransactionTargetSnapshot snapshot, int targetIndex)
     {
         if (snapshot.BaselineHash == "missing") return null;
         if (operation.Kind == "PatchSimaticMlBlock" || operation.Kind == "PatchSimaticMlType") return operation.BaselinePath;
         if (operation.Kind == "GenerateSclSource")
             return IsTypeTarget(snapshot.Target)
-                ? TransactionSclTypeBaseline(transaction.TransactionId, operation.Sequence, targetIndex)
-                : Path.Combine(TransactionSclTargetBaseline(transaction.TransactionId, operation.Sequence, targetIndex), snapshot.Target.Name + ".s7dcl");
-        return Path.Combine(TransactionOperationBaseline(transaction.TransactionId, operation.Sequence), snapshot.Target.Name + ".s7dcl");
+                ? _store.SclTypeBaseline(transaction.TransactionId, operation.Sequence, targetIndex)
+                : Path.Combine(_store.SclTargetBaseline(transaction.TransactionId, operation.Sequence, targetIndex), snapshot.Target.Name + ".s7dcl");
+        return Path.Combine(_store.OperationBaseline(transaction.TransactionId, operation.Sequence), snapshot.Target.Name + ".s7dcl");
     }
 
     private static string? ExtractImpactSignature(string? path, PlcBlockIdentity target)
@@ -443,4 +408,11 @@ public sealed partial class PlcDocumentWorkflowService
         });
         return Hash(Encoding.UTF8.GetBytes(canonical));
     }
+
+    private static IReadOnlyList<PlcBlockIdentity> OperationTargets(PlcCodeTransactionOperation operation) => PlcCodeTransactionIntegrity.OperationTargets(operation);
+    private static IReadOnlyList<PlcCodeTransactionTargetSnapshot> EffectiveSnapshots(PlcCodeTransactionOperation operation) => PlcCodeTransactionIntegrity.EffectiveSnapshots(operation);
+    private static bool IsTypeTarget(PlcBlockIdentity target) => PlcWorkflowPrimitives.IsTypeTarget(target);
+    private static bool FixedEquals(string? left, string? right) => PlcWorkflowPrimitives.FixedEquals(left, right);
+    private static string Hash(byte[] bytes) => PlcWorkflowPrimitives.Hash(bytes);
+    private static string Message(Exception exception) => PlcWorkflowPrimitives.Message(exception);
 }
