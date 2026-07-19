@@ -16,4 +16,14 @@ Baselines should move downward when hotspots shrink or disappear. To intentional
 
 `PlcDocumentWorkflowService` is now a small, non-partial compatibility facade. Pure SIMATIC SD validation, short-lived plan storage, exact Siemens target access, persistent transaction storage, plan integrity, capability and promotion binding, transaction coordination, impact analysis, rollback, qualification probes, behavior probes, and online-compare analysis have focused internal owners under `Services/PlcDocumentWorkflow`.
 
-`PlcCodeFormatService` retains its public compatibility constructor, while normal internal composition uses `PlcDocumentValidator`, removing the former facade dependency cycle. The transaction-file hotspot and aggregate partial-class exceptions were removed. Later PLC tag, hardware, Unified HMI adapter, portal session, and general V21 adapter chapters remain outstanding.
+`PlcCodeFormatService` retains its public compatibility constructor, while normal internal composition uses `PlcDocumentValidator`, removing the former facade dependency cycle. The transaction-file hotspot and aggregate partial-class exceptions were removed.
+
+## PLC tag workflow boundary
+
+`PlcTagService` is a small, non-partial compatibility and composition facade. It preserves the four existing entry points and constructor shape; `PlcService` and `IPlcService` continue to expose only find/replace and explicit modification. The internal-only single-tag creation and CSV reconciliation entry points remain compatible without widening the public service contract.
+
+`IPlcTagRepository` and `V21PlcTagRepository` form the narrow Siemens boundary. They produce a normalized `PlcTagCatalog` of table and tag state, including stable repository-owned handles, so matching and planning do not rediscover or reflect over Siemens objects. `PlcTagFindReplaceWorkflow`, `PlcTagModificationWorkflow`, `PlcTagCreationWorkflow`, and `PlcTagCsvWorkflow` own the four cohesive workflows. Pure `PlcTagModificationPlanner` and `PlcTagCsvRules` components own matching, patch validation, collision checks, CSV indexing, ambiguity reporting, and TIA-like name allocation.
+
+Explicit modification planning mutates the normalized catalog sequentially, including during dry-runs. A planned rename, create, delete, or replace is therefore visible to every later operation. `PlcTagMutationBoundary` owns the per-tag compensating recreation section shared by explicit and CSV replacement. Cancellation is observed before an operation but not between deleting a source and completing replacement or restoration. Failed CSV recreation now restores the complete original tag best-effort and reports restoration failure without recording successful deleted/created entries.
+
+Future tag operations should add a focused planner or workflow and extend only the tag-specific repository surface needed for Siemens access. They should reuse the catalog and mutation boundary instead of adding matching, reflection, or rollback logic to `PlcTagService`. Hardware, general V21 adapter, Unified HMI adapter, HMI import, and portal-session decomposition chapters remain outstanding.
