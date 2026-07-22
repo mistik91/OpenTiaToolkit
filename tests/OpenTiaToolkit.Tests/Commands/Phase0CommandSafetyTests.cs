@@ -134,7 +134,7 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
-        public async Task ApplyHmiScreenJsonPatch_SafetyBlockIsCommandFailure()
+        public async Task ApplyHmiScreenJsonPatch_SafetyBlockIsStructuredCommandSuccess()
         {
             var service = CreateOpenHmiService();
             service.Setup(candidate => candidate.ApplyScreenJsonPatchAsync(
@@ -152,6 +152,34 @@ namespace OpenTiaToolkit.Tests.Commands
             var result = await command.ExecuteAsync(Args(
                 ("hmi-name", "HMI_1"),
                 ("screen-path", "Screens/Main"),
+                ("operations", new HmiScreenJsonPatchOperation { Op = "set-property" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            var data = result.Data as HmiScreenJsonEditResult;
+            Assert.IsNotNull(data);
+            Assert.IsTrue(data!.SafetyBlocked);
+        }
+
+        [TestMethod]
+        public async Task ApplyHmiScreenJsonPatch_UnappliedNonSafetyResultIsCommandFailure()
+        {
+            var service = CreateOpenHmiService();
+            service.Setup(candidate => candidate.ApplyScreenJsonPatchAsync(
+                    "Screens/Main",
+                    It.IsAny<IReadOnlyList<HmiScreenJsonPatchOperation>>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<HmiJsonFilterOptions?>(),
+                    false,
+                    It.IsAny<HmiJsonImportExecutionOptions?>(),
+                    It.IsAny<string?>(),
+                    false))
+                .ReturnsAsync(new HmiScreenJsonEditResult { DryRun = false, Applied = false });
+            var command = new ApplyHmiScreenJsonPatchCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("hmi-name", "HMI_1"),
+                ("screen-path", "Screens/Main"),
+                ("dry-run", false),
                 ("operations", new HmiScreenJsonPatchOperation { Op = "set-property" })), NullLogger.Instance);
 
             Assert.IsFalse(result.Success);

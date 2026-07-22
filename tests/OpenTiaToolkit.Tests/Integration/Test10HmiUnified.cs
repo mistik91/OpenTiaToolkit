@@ -59,7 +59,6 @@ namespace OpenTiaToolkit.Tests.Integration
             {
                 try
                 {
-                    await _portalService.CloseProjectAsync(false);
                     await _portalService.DisconnectAsync();
                 }
                 catch
@@ -312,7 +311,11 @@ namespace OpenTiaToolkit.Tests.Integration
             var listTagsResult = await listTagsCommand.ExecuteAsync(
                 new CommandArgs(new Dictionary<string, object?>
                 {
-                    { "hmi-name", Settings.UnifiedHmiName }
+                    { "hmi-name", Settings.UnifiedHmiName },
+                    { "allow-full-scan", true },
+                    { "max-results", 100 },
+                    { "max-depth", 4 },
+                    { "include-logging-counts", true }
                 }),
                 _logger!);
             Assert.IsTrue(listTagsResult.Success, $"Failed to list HMI tags: {listTagsResult.Error}");
@@ -1541,7 +1544,10 @@ namespace OpenTiaToolkit.Tests.Integration
             var listTagsResult = await listTagsCommand.ExecuteAsync(
                 new CommandArgs(new Dictionary<string, object?>
                 {
-                    { "hmi-name", Settings.UnifiedHmiName }
+                    { "hmi-name", Settings.UnifiedHmiName },
+                    { "allow-full-scan", true },
+                    { "max-results", 100 },
+                    { "max-depth", 4 }
                 }),
                 _logger!);
             Assert.IsTrue(listTagsResult.Success, $"Failed to list HMI tags for composite patch: {listTagsResult.Error}");

@@ -7,7 +7,7 @@ namespace OpenTiaToolkit.Tests.Services
     [TestClass]
     public class EngineeringSessionContextTests
     {
-        [ClassInitialize]
+        [AssemblyInitialize]
         public static void RegisterSiemensAssemblyResolver(TestContext _)
         {
             TiaPortalAssemblyResolver.Register();
