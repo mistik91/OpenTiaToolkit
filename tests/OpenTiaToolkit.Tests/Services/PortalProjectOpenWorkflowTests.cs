@@ -96,6 +96,23 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.AreEqual(0, state.ProjectCommits);
         }
 
+        [TestMethod]
+        public async Task LocalSession_IsOpenedAndCommittedWithToolkitOwnership()
+        {
+            var runtime = new FakeRuntime();
+            runtime.LocalSessionResult = runtime.LocalSession;
+            var state = new RecordingState();
+
+            Assert.IsTrue(await Create(ConnectedContext(runtime.CurrentPortal), runtime, state)
+                .OpenProjectAsync(@"C:\Sessions\Line1.als21"));
+
+            Assert.AreEqual(1, runtime.LocalSessionOpenCalls);
+            Assert.AreSame(runtime.LocalSession, state.Session);
+            Assert.AreSame(runtime.Project, state.Project);
+            Assert.IsTrue(state.OwnsSession);
+            Assert.IsTrue(state.OwnsProject);
+        }
+
         private static PortalProjectOpenWorkflow Create(EngineeringSessionContext context, FakeRuntime runtime, RecordingState state, PortalOperationStatus? status = null) =>
             new PortalProjectOpenWorkflow(context, null, state, runtime, status ?? new PortalOperationStatus());
 
@@ -110,11 +127,15 @@ namespace OpenTiaToolkit.Tests.Services
             public TiaPortal? Portal { get; private set; }
             public int? ProcessId { get; private set; }
             public ProjectBase? Project { get; private set; }
+            public LocalSession? Session { get; private set; }
             public bool OwnsProject { get; private set; }
+            public bool OwnsSession { get; private set; }
             public void CommitPortal(TiaPortal portal, int? processId, LocalSession? session, ProjectBase? project, bool ownsProject, bool ownsSession, bool isPortalVisible)
-            { PortalCommits++; Portal = portal; ProcessId = processId; Project = project; OwnsProject = ownsProject; }
+            { PortalCommits++; Portal = portal; ProcessId = processId; Project = project; Session = session; OwnsProject = ownsProject; OwnsSession = ownsSession; }
             public void CommitProject(LocalSession? session, ProjectBase project, bool ownsProject, bool ownsSession)
-            { ProjectCommits++; Project = project; OwnsProject = ownsProject; }
+            { ProjectCommits++; Project = project; Session = session; OwnsProject = ownsProject; OwnsSession = ownsSession; }
+            public void ClearPortalSelection() { }
+            public void ClearProjectSelection() { }
             public void Dispose() { }
         }
 
@@ -125,13 +146,16 @@ namespace OpenTiaToolkit.Tests.Services
             public TiaPortal HiddenPortal { get; } = Uninitialized<TiaPortal>();
             public Project Project { get; } = Uninitialized<Project>();
             public Project OtherProject { get; } = Uninitialized<Project>();
+            public LocalSession LocalSession { get; } = Uninitialized<LocalSession>();
             public List<PortalProcessDescriptor> Processes { get; } = new List<PortalProcessDescriptor>();
             public List<PortalOpenProject> CurrentProjects { get; } = new List<PortalOpenProject>();
             public List<PortalOpenProject> AttachedProjects { get; } = new List<PortalOpenProject>();
             public PortalOpenProject? SelectedIdentity { get; set; }
             public PortalOpenProject? OpenResult { get; set; }
+            public LocalSession? LocalSessionResult { get; set; }
             public int StartCalls { get; private set; }
             public int OpenCalls { get; private set; }
+            public int LocalSessionOpenCalls { get; private set; }
             public bool ProjectClosed { get; private set; }
             public bool HiddenPortalDisposed { get; private set; }
             public IReadOnlyList<PortalProcessDescriptor> GetProcesses() => Processes;
@@ -142,8 +166,8 @@ namespace OpenTiaToolkit.Tests.Services
             public PortalOpenProject? OpenProjectWithUpgrade(TiaPortal portal, FileInfo file, UmacDelegate? authentication) { OpenCalls++; return OpenResult; }
             public void CloseProject(Project project) => ProjectClosed = true;
             public void DisposePortal(TiaPortal portal) { if (ReferenceEquals(portal, HiddenPortal)) HiddenPortalDisposed = true; }
-            public LocalSession? OpenLocalSession(TiaPortal portal, FileInfo file) => throw new NotSupportedException();
-            public ProjectBase? GetSessionProject(LocalSession session) => throw new NotSupportedException();
+            public LocalSession? OpenLocalSession(TiaPortal portal, FileInfo file) { LocalSessionOpenCalls++; return LocalSessionResult; }
+            public ProjectBase? GetSessionProject(LocalSession session) => ReferenceEquals(session, LocalSession) ? Project : null;
             public PortalOpenProject? CreateProject(TiaPortal portal, DirectoryInfo directory, string name) => throw new NotSupportedException();
             public PortalOpenProject? RetrieveProject(TiaPortal portal, FileInfo archive, DirectoryInfo target, bool upgrade, UmacDelegate? authentication) => throw new NotSupportedException();
             public Device CreateDevice(Project project, string typeIdentifier, string name) => throw new NotSupportedException();

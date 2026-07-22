@@ -7,6 +7,7 @@ using Siemens.Engineering.Multiuser;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
@@ -70,7 +71,59 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsNull(state.Project);
         }
 
-        private static PortalInstanceWorkflow Create(FakeRuntime runtime, RecordingState state, EngineeringSessionContext context) =>
+        [TestMethod]
+        public async Task Connect_WithNoRunningProcesses_StartsHiddenPortal()
+        {
+            var runtime = new FakeRuntime();
+            var state = new RecordingState();
+
+            Assert.IsTrue(await Create(runtime, state, new EngineeringSessionContext()).ConnectAsync());
+
+            Assert.AreEqual(TiaPortalMode.WithoutUserInterface, runtime.StartedMode);
+            Assert.IsFalse(state.IsPortalVisible);
+            Assert.IsNull(state.ProcessId);
+        }
+
+        [TestMethod]
+        public async Task GetInstances_ReportsTheCurrentlyAttachedProcess()
+        {
+            var runtime = new FakeRuntime(11, 22);
+            var context = new EngineeringSessionContext { AttachedPortalProcessId = 22 };
+
+            var instances = await Create(runtime, new RecordingState(), context).GetInstancesAsync();
+
+            Assert.IsFalse(instances.Single(instance => instance.ProcessId == 11).IsAttached);
+            Assert.IsTrue(instances.Single(instance => instance.ProcessId == 22).IsAttached);
+        }
+
+        [DataTestMethod]
+        [DataRow(false)]
+        [DataRow(true)]
+        public async Task PortalRelease_ClearsSelectionEvenWhenDisposalFails(bool close)
+        {
+            var runtime = new FakeRuntime { DisposalException = new InvalidOperationException("dispose failed") };
+            var context = new EngineeringSessionContext
+            {
+                Portal = runtime.Portal,
+                AttachedPortalProcessId = 22,
+                CurrentPlcName = "PLC_OLD",
+                CurrentHmiName = "HMI_OLD"
+            };
+            var state = new PortalSessionStateCoordinator(context, null, runtime);
+            var workflow = Create(runtime, state, context);
+
+            var result = close
+                ? await workflow.CloseTiaPortalAsync()
+                : await workflow.DisconnectAsync();
+
+            Assert.IsFalse(result);
+            Assert.IsNull(context.Portal);
+            Assert.IsNull(context.AttachedPortalProcessId);
+            Assert.IsNull(context.CurrentPlcName);
+            Assert.IsNull(context.CurrentHmiName);
+        }
+
+        private static PortalInstanceWorkflow Create(FakeRuntime runtime, IPortalSessionStateCoordinator state, EngineeringSessionContext context) =>
             new PortalInstanceWorkflow(context, null, state, runtime, new PortalOperationStatus());
 
         private static T Uninitialized<T>() where T : class => (T)FormatterServices.GetUninitializedObject(typeof(T));
@@ -80,15 +133,19 @@ namespace OpenTiaToolkit.Tests.Services
             public int PortalCommits { get; private set; }
             public int? ProcessId { get; private set; }
             public ProjectBase? Project { get; private set; }
+            public bool IsPortalVisible { get; private set; }
             public void CommitPortal(TiaPortal portal, int? processId, LocalSession? session, ProjectBase? project, bool ownsProject, bool ownsSession, bool isPortalVisible)
-            { PortalCommits++; ProcessId = processId; Project = project; }
+            { PortalCommits++; ProcessId = processId; Project = project; IsPortalVisible = isPortalVisible; }
             public void CommitProject(LocalSession? session, ProjectBase project, bool ownsProject, bool ownsSession) => Project = project;
+            public void ClearPortalSelection() { }
+            public void ClearProjectSelection() { }
             public void Dispose() { }
         }
 
         private sealed class FakeRuntime : IPortalRuntimeAdapter
         {
             private readonly TiaPortal _portal = Uninitialized<TiaPortal>();
+            public TiaPortal Portal => _portal;
             public FakeRuntime(params int[] processIds)
             {
                 foreach (int id in processIds) Processes.Add(new PortalProcessDescriptor(id, "V21"));
@@ -96,14 +153,20 @@ namespace OpenTiaToolkit.Tests.Services
             public List<PortalProcessDescriptor> Processes { get; } = new List<PortalProcessDescriptor>();
             public List<PortalOpenProject> OpenProjects { get; } = new List<PortalOpenProject>();
             public Exception? InspectionException { get; set; }
+            public Exception? DisposalException { get; set; }
             public int? AttachedProcessId { get; private set; }
+            public TiaPortalMode? StartedMode { get; private set; }
             public bool CandidateDisposed { get; private set; }
             public IReadOnlyList<PortalProcessDescriptor> GetProcesses() => Processes;
             public TiaPortal Attach(PortalProcessDescriptor process) { AttachedProcessId = process.Id; return _portal; }
-            public TiaPortal Start(TiaPortalMode mode) => _portal;
+            public TiaPortal Start(TiaPortalMode mode) { StartedMode = mode; return _portal; }
             public IReadOnlyList<PortalOpenProject> GetOpenProjects(TiaPortal portal) { if (InspectionException != null) throw InspectionException; return OpenProjects; }
             public PortalOpenProject GetProjectIdentity(ProjectBase project) => throw new NotSupportedException();
-            public void DisposePortal(TiaPortal portal) => CandidateDisposed = true;
+            public void DisposePortal(TiaPortal portal)
+            {
+                CandidateDisposed = true;
+                if (DisposalException != null) throw DisposalException;
+            }
             public LocalSession? OpenLocalSession(TiaPortal portal, FileInfo file) => throw new NotSupportedException();
             public ProjectBase? GetSessionProject(LocalSession session) => throw new NotSupportedException();
             public PortalOpenProject? OpenProjectWithUpgrade(TiaPortal portal, FileInfo file, UmacDelegate? authentication) => throw new NotSupportedException();

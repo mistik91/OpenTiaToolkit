@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services.V21;
 using System;

@@ -1,4 +1,4 @@
-﻿using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using Siemens.Engineering;
@@ -263,12 +263,14 @@ namespace OpenTiaToolkit.Core.Services
                 var projectName = selected?.Name;
                 _logger?.LogInformation("Closing project {ProjectName}...", projectName);
 
+                var closeAttempted = false;
                 try
                 {
                     if (_session != null)
                     {
                         if (saveChanges) _runtime.SaveSession(_session);
 
+                        closeAttempted = true;
                         _runtime.CloseSession(_session);
                     }
                     else if (_project is Project project)
@@ -278,6 +280,7 @@ namespace OpenTiaToolkit.Core.Services
                             _runtime.SaveProject(project);
                         }
 
+                        closeAttempted = true;
                         _runtime.CloseProject(project);
                     }
                     else
@@ -294,11 +297,16 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    _sessionContext.ClearProjectSelection();
+                    _state.ClearProjectSelection();
                     return true;
                 }
                 catch (Exception ex)
                 {
+                    if (closeAttempted)
+                    {
+                        _state.ClearProjectSelection();
+                    }
+
                     _status.LastError = PortalSessionPolicy.FormatExceptionMessage(ex);
                     _logger?.LogError(ex, "Failed to close project");
                     return false;

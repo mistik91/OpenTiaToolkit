@@ -98,6 +98,32 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsNull(store.AttachedProcessId);
         }
 
+        [TestMethod]
+        public void ClearPortalSelection_DelegatesToStore()
+        {
+            var store = ExistingState();
+
+            Create(store).ClearPortalSelection();
+
+            Assert.IsNull(store.Portal);
+            Assert.IsNull(store.Project);
+            Assert.IsNull(store.Session);
+            Assert.IsNull(store.AttachedProcessId);
+        }
+
+        [TestMethod]
+        public void ClearProjectSelection_RetainsPortalAndDelegatesToStore()
+        {
+            var store = ExistingState();
+            var portal = store.Portal;
+
+            Create(store).ClearProjectSelection();
+
+            Assert.AreSame(portal, store.Portal);
+            Assert.IsNull(store.Project);
+            Assert.IsNull(store.Session);
+        }
+
         private static FakeStore ExistingState(bool ownsProject = false, bool ownsSession = false) => new FakeStore
         {
             Portal = new Resource("old-portal"),

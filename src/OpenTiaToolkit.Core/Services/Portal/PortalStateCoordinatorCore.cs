@@ -72,6 +72,10 @@ namespace OpenTiaToolkit.Core.Services
             Release(previous, _store.Portal, session, project);
         }
 
+        public void ClearPortalSelection() => _store.ClearPortalSelection();
+
+        public void ClearProjectSelection() => _store.ClearProjectSelection();
+
         public void Dispose()
         {
             try

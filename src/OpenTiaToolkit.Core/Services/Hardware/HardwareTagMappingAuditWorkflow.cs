@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services.PlcTags;
 using OpenTiaToolkit.Core.Services.Hardware.Patching;
@@ -125,12 +125,12 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                 if (range != null) yield return range;
             }
             foreach (var telegram in _drives.GetDriveTelegrams(null, new[] { "StartAddress", "IoType", "Length" }))
-            foreach (var address in telegram.Addresses)
-            {
-                var range = HardwareAuditRules.TryCreateHardwareRange(address.Target, address.Attributes,
-                    $"DriveTelegram[{telegram.DriveObjectIndex}:{telegram.TelegramType}:{telegram.TelegramNumber}]");
-                if (range != null) yield return range;
-            }
+                foreach (var address in telegram.Addresses)
+                {
+                    var range = HardwareAuditRules.TryCreateHardwareRange(address.Target, address.Attributes,
+                        $"DriveTelegram[{telegram.DriveObjectIndex}:{telegram.TelegramType}:{telegram.TelegramNumber}]");
+                    if (range != null) yield return range;
+                }
         }
 
         private static IEnumerable<HardwareObjectRef> FindHardwareTargets(IEnumerable<Device> devices, string search, IEnumerable<HardwareCatalogItemInfo> matches)
@@ -165,10 +165,14 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                     if (HardwareAuditRules.MatchesHardwareHint(connector.OwnerName, connector.OwnerTypeIdentifier, search, ids))
                         yield return new HardwareConnectedIoDeviceInfo
                         {
-                            NetworkTarget = HardwareReferenceRules.Clone(network.Target), ConnectorIndex = connector.Index,
-                            ConnectedIoSystemName = connector.ConnectedIoSystemName, OwnerName = connector.OwnerName,
-                            OwnerTypeIdentifier = connector.OwnerTypeIdentifier, InterfaceOperatingMode = connector.InterfaceOperatingMode,
-                            Nodes = network.Nodes, Connector = connector
+                            NetworkTarget = HardwareReferenceRules.Clone(network.Target),
+                            ConnectorIndex = connector.Index,
+                            ConnectedIoSystemName = connector.ConnectedIoSystemName,
+                            OwnerName = connector.OwnerName,
+                            OwnerTypeIdentifier = connector.OwnerTypeIdentifier,
+                            InterfaceOperatingMode = connector.InterfaceOperatingMode,
+                            Nodes = network.Nodes,
+                            Connector = connector
                         };
             }
         }
@@ -185,8 +189,13 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             var length = width == "W" ? 2 : width == "D" ? 4 : width == "L" ? 8 : 1;
             return new HardwareTagAddressInfo
             {
-                TagTableName = table, TagName = name, LogicalAddress = address ?? string.Empty,
-                Area = match.Groups[1].Value.ToUpperInvariant(), StartAddress = start, Length = length, EndAddress = start + length - 1
+                TagTableName = table,
+                TagName = name,
+                LogicalAddress = address ?? string.Empty,
+                Area = match.Groups[1].Value.ToUpperInvariant(),
+                StartAddress = start,
+                Length = length,
+                EndAddress = start + length - 1
             };
         }
 
@@ -200,8 +209,13 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             var length = TryParseInteger(values.TryGetValue("Length", out var lengthText) ? lengthText : null, out var parsed) ? Math.Max(1, parsed) : 1;
             return new HardwareAddressRangeInfo
             {
-                Target = HardwareReferenceRules.Clone(target), Source = source, Area = area, StartAddress = start,
-                Length = length, EndAddress = start + length - 1, IoType = ioType
+                Target = HardwareReferenceRules.Clone(target),
+                Source = source,
+                Area = area,
+                StartAddress = start,
+                Length = length,
+                EndAddress = start + length - 1,
+                IoType = ioType
             };
         }
 
@@ -209,8 +223,11 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             .GroupBy(tag => new { tag.TagTableName, tag.Area })
             .Select(group => new HardwareTagAddressRangeInfo
             {
-                TagTableName = group.Key.TagTableName, Area = group.Key.Area,
-                StartAddress = group.Min(tag => tag.StartAddress), EndAddress = group.Max(tag => tag.EndAddress), TagCount = group.Count(),
+                TagTableName = group.Key.TagTableName,
+                Area = group.Key.Area,
+                StartAddress = group.Min(tag => tag.StartAddress),
+                EndAddress = group.Max(tag => tag.EndAddress),
+                TagCount = group.Count(),
                 ExampleTags = group.OrderBy(tag => tag.StartAddress).ThenBy(tag => tag.TagName, StringComparer.OrdinalIgnoreCase)
                     .Take(8).Select(tag => $"{tag.TagName}={tag.LogicalAddress}").ToList()
             }).OrderBy(range => range.TagTableName, StringComparer.OrdinalIgnoreCase)

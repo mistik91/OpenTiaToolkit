@@ -10,6 +10,8 @@ namespace OpenTiaToolkit.Core.Services
     {
         void CommitPortal(TiaPortal portal, int? processId, LocalSession? session, ProjectBase? project, bool ownsProject, bool ownsSession, bool isPortalVisible);
         void CommitProject(LocalSession? session, ProjectBase project, bool ownsProject, bool ownsSession);
+        void ClearPortalSelection();
+        void ClearProjectSelection();
         void Dispose();
     }
 
@@ -37,6 +39,10 @@ namespace OpenTiaToolkit.Core.Services
 
         public void CommitProject(LocalSession? session, ProjectBase project, bool ownsProject, bool ownsSession) =>
             _core.CommitProject(session, project, ownsProject, ownsSession);
+
+        public void ClearPortalSelection() => _core.ClearPortalSelection();
+
+        public void ClearProjectSelection() => _core.ClearProjectSelection();
 
         public void Dispose() => _core.Dispose();
 

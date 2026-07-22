@@ -44,6 +44,7 @@ public class PortalSessionDecompositionArchitectureTests
             Assert.IsFalse(source.Contains("SetPassword", StringComparison.Ordinal));
             Assert.IsFalse(source.Contains("TiaPortal.GetProcesses", StringComparison.Ordinal));
             Assert.IsFalse(source.Contains("new TiaPortal(", StringComparison.Ordinal));
+            Assert.IsFalse(source.Contains("_sessionContext.Clear", StringComparison.Ordinal), workflow + " must route selection clearing through PortalSessionStateCoordinator.");
         }
         Assert.IsTrue(File.Exists(Path.Combine(root, "src", "OpenTiaToolkit.Core", "Services", "Portal", "PortalSessionStateCoordinator.cs")));
         Assert.IsTrue(File.Exists(Path.Combine(root, "src", "OpenTiaToolkit.Core", "Services", "Portal", "PortalSessionPolicy.cs")));
@@ -61,6 +62,18 @@ public class PortalSessionDecompositionArchitectureTests
         StringAssert.Contains(policy, "credentials.SetPassword(authentication.Password)");
         Assert.IsFalse(policy.Contains("SecureStringTo", StringComparison.Ordinal));
         Assert.IsFalse(policy.Contains("Password.ToString", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void TestAssemblyResolution_IsDerivedFromTheConfiguredPublicApiPath()
+    {
+        string root = FindRepositoryRoot();
+        string config = File.ReadAllText(Path.Combine(root, "tests", "OpenTiaToolkit.Tests", "App.config"));
+        string project = File.ReadAllText(Path.Combine(root, "tests", "OpenTiaToolkit.Tests", "OpenTiaToolkit.Tests.csproj"));
+
+        Assert.IsFalse(config.Contains("Program Files", StringComparison.OrdinalIgnoreCase));
+        StringAssert.Contains(project, "SetTestAssemblySiemensCodeBasePaths");
+        StringAssert.Contains(project, "$(TiaPortalPublicApiPath)");
     }
 
     private static string FindRepositoryRoot()

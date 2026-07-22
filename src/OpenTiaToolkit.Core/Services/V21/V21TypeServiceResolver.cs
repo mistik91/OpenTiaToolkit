@@ -1,4 +1,4 @@
-﻿using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Models;
 using Siemens.Engineering;
 using Siemens.Engineering.Compiler;
 using Siemens.Engineering.Download;

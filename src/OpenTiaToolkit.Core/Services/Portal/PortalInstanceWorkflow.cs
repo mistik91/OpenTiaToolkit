@@ -1,4 +1,4 @@
-﻿using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using Siemens.Engineering;
@@ -135,7 +135,6 @@ namespace OpenTiaToolkit.Core.Services
                     }
 
                     _runtime.DisposePortal(_portal);
-                    _sessionContext.ClearPortalSelection();
                     _logger?.LogInformation("TIA Portal instance closed.");
                     return true;
                 }
@@ -143,6 +142,13 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     _logger?.LogError(ex, "Failed to close TIA Portal");
                     return false;
+                }
+                finally
+                {
+                    if (_portal != null)
+                    {
+                        _state.ClearPortalSelection();
+                    }
                 }
             });
         }
@@ -194,13 +200,16 @@ namespace OpenTiaToolkit.Core.Services
                 try
                 {
                     if (_portal != null) _runtime.DisposePortal(_portal);
-                    _sessionContext.ClearPortalSelection();
                     return true;
                 }
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Failed to disconnect from TIA Portal");
                     return false;
+                }
+                finally
+                {
+                    _state.ClearPortalSelection();
                 }
             });
         }
