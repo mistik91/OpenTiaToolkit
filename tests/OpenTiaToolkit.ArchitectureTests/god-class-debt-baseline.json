@@ -1,7 +1,4 @@
 {
   "screeningThreshold": 1000,
-  "hotspots": {
-    "src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs": 1694,
-    "src/OpenTiaToolkit.Core/Services/PortalSessionService.cs": 1166
-  }
+  "hotspots": {}
 }

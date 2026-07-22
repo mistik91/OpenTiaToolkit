@@ -1,6 +1,7 @@
-using OpenTiaToolkit.Core.Models;
+﻿using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Services.V21;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,7 +21,8 @@ namespace OpenTiaToolkit.Core.Services
         private readonly EngineeringSessionContext _sessionContext;
         private readonly IPortalService _portalService;
         private readonly PlcBrowseService _browseService;
-        private readonly V21OpennessAdapter _v21Adapter;
+        private readonly V21DocumentAccess _documents;
+        private readonly V21EngineeringObjectAccess _objects;
         private readonly ILogger? _logger;
 
         public PlcImportExportService(
@@ -33,7 +35,9 @@ namespace OpenTiaToolkit.Core.Services
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
             _browseService = browseService ?? throw new ArgumentNullException(nameof(browseService));
-            _v21Adapter = v21Adapter ?? new V21OpennessAdapter();
+            var adapter = v21Adapter ?? new V21OpennessAdapter();
+            _documents = adapter.Documents;
+            _objects = adapter.Objects;
             _logger = logger;
         }
 
@@ -71,7 +75,7 @@ namespace OpenTiaToolkit.Core.Services
                         var fileName = !string.IsNullOrWhiteSpace(type) ? $"{name}.{type}.xml" : $"{name}.xml";
                         var filePath = Path.Combine(exportPath, fileName);
 
-                        if (_v21Adapter.TryExportEngineeringObject(block, filePath, "WithDefaults", out var failureReason))
+                        if (_documents.TryExportEngineeringObject(block, filePath, "WithDefaults", out var failureReason))
                         {
                             successCount++;
                         }
@@ -137,7 +141,7 @@ namespace OpenTiaToolkit.Core.Services
                         Directory.CreateDirectory(directory);
                     }
 
-                    if (_v21Adapter.TryExportEngineeringObject(block, exportPath, "WithDefaults", out var failureReason))
+                    if (_documents.TryExportEngineeringObject(block, exportPath, "WithDefaults", out var failureReason))
                     {
                         return true;
                     }
@@ -191,7 +195,7 @@ namespace OpenTiaToolkit.Core.Services
 
                     Directory.CreateDirectory(exportPath);
 
-                    if (!_v21Adapter.TryExportAsDocuments(block, new DirectoryInfo(exportPath), blockName, out var state))
+                    if (!_documents.TryExportAsDocuments(block, new DirectoryInfo(exportPath), blockName, out var state))
                     {
                         _logger?.LogError("ExportAsDocuments returned non-success state or is not available on block type");
                         return false;
@@ -335,7 +339,7 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.IsConsistent(type))
+                    if (!_objects.IsConsistent(type))
                     {
                         _logger?.LogError("Type '{TypeName}' is not consistent and cannot be exported", typeName);
                         return false;
@@ -347,7 +351,7 @@ namespace OpenTiaToolkit.Core.Services
                         Directory.CreateDirectory(directory);
                     }
 
-                    if (_v21Adapter.TryExportEngineeringObject(type, exportPath, "None", out var failureReason))
+                    if (_documents.TryExportEngineeringObject(type, exportPath, "None", out var failureReason))
                     {
                         return true;
                     }
@@ -413,7 +417,7 @@ namespace OpenTiaToolkit.Core.Services
 
                         result.TotalCount++;
 
-                        if (!_v21Adapter.IsConsistent(type))
+                        if (!_objects.IsConsistent(type))
                         {
                             result.FailedCount++;
                             result.FailedItems.Add(name);
@@ -422,7 +426,7 @@ namespace OpenTiaToolkit.Core.Services
                         }
 
                         var typeExportPath = Path.Combine(exportPath, $"{name}.xml");
-                        if (_v21Adapter.TryExportEngineeringObject(type, typeExportPath, "None", out var failureReason))
+                        if (_documents.TryExportEngineeringObject(type, typeExportPath, "None", out var failureReason))
                         {
                             result.SuccessCount++;
                             result.ExportedItems.Add(name);
@@ -492,7 +496,7 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.TryImport(blocksCollection, fileInfo, 1, out var result, out var failureReason))
+                    if (!_documents.TryImport(blocksCollection, fileInfo, 1, out var result, out var failureReason))
                     {
                         _logger?.LogError(
                             "Could not import block from {ImportPath}: {FailureReason}",
@@ -610,7 +614,7 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.TryImport(typesCollection, fileInfo, 1, out var result, out var failureReason))
+                    if (!_documents.TryImport(typesCollection, fileInfo, 1, out var result, out var failureReason))
                     {
                         _logger?.LogError(
                             "Could not import type from {ImportPath}: {FailureReason}",
@@ -737,7 +741,7 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
 
-                    if (!_v21Adapter.TryImportFromDocuments(blocksCollection, dirInfo, fileNameWithoutExtension, ParseImportDocumentOption(importOption), out var result, out var failureReason))
+                    if (!_documents.TryImportFromDocuments(blocksCollection, dirInfo, fileNameWithoutExtension, ParseImportDocumentOption(importOption), out var result, out var failureReason))
                     {
                         _logger?.LogError(
                             "Could not import block documents from {ImportDirectory}: {FailureReason}",

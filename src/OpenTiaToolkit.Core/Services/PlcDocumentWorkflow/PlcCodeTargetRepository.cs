@@ -1,20 +1,24 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services;
 
 internal sealed class PlcCodeTargetRepository
 {
     private readonly EngineeringSessionContext _context;
-    private readonly V21OpennessAdapter _adapter;
+    private readonly V21DocumentAccess _documents;
+    private readonly V21EngineeringObjectAccess _objects;
 
     internal PlcCodeTargetRepository(EngineeringSessionContext context, V21OpennessAdapter? adapter = null)
     {
         _context = context;
-        _adapter = adapter ?? new V21OpennessAdapter();
+        var facade = adapter ?? new V21OpennessAdapter();
+        _documents = facade.Documents;
+        _objects = facade.Objects;
     }
 
     internal object RequireBlockRoot() => TiaReflectionHelper.GetBlockGroup(_context.PlcSoftware) ?? throw new InvalidOperationException("PLC block root is unavailable.");
@@ -57,18 +61,18 @@ internal sealed class PlcCodeTargetRepository
     internal bool ExportExact(ResolvedBlock block, string directory)
     {
         Directory.CreateDirectory(directory);
-        return _adapter.TryExportAsDocuments(block.EngineeringObject, new DirectoryInfo(directory), block.Identity.Name, out string? state) && string.Equals(state, "Success", StringComparison.OrdinalIgnoreCase);
+        return _documents.TryExportAsDocuments(block.EngineeringObject, new DirectoryInfo(directory), block.Identity.Name, out string? state) && string.Equals(state, "Success", StringComparison.OrdinalIgnoreCase);
     }
 
     internal bool ExportExactType(ResolvedType type, string path)
     {
         string? directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
-        return _adapter.TryExportEngineeringObject(type.EngineeringObject, path, "None", out _);
+        return _documents.TryExportEngineeringObject(type.EngineeringObject, path, "None", out _);
     }
 
-    internal bool Delete(ResolvedBlock block) => _adapter.TryDelete(block.EngineeringObject);
-    internal bool Delete(ResolvedType type) => _adapter.TryDelete(type.EngineeringObject);
+    internal bool Delete(ResolvedBlock block) => _objects.TryDelete(block.EngineeringObject);
+    internal bool Delete(ResolvedType type) => _objects.TryDelete(type.EngineeringObject);
     internal bool IdentityMatches(PlcBlockIdentity expected, PlcBlockIdentity actual, bool requireNumber) => PlcWorkflowPrimitives.GroupEquals(expected.GroupPath, actual.GroupPath) && BlockTypeEquals(expected.BlockType, actual.BlockType) && string.Equals(expected.Name, actual.Name, StringComparison.OrdinalIgnoreCase) && (!requireNumber || string.Equals(expected.Number, actual.Number, StringComparison.OrdinalIgnoreCase));
     internal bool BlockTypeEquals(string left, string right) => string.Equals(NormalizeRuntimeBlockType(left, left), NormalizeRuntimeBlockType(right, right), StringComparison.OrdinalIgnoreCase);
     internal InvalidOperationException Ambiguous(string name, IEnumerable<ResolvedBlock> matches) => new InvalidOperationException($"Block target '{name}' is ambiguous. Supply an exact group-path and block type. Candidates: {string.Join(", ", matches.Select(item => item.Identity.ToString()))}");

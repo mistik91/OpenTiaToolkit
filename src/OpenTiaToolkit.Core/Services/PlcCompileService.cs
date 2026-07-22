@@ -1,6 +1,7 @@
 using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Services.V21;
 using System;
 using System.Threading.Tasks;
 
@@ -12,13 +13,13 @@ namespace OpenTiaToolkit.Core.Services
     internal sealed class PlcCompileService
     {
         private readonly EngineeringSessionContext _sessionContext;
-        private readonly V21OpennessAdapter _v21Adapter;
+        private readonly V21CompilationAccess _compilation;
         private readonly ILogger? _logger;
 
         public PlcCompileService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            _v21Adapter = v21Adapter ?? new V21OpennessAdapter();
+            _compilation = (v21Adapter ?? new V21OpennessAdapter()).Compilation;
             _logger = logger;
         }
 
@@ -42,7 +43,7 @@ namespace OpenTiaToolkit.Core.Services
                         _logger?.LogWarning("Password parameter is currently ignored by the V21 compile service");
                     }
 
-                    var compileResult = _v21Adapter.Compile(plcSoftware);
+                    var compileResult = _compilation.Compile(plcSoftware);
                     if (!compileResult.HasValue)
                     {
                         return new CompilationResult(false, 0, 0, "PLC software does not expose a supported V21 compile surface");

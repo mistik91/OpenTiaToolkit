@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services.PlcTags;
 using OpenTiaToolkit.Core.Services.Hardware.Patching;
@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services.Hardware
 {
@@ -18,7 +19,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
         private readonly HardwareTopologyReader _topology;
         private readonly HardwareDriveReader _drives;
         private readonly V21HardwareAdapter _adapter;
-        private readonly V21OpennessAdapter _opennessAdapter;
+        private readonly V21SoftwareDiscovery _software;
         private readonly IPlcTagCatalogReader _tagCatalogReader;
         private readonly ILogger? _logger;
 
@@ -35,7 +36,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             _topology = topology;
             _drives = drives;
             _adapter = adapter;
-            _opennessAdapter = opennessAdapter;
+            _software = opennessAdapter.Software;
             _tagCatalogReader = tagCatalogReader;
             _logger = logger;
         }
@@ -102,7 +103,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                 {
                     try
                     {
-                        var software = _opennessAdapter.GetPlcSoftware(item);
+                        var software = _software.GetPlcSoftware(item);
                         if (software == null) continue;
                         session.PlcSoftware = software;
                         session.CurrentPlcDevice = device;

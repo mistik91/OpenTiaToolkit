@@ -1,8 +1,9 @@
-using OpenTiaToolkit.Core.Models;
+﻿using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
+using OpenTiaToolkit.Core.Services.V21;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,13 +19,16 @@ namespace OpenTiaToolkit.Core.Services
     internal sealed class PortalInspectionService
     {
         private readonly EngineeringSessionContext _sessionContext;
-        private readonly V21OpennessAdapter _v21Adapter;
+        private readonly V21TypeServiceResolver _types;
+        private readonly V21SoftwareDiscovery _software;
         private readonly ILogger? _logger;
 
         public PortalInspectionService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            _v21Adapter = v21Adapter ?? new V21OpennessAdapter();
+            var adapter = v21Adapter ?? new V21OpennessAdapter();
+            _types = adapter.Types;
+            _software = adapter.Software;
             _logger = logger;
         }
 
@@ -274,7 +278,7 @@ namespace OpenTiaToolkit.Core.Services
 
                 try
                 {
-                    var builder = new ProjectTreeBuilder(_v21Adapter.FindTypeByName("PlcSoftware"));
+                    var builder = new ProjectTreeBuilder(_types.FindTypeByName("PlcSoftware"));
                     return builder.Build(project, maxDepth);
                 }
                 catch (Exception ex)
@@ -360,7 +364,7 @@ namespace OpenTiaToolkit.Core.Services
             foreach (DeviceItem deviceItem in deviceItems)
             {
                 var itemPath = parentPath + "/" + deviceItem.Name;
-                var software = _v21Adapter.GetPlcSoftware(deviceItem);
+                var software = _software.GetPlcSoftware(deviceItem);
                 if (software != null)
                 {
                     plcs[itemPath] = new PlcInfo
@@ -397,7 +401,7 @@ namespace OpenTiaToolkit.Core.Services
             foreach (DeviceItem deviceItem in deviceItems)
             {
                 var itemPath = parentPath + "/" + deviceItem.Name;
-                var software = _v21Adapter.GetUnifiedHmiSoftware(deviceItem);
+                var software = _software.GetUnifiedHmiSoftware(deviceItem);
                 if (software != null)
                 {
                     hmis[itemPath] = new HmiInfo

@@ -1,21 +1,25 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenTiaToolkit.Core.Utilities;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services.PlcTags
 {
     internal sealed class V21PlcTagRepository : IPlcTagRepository
     {
-        private readonly V21OpennessAdapter _adapter;
+        private readonly V21PlcTagStructureAccess _tags;
+        private readonly V21EngineeringObjectAccess _objects;
 
         public V21PlcTagRepository(V21OpennessAdapter adapter)
         {
-            _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
+            if (adapter == null) throw new ArgumentNullException(nameof(adapter));
+            _tags = adapter.Tags;
+            _objects = adapter.Objects;
         }
 
-        public IReadOnlyList<object>? GetTagTables(object plcSoftware) => _adapter.GetTagTables(plcSoftware);
-        public IReadOnlyList<object>? GetTags(object tagTable) => _adapter.GetTags(tagTable);
+        public IReadOnlyList<object>? GetTagTables(object plcSoftware) => _tags.GetTagTables(plcSoftware);
+        public IReadOnlyList<object>? GetTags(object tagTable) => _tags.GetTags(tagTable);
         public PlcTagCatalog? ReadCatalog(object plcSoftware)
         {
             var tableObjects = GetTagTables(plcSoftware);
@@ -56,18 +60,18 @@ namespace OpenTiaToolkit.Core.Services.PlcTags
 
             return new PlcTagCatalog(tables, tags);
         }
-        public object? FindTagTable(object plcSoftware, string name) => _adapter.FindTagTable(plcSoftware, name);
-        public string? GetName(object item) => _adapter.GetName(item);
-        public void SetName(object item, string value) => _adapter.SetName(item, value);
-        public string? GetDataType(object tag) => _adapter.GetDataType(tag);
-        public void SetDataType(object tag, string value) => _adapter.SetDataType(tag, value);
-        public string? GetLogicalAddress(object tag) => _adapter.GetLogicalAddress(tag);
-        public void SetLogicalAddress(object tag, string value) => _adapter.SetLogicalAddress(tag, value);
-        public string? GetTagCommentText(object tag, string culture) => _adapter.GetTagCommentText(tag, culture);
+        public object? FindTagTable(object plcSoftware, string name) => _tags.FindTagTable(plcSoftware, name);
+        public string? GetName(object item) => _objects.GetName(item);
+        public void SetName(object item, string value) => _objects.SetName(item, value);
+        public string? GetDataType(object tag) => _objects.GetDataType(tag);
+        public void SetDataType(object tag, string value) => _objects.SetDataType(tag, value);
+        public string? GetLogicalAddress(object tag) => _objects.GetLogicalAddress(tag);
+        public void SetLogicalAddress(object tag, string value) => _objects.SetLogicalAddress(tag, value);
+        public string? GetTagCommentText(object tag, string culture) => _objects.GetTagCommentText(tag, culture);
         public bool TrySetTagComment(object tag, string comment, string culture) =>
-            _adapter.TrySetTagComment(tag, comment, culture);
+            _objects.TrySetTagComment(tag, comment, culture);
         public bool TryCreateTag(object tagTable, string name, string dataType, string logicalAddress, out object? tag, out string? failureReason) =>
-            _adapter.TryCreateTag(tagTable, name, dataType, logicalAddress, out tag, out failureReason);
-        public bool TryDelete(object item) => _adapter.TryDelete(item);
+            _tags.TryCreateTag(tagTable, name, dataType, logicalAddress, out tag, out failureReason);
+        public bool TryDelete(object item) => _objects.TryDelete(item);
     }
 }

@@ -1,4 +1,4 @@
-using OpenTiaToolkit.Core.Models;
+﻿using OpenTiaToolkit.Core.Models;
 using Siemens.Engineering;
 using Siemens.Engineering.HW;
 using Siemens.Engineering.HW.Features;
@@ -30,11 +30,11 @@ namespace OpenTiaToolkit.Core.Services
             "PnDeviceNumber"
         };
 
-        private readonly V21OpennessAdapter _adapter;
+        private readonly V21.V21TypeServiceResolver _services;
 
         public V21HardwareAdapter(V21OpennessAdapter? adapter = null)
         {
-            _adapter = adapter ?? new V21OpennessAdapter();
+            _services = (adapter ?? new V21OpennessAdapter()).Types;
         }
 
         public IReadOnlyList<HardwareCatalogItemInfo> FindCatalogItems(TiaPortal portal, string searchText, string? culture)
@@ -57,7 +57,7 @@ namespace OpenTiaToolkit.Core.Services
 
         public object? GetFeatureService(HardwareObject target, string serviceType)
         {
-            return _adapter.GetService(target, serviceType);
+            return _services.GetService(target, serviceType);
         }
 
         public IReadOnlyList<HardwareAttributeInfo> GetAttributeInfos(HardwareObject target, IEnumerable<string>? attributeNames)

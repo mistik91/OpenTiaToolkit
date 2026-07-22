@@ -1,5 +1,6 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Services.V21;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -13,13 +14,16 @@ namespace OpenTiaToolkit.Core.Services
     {
         private readonly EngineeringSessionContext _sessionContext;
         private readonly ILogger? _logger;
-        private readonly V21OpennessAdapter _v21Adapter;
+        private readonly V21TypeServiceResolver _types;
+        private readonly V21OnlineVerificationAccess _online;
 
         public PlcVerificationService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _logger = logger;
-            _v21Adapter = v21Adapter ?? new V21OpennessAdapter();
+            var adapter = v21Adapter ?? new V21OpennessAdapter();
+            _types = adapter.Types;
+            _online = adapter.Online;
         }
 
         public async Task<PlcSoftwareCompareResult> CompareSoftwareToOnlineAsync()
@@ -35,12 +39,12 @@ namespace OpenTiaToolkit.Core.Services
                 try
                 {
                     _logger?.LogInformation("Comparing PLC software to online target");
-                    if (!_v21Adapter.TryCompareToOnline(plcSoftware, out var result, out var failureReason))
+                    if (!_online.TryCompareToOnline(plcSoftware, out var result, out var failureReason))
                     {
                         return new PlcSoftwareCompareResult(false, true, failureReason ?? "PLC software does not expose CompareToOnline.");
                     }
 
-                    var entries = _v21Adapter.ExtractCompareEntries(result!);
+                    var entries = _online.ExtractCompareEntries(result!);
                     var differenceCount = 0;
                     foreach (var entry in entries)
                     {
@@ -86,7 +90,7 @@ namespace OpenTiaToolkit.Core.Services
                     return new PlcSoftwareDownloadResult(false, dryRun, true, false, "No PLC software is currently open.", onlyChanges: onlyChanges);
                 }
 
-                var downloadProvider = _v21Adapter.GetService(deviceItem, "DownloadProvider");
+                var downloadProvider = _types.GetService(deviceItem, "DownloadProvider");
                 if (downloadProvider == null)
                 {
                     return new PlcSoftwareDownloadResult(false, dryRun, true, false, "DownloadProvider is not available for the selected PLC device item.", onlyChanges: onlyChanges);
@@ -119,7 +123,7 @@ namespace OpenTiaToolkit.Core.Services
                         onlyChanges: onlyChanges);
                 }
 
-                if (!_v21Adapter.IsDownloadConfigurationReady(downloadProvider))
+                if (!_online.IsDownloadConfigurationReady(downloadProvider))
                 {
                     return new PlcSoftwareDownloadResult(
                         false,
@@ -131,14 +135,14 @@ namespace OpenTiaToolkit.Core.Services
                         onlyChanges: onlyChanges);
                 }
 
-                var onlineProvider = _v21Adapter.GetService(deviceItem, "OnlineProvider");
-                if (onlineProvider != null && !_v21Adapter.TryGoOffline(onlineProvider, out var offlineFailure))
+                var onlineProvider = _types.GetService(deviceItem, "OnlineProvider");
+                if (onlineProvider != null && !_online.TryGoOffline(onlineProvider, out var offlineFailure))
                 {
                     warnings.Add(offlineFailure ?? "Failed to go offline before download.");
                 }
 
                 _logger?.LogInformation("Downloading PLC software to PLCSIM Advanced target");
-                if (!_v21Adapter.TryDownloadSoftware(downloadProvider, onlyChanges, out var state, out var failureReason))
+                if (!_online.TryDownloadSoftware(downloadProvider, onlyChanges, out var state, out var failureReason))
                 {
                     return new PlcSoftwareDownloadResult(
                         false,
@@ -175,9 +179,9 @@ namespace OpenTiaToolkit.Core.Services
                     return new PlcOnlineStatusResult(false, "Unavailable", false, failure ?? "OnlineProvider is not available.");
                 }
 
-                if (goOnline && !_v21Adapter.TryGoOnline(onlineProvider, out _, out var goOnlineFailure))
+                if (goOnline && !_online.TryGoOnline(onlineProvider, out _, out var goOnlineFailure))
                 {
-                    var currentState = _v21Adapter.GetOnlineState(onlineProvider);
+                    var currentState = _online.GetOnlineState(onlineProvider);
                     return new PlcOnlineStatusResult(
                         false,
                         currentState,
@@ -185,7 +189,7 @@ namespace OpenTiaToolkit.Core.Services
                         goOnlineFailure ?? "Failed to go online.");
                 }
 
-                var state = _v21Adapter.GetOnlineState(onlineProvider);
+                var state = _online.GetOnlineState(onlineProvider);
                 return new PlcOnlineStatusResult(
                     true,
                     state,
@@ -200,12 +204,12 @@ namespace OpenTiaToolkit.Core.Services
             {
                 var onlineProvider = GetOnlineProvider(out var failure);
                 if (onlineProvider == null) return new PlcOnlineStatusResult(false, "Unavailable", false, failure ?? "OnlineProvider is not available.");
-                if (!_v21Adapter.TryGoOffline(onlineProvider, out var offlineFailure))
+                if (!_online.TryGoOffline(onlineProvider, out var offlineFailure))
                 {
-                    string currentState = _v21Adapter.GetOnlineState(onlineProvider);
+                    string currentState = _online.GetOnlineState(onlineProvider);
                     return new PlcOnlineStatusResult(false, currentState, IsOnline(currentState), offlineFailure ?? "Failed to go offline.");
                 }
-                string state = _v21Adapter.GetOnlineState(onlineProvider);
+                string state = _online.GetOnlineState(onlineProvider);
                 return new PlcOnlineStatusResult(true, state, IsOnline(state), $"PLC online state: {state}.");
             });
         }
@@ -224,9 +228,9 @@ namespace OpenTiaToolkit.Core.Services
                     return new PlcCpuControlResult(false, normalizedAction, false, "Unavailable", failure ?? "OnlineProvider is not available.");
                 }
 
-                if (!_v21Adapter.TryGoOnline(onlineProvider, out var onlineState, out var goOnlineFailure))
+                if (!_online.TryGoOnline(onlineProvider, out var onlineState, out var goOnlineFailure))
                 {
-                    return new PlcCpuControlResult(false, normalizedAction, false, onlineState ?? _v21Adapter.GetOnlineState(onlineProvider), goOnlineFailure ?? "Failed to go online.");
+                    return new PlcCpuControlResult(false, normalizedAction, false, onlineState ?? _online.GetOnlineState(onlineProvider), goOnlineFailure ?? "Failed to go online.");
                 }
 
                 if (!confirm)
@@ -235,17 +239,17 @@ namespace OpenTiaToolkit.Core.Services
                         false,
                         normalizedAction,
                         false,
-                        onlineState ?? _v21Adapter.GetOnlineState(onlineProvider),
+                        onlineState ?? _online.GetOnlineState(onlineProvider),
                         $"CPU {normalizedAction} requires --confirm=true.");
                 }
 
-                if (!_v21Adapter.TryControlCpu(onlineProvider, normalizedAction, out var finalState, out var controlFailure))
+                if (!_online.TryControlCpu(onlineProvider, normalizedAction, out var finalState, out var controlFailure))
                 {
                     return new PlcCpuControlResult(
                         false,
                         normalizedAction,
                         false,
-                        finalState ?? _v21Adapter.GetOnlineState(onlineProvider),
+                        finalState ?? _online.GetOnlineState(onlineProvider),
                         controlFailure ?? $"TIA Openness does not expose a CPU {normalizedAction} operation for the selected PLC.");
                 }
 
@@ -253,7 +257,7 @@ namespace OpenTiaToolkit.Core.Services
                     true,
                     normalizedAction,
                     true,
-                    finalState ?? _v21Adapter.GetOnlineState(onlineProvider),
+                    finalState ?? _online.GetOnlineState(onlineProvider),
                     $"CPU {normalizedAction} command executed.");
             });
         }
@@ -267,7 +271,7 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            var onlineProvider = _v21Adapter.GetService(_sessionContext.CurrentPlcDeviceItem, "OnlineProvider");
+            var onlineProvider = _types.GetService(_sessionContext.CurrentPlcDeviceItem, "OnlineProvider");
             if (onlineProvider == null)
             {
                 failure = "OnlineProvider is not available for the selected PLC device item.";

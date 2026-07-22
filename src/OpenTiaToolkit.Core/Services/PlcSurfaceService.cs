@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Models;
 using System;
 using System.Collections;
@@ -8,6 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Siemens.Engineering.CrossReference;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -15,7 +16,9 @@ namespace OpenTiaToolkit.Core.Services
     {
         private readonly EngineeringSessionContext _sessionContext;
         private readonly PlcBrowseService _browseService;
-        private readonly V21OpennessAdapter _v21Adapter;
+        private readonly V21TypeServiceResolver _types;
+        private readonly V21PlcTagStructureAccess _tags;
+        private readonly V21EngineeringObjectAccess _objects;
         private readonly ILogger? _logger;
 
         public PlcSurfaceService(
@@ -27,7 +30,10 @@ namespace OpenTiaToolkit.Core.Services
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _browseService = browseService ?? throw new ArgumentNullException(nameof(browseService));
             _logger = logger;
-            _v21Adapter = v21Adapter ?? new V21OpennessAdapter();
+            var adapter = v21Adapter ?? new V21OpennessAdapter();
+            _types = adapter.Types;
+            _tags = adapter.Tags;
+            _objects = adapter.Objects;
         }
 
         public async Task<PlcTagExportResult> ExportTagsAsync(string culture = "en-US")
@@ -40,7 +46,7 @@ namespace OpenTiaToolkit.Core.Services
                     return new PlcTagExportResult(false, "No PLC software is currently open");
                 }
 
-                var tagTables = _v21Adapter.GetTagTables(plcSoftware);
+                var tagTables = _tags.GetTagTables(plcSoftware);
                 if (tagTables == null)
                 {
                     return new PlcTagExportResult(false, "PLC software does not expose accessible tag tables");
@@ -49,8 +55,8 @@ namespace OpenTiaToolkit.Core.Services
                 var rows = new List<PlcTagExportRow>();
                 foreach (var tagTable in tagTables)
                 {
-                    var tagTableName = _v21Adapter.GetName(tagTable) ?? string.Empty;
-                    var tags = _v21Adapter.GetTags(tagTable);
+                    var tagTableName = _objects.GetName(tagTable) ?? string.Empty;
+                    var tags = _tags.GetTags(tagTable);
                     if (tags == null)
                     {
                         continue;
@@ -60,10 +66,10 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         rows.Add(new PlcTagExportRow(
                             tagTableName,
-                            _v21Adapter.GetName(tag) ?? string.Empty,
-                            _v21Adapter.GetDataType(tag),
-                            _v21Adapter.GetLogicalAddress(tag),
-                            _v21Adapter.GetTagCommentText(tag, culture)));
+                            _objects.GetName(tag) ?? string.Empty,
+                            _objects.GetDataType(tag),
+                            _objects.GetLogicalAddress(tag),
+                            _objects.GetTagCommentText(tag, culture)));
                     }
                 }
 
@@ -320,20 +326,20 @@ namespace OpenTiaToolkit.Core.Services
         {
             return engineeringObject == null
                 ? null
-                : _v21Adapter.GetService(engineeringObject, typeof(CrossReferenceService))
-                    ?? _v21Adapter.GetService(engineeringObject, "Siemens.Engineering.CrossReference.CrossReferenceService")
-                    ?? _v21Adapter.GetService(engineeringObject, "CrossReferenceService");
+                : _types.GetService(engineeringObject, typeof(CrossReferenceService))
+                    ?? _types.GetService(engineeringObject, "Siemens.Engineering.CrossReference.CrossReferenceService")
+                    ?? _types.GetService(engineeringObject, "CrossReferenceService");
         }
 
         private IEnumerable<CrossReferenceTarget> FindPotentialCrossReferenceTargets(object plcSoftware)
         {
-            var tagTables = _v21Adapter.GetTagTables(plcSoftware);
+            var tagTables = _tags.GetTagTables(plcSoftware);
             if (tagTables != null)
             {
                 foreach (var tagTable in tagTables)
                 {
-                    var tagTableName = _v21Adapter.GetName(tagTable) ?? string.Empty;
-                    var tags = _v21Adapter.GetTags(tagTable);
+                    var tagTableName = _objects.GetName(tagTable) ?? string.Empty;
+                    var tags = _tags.GetTags(tagTable);
                     if (tags == null)
                     {
                         continue;
@@ -341,7 +347,7 @@ namespace OpenTiaToolkit.Core.Services
 
                     foreach (var tag in tags)
                     {
-                        var tagName = _v21Adapter.GetName(tag);
+                        var tagName = _objects.GetName(tag);
                         if (!string.IsNullOrWhiteSpace(tagName))
                         {
                             yield return new CrossReferenceTarget(tagName!, "Tag", "Tag Tables/" + tagTableName + "/" + tagName, tag);

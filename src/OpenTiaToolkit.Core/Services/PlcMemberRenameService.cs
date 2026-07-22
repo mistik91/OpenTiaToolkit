@@ -1,4 +1,4 @@
-using OpenTiaToolkit.Core.Models;
+﻿using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using System;
@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -15,13 +16,16 @@ namespace OpenTiaToolkit.Core.Services
     internal sealed class PlcMemberRenameService
     {
         private readonly EngineeringSessionContext _sessionContext;
-        private readonly V21OpennessAdapter _v21Adapter;
+        private readonly V21PlcTagStructureAccess _structures;
+        private readonly V21EngineeringObjectAccess _objects;
         private readonly ILogger? _logger;
 
         public PlcMemberRenameService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            _v21Adapter = v21Adapter ?? new V21OpennessAdapter();
+            var adapter = v21Adapter ?? new V21OpennessAdapter();
+            _structures = adapter.Tags;
+            _objects = adapter.Objects;
             _logger = logger;
         }
 
@@ -61,7 +65,7 @@ namespace OpenTiaToolkit.Core.Services
                 try
                 {
                     ReportProgress(progress, "Finding target GlobalDB blocks.", 0, null, "find-global-dbs");
-                    var targetBlockList = _v21Adapter.FindGlobalDbs(plcSoftware, targetBlocks);
+                    var targetBlockList = _structures.FindGlobalDbs(plcSoftware, targetBlocks);
                     if (targetBlockList == null)
                     {
                         result.Summary.Errors = 1;
@@ -78,7 +82,7 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         processedBlocks++;
-                        var blockName = _v21Adapter.GetName(block) ?? "Unknown";
+                        var blockName = _objects.GetName(block) ?? "Unknown";
                         _logger?.LogInformation("Processing GlobalDB: {BlockName}", blockName);
                         ReportProgress(
                             progress,
@@ -89,7 +93,7 @@ namespace OpenTiaToolkit.Core.Services
 
                         try
                         {
-                            var members = _v21Adapter.GetDbMembers(block);
+                            var members = _structures.GetDbMembers(block);
                             if (members == null)
                             {
                                 continue;
@@ -188,7 +192,7 @@ namespace OpenTiaToolkit.Core.Services
                 try
                 {
                     ReportProgress(progress, "Finding target UDT types.", 0, null, "find-udts");
-                    var targetTypeList = _v21Adapter.FindUdts(plcSoftware, targetTypes);
+                    var targetTypeList = _structures.FindUdts(plcSoftware, targetTypes);
                     if (targetTypeList == null)
                     {
                         result.Summary.Errors = 1;
@@ -205,7 +209,7 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         processedTypes++;
-                        var typeName = _v21Adapter.GetName(type) ?? "Unknown";
+                        var typeName = _objects.GetName(type) ?? "Unknown";
                         _logger?.LogInformation("Processing UDT: {TypeName}", typeName);
                         ReportProgress(
                             progress,
@@ -216,7 +220,7 @@ namespace OpenTiaToolkit.Core.Services
 
                         try
                         {
-                            var members = _v21Adapter.GetUdtMembers(type);
+                            var members = _structures.GetUdtMembers(type);
                             if (members == null)
                             {
                                 continue;
@@ -311,7 +315,7 @@ namespace OpenTiaToolkit.Core.Services
             cancellationToken.ThrowIfCancellationRequested();
             result.Summary.TotalProcessed++;
 
-            var memberName = _v21Adapter.GetName(member) ?? "Unknown";
+            var memberName = _objects.GetName(member) ?? "Unknown";
             var memberPath = BuildPath(parentPath, memberName);
 
             try
@@ -342,7 +346,7 @@ namespace OpenTiaToolkit.Core.Services
                     if (!dryRun)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        _v21Adapter.SetName(member, newName);
+                        _objects.SetName(member, newName);
                         result.Summary.ChangesApplied++;
                     }
 
@@ -365,7 +369,7 @@ namespace OpenTiaToolkit.Core.Services
                     });
                 }
 
-                var nestedMembers = _v21Adapter.GetNestedMembers(member);
+                var nestedMembers = _structures.GetNestedMembers(member);
                 if (nestedMembers != null)
                 {
                     ProcessMembers(nestedMembers, renameMap, caseInsensitive, dryRun, memberPath, itemType, result, cancellationToken, progress);

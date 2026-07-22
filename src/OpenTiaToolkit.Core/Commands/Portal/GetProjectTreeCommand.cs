@@ -62,7 +62,11 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                     return CommandResult.CreateFailure("Not connected to TIA Portal");
                 }
 
-                var depth = args.GetInt("depth");
+                int? depth = args.Has("depth") ? args.GetInt("depth") : (int?)null;
+                if (depth < 0)
+                {
+                    return CommandResult.CreateFailure("Parameter depth cannot be negative.");
+                }
                 context.Checkpoint("Traversing project tree.", 50, "get-project-tree");
                 var tree = await _portalService.GetProjectTreeAsync(depth);
 

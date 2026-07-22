@@ -1,9 +1,10 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -14,7 +15,8 @@ namespace OpenTiaToolkit.Core.Services
     {
         private readonly EngineeringSessionContext _sessionContext;
         private readonly PlcBrowseService _browseService;
-        private readonly V21OpennessAdapter _v21Adapter;
+        private readonly V21DocumentAccess _documents;
+        private readonly V21EngineeringObjectAccess _objects;
         private readonly ILogger? _logger;
         private bool _diagnosticsRun;
 
@@ -26,7 +28,9 @@ namespace OpenTiaToolkit.Core.Services
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _browseService = browseService ?? throw new ArgumentNullException(nameof(browseService));
-            _v21Adapter = v21Adapter ?? new V21OpennessAdapter();
+            var adapter = v21Adapter ?? new V21OpennessAdapter();
+            _documents = adapter.Documents;
+            _objects = adapter.Objects;
             _logger = logger;
         }
 
@@ -100,7 +104,7 @@ namespace OpenTiaToolkit.Core.Services
                                 continue;
                             }
 
-                            if (!_v21Adapter.TryDelete(block))
+                            if (!_objects.TryDelete(block))
                             {
                                 _logger?.LogWarning("Could not find a supported V21 delete path for block: {BlockName}", name);
                                 errorCount++;
@@ -182,7 +186,7 @@ namespace OpenTiaToolkit.Core.Services
                 object? programmingLanguageValue = null;
                 if (!string.IsNullOrEmpty(programmingLanguage))
                 {
-                    programmingLanguageValue = _v21Adapter.GetProgrammingLanguageValue(programmingLanguage);
+                    programmingLanguageValue = _documents.GetProgrammingLanguageValue(programmingLanguage);
                     if (programmingLanguageValue == null)
                     {
                         _logger?.LogError("Invalid programming language: {Language}", programmingLanguage);
@@ -216,7 +220,7 @@ namespace OpenTiaToolkit.Core.Services
                         _diagnosticsRun = true;
                     }
 
-                    createdBlock = _v21Adapter.CreateFb(blocksCollection, blockName, programmingLanguageValue);
+                    createdBlock = _documents.CreateFb(blocksCollection, blockName, programmingLanguageValue);
                 }
                 else
                 {
