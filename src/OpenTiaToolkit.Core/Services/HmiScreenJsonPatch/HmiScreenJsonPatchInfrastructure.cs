@@ -60,17 +60,29 @@ namespace OpenTiaToolkit.Core.Services
     {
         public static HmiScreenJsonPatchOperationResult Success(int index, string op, string scope, string? itemName,
             string? property, string? previousValue, string? newValue) => new HmiScreenJsonPatchOperationResult
-        {
-            Index = index, Op = op, Succeeded = true, Scope = scope, ItemName = itemName,
-            Property = property, PreviousValue = previousValue, NewValue = newValue
-        };
+            {
+                Index = index,
+                Op = op,
+                Succeeded = true,
+                Scope = scope,
+                ItemName = itemName,
+                Property = property,
+                PreviousValue = previousValue,
+                NewValue = newValue
+            };
 
         public static HmiScreenJsonPatchOperationResult Failure(int index, string op, string message,
             string? itemName = null, string? property = null, List<string>? suggestions = null) => new HmiScreenJsonPatchOperationResult
-        {
-            Index = index, Op = op, Succeeded = false, Scope = string.IsNullOrWhiteSpace(itemName) ? string.Empty : "item",
-            ItemName = itemName, Property = property, Message = message, Suggestions = suggestions ?? new List<string>()
-        };
+            {
+                Index = index,
+                Op = op,
+                Succeeded = false,
+                Scope = string.IsNullOrWhiteSpace(itemName) ? string.Empty : "item",
+                ItemName = itemName,
+                Property = property,
+                Message = message,
+                Suggestions = suggestions ?? new List<string>()
+            };
     }
 
     internal sealed class HmiScreenJsonCompositeTarget

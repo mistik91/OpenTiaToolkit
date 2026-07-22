@@ -59,7 +59,9 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             var resolved = _resolver.Resolve(target).Object;
             return new HardwareNetworkItemAttributesInfo
             {
-                Target = HardwareReferenceRules.Clone(target), CollectionName = collectionName, Index = index,
+                Target = HardwareReferenceRules.Clone(target),
+                CollectionName = collectionName,
+                Index = index,
                 Attributes = _adapter.GetNetworkItemAttributeInfos(resolved, collectionName, index, attributes).ToList()
             };
         }
@@ -69,8 +71,11 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             var parent = _resolver.Resolve(target).Object;
             return new HardwarePlugCheckInfo
             {
-                Target = HardwareReferenceRules.Clone(target), TypeIdentifier = typeIdentifier, ItemName = itemName,
-                PositionNumber = positionNumber, CanPlug = parent.CanPlugNew(typeIdentifier, itemName, positionNumber)
+                Target = HardwareReferenceRules.Clone(target),
+                TypeIdentifier = typeIdentifier,
+                ItemName = itemName,
+                PositionNumber = positionNumber,
+                CanPlug = parent.CanPlugNew(typeIdentifier, itemName, positionNumber)
             };
         }
 
@@ -82,8 +87,11 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             var bytes = _adapter.GetGsdParameterData(_resolver.Resolve(target).Object, datasetNumber, byteOffset, length);
             return bytes == null ? null : new HardwareGsdParameterData
             {
-                Target = HardwareReferenceRules.Clone(target), DatasetNumber = datasetNumber, ByteOffset = byteOffset,
-                Length = bytes.Length, DataHex = HardwareHexCodec.Format(bytes)
+                Target = HardwareReferenceRules.Clone(target),
+                DatasetNumber = datasetNumber,
+                ByteOffset = byteOffset,
+                Length = bytes.Length,
+                DataHex = HardwareHexCodec.Format(bytes)
             };
         }
     }

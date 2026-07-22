@@ -110,11 +110,19 @@ internal sealed class PlcCodeTransactionAuthoringService
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
         {
-            Sequence = operations.Count + 1, ImportDirectory = validation.ImportDirectory, FileName = validation.FileName, GroupPath = group,
-            ImportOption = string.IsNullOrWhiteSpace(importOption) ? "Override" : importOption!, TargetMode = mode,
-            AuthoringBaselineDirectory = normalizedBaselineDirectory, AuthoringBaselineFileName = normalizedBaselineFileName, ChangeContract = changeContract,
-            InputHash = PlcWorkflowPrimitives.HashDocumentPair(validation.ImportDirectory, validation.FileName), Dependencies = validation.Dependencies,
-            ExplicitDependsOn = PlcCodeTransactionIntegrity.ParseDependencySequences(dependsOn), Validation = validation
+            Sequence = operations.Count + 1,
+            ImportDirectory = validation.ImportDirectory,
+            FileName = validation.FileName,
+            GroupPath = group,
+            ImportOption = string.IsNullOrWhiteSpace(importOption) ? "Override" : importOption!,
+            TargetMode = mode,
+            AuthoringBaselineDirectory = normalizedBaselineDirectory,
+            AuthoringBaselineFileName = normalizedBaselineFileName,
+            ChangeContract = changeContract,
+            InputHash = PlcWorkflowPrimitives.HashDocumentPair(validation.ImportDirectory, validation.FileName),
+            Dependencies = validation.Dependencies,
+            ExplicitDependsOn = PlcCodeTransactionIntegrity.ParseDependencySequences(dependsOn),
+            Validation = validation
         });
         return PersistAdded(transaction, operations, $"Added SIMATIC SD operation for '{validation.BlockType}:{validation.BlockName}'.");
     }
@@ -133,9 +141,15 @@ internal sealed class PlcCodeTransactionAuthoringService
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
         {
-            Sequence = operations.Count + 1, Kind = "GenerateSclSource", SourcePath = path, SourceName = Path.GetFileNameWithoutExtension(path),
-            GroupPath = PlcWorkflowPrimitives.NormalizeGroupPath(groupPath), TypeGroupPath = PlcWorkflowPrimitives.NormalizeTypeGroupPath(typeGroupPath),
-            InputHash = validation.InputHash, Dependencies = validation.Dependencies, ExplicitDependsOn = PlcCodeTransactionIntegrity.ParseDependencySequences(dependsOn),
+            Sequence = operations.Count + 1,
+            Kind = "GenerateSclSource",
+            SourcePath = path,
+            SourceName = Path.GetFileNameWithoutExtension(path),
+            GroupPath = PlcWorkflowPrimitives.NormalizeGroupPath(groupPath),
+            TypeGroupPath = PlcWorkflowPrimitives.NormalizeTypeGroupPath(typeGroupPath),
+            InputHash = validation.InputHash,
+            Dependencies = validation.Dependencies,
+            ExplicitDependsOn = PlcCodeTransactionIntegrity.ParseDependencySequences(dependsOn),
             Validation = new PlcDocumentValidationResult { Valid = true, Classification = validation.Classification, Warnings = validation.Warnings }
         });
         return PersistAdded(transaction, operations, $"Added guarded SCL source generation for {validation.DeclaredObjects.Count} declared object(s).");
@@ -159,9 +173,16 @@ internal sealed class PlcCodeTransactionAuthoringService
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
         {
-            Sequence = operations.Count + 1, Kind = isType ? "PatchSimaticMlType" : "PatchSimaticMlBlock", SourcePath = candidate, BaselinePath = baseline,
-            ValidationBaselineHash = _formats.ComputeSimaticMlContentHash(baseline), AllowTopologyChange = allowTopologyChange,
-            AllowedChangePaths = changeContract.AllowedSections, ChangeContract = changeContract, GroupPath = group, InputHash = validation.InputHash,
+            Sequence = operations.Count + 1,
+            Kind = isType ? "PatchSimaticMlType" : "PatchSimaticMlBlock",
+            SourcePath = candidate,
+            BaselinePath = baseline,
+            ValidationBaselineHash = _formats.ComputeSimaticMlContentHash(baseline),
+            AllowTopologyChange = allowTopologyChange,
+            AllowedChangePaths = changeContract.AllowedSections,
+            ChangeContract = changeContract,
+            GroupPath = group,
+            InputHash = validation.InputHash,
             ExplicitDependsOn = PlcCodeTransactionIntegrity.ParseDependencySequences(dependsOn),
             Validation = new PlcDocumentValidationResult { Valid = true, Classification = validation.Classification, Warnings = validation.Warnings }
         });
@@ -177,8 +198,12 @@ internal sealed class PlcCodeTransactionAuthoringService
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
         {
-            Sequence = operations.Count + 1, Kind = "DeletePlcType", SourceName = typeName.Trim(), GroupPath = group,
-            InputHash = PlcCodeTransactionIntegrity.TypeIdentityHash(group, typeName.Trim()), ExplicitDependsOn = PlcCodeTransactionIntegrity.ParseDependencySequences(dependsOn)
+            Sequence = operations.Count + 1,
+            Kind = "DeletePlcType",
+            SourceName = typeName.Trim(),
+            GroupPath = group,
+            InputHash = PlcCodeTransactionIntegrity.TypeIdentityHash(group, typeName.Trim()),
+            ExplicitDependsOn = PlcCodeTransactionIntegrity.ParseDependencySequences(dependsOn)
         });
         return PersistAdded(transaction, operations, $"Added exact PLC type deletion for '{PlcWorkflowPrimitives.DisplayGroup(group)}/TYPE:{typeName.Trim()}'.");
     }

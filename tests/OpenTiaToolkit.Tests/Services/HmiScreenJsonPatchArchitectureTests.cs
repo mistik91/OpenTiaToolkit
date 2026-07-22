@@ -121,7 +121,10 @@ namespace OpenTiaToolkit.Tests.Services
             using var operationAlias = JsonDocument.Parse("\"delete-item\"");
             var operation = new HmiScreenJsonPatchOperation
             {
-                Op = "set-property", Item = "Btn1", Property = "Text", Value = "Canonical",
+                Op = "set-property",
+                Item = "Btn1",
+                Property = "Text",
+                Value = "Canonical",
                 ExtensionData = new Dictionary<string, JsonElement>
                 { ["operation"] = operationAlias.RootElement.Clone(), ["item-name"] = itemAlias.RootElement.Clone() }
             };
@@ -181,7 +184,8 @@ namespace OpenTiaToolkit.Tests.Services
 
         private static HmiJsonScreen CreateScreen() => new HmiJsonScreen
         {
-            Name = "Main", Path = "Screens/Main",
+            Name = "Main",
+            Path = "Screens/Main",
             Items = { new HmiJsonItem { Name = "Btn1", Type = "HmiButton", Properties = { ["Text"] = "Base" } } }
         };
 

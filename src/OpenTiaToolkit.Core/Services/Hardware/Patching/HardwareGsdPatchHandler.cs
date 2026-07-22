@@ -28,8 +28,10 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             context.Adapter.SetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, bytes);
             return context.Success(index, op, target.Reference, $"Wrote {bytes.Length} GSD parameter byte(s).", new HardwareGsdParameterChangeInfo
             {
-                DatasetNumber = op.DatasetNumber.Value, ByteOffset = op.ByteOffset,
-                BeforeHex = before == null ? null : HardwareHexCodec.Format(before), WrittenHex = HardwareHexCodec.Format(bytes)
+                DatasetNumber = op.DatasetNumber.Value,
+                ByteOffset = op.ByteOffset,
+                BeforeHex = before == null ? null : HardwareHexCodec.Format(before),
+                WrittenHex = HardwareHexCodec.Format(bytes)
             });
         }
 
@@ -42,8 +44,11 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
                 ?? throw new InvalidOperationException("GSD parameter data could not be read.");
             return context.Success(index, op, target.Reference, $"Read {bytes.Length} GSD parameter byte(s).", new HardwareGsdParameterData
             {
-                Target = target.Reference, DatasetNumber = op.DatasetNumber.Value, ByteOffset = op.ByteOffset,
-                Length = bytes.Length, DataHex = HardwareHexCodec.Format(bytes)
+                Target = target.Reference,
+                DatasetNumber = op.DatasetNumber.Value,
+                ByteOffset = op.ByteOffset,
+                Length = bytes.Length,
+                DataHex = HardwareHexCodec.Format(bytes)
             });
         }
     }

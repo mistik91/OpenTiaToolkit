@@ -221,7 +221,10 @@ Typical local verification:
 dotnet build OpenTiaToolkit.sln
 dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
 powershell -ExecutionPolicy Bypass -File .\scripts\Generate-CommandReference.ps1 -CheckOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-RepositoryHygiene.ps1
 ```
+
+Private audit reports stay local and ignored. Do not force-add `report.md` or `suggestions.md` to Git.
 
 ## Testing Strategy
 

@@ -26,8 +26,13 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         public static HardwareOperationResult Success(int index, HardwarePatchOperation operation, HardwareObjectRef? target, string message, object? data = null) =>
             new HardwareOperationResult
             {
-                Index = index, Op = operation.Op, Success = true, Message = message,
-                Target = target, ResultId = operation.ResultId, Data = data
+                Index = index,
+                Op = operation.Op,
+                Success = true,
+                Message = message,
+                Target = target,
+                ResultId = operation.ResultId,
+                Data = data
             };
     }
 
@@ -144,12 +149,12 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         {
             var registrations = new Dictionary<string, HardwarePatchOperationRegistration>(StringComparer.OrdinalIgnoreCase);
             foreach (var handler in handlers)
-            foreach (var declared in handler.Operations)
-            {
-                var name = HardwarePatchRules.NormalizeOperation(declared);
-                if (registrations.ContainsKey(name)) throw new InvalidOperationException($"Duplicate hardware patch operation registration: {name}");
-                registrations[name] = new HardwarePatchOperationRegistration(name, handler, Destructive.Contains(name), name == "set-gsd-parameter-data");
-            }
+                foreach (var declared in handler.Operations)
+                {
+                    var name = HardwarePatchRules.NormalizeOperation(declared);
+                    if (registrations.ContainsKey(name)) throw new InvalidOperationException($"Duplicate hardware patch operation registration: {name}");
+                    registrations[name] = new HardwarePatchOperationRegistration(name, handler, Destructive.Contains(name), name == "set-gsd-parameter-data");
+                }
             _registrations = registrations;
         }
 

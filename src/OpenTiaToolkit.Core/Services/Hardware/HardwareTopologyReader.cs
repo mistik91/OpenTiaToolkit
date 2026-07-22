@@ -49,15 +49,20 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             var reference = Root(device);
             return new HardwareDeviceTreeInfo
             {
-                DeviceName = device.Name, TypeIdentifier = device.TypeIdentifier, Target = reference,
+                DeviceName = device.Name,
+                TypeIdentifier = device.TypeIdentifier,
+                Target = reference,
                 Items = device.DeviceItems.Select(item => ToItemInfo(item, reference)).ToList()
             };
         }
 
         public HardwareItemInfo ToItemInfoWithReference(DeviceItem item, HardwareObjectRef reference) => new HardwareItemInfo
         {
-            Target = HardwareReferenceRules.Clone(reference), Name = item.Name, TypeIdentifier = item.TypeIdentifier,
-            PositionNumber = item.PositionNumber, Items = item.DeviceItems.Select(child => ToItemInfo(child, reference)).ToList()
+            Target = HardwareReferenceRules.Clone(reference),
+            Name = item.Name,
+            TypeIdentifier = item.TypeIdentifier,
+            PositionNumber = item.PositionNumber,
+            Items = item.DeviceItems.Select(child => ToItemInfo(child, reference)).ToList()
         };
 
         private IEnumerable<Device> FilterDevices(string? name) => ProjectDeviceEnumerator.EnumerateDevices(_context.RequireProject())
@@ -87,21 +92,21 @@ namespace OpenTiaToolkit.Core.Services.Hardware
         private static void AddProjectIoSystems(ProjectBase project, ICollection<HardwareNetworkInfo> result)
         {
             foreach (var subnet in TiaReflectionHelper.GetEnumerableProperty(project, "Subnets") ?? Enumerable.Empty<object>())
-            foreach (var ioSystem in TiaReflectionHelper.GetEnumerableProperty(subnet, "IoSystems") ?? Enumerable.Empty<object>())
-            {
-                var info = new HardwareNetworkInfo
+                foreach (var ioSystem in TiaReflectionHelper.GetEnumerableProperty(subnet, "IoSystems") ?? Enumerable.Empty<object>())
                 {
-                    Target = new HardwareObjectRef
+                    var info = new HardwareNetworkInfo
                     {
-                        DeviceName = $"Subnet:{TiaReflectionHelper.GetName(subnet) ?? "Subnet"}",
-                        ItemPath = new[] { TiaReflectionHelper.GetName(ioSystem) ?? "IoSystem" }
-                    }
-                };
-                var index = 0;
-                foreach (var connector in TiaReflectionHelper.GetEnumerableProperty(ioSystem, "ConnectedIoDevices") ?? Enumerable.Empty<object>())
-                    info.ConnectedIoDevices.Add(ToConnectedIoDeviceInfo(info.Target, index++, TiaReflectionHelper.GetName(ioSystem), connector));
-                if (info.ConnectedIoDevices.Count > 0) result.Add(info);
-            }
+                        Target = new HardwareObjectRef
+                        {
+                            DeviceName = $"Subnet:{TiaReflectionHelper.GetName(subnet) ?? "Subnet"}",
+                            ItemPath = new[] { TiaReflectionHelper.GetName(ioSystem) ?? "IoSystem" }
+                        }
+                    };
+                    var index = 0;
+                    foreach (var connector in TiaReflectionHelper.GetEnumerableProperty(ioSystem, "ConnectedIoDevices") ?? Enumerable.Empty<object>())
+                        info.ConnectedIoDevices.Add(ToConnectedIoDeviceInfo(info.Target, index++, TiaReflectionHelper.GetName(ioSystem), connector));
+                    if (info.ConnectedIoDevices.Count > 0) result.Add(info);
+                }
         }
 
         private static HardwareConnectedIoDeviceInfo ToConnectedIoDeviceInfo(HardwareObjectRef target, int connectorIndex, string? ioSystemName, object connector)
@@ -113,7 +118,8 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                 var subnet = TiaReflectionHelper.GetProperty(node, "ConnectedSubnet");
                 return new HardwareNodeInfo
                 {
-                    Index = index, Name = TiaReflectionHelper.GetProperty(node, "Name")?.ToString(),
+                    Index = index,
+                    Name = TiaReflectionHelper.GetProperty(node, "Name")?.ToString(),
                     NodeType = TiaReflectionHelper.GetProperty(node, "NodeType")?.ToString(),
                     ConnectedSubnet = TiaReflectionHelper.GetName(subnet),
                     Attributes = V21HardwareAdapter.GetSelectedEngineeringAttributeInfos(node, DefaultNodeAttributeNames)
@@ -124,14 +130,17 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                 .FirstOrDefault(candidate => ReferenceEquals(candidate.Connector, connector))?.Index ?? connectorIndex;
             return new HardwareConnectedIoDeviceInfo
             {
-                NetworkTarget = HardwareReferenceRules.Clone(target), ConnectorIndex = connectorIndex,
-                ConnectedIoSystemName = ioSystemName, OwnerName = TiaReflectionHelper.GetName(owner),
+                NetworkTarget = HardwareReferenceRules.Clone(target),
+                ConnectorIndex = connectorIndex,
+                ConnectedIoSystemName = ioSystemName,
+                OwnerName = TiaReflectionHelper.GetName(owner),
                 OwnerTypeIdentifier = TiaReflectionHelper.GetProperty(owner, "TypeIdentifier")?.ToString(),
                 InterfaceOperatingMode = TiaReflectionHelper.GetProperty(network, "InterfaceOperatingMode")?.ToString(),
                 Nodes = nodes,
                 Connector = new HardwareIoConnectorInfo
                 {
-                    Index = networkConnectorIndex, ConnectedIoSystemName = ioSystemName,
+                    Index = networkConnectorIndex,
+                    ConnectedIoSystemName = ioSystemName,
                     OwnerName = TiaReflectionHelper.GetName(owner),
                     OwnerTypeIdentifier = TiaReflectionHelper.GetProperty(owner, "TypeIdentifier")?.ToString(),
                     InterfaceOperatingMode = TiaReflectionHelper.GetProperty(network, "InterfaceOperatingMode")?.ToString(),

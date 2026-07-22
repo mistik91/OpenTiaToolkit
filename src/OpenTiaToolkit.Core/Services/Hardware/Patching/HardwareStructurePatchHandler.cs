@@ -63,8 +63,11 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             context.Register(op.ResultId, new HardwareResolvedTarget(created, actual));
             return context.Success(index, op, actual, $"Plugged hardware item: {created.Name}", new HardwarePlugItemInfo
             {
-                Item = context.Topology.ToItemInfoWithReference(created, actual), RequestedTarget = requested,
-                ActualTarget = actual, ActualParentMismatch = displaced, Warning = warning
+                Item = context.Topology.ToItemInfoWithReference(created, actual),
+                RequestedTarget = requested,
+                ActualTarget = actual,
+                ActualParentMismatch = displaced,
+                Warning = warning
             });
         }
 
