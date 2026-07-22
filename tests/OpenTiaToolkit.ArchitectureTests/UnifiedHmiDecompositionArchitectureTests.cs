@@ -39,6 +39,20 @@ public class UnifiedHmiDecompositionArchitectureTests
     }
 
     [TestMethod]
+    public void PreflightTransactionBoundary_DoesNotCommit()
+    {
+        string root = FindRepositoryRoot();
+        string path = Path.Combine(root, "src", "OpenTiaToolkit.Core", "Services", "UnifiedHmi", "HmiJsonImportBoundaries.cs");
+        string source = File.ReadAllText(path);
+        int preflightStart = source.IndexOf("public async Task<HmiJsonImportResult> RunPreflightAsync", StringComparison.Ordinal);
+        string preflightSource = source.Substring(preflightStart);
+
+        Assert.IsFalse(preflightSource.Contains("CommitOnDispose", StringComparison.Ordinal));
+        StringAssert.Contains(preflightSource, "ExclusiveAccess");
+        StringAssert.Contains(preflightSource, "dryRun: true");
+    }
+
+    [TestMethod]
     public void ExtractedComponents_UseCompositionInsteadOfInheritanceChains()
     {
         string root = FindRepositoryRoot();

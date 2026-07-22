@@ -23,6 +23,11 @@ namespace OpenTiaToolkit.Core.Services
 
     internal interface IHmiJsonImportTransactionRunner
     {
+        Task<HmiJsonImportResult> RunPreflightAsync(
+            string inputPath,
+            HmiJsonFilterOptions? filters,
+            HmiJsonImportExecutionOptions options);
+
         Task<HmiJsonImportResult> RunAsync(
             string inputPath,
             HmiJsonFilterOptions? filters,
@@ -100,6 +105,44 @@ namespace OpenTiaToolkit.Core.Services
                 _logger?.LogError(ex, "Unified HMI JSON import transaction failed");
                 var result = _policy.FromException(inputPath, ex, backupOutputPath);
                 _reportWriter.TryWrite(result, inputPath, dryRun: false);
+                return result;
+            }
+        }
+
+        public async Task<HmiJsonImportResult> RunPreflightAsync(
+            string inputPath,
+            HmiJsonFilterOptions? filters,
+            HmiJsonImportExecutionOptions options)
+        {
+            if (_sessionContext.Portal == null || _sessionContext.Project == null)
+            {
+                var missingProject = CreateSafetyBlockedResult(
+                    inputPath,
+                    dryRun: true,
+                    "Preflight was blocked because no TIA Portal project is selected.");
+                _reportWriter.TryWrite(missingProject, inputPath, dryRun: true);
+                return missingProject;
+            }
+
+            const string transactionDescription = "OpenTiaToolkit Unified HMI JSON preflight";
+            try
+            {
+                HmiJsonImportResult result;
+                using (var access = _sessionContext.Portal!.ExclusiveAccess(transactionDescription))
+                using (access.Transaction(_sessionContext.Project!, transactionDescription))
+                {
+                    var imported = await _executor.ImportCoreAsync(inputPath, filters, dryRun: true);
+                    result = _policy.CompletePreflight(inputPath, imported, options);
+                }
+
+                _reportWriter.TryWrite(result, inputPath, dryRun: true);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Unified HMI JSON preflight transaction failed");
+                var result = _policy.FromPreflightException(inputPath, ex);
+                _reportWriter.TryWrite(result, inputPath, dryRun: true);
                 return result;
             }
         }

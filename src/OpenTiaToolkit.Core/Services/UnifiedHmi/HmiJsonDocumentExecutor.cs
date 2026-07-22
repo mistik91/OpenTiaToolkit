@@ -67,7 +67,6 @@ namespace OpenTiaToolkit.Core.Services
                 }
 
                 result.WarningCount = result.Warnings.Count;
-                TryWriteReport(result, inputPath, dryRun);
                 return result;
             });
         }

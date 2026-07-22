@@ -169,7 +169,5 @@ namespace OpenTiaToolkit.Core.Services
             where T : class
             => HmiJsonImportResultBuilder.SerializeCompositeValue(value);
 
-        internal static void TryWriteReport(HmiJsonImportResult result, string inputPath, bool dryRun)
-            => new HmiJsonImportReportWriter().TryWrite(result, inputPath, dryRun);
     }
 }

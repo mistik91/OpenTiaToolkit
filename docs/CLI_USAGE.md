@@ -697,14 +697,14 @@ OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Expor
 - `output-path` (export): Target folder or `.json` file
 - `base-path`, `modified-path`, `patch-path` (diff): Export or patch folders/files
 - `input-path` (import): Source export or patch folder/file
-- `dry-run` (import, default `true`): Validate without applying
+- `dry-run` (import, default `true`): Validate inside a rollback-only Siemens transaction; no preflight mutation is committed
 - `apply` and `confirm` (import, default `false`): Both are required with `dry-run=false` after reviewing a dry-run result
 - `fail-on-warning` (import, default `true`): Treat warnings as blocking
 - `require-clean-preflight` (import, default `true`): Re-run a clean preflight before applying
 - `backup` (import, default `true` on apply) and `backup-path`: Export a backup before mutation; when screen/item/property filters are supplied, the backup uses the same scope.
 - `screens`, `item-names`, `properties`: Optional filters for export, diff, and import
 
-Applied HMI JSON imports require the target to be offline in TIA Portal before the Siemens Openness transaction is opened. If TIA reports online mode, the import is returned as a failed command with the structured result preserved and `blockedReason: "tia-online-mode"`; agents should take the HMI/project offline manually, then replay the same explicitly confirmed apply command. The toolkit does not call `GoOffline()` automatically.
+HMI JSON dry-runs, required apply-gate preflights, and applies require the target to permit a Siemens Openness transaction. Dry-run and gate preflight transactions are rollback-only and never select commit-on-dispose; apply commits only after clean preflight, required backup, successful execution, and safety-policy checks. If TIA reports online mode, the operation returns a structured safety block with `blockedReason: "tia-online-mode"`; agents should take the HMI/project offline manually, then replay the same command. The toolkit does not call `GoOffline()` automatically.
 
 #### get-hmi-screen-json
 
@@ -724,7 +724,7 @@ Large snapshots are automatically returned as a compact artifact manifest with `
 
 #### apply-hmi-screen-json-edit
 
-Dry-runs or applies one edited screen JSON object through the same export, diff, preflight, transactional import, backup, and verify pipeline used by the lower-level JSON commands. `dry-run` defaults to `true`; `backup` defaults to `true` when applying. For filtered screen edits, backup uses the same screen/item/property filters rather than exporting the whole HMI.
+Dry-runs or applies one edited screen JSON object through the same export, diff, preflight, transactional import, backup, and verify pipeline used by the lower-level JSON commands. `dry-run` defaults to `true` and executes preflight inside a rollback-only Siemens transaction; `backup` defaults to `true` when applying. For filtered screen edits, backup uses the same screen/item/property filters rather than exporting the whole HMI.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-path="Codex/Main" --edited-screen="{...}" --base-hash="..." --dry-run=true
@@ -735,13 +735,13 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-pa
 - `edited-screen` (required): Edited `HmiJsonScreen` object. MCP clients should pass a JSON object; CLI users can pass a JSON string.
 - `base-hash`: Optional hash returned by `get-hmi-screen-json`; mismatches block the edit by default.
 - `allow-stale-base`: Allows edits when the current screen hash differs from `base-hash`.
-- `dry-run`: Validate and return patch/preflight details without applying.
+- `dry-run`: Validate and return patch/preflight details from a rollback-only transaction without committing changes.
 - `backup` and `backup-path`: Export a filtered backup before mutation; omit filters only when a full-HMI backup is intended.
 - `working-path`: Optional root for generated base, edited, patch, backup, and verify artifacts.
 
 #### apply-hmi-screen-json-patch
 
-Dry-runs or applies compact agent operations by first transforming the current single-screen JSON snapshot, then running the same safe edit pipeline as `apply-hmi-screen-json-edit`. `dry-run` defaults to `true`; `backup` defaults to `true` when applying. Applied imports run inside a Siemens undo transaction: successful imports commit, while safety-blocked or failed property updates roll back. If the HMI/project is online, apply is blocked with `blockedReason: "tia-online-mode"` and `guidance.recommendedNextAction: "take-hmi-offline-and-retry"`; take the target offline in TIA Portal before replaying the same apply payload.
+Dry-runs or applies compact agent operations by first transforming the current single-screen JSON snapshot, then running the same safe edit pipeline as `apply-hmi-screen-json-edit`. `dry-run` defaults to `true`; explicit dry-runs and required apply-gate preflights run in rollback-only Siemens transactions, while successful applies commit only after all safety gates pass. `backup` defaults to `true` when applying. If the HMI/project is online, preflight or apply is blocked with `blockedReason: "tia-online-mode"` and `guidance.recommendedNextAction: "take-hmi-offline-and-retry"`; take the target offline in TIA Portal before replaying the same payload.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-property\",\"item\":\"Button_1\",\"property\":\"Text\",\"value\":\"Start\"}]}" --base-hash="..." --dry-run=true
@@ -774,7 +774,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - `item-names` and `properties`: When using `base-hash`, keep these identical to the snapshot filters so the hash represents the same JSON shape. `get-hmi-screen-json` returns `snapshotFilters` and `recommendedPatchArgs` to make this round-trip explicit for agents. For `duplicate-item`, include both source and target item names. For composite operations, include the composite root property: `EventHandlers`, `PropertyEventHandlers`, `Dynamizations`, or `Interface`.
 - Circle geometry: For `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in the operation `properties` object and include those names in the filter. Do not use `Left`, `Top`, `Width`, or `Height` for circles in JSON patch/edit payloads.
 - `allow-stale-base`: Allows patches when the current screen hash differs from `base-hash`.
-- `dry-run`: Validate and return operation, diff, and preflight details without applying.
+- `dry-run`: Validate and return operation, diff, and preflight details from a rollback-only transaction without committing changes.
 - `backup` and `backup-path`: Export a backup before mutation using the same targeted screen/item/property filters.
 - `working-path`: Optional root for generated base, edited, patch, backup, and verify artifacts.
 

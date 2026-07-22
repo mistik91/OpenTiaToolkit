@@ -19,7 +19,6 @@ namespace OpenTiaToolkit.Core.Services
     internal sealed class HmiJsonImportCoordinator
     {
         private readonly IHmiJsonBackupExporter _backupExporter;
-        private readonly IHmiJsonDocumentExecutor _executor;
         private readonly IHmiJsonImportTransactionRunner _transactionRunner;
         private readonly IHmiJsonImportReportWriter _reportWriter;
 
@@ -44,7 +43,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             if (sessionContext == null) throw new ArgumentNullException(nameof(sessionContext));
             _backupExporter = backupExporter ?? throw new ArgumentNullException(nameof(backupExporter));
-            _executor = executor ?? throw new ArgumentNullException(nameof(executor));
+            if (executor == null) throw new ArgumentNullException(nameof(executor));
             _reportWriter = reportWriter ?? throw new ArgumentNullException(nameof(reportWriter));
             _transactionRunner = transactionRunner ?? new HmiJsonImportTransactionRunner(sessionContext, executor, reportWriter, logger);
         }
@@ -59,25 +58,28 @@ namespace OpenTiaToolkit.Core.Services
 
             if (dryRun)
             {
-                var preflightResult = await _executor.ImportCoreAsync(inputPath, filters, dryRun: true);
-                ApplySafetyPolicy(preflightResult, options);
-                return preflightResult;
+                return await _transactionRunner.RunPreflightAsync(inputPath, filters, options);
             }
 
             HmiJsonImportResult? gatePreflightResult = null;
             if (options.RequireCleanPreflight || options.FailOnWarning)
             {
-                gatePreflightResult = await _executor.ImportCoreAsync(inputPath, filters, dryRun: true);
+                gatePreflightResult = await _transactionRunner.RunPreflightAsync(inputPath, filters, options);
                 if (gatePreflightResult == null)
                 {
-                    return CreateSafetyBlockedResult(inputPath, dryRun: false, "Import was blocked because the safety preflight could not be completed.");
+                    var missingPreflight = CreateSafetyBlockedResult(inputPath, dryRun: false, "Import was blocked because the safety preflight could not be completed.");
+                    _reportWriter.TryWrite(missingPreflight, inputPath, dryRun: false);
+                    return missingPreflight;
                 }
 
                 var blockingMessage = GetBlockingSafetyGateMessage(gatePreflightResult, options);
-                if (!string.IsNullOrWhiteSpace(blockingMessage))
+                if (gatePreflightResult.SafetyBlocked || !string.IsNullOrWhiteSpace(blockingMessage))
                 {
-                    MarkSafetyBlocked(gatePreflightResult, blockingMessage!, backupPath: null);
-                    _reportWriter.TryWrite(gatePreflightResult, inputPath, dryRun: true);
+                    if (!gatePreflightResult.SafetyBlocked)
+                    {
+                        MarkSafetyBlocked(gatePreflightResult, blockingMessage!, backupPath: null);
+                    }
+
                     return gatePreflightResult;
                 }
             }
@@ -89,10 +91,12 @@ namespace OpenTiaToolkit.Core.Services
                 var backupResult = await _backupExporter.ExportAsync(backupTargetPath, filters);
                 if (backupResult == null || string.IsNullOrWhiteSpace(backupResult.OutputPath))
                 {
-                    return gatePreflightResult ?? CreateSafetyBlockedResult(
+                    var backupFailure = CreateSafetyBlockedResult(
                         inputPath,
                         dryRun: false,
                         "Import was blocked because the backup export could not be created.");
+                    _reportWriter.TryWrite(backupFailure, inputPath, dryRun: false);
+                    return backupFailure;
                 }
 
                 backupOutputPath = backupResult.OutputPath;

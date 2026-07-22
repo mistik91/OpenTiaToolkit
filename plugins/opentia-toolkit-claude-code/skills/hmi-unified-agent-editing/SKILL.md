@@ -157,9 +157,9 @@ Use `probe-hmi-faceplate-interface` when a faceplate `Interface` apply fails or 
 
 Use `hmi-status` after an Openness failure, suspected stale TIA/HMI session, or before long HMI workflows. A healthy result should show the expected HMI, project, running instance, and optional screen probe success.
 
-Applied HMI JSON imports run in a Siemens undo transaction. If an operation fails or is safety-blocked during apply, inspect `Import.RolledBack`; if a client timeout hides the result, wait for the in-flight MCP operation to finish and re-read the same filtered target before retrying.
+Explicit HMI JSON dry-runs and required apply-gate preflights run in rollback-only Siemens undo transactions and never commit. Applied imports use a committing transaction only after preflight, backup, execution, and safety checks succeed. If an operation fails or is safety-blocked, inspect `Import.RolledBack`; if a client timeout hides the result, wait for the in-flight MCP operation to finish and re-read the same filtered target before retrying.
 
-HMI JSON apply/import requires the HMI or project to be offline in TIA Portal. If `BlockedReason` is `tia-online-mode` or `Guidance.RecommendedNextAction` is `take-hmi-offline-and-retry`, do not retry, widen filters, or call `GoOffline()` automatically. Ask the user to take the target offline in TIA Portal, then replay the same apply command with `dry-run=false`, the same `baseHash`, filters, and operations.
+HMI JSON preflight and apply/import require the HMI or project to permit a Siemens transaction and may be blocked while TIA Portal is online. If `BlockedReason` is `tia-online-mode` or `Guidance.RecommendedNextAction` is `take-hmi-offline-and-retry`, do not retry, widen filters, or call `GoOffline()` automatically. Ask the user to take the target offline in TIA Portal, then replay the same dry-run or apply command with the same `baseHash`, filters, and operations.
 
 Use `audit-hmi-label-proximity` before bulk nearest-label edits. Review duplicate-label flags, distances, skipped candidates, and unmatched targets before generating or applying patch operations.
 

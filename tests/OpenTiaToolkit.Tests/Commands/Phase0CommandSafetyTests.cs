@@ -84,6 +84,64 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task ApplyHmiScreenJsonEdit_ConfirmedApplyDefaultsToBackupAndCleanPreflight()
+        {
+            var service = CreateOpenHmiService();
+            service.Setup(candidate => candidate.ApplyScreenJsonEditAsync(
+                    "Screens/Main",
+                    It.IsAny<HmiJsonScreen>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<HmiJsonFilterOptions?>(),
+                    false,
+                    It.Is<HmiJsonImportExecutionOptions>(options =>
+                        options.FailOnWarning &&
+                        options.RequireCleanPreflight &&
+                        options.BackupBeforeImport),
+                    It.IsAny<string?>(),
+                    false))
+                .ReturnsAsync(new HmiScreenJsonEditResult { DryRun = false, Applied = true });
+            var command = new ApplyHmiScreenJsonEditCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("hmi-name", "HMI_1"),
+                ("screen-path", "Screens/Main"),
+                ("edited-screen", new HmiJsonScreen()),
+                ("dry-run", false)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task ApplyHmiScreenJsonPatch_ConfirmedApplyDefaultsToBackupAndCleanPreflight()
+        {
+            var service = CreateOpenHmiService();
+            service.Setup(candidate => candidate.ApplyScreenJsonPatchAsync(
+                    "Screens/Main",
+                    It.IsAny<IReadOnlyList<HmiScreenJsonPatchOperation>>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<HmiJsonFilterOptions?>(),
+                    false,
+                    It.Is<HmiJsonImportExecutionOptions>(options =>
+                        options.FailOnWarning &&
+                        options.RequireCleanPreflight &&
+                        options.BackupBeforeImport),
+                    It.IsAny<string?>(),
+                    false))
+                .ReturnsAsync(new HmiScreenJsonEditResult { DryRun = false, Applied = true });
+            var command = new ApplyHmiScreenJsonPatchCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("hmi-name", "HMI_1"),
+                ("screen-path", "Screens/Main"),
+                ("operations", new HmiScreenJsonPatchOperation { Op = "set-property" }),
+                ("dry-run", false)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
         public async Task ImportHmiJson_SafetyBlockIsCommandFailureWithStructuredData()
         {
             var service = CreateOpenHmiService();
@@ -130,7 +188,9 @@ namespace OpenTiaToolkit.Tests.Commands
                 ("edited-screen", new HmiJsonScreen())), NullLogger.Instance);
 
             Assert.IsFalse(result.Success);
-            Assert.IsInstanceOfType(result.Data, typeof(HmiScreenJsonEditResult));
+            var data = result.Data as HmiScreenJsonEditResult;
+            Assert.IsNotNull(data);
+            Assert.IsFalse(data!.Applied);
         }
 
         [TestMethod]
@@ -146,7 +206,13 @@ namespace OpenTiaToolkit.Tests.Commands
                     It.IsAny<HmiJsonImportExecutionOptions?>(),
                     It.IsAny<string?>(),
                     false))
-                .ReturnsAsync(new HmiScreenJsonEditResult { DryRun = true, SafetyBlocked = true });
+                .ReturnsAsync(new HmiScreenJsonEditResult
+                {
+                    DryRun = true,
+                    SafetyBlocked = true,
+                    Applied = false,
+                    SafetyMessage = "Preflight transaction was blocked."
+                });
             var command = new ApplyHmiScreenJsonPatchCommand(service.Object);
 
             var result = await command.ExecuteAsync(Args(
@@ -158,6 +224,8 @@ namespace OpenTiaToolkit.Tests.Commands
             var data = result.Data as HmiScreenJsonEditResult;
             Assert.IsNotNull(data);
             Assert.IsTrue(data!.SafetyBlocked);
+            Assert.IsFalse(data.Applied);
+            Assert.AreEqual("Preflight transaction was blocked.", data.SafetyMessage);
         }
 
         [TestMethod]

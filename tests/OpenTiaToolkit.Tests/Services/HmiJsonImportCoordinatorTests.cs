@@ -9,21 +9,24 @@ namespace OpenTiaToolkit.Tests.Services
     public class HmiJsonImportCoordinatorTests
     {
         [TestMethod]
-        public async Task DryRun_ExecutesPreflightWithoutBackupOrTransaction()
+        public async Task DryRun_UsesRollbackOnlyPreflightWithoutBackupOrApply()
         {
-            var expected = new HmiJsonImportResult { DryRun = true };
+            var expected = new HmiJsonImportResult { DryRun = true, TransactionUsed = true, RolledBack = true };
             var executor = new FakeExecutor(expected);
             var backup = new FakeBackupExporter();
-            var runner = new FakeTransactionRunner();
+            var runner = new FakeTransactionRunner { PreflightResult = expected };
             var coordinator = CreateCoordinator(backup, executor, runner);
 
             var result = await coordinator.ImportAsync("input.json", null, dryRun: true, new HmiJsonImportExecutionOptions());
 
             Assert.AreSame(expected, result);
-            Assert.AreEqual(1, executor.CallCount);
-            Assert.IsTrue(executor.LastDryRun);
+            Assert.AreEqual(0, executor.CallCount);
             Assert.AreEqual(0, backup.CallCount);
             Assert.AreEqual(0, runner.CallCount);
+            Assert.AreEqual(1, runner.PreflightCallCount);
+            Assert.IsTrue(result!.DryRun);
+            Assert.IsTrue(result.TransactionUsed);
+            Assert.IsTrue(result.RolledBack);
         }
 
         [TestMethod]
@@ -31,9 +34,9 @@ namespace OpenTiaToolkit.Tests.Services
         {
             var preflight = new HmiJsonImportResult { DryRun = true, WarningCount = 1 };
             preflight.Warnings.Add("warning");
-            var executor = new FakeExecutor(preflight);
+            var executor = new FakeExecutor(new HmiJsonImportResult());
             var backup = new FakeBackupExporter { Result = new HmiJsonExportResult { OutputPath = "backup.json" } };
-            var runner = new FakeTransactionRunner();
+            var runner = new FakeTransactionRunner { PreflightResult = preflight };
             var report = new FakeReportWriter();
             var coordinator = CreateCoordinator(backup, executor, runner, report);
 
@@ -47,15 +50,17 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsTrue(result!.SafetyBlocked);
             Assert.AreEqual(0, backup.CallCount);
             Assert.AreEqual(0, runner.CallCount);
-            Assert.AreEqual(1, report.CallCount);
+            Assert.AreEqual(1, runner.PreflightCallCount);
+            Assert.AreEqual(0, report.CallCount);
         }
 
         [TestMethod]
         public async Task MissingGateResult_ReturnsStructuredBlock()
         {
-            var executor = new FakeExecutor(null);
-            var runner = new FakeTransactionRunner();
-            var coordinator = CreateCoordinator(new FakeBackupExporter(), executor, runner);
+            var executor = new FakeExecutor(new HmiJsonImportResult());
+            var runner = new FakeTransactionRunner { PreflightResult = null };
+            var report = new FakeReportWriter();
+            var coordinator = CreateCoordinator(new FakeBackupExporter(), executor, runner, report);
 
             var result = await coordinator.ImportAsync(
                 "input.json",
@@ -67,6 +72,7 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsTrue(result!.SafetyBlocked);
             StringAssert.Contains(result.SafetyMessage, "preflight");
             Assert.AreEqual(0, runner.CallCount);
+            Assert.AreEqual(1, report.CallCount);
         }
 
         [TestMethod]
@@ -86,6 +92,100 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsTrue(result!.SafetyBlocked);
             StringAssert.Contains(result.SafetyMessage, "backup");
             Assert.AreEqual(1, backup.CallCount);
+            Assert.AreEqual(0, runner.CallCount);
+        }
+
+        [DataTestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        [DataRow("   ")]
+        public async Task BackupFailureAfterCleanDefaultPreflight_ReturnsApplySafetyBlock(string? backupPath)
+        {
+            var preflight = new HmiJsonImportResult { DryRun = true, TransactionUsed = true, RolledBack = true };
+            var runner = new FakeTransactionRunner { PreflightResult = preflight };
+            var backup = new FakeBackupExporter
+            {
+                Result = backupPath == null ? null : new HmiJsonExportResult { OutputPath = backupPath }
+            };
+            var report = new FakeReportWriter();
+            var coordinator = CreateCoordinator(backup, new FakeExecutor(new HmiJsonImportResult()), runner, report);
+
+            var result = await coordinator.ImportAsync(
+                "input.json",
+                null,
+                dryRun: false,
+                new HmiJsonImportExecutionOptions
+                {
+                    FailOnWarning = true,
+                    RequireCleanPreflight = true,
+                    BackupBeforeImport = true
+                });
+
+            Assert.IsNotNull(result);
+            Assert.IsFalse(result!.DryRun);
+            Assert.IsTrue(result.SafetyBlocked);
+            StringAssert.Contains(result.SafetyMessage, "backup");
+            Assert.IsTrue(string.IsNullOrEmpty(result.BackupPath));
+            Assert.AreEqual(1, runner.PreflightCallCount);
+            Assert.AreEqual(1, backup.CallCount);
+            Assert.AreEqual(0, runner.CallCount);
+            Assert.AreEqual(1, report.CallCount);
+        }
+
+        [TestMethod]
+        public async Task CleanGatePreflight_ProceedsToBackupAndApply()
+        {
+            var runner = new FakeTransactionRunner
+            {
+                PreflightResult = new HmiJsonImportResult { DryRun = true, TransactionUsed = true, RolledBack = true },
+                Result = new HmiJsonImportResult { TransactionUsed = true }
+            };
+            var backup = new FakeBackupExporter { Result = new HmiJsonExportResult { OutputPath = "backup.json" } };
+            var coordinator = CreateCoordinator(backup, new FakeExecutor(new HmiJsonImportResult()), runner);
+
+            var result = await coordinator.ImportAsync(
+                "input.json",
+                null,
+                dryRun: false,
+                new HmiJsonImportExecutionOptions
+                {
+                    FailOnWarning = true,
+                    RequireCleanPreflight = true,
+                    BackupBeforeImport = true
+                });
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, runner.PreflightCallCount);
+            Assert.AreEqual(1, backup.CallCount);
+            Assert.AreEqual(1, runner.CallCount);
+        }
+
+        [TestMethod]
+        public async Task PreflightTransactionBlock_PreventsBackupAndApply()
+        {
+            var runner = new FakeTransactionRunner
+            {
+                PreflightResult = new HmiJsonImportResult
+                {
+                    DryRun = true,
+                    SafetyBlocked = true,
+                    SafetyMessage = "Preflight transaction failed.",
+                    TransactionUsed = true,
+                    RolledBack = true
+                }
+            };
+            var backup = new FakeBackupExporter { Result = new HmiJsonExportResult { OutputPath = "backup.json" } };
+            var coordinator = CreateCoordinator(backup, new FakeExecutor(new HmiJsonImportResult()), runner);
+
+            var result = await coordinator.ImportAsync(
+                "input.json",
+                null,
+                dryRun: false,
+                new HmiJsonImportExecutionOptions { RequireCleanPreflight = true, BackupBeforeImport = true });
+
+            Assert.IsTrue(result!.SafetyBlocked);
+            Assert.AreEqual(1, runner.PreflightCallCount);
+            Assert.AreEqual(0, backup.CallCount);
             Assert.AreEqual(0, runner.CallCount);
         }
 
@@ -122,6 +222,88 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsFalse(result.TransactionUsed);
             StringAssert.Contains(result.SafetyMessage, "no TIA Portal project");
             Assert.AreEqual(0, executor.CallCount);
+        }
+
+        [TestMethod]
+        public async Task PreflightRunnerWithoutProject_ReturnsDryRunBlockWithoutInvokingExecutor()
+        {
+            var executor = new FakeExecutor(new HmiJsonImportResult());
+            var report = new FakeReportWriter();
+            var runner = new HmiJsonImportTransactionRunner(
+                new EngineeringSessionContext(),
+                executor,
+                report,
+                logger: null);
+
+            var result = await runner.RunPreflightAsync("input.json", null, new HmiJsonImportExecutionOptions());
+
+            Assert.IsTrue(result.DryRun);
+            Assert.IsTrue(result.SafetyBlocked);
+            Assert.IsFalse(result.TransactionUsed);
+            Assert.IsFalse(result.RolledBack);
+            StringAssert.Contains(result.SafetyMessage, "no TIA Portal project");
+            Assert.AreEqual(0, executor.CallCount);
+            Assert.AreEqual(1, report.CallCount);
+        }
+
+        [TestMethod]
+        public void PreflightPolicy_CleanResultIsRollbackOnlyAndNeverCommits()
+        {
+            var input = new HmiJsonImportResult();
+
+            var result = new HmiJsonImportTransactionPolicy().CompletePreflight(
+                "input.json",
+                input,
+                new HmiJsonImportExecutionOptions());
+
+            Assert.AreSame(input, result);
+            Assert.IsTrue(result.DryRun);
+            Assert.IsTrue(result.TransactionUsed);
+            Assert.IsTrue(result.RolledBack);
+            Assert.IsFalse(result.SafetyBlocked);
+        }
+
+        [TestMethod]
+        public void PreflightPolicy_NullResultBecomesStructuredDryRunBlock()
+        {
+            var result = new HmiJsonImportTransactionPolicy().CompletePreflight(
+                "input.json",
+                result: null,
+                new HmiJsonImportExecutionOptions());
+
+            Assert.IsTrue(result.DryRun);
+            Assert.IsTrue(result.SafetyBlocked);
+            Assert.IsTrue(result.TransactionUsed);
+            Assert.IsTrue(result.RolledBack);
+            StringAssert.Contains(result.SafetyMessage, "did not return a result");
+        }
+
+        [TestMethod]
+        public void PreflightPolicy_GenericExceptionReportsRollbackWithoutOnlineReason()
+        {
+            var result = new HmiJsonImportTransactionPolicy().FromPreflightException(
+                "input.json",
+                new System.InvalidOperationException("generic transaction failure"));
+
+            Assert.IsTrue(result.DryRun);
+            Assert.IsTrue(result.SafetyBlocked);
+            Assert.IsTrue(result.TransactionUsed);
+            Assert.IsTrue(result.RolledBack);
+            Assert.IsNull(result.BlockedReason);
+            StringAssert.Contains(result.SafetyMessage, "transaction failed");
+        }
+
+        [TestMethod]
+        public void PreflightPolicy_NestedOnlineExceptionMapsBlockedReason()
+        {
+            var exception = new System.Exception("outer", new System.InvalidOperationException("Operation is not permitted in online mode"));
+
+            var result = new HmiJsonImportTransactionPolicy().FromPreflightException("input.json", exception);
+
+            Assert.AreEqual("tia-online-mode", result.BlockedReason);
+            Assert.IsTrue(result.DryRun);
+            Assert.IsTrue(result.SafetyBlocked);
+            Assert.IsTrue(result.RolledBack);
         }
 
         [TestMethod]
@@ -277,9 +459,22 @@ namespace OpenTiaToolkit.Tests.Services
         private sealed class FakeTransactionRunner : IHmiJsonImportTransactionRunner
         {
             internal int CallCount { get; private set; }
+            internal int PreflightCallCount { get; private set; }
             internal string? BackupPath { get; private set; }
             internal HmiJsonImportExecutionOptions? Options { get; private set; }
             internal HmiJsonImportResult Result { get; set; } = new HmiJsonImportResult();
+            internal HmiJsonImportResult? PreflightResult { get; set; } = new HmiJsonImportResult
+            {
+                DryRun = true,
+                TransactionUsed = true,
+                RolledBack = true
+            };
+
+            public Task<HmiJsonImportResult> RunPreflightAsync(string inputPath, HmiJsonFilterOptions? filters, HmiJsonImportExecutionOptions options)
+            {
+                PreflightCallCount++;
+                return Task.FromResult(PreflightResult!);
+            }
 
             public Task<HmiJsonImportResult> RunAsync(string inputPath, HmiJsonFilterOptions? filters, HmiJsonImportExecutionOptions options, string? backupOutputPath)
             {

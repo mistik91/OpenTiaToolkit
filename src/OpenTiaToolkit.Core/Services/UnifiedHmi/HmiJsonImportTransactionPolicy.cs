@@ -6,6 +6,30 @@ namespace OpenTiaToolkit.Core.Services
 {
     internal sealed class HmiJsonImportTransactionPolicy
     {
+        internal HmiJsonImportResult CompletePreflight(
+            string inputPath,
+            HmiJsonImportResult? result,
+            HmiJsonImportExecutionOptions options)
+        {
+            if (result == null)
+            {
+                var missingResult = CreateSafetyBlockedResult(
+                    inputPath,
+                    dryRun: true,
+                    "Preflight was rolled back because it did not return a result.");
+                missingResult.TransactionUsed = true;
+                missingResult.RolledBack = true;
+                return missingResult;
+            }
+
+            result.DryRun = true;
+            result.TransactionUsed = true;
+            result.RolledBack = true;
+            result.BackupPath = null;
+            ApplySafetyPolicy(result, options);
+            return result;
+        }
+
         internal HmiJsonImportResult Complete(
             string inputPath,
             HmiJsonImportResult? result,
@@ -55,6 +79,22 @@ namespace OpenTiaToolkit.Core.Services
                     : $"Import was rolled back because the transaction failed: {transactionFailureMessage}",
                 isOnlineModeFailure ? TiaOnlineModeBlockedReason : null);
             result.BackupPath = backupOutputPath;
+            result.TransactionUsed = true;
+            result.RolledBack = true;
+            return result;
+        }
+
+        internal HmiJsonImportResult FromPreflightException(string inputPath, Exception exception)
+        {
+            var transactionFailureMessage = FormatExceptionMessage(exception);
+            var isOnlineModeFailure = IsOnlineModeTransactionFailure(exception);
+            var result = CreateSafetyBlockedResult(
+                inputPath,
+                dryRun: true,
+                isOnlineModeFailure
+                    ? CreateOnlineModeSafetyMessage(transactionFailureMessage)
+                    : $"Preflight was rolled back because the transaction failed: {transactionFailureMessage}",
+                isOnlineModeFailure ? TiaOnlineModeBlockedReason : null);
             result.TransactionUsed = true;
             result.RolledBack = true;
             return result;
