@@ -9,11 +9,11 @@ public class GodClassDebtBaselineTests
     [TestMethod]
     public void ProductionSources_DoNotIncreaseKnownArchitectureDebt()
     {
-        string root = FindRepositoryRoot();
+        string root = RepositoryPaths.FindRoot();
         DebtBaseline baseline = LoadBaseline(root);
-        IReadOnlyDictionary<string, int> sources = MeasureProductionSources(root);
+        ProductionSourceIndex index = ProductionSourceIndex.Create(root);
 
-        IReadOnlyList<string> violations = FindViolations(sources, baseline);
+        IReadOnlyList<string> violations = ArchitectureDebtRatchet.FindViolations(index, baseline);
 
         Assert.AreEqual(
             0,
@@ -22,102 +22,96 @@ public class GodClassDebtBaselineTests
     }
 
     [TestMethod]
-    public void RatchetRules_RejectNewLargeFilesAndPartialClassAggregateGrowth()
+    public void AggregateGuard_DiscoversPartialTypeWithoutManualConfiguration()
     {
-        DebtBaseline baseline = LoadBaseline(FindRepositoryRoot());
-        var newLargeFile = new Dictionary<string, int>
+        string first = PartialDeclaration("namespace Example; public partial class SplitService", 600);
+        string second = PartialDeclaration("namespace Example; public partial class SplitService", 600);
+        ProductionSourceIndex index = Index(("src/One.cs", first), ("src/Two.cs", second));
+
+        IReadOnlyList<string> violations = ArchitectureDebtRatchet.FindViolations(index, EmptyBaseline());
+
+        string violation = violations.Single(message => message.Contains("Example.SplitService", StringComparison.Ordinal));
+        StringAssert.Contains(violation, "src/One.cs, src/Two.cs");
+        StringAssert.Contains(violation, "allowed 1000");
+        StringAssert.Contains(violation, "explicit architecture review");
+        Assert.IsTrue(index.Files.Values.All(file => file.PhysicalLines < 1000));
+    }
+
+    [TestMethod]
+    public void TypeIdentity_DistinguishesNamespacesNestedContainersAndGenericArity()
+    {
+        ProductionSourceIndex index = Index(
+            ("src/Namespaces.cs", "namespace One { class Shared { } } namespace Two { class Shared { } }"),
+            ("src/Nested.cs", "namespace N { class Left { class Shared { } } class Right { class Shared { } } }"),
+            ("src/Generics.cs", "namespace N; class Generic<T> { } class Generic<T1, T2> { }"));
+
+        string[] expected =
         {
-            ["src/OpenTiaToolkit.Core/Services/NewLargeService.cs"] = baseline.ScreeningThreshold + 1
+            "One.Shared", "Two.Shared", "N.Left+Shared", "N.Right+Shared", "N.Generic`1", "N.Generic`2"
         };
-        IReadOnlyList<string> screeningViolations = FindViolations(newLargeFile, baseline);
-        Assert.IsTrue(screeningViolations.Any(message => message.Contains("NewLargeService.cs", StringComparison.Ordinal)));
-
-        var spreadAcrossPartials = new Dictionary<string, int>
-        {
-            ["src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService.cs"] = 737,
-            ["src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService.One.cs"] = 736,
-            ["src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService.Two.cs"] = 736,
-            ["src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService.Three.cs"] = 737
-        };
-        var aggregateFixture = new DebtBaseline
-        {
-            ScreeningThreshold = baseline.ScreeningThreshold,
-            Hotspots = baseline.Hotspots,
-            Aggregate = new AggregateBaseline
-            {
-                Name = "Synthetic partial aggregate",
-                PathPrefix = "src/OpenTiaToolkit.Core/Services/PlcDocumentWorkflowService",
-                PathSuffix = ".cs",
-                Baseline = 2945
-            }
-        };
-        IReadOnlyList<string> aggregateViolations = FindViolations(spreadAcrossPartials, aggregateFixture);
-        Assert.IsTrue(aggregateViolations.Any(message => message.Contains(aggregateFixture.Aggregate!.Name, StringComparison.Ordinal)));
-
-        Assert.AreEqual(0, FindViolations(new Dictionary<string, int>(), baseline).Count,
-            "Removing a hotspot during decomposition must not fail the ratchet.");
+        foreach (string identity in expected) Assert.IsTrue(index.Types.ContainsKey(identity), identity);
+        Assert.AreEqual(expected.Length + 2, index.Types.Count, "The two containing types are indexed independently too.");
     }
 
-    private static IReadOnlyList<string> FindViolations(
-        IReadOnlyDictionary<string, int> sources,
-        DebtBaseline baseline)
+    [TestMethod]
+    public void SyntaxAnalysis_IgnoresPartialClassTextInCommentsAndStrings()
     {
-        var violations = new List<string>();
-        const string reviewGuidance = "The baseline should only be raised after explicit architecture review.";
-
-        foreach ((string path, int allowed) in baseline.Hotspots)
-        {
-            if (sources.TryGetValue(path, out int measured) && measured > allowed)
+        ProductionSourceIndex index = Index(("src/Text.cs", """
+            namespace Example;
+            // partial class Phantom { }
+            class Real
             {
-                violations.Add($"{path}: measured {measured} physical lines; allowed baseline {allowed}. {reviewGuidance}");
+                private const string Text = "partial class AlsoPhantom { }";
             }
-        }
+            """));
 
-        foreach ((string path, int measured) in sources)
-        {
-            if (!baseline.Hotspots.ContainsKey(path) && measured > baseline.ScreeningThreshold)
-            {
-                violations.Add(
-                    $"{path}: measured {measured} physical lines; allowed screening baseline {baseline.ScreeningThreshold}. " +
-                    $"This threshold screens new large files; it does not by itself classify a god class. {reviewGuidance}");
-            }
-        }
-
-        if (baseline.Aggregate != null)
-        {
-            int aggregateLines = sources
-                .Where(source => source.Key.StartsWith(baseline.Aggregate.PathPrefix, StringComparison.Ordinal) &&
-                                 source.Key.EndsWith(baseline.Aggregate.PathSuffix, StringComparison.Ordinal))
-                .Sum(source => source.Value);
-            if (aggregateLines > baseline.Aggregate.Baseline)
-            {
-                violations.Add(
-                    $"{baseline.Aggregate.Name}: measured {aggregateLines} physical lines; allowed baseline {baseline.Aggregate.Baseline}. " +
-                    $"Splitting a class across partial files does not reduce shared state or coupling. {reviewGuidance}");
-            }
-        }
-
-        return violations;
+        CollectionAssert.AreEqual(new[] { "Example.Real" }, index.Types.Keys.ToArray());
     }
 
-    private static IReadOnlyDictionary<string, int> MeasureProductionSources(string root)
+    [TestMethod]
+    public void TypeIndex_DiscoversAllNamedTypeKindsAndNamespaceForms()
     {
-        string sourceRoot = Path.Combine(root, "src");
-        return Directory.GetFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
-            .Where(path => !HasDirectorySegment(path, "bin") && !HasDirectorySegment(path, "obj"))
-            .ToDictionary(
-                path => NormalizePath(Path.GetRelativePath(root, path)),
-                path => File.ReadLines(path).Count(),
-                StringComparer.Ordinal);
+        ProductionSourceIndex index = Index(
+            ("src/BlockScoped.cs", "namespace Block.Scoped { class ClassType { } record RecordType; }"),
+            ("src/FileScoped.cs", "namespace File.Scoped; struct StructType { } interface InterfaceType { }"));
+
+        CollectionAssert.AreEqual(
+            new[] { "Block.Scoped.ClassType", "Block.Scoped.RecordType", "File.Scoped.InterfaceType", "File.Scoped.StructType" },
+            index.Types.Keys.ToArray());
     }
 
-    private static bool HasDirectorySegment(string path, string segment)
+    [TestMethod]
+    public void PerFileScreen_StillRejectsNewUnlistedLargeFile()
     {
-        string normalized = NormalizePath(path);
-        return normalized.Contains("/" + segment + "/", StringComparison.OrdinalIgnoreCase);
+        string source = string.Join(Environment.NewLine, Enumerable.Repeat("// review signal", 1001));
+        IReadOnlyList<string> violations = ArchitectureDebtRatchet.FindViolations(
+            Index(("src/NewLargeService.cs", source)), EmptyBaseline());
+
+        StringAssert.Contains(violations.Single(), "src/NewLargeService.cs");
+        StringAssert.Contains(violations.Single(), "allowed screening threshold 1000");
     }
 
-    private static string NormalizePath(string path) => path.Replace('\\', '/');
+    [TestMethod]
+    public void ShrinkingOrRemovingReviewedCandidates_RemainsAllowed()
+    {
+        var baseline = EmptyBaseline();
+        baseline.ReviewedFileGrowthCeilings["src/FormerCandidate.cs"] = 900;
+        baseline.TypeAggregateExceptions["Example.FormerPartial"] = 1200;
+
+        Assert.AreEqual(0, ArchitectureDebtRatchet.FindViolations(Index(), baseline).Count);
+        Assert.AreEqual(0, ArchitectureDebtRatchet.FindViolations(
+            Index(("src/FormerCandidate.cs", "namespace Example; class FormerPartial { }")), baseline).Count);
+    }
+
+    private static ProductionSourceIndex Index(params (string Path, string Source)[] sources) =>
+        ProductionSourceIndex.CreateFromSources(sources.ToDictionary(item => item.Path, item => item.Source, StringComparer.Ordinal));
+
+    private static string PartialDeclaration(string declaration, int bodyLines) =>
+        declaration + Environment.NewLine + "{" + Environment.NewLine +
+        string.Join(Environment.NewLine, Enumerable.Repeat("    // declaration body", bodyLines)) +
+        Environment.NewLine + "}";
+
+    private static DebtBaseline EmptyBaseline() => new() { ScreeningThreshold = 1000 };
 
     private static DebtBaseline LoadBaseline(string root)
     {
@@ -127,26 +121,58 @@ public class GodClassDebtBaselineTests
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new InvalidDataException($"Could not read architecture-debt baseline: {path}");
     }
+}
 
-    private static string FindRepositoryRoot()
-    {
-        DirectoryInfo? current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current != null && !File.Exists(Path.Combine(current.FullName, "OpenTiaToolkit.sln"))) current = current.Parent;
-        return current?.FullName ?? throw new DirectoryNotFoundException("Repository root not found.");
-    }
+internal static class ArchitectureDebtRatchet
+{
+    private const string ReviewGuidance =
+        "A baseline increase requires explicit architecture review and must never be generated automatically.";
 
-    private sealed class DebtBaseline
+    public static IReadOnlyList<string> FindViolations(ProductionSourceIndex index, DebtBaseline baseline)
     {
-        public int ScreeningThreshold { get; set; }
-        public Dictionary<string, int> Hotspots { get; set; } = new(StringComparer.Ordinal);
-        public AggregateBaseline? Aggregate { get; set; }
-    }
+        var violations = new List<string>();
+        var fileAllowances = baseline.HistoricalHotspots
+            .Concat(baseline.ReviewedFileGrowthCeilings)
+            .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
 
-    private sealed class AggregateBaseline
-    {
-        public string Name { get; set; } = string.Empty;
-        public string PathPrefix { get; set; } = string.Empty;
-        public string PathSuffix { get; set; } = string.Empty;
-        public int Baseline { get; set; }
+        foreach ((string path, int allowed) in fileAllowances.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            if (index.Files.TryGetValue(path, out SourceFileInfo? file) && file.PhysicalLines > allowed)
+                violations.Add($"{path}: measured {file.PhysicalLines} physical lines; allowed reviewed ceiling {allowed}. {ReviewGuidance}");
+        }
+
+        foreach (SourceFileInfo file in index.Files.Values.OrderBy(file => file.Path, StringComparer.Ordinal))
+        {
+            if (!fileAllowances.ContainsKey(file.Path) && file.PhysicalLines > baseline.ScreeningThreshold)
+            {
+                violations.Add(
+                    $"{file.Path}: measured {file.PhysicalLines} physical lines; allowed screening threshold {baseline.ScreeningThreshold}. " +
+                    $"This is a review signal, not an automatic god-class classification. {ReviewGuidance}");
+            }
+        }
+
+        foreach (NamedTypeInfo type in index.Types.Values.OrderBy(type => type.Identity, StringComparer.Ordinal))
+        {
+            int allowed = baseline.TypeAggregateExceptions.TryGetValue(type.Identity, out int exception)
+                ? exception
+                : baseline.ScreeningThreshold;
+            if (type.PhysicalLines > allowed)
+            {
+                violations.Add(
+                    $"{type.Identity}: declarations [{string.Join(", ", type.DeclarationFiles)}]; " +
+                    $"measured aggregate {type.PhysicalLines} physical declaration lines; allowed {allowed}. " +
+                    $"Splitting a type across partial files does not evade aggregate review. {ReviewGuidance}");
+            }
+        }
+
+        return violations;
     }
+}
+
+internal sealed class DebtBaseline
+{
+    public int ScreeningThreshold { get; set; }
+    public Dictionary<string, int> HistoricalHotspots { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, int> ReviewedFileGrowthCeilings { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, int> TypeAggregateExceptions { get; set; } = new(StringComparer.Ordinal);
 }

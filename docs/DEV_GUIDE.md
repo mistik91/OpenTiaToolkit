@@ -219,6 +219,7 @@ Typical local verification:
 
 ```bash
 dotnet build OpenTiaToolkit.sln
+dotnet test tests/OpenTiaToolkit.ArchitectureTests/OpenTiaToolkit.ArchitectureTests.csproj
 dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
 powershell -ExecutionPolicy Bypass -File .\scripts\Generate-CommandReference.ps1 -CheckOnly
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-RepositoryHygiene.ps1
@@ -231,6 +232,12 @@ Private audit reports stay local and ignored. Do not force-add `report.md` or `s
 ### Fast Tests
 
 Fast tests live under `tests/OpenTiaToolkit.Tests/` and should not require a live TIA session.
+
+The vendor-free architecture suite lives under `tests/OpenTiaToolkit.ArchitectureTests/`. It parses production source with Roslyn to enforce per-file screening, fully-qualified aggregate type ceilings, and decomposition boundaries without loading Siemens/TIA assemblies. Run it in the normal verification sequence:
+
+```bash
+dotnet test tests/OpenTiaToolkit.ArchitectureTests/OpenTiaToolkit.ArchitectureTests.csproj
+```
 
 Typical coverage:
 

@@ -1,16 +1,37 @@
 # Architecture-debt ratchet
 
-The architecture tests record the current physical-line baselines of known large production hotspots. They prevent those files from growing while later roadmap chapters reduce their responsibilities. A 1,000-line screening threshold also flags new, unlisted production files for review; file length is a warning signal, not proof that a type is a god class.
+The original seven-chapter god-class hotspot roadmap is complete. All seven original exceptions have been removed and the historical hotspot map is empty. That result clears the planned hotspot list; it does not mean that all architecture debt has disappeared.
 
-Aggregate checks are optional baseline entries. The ratchet retains a synthetic fixture proving that spreading a class across partial files is detected when an aggregate rule is configured, without retaining an exception for a class that has been decomposed.
+The vendor-free architecture suite applies four distinct controls:
 
-Baselines should move downward when hotspots shrink or disappear. To intentionally raise a value, first review the architectural impact, then update `tests/OpenTiaToolkit.ArchitectureTests/god-class-debt-baseline.json` in the same change with the rationale. Tests never rewrite the baseline.
+- `screeningThreshold` preserves the 1,000-physical-line per-file review signal. Crossing it does not by itself classify a file or type as a god class.
+- fully-qualified type aggregation is automatic. Roslyn discovers every class, record, struct, and interface in production source and combines all declaration parts by namespace, containing type, and generic arity. A partial type therefore cannot evade review by moving declarations into additional files.
+- `historicalHotspots` holds exceptions from the completed roadmap. It is intentionally empty.
+- `reviewedFileGrowthCeilings` records measured ratchets for reviewed responsibility clusters below 1,000 lines. These entries are review records, not a claim that every listed file is a god class. `typeAggregateExceptions` is available only for a legitimate reviewed aggregate; none currently exists.
+
+Files and types may shrink or disappear without changing the baseline. To raise any value, first review the architectural impact, then update `tests/OpenTiaToolkit.ArchitectureTests/god-class-debt-baseline.json` in the same change with the rationale. Tests never rewrite the baseline.
+
+## Residual responsibility review
+
+The current reviewed ceilings are exact measured values, not targets:
+
+- `PlcImportExportService.cs` (945) coordinates block and type import/export in XML and document formats. Its shared PLC selection, result shaping, and import/export symmetry make it acceptable for now, but the format branches remain separable. A likely next boundary is a document-format workflow distinct from XML block/type transfer.
+- `V21HardwareAdapter.cs` (920) is the remaining large hardware boundary. It centralizes Siemens hardware, network, drive-telegram, GSD, feature-service, and attribute primitives behind one explicit adapter. Keeping vendor calls together is currently useful, but those capability families can evolve independently; drive/telegram access is the clearest next extraction.
+- `PlcSurfaceService.cs` (895) owns cross-reference discovery plus external-source and ancillary PLC-surface operations. The shared reflection compatibility edge is cohesive enough to retain, while cross-reference projection and source lifecycle remain separate clusters. Cross-reference discovery is the likely next extraction.
+- `PlcTagCsvWorkflow.cs` (894) owns one sequential CSV reconciliation transaction, including address-page policies, create/replace/delete behavior, restoration, and progress. Its ordering and rollback invariants justify one workflow today, but row planning and live mutation are distinct. A pure CSV reconciliation planner is the likely next boundary.
+- `V21HmiDynamizationSynchronizer.cs` (759) owns read, validation, normalization, and synchronization for dynamizations and interface bindings. These share composite shapes and conversion rules, but read/projection and apply paths can grow independently. Export projection is the likely next extraction.
+- `V21HmiEngineeringPrimitives.cs` (759) bounds reflection, engineering-property access, conversions, descriptors, and dynamic item-type discovery. It remains the intentional low-level Siemens edge, but conversion/property access and item-type discovery are separable. Item-type discovery and descriptor construction form the likely next boundary.
+- `V21UnifiedHmiAccess.cs` (748) owns HMI resolution and normalized screen, tag, logging, geometry, and item-access primitives. It is acceptable as the shared typed access edge, but logging/tag access is a distinct capability. Logging access is the likely next extraction.
+
+Two other near-threshold files were reviewed without residual ceilings. `HardwareCommands.cs` (996) is a multi-type command container whose individual commands are independently indexed; it is not one god class, and the global per-file screen already prevents growth. `HmiJsonModels.cs` (757) is a declarative multi-type contract/model container with no orchestration responsibility, so it is likewise not classified as a god class. Both conclusions should be revisited if their responsibilities or physical size change.
 
 ## Unified HMI screen JSON patch boundary
 
 `HmiScreenJsonPatchApplier` is a compatibility facade for the three existing patch, filter-merge, and filter-validation entry points. The pure `HmiScreenJsonPatchEngine` clones the input screen, executes operations sequentially through a duplicate-checked dispatcher, and returns ordered operation results. Cohesive handlers under `Services/HmiScreenJsonPatch` own property/layout, item lifecycle, event, dynamization, and interface mutations; focused collaborators own aliases, filters, target resolution, scalar conversion, cloning, and result construction.
 
 `HmiScreenJsonPatchOperationCatalog` is the ordered source of truth for supported operation names and normalization. When adding a future operation, update the catalog, the appropriate handler registration and implementation, filter metadata, capability hint, and characterization tests together. The former 1,609-line facade is now below the screening threshold, so its hotspot exception has been removed.
+
+The vendor-free HMI screen-patch architecture suite keeps the facade and handlers focused and Siemens-free, proves that the canonical catalog, default registry, and agent-support list remain synchronized, and protects normalized duplicate registration and central dispatch ownership. Licensed tests continue to own executable behavioral proof for normalization, sequential edits, clone/failure isolation, filter planning, and invariant scalar formatting.
 
 ## PLC document workflow boundary
 
@@ -28,7 +49,7 @@ Explicit modification planning mutates the normalized catalog sequentially, incl
 
 Future tag operations should add a focused planner or workflow and extend only the tag-specific repository surface needed for Siemens access. They should reuse the catalog and mutation boundary instead of adding matching, reflection, or rollback logic to `PlcTagService`.
 
-The hardware chapter removed `HardwareService.cs` from the baseline. The public service is now a small compatibility facade over synchronous query readers, a read-only PLC-tag catalog audit workflow, target/reference/value rules, and a one-transaction patch coordinator. Patch operations are owned by five domain handler groups behind a duplicate-checked catalog, so non-Siemens normalization, safety, result-reference, guard-comparison, address, and commit policy can be tested without a live TIA project.
+The hardware chapter removed `HardwareService.cs` from the historical hotspot baseline. The public service is now a small compatibility facade over synchronous query readers, a read-only PLC-tag catalog audit workflow, target/reference/value rules, and a one-transaction patch coordinator. Patch operations are owned by five domain handler groups behind a duplicate-checked catalog, so non-Siemens normalization, safety, result-reference, guard-comparison, address, and commit policy can be tested without a live TIA project. The vendor-free hardware architecture suite protects facade size, composition, handler grouping and registration, and narrow transaction ownership. `V21HardwareAdapter` remains the explicit large Siemens hardware boundary and is retained as residual review debt.
 
 ## Unified HMI Siemens boundary
 
@@ -60,4 +81,4 @@ The dependency direction is `PortalService -> PortalSessionService -> portal wor
 
 Future portal selection, matching, ownership, persistence, and authentication changes belong in these focused portal collaborators rather than either public facade or a command. Static portal process discovery and construction must remain inside the portal workflow/runtime edge.
 
-Chapter 7 removed the final two hotspot exceptions (`V21OpennessAdapter.cs` and `PortalSessionService.cs`). The planned god-class decomposition roadmap is complete and the hotspot baseline is empty.
+Chapter 7 removed the final two original hotspot exceptions (`V21OpennessAdapter.cs` and `PortalSessionService.cs`). The planned seven-chapter hotspot roadmap is complete and the historical hotspot baseline is empty; the residual review records above remain active architecture debt controls.

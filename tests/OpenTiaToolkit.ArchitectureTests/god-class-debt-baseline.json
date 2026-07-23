@@ -1,4 +1,14 @@
 {
   "screeningThreshold": 1000,
-  "hotspots": {}
+  "historicalHotspots": {},
+  "reviewedFileGrowthCeilings": {
+    "src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs": 945,
+    "src/OpenTiaToolkit.Core/Services/PlcSurfaceService.cs": 895,
+    "src/OpenTiaToolkit.Core/Services/PlcTags/PlcTagCsvWorkflow.cs": 894,
+    "src/OpenTiaToolkit.Core/Services/UnifiedHmi/V21HmiDynamizationSynchronizer.cs": 759,
+    "src/OpenTiaToolkit.Core/Services/UnifiedHmi/V21HmiEngineeringPrimitives.cs": 759,
+    "src/OpenTiaToolkit.Core/Services/UnifiedHmi/V21UnifiedHmiAccess.cs": 748,
+    "src/OpenTiaToolkit.Core/Services/V21HardwareAdapter.cs": 920
+  },
+  "typeAggregateExceptions": {}
 }
