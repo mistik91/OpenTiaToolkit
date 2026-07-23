@@ -30,14 +30,14 @@ namespace OpenTiaToolkit.Core.Services
             IPortalService portalService,
             PlcBrowseService browseService,
             ILogger? logger,
-            V21OpennessAdapter? v21Adapter = null)
+            V21DocumentAccess documents,
+            V21EngineeringObjectAccess objects)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
             _browseService = browseService ?? throw new ArgumentNullException(nameof(browseService));
-            var adapter = v21Adapter ?? new V21OpennessAdapter();
-            _documents = adapter.Documents;
-            _objects = adapter.Objects;
+            _documents = documents ?? throw new ArgumentNullException(nameof(documents));
+            _objects = objects ?? throw new ArgumentNullException(nameof(objects));
             _logger = logger;
         }
 

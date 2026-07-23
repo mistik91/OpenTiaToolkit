@@ -25,22 +25,23 @@ namespace OpenTiaToolkit.Core.Services
         internal HardwareService(
             IPortalService portalService,
             EngineeringSessionContext sessionContext,
-            ILogger<HardwareService>? logger = null,
-            V21HardwareAdapter? adapter = null,
-            V21OpennessAdapter? opennessAdapter = null)
+            V21HardwareAdapter adapter,
+            V21.V21SoftwareDiscovery software,
+            IPlcTagRepository tagRepository,
+            ILogger<HardwareService>? logger = null)
         {
             _ = portalService ?? throw new ArgumentNullException(nameof(portalService));
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            var hardwareAdapter = adapter ?? new V21HardwareAdapter();
-            var plcAdapter = opennessAdapter ?? new V21OpennessAdapter();
+            var hardwareAdapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
+            _ = software ?? throw new ArgumentNullException(nameof(software));
+            _ = tagRepository ?? throw new ArgumentNullException(nameof(tagRepository));
             var engineering = new HardwareEngineeringContext(_sessionContext);
             var resolver = new HardwareTargetResolver(engineering);
             _topology = new HardwareTopologyReader(engineering, hardwareAdapter);
             _drives = new HardwareDriveReader(engineering, hardwareAdapter);
             _catalog = new HardwareCatalogCapabilityReader(engineering, resolver, hardwareAdapter);
             _audit = new HardwareTagMappingAuditWorkflow(
-                engineering, _topology, _drives, hardwareAdapter, plcAdapter,
-                new V21PlcTagRepository(plcAdapter), logger);
+                engineering, _topology, _drives, hardwareAdapter, software, tagRepository, logger);
             _patch = new HardwarePatchWorkflow(engineering, hardwareAdapter, resolver, _topology, logger);
         }
 

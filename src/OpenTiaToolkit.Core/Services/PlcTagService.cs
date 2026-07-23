@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -22,7 +23,15 @@ namespace OpenTiaToolkit.Core.Services
         public PlcTagService(
             EngineeringSessionContext sessionContext,
             ILogger? logger,
-            V21OpennessAdapter? v21Adapter = null,
+            IPlcTagNamingStrategy? tagNamingStrategy = null)
+            : this(sessionContext, CreateDefaultRepository(), logger, tagNamingStrategy)
+        {
+        }
+
+        internal PlcTagService(
+            EngineeringSessionContext sessionContext,
+            IPlcTagRepository repository,
+            ILogger? logger,
             IPlcTagNamingStrategy? tagNamingStrategy = null)
         {
             if (sessionContext == null)
@@ -30,12 +39,18 @@ namespace OpenTiaToolkit.Core.Services
                 throw new ArgumentNullException(nameof(sessionContext));
             }
 
-            var repository = new V21PlcTagRepository(v21Adapter ?? new V21OpennessAdapter());
+            _ = repository ?? throw new ArgumentNullException(nameof(repository));
             var namingStrategy = tagNamingStrategy ?? new PageBasedPlcTagNamingStrategy();
             _findReplace = new PlcTagFindReplaceWorkflow(sessionContext, repository, logger);
             _creation = new PlcTagCreationWorkflow(sessionContext, repository, logger);
             _modification = new PlcTagModificationWorkflow(sessionContext, repository, logger);
             _csv = new PlcTagCsvWorkflow(sessionContext, repository, namingStrategy, logger);
+        }
+
+        private static IPlcTagRepository CreateDefaultRepository()
+        {
+            var components = V21ComponentGraph.CreateDefault();
+            return new V21PlcTagRepository(components.Tags, components.Objects);
         }
 
         public Task<FindReplaceResult> FindAndReplaceTagsAsync(

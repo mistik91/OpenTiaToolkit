@@ -32,9 +32,9 @@ namespace OpenTiaToolkit.Core.Services
 
         private readonly V21.V21TypeServiceResolver _services;
 
-        public V21HardwareAdapter(V21OpennessAdapter? adapter = null)
+        public V21HardwareAdapter(V21.V21TypeServiceResolver services)
         {
-            _services = (adapter ?? new V21OpennessAdapter()).Types;
+            _services = services ?? throw new ArgumentNullException(nameof(services));
         }
 
         public IReadOnlyList<HardwareCatalogItemInfo> FindCatalogItems(TiaPortal portal, string searchText, string? culture)

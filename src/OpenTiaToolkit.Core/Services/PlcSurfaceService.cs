@@ -25,15 +25,15 @@ namespace OpenTiaToolkit.Core.Services
             EngineeringSessionContext sessionContext,
             PlcBrowseService browseService,
             ILogger? logger,
-            V21OpennessAdapter? v21Adapter = null)
+            V21TypeServiceResolver types, V21PlcTagStructureAccess tags,
+            V21EngineeringObjectAccess objects)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _browseService = browseService ?? throw new ArgumentNullException(nameof(browseService));
             _logger = logger;
-            var adapter = v21Adapter ?? new V21OpennessAdapter();
-            _types = adapter.Types;
-            _tags = adapter.Tags;
-            _objects = adapter.Objects;
+            _types = types ?? throw new ArgumentNullException(nameof(types));
+            _tags = tags ?? throw new ArgumentNullException(nameof(tags));
+            _objects = objects ?? throw new ArgumentNullException(nameof(objects));
         }
 
         public async Task<PlcTagExportResult> ExportTagsAsync(string culture = "en-US")

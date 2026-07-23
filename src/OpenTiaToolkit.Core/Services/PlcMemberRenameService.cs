@@ -20,12 +20,28 @@ namespace OpenTiaToolkit.Core.Services
         private readonly V21EngineeringObjectAccess _objects;
         private readonly ILogger? _logger;
 
-        public PlcMemberRenameService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
+        public PlcMemberRenameService(EngineeringSessionContext sessionContext, ILogger? logger)
+            : this(sessionContext, logger, V21ComponentGraph.CreateDefault())
+        {
+        }
+
+        private PlcMemberRenameService(
+            EngineeringSessionContext sessionContext,
+            ILogger? logger,
+            V21ComponentGraph components)
+            : this(sessionContext, logger, components.Tags, components.Objects)
+        {
+        }
+
+        public PlcMemberRenameService(
+            EngineeringSessionContext sessionContext,
+            ILogger? logger,
+            V21PlcTagStructureAccess structures,
+            V21EngineeringObjectAccess objects)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            var adapter = v21Adapter ?? new V21OpennessAdapter();
-            _structures = adapter.Tags;
-            _objects = adapter.Objects;
+            _structures = structures ?? throw new ArgumentNullException(nameof(structures));
+            _objects = objects ?? throw new ArgumentNullException(nameof(objects));
             _logger = logger;
         }
 

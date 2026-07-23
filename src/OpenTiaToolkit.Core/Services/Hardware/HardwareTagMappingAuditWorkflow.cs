@@ -28,7 +28,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             HardwareTopologyReader topology,
             HardwareDriveReader drives,
             V21HardwareAdapter adapter,
-            V21OpennessAdapter opennessAdapter,
+            V21SoftwareDiscovery software,
             IPlcTagCatalogReader tagCatalogReader,
             ILogger? logger)
         {
@@ -36,7 +36,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             _topology = topology;
             _drives = drives;
             _adapter = adapter;
-            _software = opennessAdapter.Software;
+            _software = software ?? throw new ArgumentNullException(nameof(software));
             _tagCatalogReader = tagCatalogReader;
             _logger = logger;
         }

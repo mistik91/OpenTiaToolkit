@@ -11,11 +11,10 @@ namespace OpenTiaToolkit.Core.Services.PlcTags
         private readonly V21PlcTagStructureAccess _tags;
         private readonly V21EngineeringObjectAccess _objects;
 
-        public V21PlcTagRepository(V21OpennessAdapter adapter)
+        public V21PlcTagRepository(V21PlcTagStructureAccess tags, V21EngineeringObjectAccess objects)
         {
-            if (adapter == null) throw new ArgumentNullException(nameof(adapter));
-            _tags = adapter.Tags;
-            _objects = adapter.Objects;
+            _tags = tags ?? throw new ArgumentNullException(nameof(tags));
+            _objects = objects ?? throw new ArgumentNullException(nameof(objects));
         }
 
         public IReadOnlyList<object>? GetTagTables(object plcSoftware) => _tags.GetTagTables(plcSoftware);

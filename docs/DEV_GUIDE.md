@@ -136,7 +136,9 @@ These builders are intended to be testable with fake object graphs so traversal 
 - `V21OnlineVerificationAccess`: compare, download configuration, online transitions, and CPU control
 - `V21DocumentAccess`: language/FB creation and XML/document import-export overload selection
 
-Add version-sensitive behavior to the narrowest component. Feature services should store that component rather than the compatibility facade whenever their responsibility uses one capability.
+`AddOpenTiaToolkitCoreServices` registers one shared instance of each focused component. Production feature services must request only the capabilities they use; do not register, construct, store, or inject `V21OpennessAdapter` in the production graph. Direct public service constructors remain compatible by composing their own local focused graph at the public composition boundary.
+
+Add version-sensitive behavior to the narrowest component. Keep `IServiceProvider` access inside `ServiceCollectionExtensions`; do not replace the adapter with a service locator or another broad manager.
 
 ### Parallel Development Guidance
 

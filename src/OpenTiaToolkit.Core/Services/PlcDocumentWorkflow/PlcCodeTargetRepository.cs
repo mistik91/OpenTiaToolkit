@@ -13,12 +13,14 @@ internal sealed class PlcCodeTargetRepository
     private readonly V21DocumentAccess _documents;
     private readonly V21EngineeringObjectAccess _objects;
 
-    internal PlcCodeTargetRepository(EngineeringSessionContext context, V21OpennessAdapter? adapter = null)
+    internal PlcCodeTargetRepository(
+        EngineeringSessionContext context,
+        V21DocumentAccess documents,
+        V21EngineeringObjectAccess objects)
     {
-        _context = context;
-        var facade = adapter ?? new V21OpennessAdapter();
-        _documents = facade.Documents;
-        _objects = facade.Objects;
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _documents = documents ?? throw new ArgumentNullException(nameof(documents));
+        _objects = objects ?? throw new ArgumentNullException(nameof(objects));
     }
 
     internal object RequireBlockRoot() => TiaReflectionHelper.GetBlockGroup(_context.PlcSoftware) ?? throw new InvalidOperationException("PLC block root is unavailable.");

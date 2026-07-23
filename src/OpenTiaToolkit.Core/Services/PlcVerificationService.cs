@@ -17,13 +17,16 @@ namespace OpenTiaToolkit.Core.Services
         private readonly V21TypeServiceResolver _types;
         private readonly V21OnlineVerificationAccess _online;
 
-        public PlcVerificationService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
+        public PlcVerificationService(
+            EngineeringSessionContext sessionContext,
+            ILogger? logger,
+            V21TypeServiceResolver types,
+            V21OnlineVerificationAccess online)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _logger = logger;
-            var adapter = v21Adapter ?? new V21OpennessAdapter();
-            _types = adapter.Types;
-            _online = adapter.Online;
+            _types = types ?? throw new ArgumentNullException(nameof(types));
+            _online = online ?? throw new ArgumentNullException(nameof(online));
         }
 
         public async Task<PlcSoftwareCompareResult> CompareSoftwareToOnlineAsync()

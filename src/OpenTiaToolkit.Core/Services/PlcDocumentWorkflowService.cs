@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services;
 
@@ -12,13 +13,22 @@ public sealed class PlcDocumentWorkflowService
     private readonly PlcCodeProbeWorkflow _probes;
     private readonly PlcCodeBehaviorProbeWorkflow _behavior;
 
-    public PlcDocumentWorkflowService(IPlcService plcService) : this(plcService, new EngineeringSessionContext(), null, new PlcCodeEvidenceRegistry(), new PlcSimulationRuntime()) { }
-    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext) : this(plcService, sessionContext, null, new PlcCodeEvidenceRegistry(), new PlcSimulationRuntime()) { }
-    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext, PlcCodeCapabilityDiscoveryService? capabilityDiscovery, PlcCodeEvidenceRegistry? evidenceRegistry = null, IPlcSimulationRuntime? simulationRuntime = null)
+    public PlcDocumentWorkflowService(IPlcService plcService) : this(plcService, new EngineeringSessionContext(), null, new PlcCodeEvidenceRegistry(), new PlcSimulationRuntime(), V21ComponentGraph.CreateDefault()) { }
+    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext) : this(plcService, sessionContext, null, new PlcCodeEvidenceRegistry(), new PlcSimulationRuntime(), V21ComponentGraph.CreateDefault()) { }
+    internal PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext, PlcCodeCapabilityDiscoveryService? capabilityDiscovery, PlcCodeEvidenceRegistry? evidenceRegistry = null, IPlcSimulationRuntime? simulationRuntime = null) : this(plcService, sessionContext, capabilityDiscovery, evidenceRegistry, simulationRuntime, V21ComponentGraph.CreateDefault()) { }
+    private PlcDocumentWorkflowService(IPlcService plcService, EngineeringSessionContext sessionContext, PlcCodeCapabilityDiscoveryService? capabilityDiscovery, PlcCodeEvidenceRegistry? evidenceRegistry, IPlcSimulationRuntime? simulationRuntime, V21ComponentGraph components) : this(plcService, sessionContext, capabilityDiscovery, evidenceRegistry, simulationRuntime, components.Documents, components.Objects) { }
+    internal PlcDocumentWorkflowService(
+        IPlcService plcService,
+        EngineeringSessionContext sessionContext,
+        PlcCodeCapabilityDiscoveryService? capabilityDiscovery,
+        PlcCodeEvidenceRegistry? evidenceRegistry,
+        IPlcSimulationRuntime? simulationRuntime,
+        V21DocumentAccess documents,
+        V21EngineeringObjectAccess objects)
     {
         var validator = new PlcDocumentValidator();
         var formats = new PlcCodeFormatService(validator);
-        var targets = new PlcCodeTargetRepository(sessionContext);
+        var targets = new PlcCodeTargetRepository(sessionContext, documents, objects);
         var planStore = new PlcDocumentPlanStore();
         var transactionStore = new PlcCodeTransactionStore();
         var capabilities = new PlcCodeCapabilityGate(capabilityDiscovery);

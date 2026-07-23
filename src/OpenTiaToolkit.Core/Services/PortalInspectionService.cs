@@ -23,12 +23,15 @@ namespace OpenTiaToolkit.Core.Services
         private readonly V21SoftwareDiscovery _software;
         private readonly ILogger? _logger;
 
-        public PortalInspectionService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
+        public PortalInspectionService(
+            EngineeringSessionContext sessionContext,
+            ILogger? logger,
+            V21TypeServiceResolver types,
+            V21SoftwareDiscovery software)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            var adapter = v21Adapter ?? new V21OpennessAdapter();
-            _types = adapter.Types;
-            _software = adapter.Software;
+            _types = types ?? throw new ArgumentNullException(nameof(types));
+            _software = software ?? throw new ArgumentNullException(nameof(software));
             _logger = logger;
         }
 

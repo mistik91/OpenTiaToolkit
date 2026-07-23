@@ -23,13 +23,14 @@ namespace OpenTiaToolkit.Core.Services
 
         public V21OpennessAdapter()
         {
-            _types = new V21TypeServiceResolver();
-            _objects = new V21EngineeringObjectAccess();
-            _software = new V21SoftwareDiscovery(_types);
-            _tags = new V21PlcTagStructureAccess(_objects);
-            _compilation = new V21CompilationAccess(_types);
-            _online = new V21OnlineVerificationAccess(_types);
-            _documents = new V21DocumentAccess(_types);
+            var components = V21ComponentGraph.CreateDefault();
+            _types = components.Types;
+            _objects = components.Objects;
+            _software = components.Software;
+            _tags = components.Tags;
+            _compilation = components.Compilation;
+            _online = components.Online;
+            _documents = components.Documents;
         }
 
         internal V21TypeServiceResolver Types => _types;

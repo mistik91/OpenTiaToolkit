@@ -16,10 +16,10 @@ namespace OpenTiaToolkit.Core.Services
         private readonly V21CompilationAccess _compilation;
         private readonly ILogger? _logger;
 
-        public PlcCompileService(EngineeringSessionContext sessionContext, ILogger? logger, V21OpennessAdapter? v21Adapter = null)
+        public PlcCompileService(EngineeringSessionContext sessionContext, ILogger? logger, V21CompilationAccess compilation)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            _compilation = (v21Adapter ?? new V21OpennessAdapter()).Compilation;
+            _compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
             _logger = logger;
         }
 
