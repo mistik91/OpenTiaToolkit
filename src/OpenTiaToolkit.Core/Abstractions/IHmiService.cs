@@ -88,6 +88,7 @@ public interface IHmiService
     /// <param name="top">Optional top position.</param>
     /// <param name="width">Optional width override.</param>
     /// <param name="height">Optional height override.</param>
+    /// <param name="containedType">Optional faceplate contained type assigned before interface initialization.</param>
     /// <returns>The created or existing item.</returns>
     Task<HmiScreenItemInfo?> CreateScreenItemAsync(
         string screenPath,
@@ -96,7 +97,8 @@ public interface IHmiService
         int? left = null,
         int? top = null,
         int? width = null,
-        int? height = null);
+        int? height = null,
+        string? containedType = null);
 
     /// <summary>
     /// Lists readable properties for a screen item.

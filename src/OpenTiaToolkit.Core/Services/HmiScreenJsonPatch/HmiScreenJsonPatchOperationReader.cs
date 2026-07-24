@@ -35,6 +35,12 @@ namespace OpenTiaToolkit.Core.Services
         public string? ItemType(HmiScreenJsonPatchOperation operation) =>
             FirstNonEmpty(operation.ItemType, operation.Type, Extension(operation, "item-type"));
 
+        public string? ContainedType(HmiScreenJsonPatchOperation operation) => FirstNonEmpty(
+            operation.ContainedType,
+            Extension(operation, "contained-type"),
+            Extension(operation, "faceplateType"),
+            Extension(operation, "faceplate-type"));
+
         public string? EventType(HmiScreenJsonPatchOperation operation) => FirstNonEmpty(
             operation.EventType, operation.EventHandler?.EventType, operation.PropertyEventHandler?.EventType,
             Extension(operation, "event-type"));

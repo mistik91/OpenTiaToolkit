@@ -32,7 +32,9 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 new CommandParameter("left", CommandParameterType.Integer, "Optional left position", required: false),
                 new CommandParameter("top", CommandParameterType.Integer, "Optional top position", required: false),
                 new CommandParameter("width", CommandParameterType.Integer, "Optional item width", required: false),
-                new CommandParameter("height", CommandParameterType.Integer, "Optional item height", required: false)
+                new CommandParameter("height", CommandParameterType.Integer, "Optional item height", required: false),
+                new CommandParameter("contained-type", CommandParameterType.String, "Optional faceplate type assigned before interface initialization", required: false),
+                new CommandParameter("faceplate-type", CommandParameterType.String, "Compatibility alias for contained-type", required: false)
             });
 
         public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
@@ -47,6 +49,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             var screenPath = args.GetString("screen-path");
             var itemType = args.GetString("item-type");
             var itemName = args.GetString("item-name");
+            var containedType = args.GetString("contained-type");
+            var faceplateType = args.GetString("faceplate-type");
 
             if (string.IsNullOrWhiteSpace(hmiName))
             {
@@ -68,6 +72,16 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 return CommandResult.CreateFailure("Missing required parameter: item-name");
             }
 
+            if (!string.IsNullOrWhiteSpace(containedType) &&
+                !string.IsNullOrWhiteSpace(faceplateType) &&
+                !string.Equals(containedType, faceplateType, StringComparison.Ordinal))
+            {
+                return CommandResult.CreateFailure(
+                    "Parameters contained-type and faceplate-type must match when both are provided.");
+            }
+
+            containedType = !string.IsNullOrWhiteSpace(containedType) ? containedType : faceplateType;
+
             if (!_hmiService.IsHmiOpen || !string.Equals(_hmiService.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
             {
                 context.Checkpoint($"Opening Unified HMI: {hmiName}.", 25, "open-hmi");
@@ -86,7 +100,8 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
                 args.Has("left") ? (int?)args.GetInt("left") : null,
                 args.Has("top") ? (int?)args.GetInt("top") : null,
                 args.Has("width") ? (int?)args.GetInt("width") : null,
-                args.Has("height") ? (int?)args.GetInt("height") : null);
+                args.Has("height") ? (int?)args.GetInt("height") : null,
+                containedType);
 
             context.CompleteCommand(Name, itemInfo != null ? $"Unified HMI item ensured: {itemName}" : $"Failed to create Unified HMI item: {itemName}");
             return itemInfo != null

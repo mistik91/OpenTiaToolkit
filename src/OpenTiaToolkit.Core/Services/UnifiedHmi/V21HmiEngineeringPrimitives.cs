@@ -413,7 +413,16 @@ namespace OpenTiaToolkit.Core.Services
                 new HmiItemTypeDescriptor(typeof(HmiRectangle), "HmiRectangle", "Shapes", "Rectangle shape", 100, 100, "rectangle"),
                 new HmiItemTypeDescriptor(typeof(HmiCircle), "HmiCircle", "Shapes", "Circle shape", 100, 100, "circle"),
                 new HmiItemTypeDescriptor(typeof(HmiScreenWindow), "HmiScreenWindow", "Containers", "Embedded screen window", 320, 240, "screenwindow", "screen-window"),
-                new HmiItemTypeDescriptor(typeof(HmiFaceplateContainer), "HmiFaceplateContainer", "Containers", "Faceplate container", 220, 140, "faceplatecontainer", "faceplate-container"),
+                new HmiItemTypeDescriptor(
+                    typeof(HmiFaceplateContainer),
+                    "HmiFaceplateContainer",
+                    "Containers",
+                    "Faceplate container",
+                    220,
+                    140,
+                    new[] { "ContainedType" },
+                    "faceplatecontainer",
+                    "faceplate-container"),
                 new HmiItemTypeDescriptor(typeof(HmiTrendControl), "HmiTrendControl", "Diagnostics", "Trend control", 400, 300, "trendcontrol", "trend-control"),
                 new HmiItemTypeDescriptor(typeof(HmiFunctionTrendControl), "HmiFunctionTrendControl", "Diagnostics", "Function trend control", 400, 300, "functiontrendcontrol", "function-trend-control"),
                 new HmiItemTypeDescriptor(typeof(HmiTrendCompanion), "HmiTrendCompanion", "Diagnostics", "Trend companion control", 400, 300, "trendcompanion", "trend-companion")
@@ -430,57 +439,6 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             return map;
-        }
-
-        internal sealed class HmiItemTypeDescriptor
-        {
-            public HmiItemTypeDescriptor(Type itemType, string typeName, string category, string description, int defaultWidth, int defaultHeight, params string[] aliases)
-            {
-                ItemType = itemType;
-                TypeName = typeName;
-                Category = category;
-                Description = description;
-                DefaultWidth = defaultWidth;
-                DefaultHeight = defaultHeight;
-                Aliases = aliases
-                    .Concat(new[] { typeName })
-                    .Select(NormalizeToken)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-                TypeKey = NormalizeToken(typeName);
-            }
-
-            public Type ItemType { get; }
-
-            public string TypeName { get; }
-
-            public string Category { get; }
-
-            public string Description { get; }
-
-            public int DefaultWidth { get; }
-
-            public int DefaultHeight { get; }
-
-            public string[] Aliases { get; }
-
-            public string TypeKey { get; }
-
-            public HmiItemTypeInfo ToPublicInfo()
-            {
-                return new HmiItemTypeInfo
-                {
-                    Type = TypeName,
-                    Category = Category,
-                    Description = Description,
-                    DefaultWidth = DefaultWidth,
-                    DefaultHeight = DefaultHeight,
-                    Aliases = Aliases
-                        .Where(alias => !string.Equals(alias, TypeKey, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(alias => alias, StringComparer.OrdinalIgnoreCase)
-                        .ToList()
-                };
-            }
         }
 
         public string NormalizeScreenPath(string? screenPath)

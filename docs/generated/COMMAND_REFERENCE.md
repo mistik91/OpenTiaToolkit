@@ -1511,6 +1511,8 @@ Creates a Unified HMI item on a screen
 | `top` | Integer | no |  | Optional top position |
 | `width` | Integer | no |  | Optional item width |
 | `height` | Integer | no |  | Optional item height |
+| `contained-type` | String | no |  | Optional faceplate type assigned before interface initialization |
+| `faceplate-type` | String | no |  | Compatibility alias for contained-type |
 | `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### create-hmi-screen

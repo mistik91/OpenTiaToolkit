@@ -7,6 +7,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+- Added canonical `contained-type` support (with `faceplate-type` compatibility aliases) to direct and JSON-patch Unified HMI item creation.
+
+### Fixed
+- Bound a faceplate container's `ContainedType` before importing interface values, including real rollback-only initialization during JSON patch dry-runs, so bound faceplates can be created and duplicated without losing their interface schema.
+
 ## [1.0.0-preview.3] - 2026-07-18
 
 ### Changed

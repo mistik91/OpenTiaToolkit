@@ -1545,6 +1545,20 @@
           "description": "Optional item height"
         },
         {
+          "name": "contained-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional faceplate type assigned before interface initialization"
+        },
+        {
+          "name": "faceplate-type",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Compatibility alias for contained-type"
+        },
+        {
           "name": "confirm",
           "type": "Boolean",
           "required": false,

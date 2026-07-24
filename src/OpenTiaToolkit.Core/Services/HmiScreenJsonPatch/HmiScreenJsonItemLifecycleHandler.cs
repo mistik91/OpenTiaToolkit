@@ -55,6 +55,7 @@ namespace OpenTiaToolkit.Core.Services
             { context.Failure($"Item '{itemName}' already exists on the exported screen.", itemName); return; }
             var properties = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
             if (!TryApplyOverrides(context, properties, itemName)) return;
+            if (!TryApplyContainedType(context, properties, itemName)) return;
             AddLayout(properties, "Left", context.Operation.Left); AddLayout(properties, "Top", context.Operation.Top);
             AddLayout(properties, "Width", context.Operation.Width); AddLayout(properties, "Height", context.Operation.Height);
             if (context.Results.Any(result => result.Index == context.Index && !result.Succeeded)) return;
@@ -76,11 +77,12 @@ namespace OpenTiaToolkit.Core.Services
             { context.Failure($"Item '{targetName}' already exists on the exported screen.", targetName); return; }
             var duplicate = HmiScreenJsonPatchCloner.Item(source!); duplicate.Name = targetName!;
             if (!TryApplyOverrides(context, duplicate.Properties, targetName)) return;
+            if (!TryApplyContainedType(context, duplicate.Properties, targetName)) return;
             AddLayout(duplicate.Properties, "Left", context.Operation.Left); AddLayout(duplicate.Properties, "Top", context.Operation.Top);
             AddLayout(duplicate.Properties, "Width", context.Operation.Width); AddLayout(duplicate.Properties, "Height", context.Operation.Height);
             context.Screen.Items.Add(duplicate);
             context.Success("item", targetName, null, source!.Name, duplicate.Type);
-            foreach (var property in OverrideProperties(context.Operation, duplicate).OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
+            foreach (var property in OverrideProperties(context, duplicate).OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
             {
                 source.Properties.TryGetValue(property, out var previous); duplicate.Properties.TryGetValue(property, out var current);
                 context.Success("item", targetName, property, previous, current);
@@ -101,12 +103,40 @@ namespace OpenTiaToolkit.Core.Services
             return context.Results.Count(result => result.Index == context.Index && !result.Succeeded) == failures;
         }
 
+        private static bool TryApplyContainedType(
+            HmiScreenJsonPatchOperationContext context,
+            Dictionary<string, string?> properties,
+            string? itemName)
+        {
+            var containedType = context.Reader.ContainedType(context.Operation);
+            if (string.IsNullOrWhiteSpace(containedType))
+            {
+                return true;
+            }
+
+            if (properties.TryGetValue("ContainedType", out var existing) &&
+                !string.IsNullOrWhiteSpace(existing) &&
+                !string.Equals(existing, containedType, StringComparison.Ordinal))
+            {
+                context.Failure(
+                    "The containedType/contained-type/faceplate-type value must match properties.ContainedType when both are provided.",
+                    itemName,
+                    "ContainedType");
+                return false;
+            }
+
+            properties["ContainedType"] = containedType;
+            return true;
+        }
+
         private static void AddLayout(Dictionary<string, string?> properties, string property, int? value)
         { if (value.HasValue) properties[property] = value.Value.ToString(CultureInfo.InvariantCulture); }
 
-        private static IEnumerable<string> OverrideProperties(HmiScreenJsonPatchOperation operation, HmiJsonItem duplicate)
+        private static IEnumerable<string> OverrideProperties(HmiScreenJsonPatchOperationContext context, HmiJsonItem duplicate)
         {
+            var operation = context.Operation;
             if (operation.Properties != null) foreach (var property in operation.Properties.Keys.Where(value => !string.IsNullOrWhiteSpace(value))) yield return property;
+            if (!string.IsNullOrWhiteSpace(context.Reader.ContainedType(operation))) yield return "ContainedType";
             foreach (var property in new[] { "Left", "Top", "Width", "Height" })
             {
                 var supplied = property == "Left" ? operation.Left.HasValue : property == "Top" ? operation.Top.HasValue : property == "Width" ? operation.Width.HasValue : operation.Height.HasValue;

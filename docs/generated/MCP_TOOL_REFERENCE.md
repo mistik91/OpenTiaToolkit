@@ -37,7 +37,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `copy-from-master-copy` | Libraries | `library-scope`, `global-library`, `master-copy-path`, `plc-name`, `target-group-path`, `dry-run`, `confirm` | Copies a library master copy into a PLC block group with dry-run and confirmation gates |
 | `copy-hmi-screen-from-template` | Unified HMI | `hmi-name`, `template-screen-path`, `target-screen-path`, `find-text`, `replace-text`, `confirm` | Copies a Unified HMI screen from a template screen with optional find/replace |
 | `create-block` | PLC | `plc-name`, `block-name`, `block-type`, `language`, `confirm` | Creates a new block in PLC software (currently validated for ProDiag FB creation) |
-| `create-hmi-item` | Unified HMI | `hmi-name`, `screen-path`, `item-type`, `item-name`, `left`, `top`, `width`, `height`, `confirm` | Creates a Unified HMI item on a screen |
+| `create-hmi-item` | Unified HMI | `hmi-name`, `screen-path`, `item-type`, `item-name`, `left`, `top`, `width`, `height`, `contained-type`, `faceplate-type`, `confirm` | Creates a Unified HMI item on a screen |
 | `create-hmi-screen` | Unified HMI | `hmi-name`, `screen-path`, `width`, `height`, `confirm` | Creates a Unified HMI screen if it does not already exist |
 | `create-hmi-trend` | Unified HMI | `hmi-name`, `tag-path`, `datalog-name`, `cyclic`, `cycle`, `storage-folder`, `log-max-size`, `duration-days`, `segment-max-size`, `confirm` | Creates or updates Unified HMI logging infrastructure for a tag |
 | `create-hmi-trends` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or applies multiple Unified HMI trend logging configurations |

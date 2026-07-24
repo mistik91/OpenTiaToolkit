@@ -83,6 +83,29 @@ For `create-item` with `base-hash`, include the new item name in `item-names` ev
 
 If the create sets rectangular geometry, include `Left`, `Top`, `Width`, and `Height` in `properties` along with any scalar overrides such as `Text`.
 
+Create a bound faceplate container:
+
+```json
+[
+  {
+    "op": "create-item",
+    "item": "Valve_1",
+    "itemType": "faceplate-container",
+    "containedType": "V0.0.9\\Valve_Simple",
+    "left": 120,
+    "top": 80
+  },
+  {
+    "op": "set-interface",
+    "item": "Valve_1",
+    "property": "AV",
+    "value": "Valve_1.AV"
+  }
+]
+```
+
+For faceplate creation, include the target in `item-names` and include `ContainedType`, `Interface`, and every touched geometry property in `properties`. `containedType` is canonical; `contained-type`, `faceplateType`, and `faceplate-type` are compatibility aliases.
+
 Create a circle:
 
 ```json
@@ -111,6 +134,8 @@ Duplicate and rename:
 ```
 
 `duplicate-item` requires `source` or `sourceItem` for the existing item. It accepts `item`, `itemName`, `target`, `targetItem`, or `targetName` for the new item. Prefer `source` and `targetName` in new payloads.
+
+When duplicating a faceplate container, include both source and target names in `item-names` and include `ContainedType` plus `Interface` in `properties`. The clone binds `ContainedType` before preflighting or applying the copied interface entries.
 
 Delete:
 

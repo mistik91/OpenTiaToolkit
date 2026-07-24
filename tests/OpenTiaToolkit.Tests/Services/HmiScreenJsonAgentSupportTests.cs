@@ -109,5 +109,17 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsFalse(guidance.ShouldInspectPreflight);
             CollectionAssert.Contains(guidance.SuggestedFixes, "Take the HMI or project offline in TIA Portal, then replay the same apply command with dry-run=false, the same baseHash, the same filters, and the same operations.");
         }
+
+        [TestMethod]
+        public void Capabilities_DescribeFaceplateCreationDependencies()
+        {
+            var capabilities = HmiScreenJsonAgentSupport.CreateCapabilities();
+
+            var createHint = capabilities.OperationHints.Single(hint => hint.Operation == "create-item");
+            StringAssert.Contains(createHint.UseWhen, "containedType");
+            var duplicateHint = capabilities.OperationHints.Single(hint => hint.Operation == "duplicate-item");
+            StringAssert.Contains(duplicateHint.UseWhen, "ContainedType");
+            StringAssert.Contains(duplicateHint.UseWhen, "Interface");
+        }
     }
 }

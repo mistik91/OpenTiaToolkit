@@ -1,6 +1,8 @@
 using OpenTiaToolkit.Core.Models;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Services
@@ -13,12 +15,14 @@ namespace OpenTiaToolkit.Core.Services
         private readonly EngineeringSessionContext _sessionContext;
         private readonly V21UnifiedHmiAdapter _adapter;
         private readonly ILogger? _logger;
+        private readonly HmiScreenItemCreationPipeline _creationPipeline;
 
         public HmiMutationService(EngineeringSessionContext sessionContext, V21UnifiedHmiAdapter adapter, ILogger? logger)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
             _logger = logger;
+            _creationPipeline = new HmiScreenItemCreationPipeline(adapter);
         }
 
         public async Task<HmiScreenInfo?> CreateScreenAsync(string screenPath, int? width, int? height)
@@ -59,7 +63,8 @@ namespace OpenTiaToolkit.Core.Services
             int? left,
             int? top,
             int? width,
-            int? height)
+            int? height,
+            string? containedType)
         {
             return await Task.Run(() =>
             {
@@ -79,15 +84,63 @@ namespace OpenTiaToolkit.Core.Services
                 var existingItem = screen.ScreenItems.Find(itemName);
                 if (existingItem != null)
                 {
+                    if (!string.IsNullOrWhiteSpace(containedType))
+                    {
+                        var existingContainedType = _adapter
+                            .GetItemProperties(existingItem, new[] { "ContainedType" })
+                            .FirstOrDefault(property => property.Name.Equals("ContainedType", StringComparison.OrdinalIgnoreCase))
+                            ?.Value;
+                        if (!string.Equals(existingContainedType, containedType, StringComparison.Ordinal))
+                        {
+                            _logger?.LogWarning(
+                                "Unified HMI item {ScreenPath}/{ItemName} already exists with contained type {ExistingContainedType}, not {RequestedContainedType}",
+                                normalizedPath,
+                                itemName,
+                                existingContainedType ?? "<none>",
+                                containedType);
+                            return null;
+                        }
+                    }
+
                     return _adapter.ToItemInfo(existingItem, normalizedPath);
                 }
 
-                var item = _adapter.CreateScreenItem(screen, itemType, itemName);
-                if (item == null)
+                var creationPropertyNames = _adapter.GetItemCreationPropertyNames(itemType);
+                if (!string.IsNullOrWhiteSpace(containedType) &&
+                    !creationPropertyNames.Contains("ContainedType", StringComparer.OrdinalIgnoreCase))
                 {
+                    _logger?.LogWarning(
+                        "Unified HMI item type {ItemType} does not support the contained-type creation property",
+                        itemType);
                     return null;
                 }
 
+                IReadOnlyDictionary<string, string?>? creationProperties = null;
+                if (!string.IsNullOrWhiteSpace(containedType))
+                {
+                    creationProperties = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["ContainedType"] = containedType
+                    };
+                }
+
+                var creationResult = _creationPipeline.Create(
+                    screen,
+                    software,
+                    itemType,
+                    itemName,
+                    creationProperties);
+                if (!creationResult.Succeeded || creationResult.Item == null)
+                {
+                    _logger?.LogWarning(
+                        "Failed to create Unified HMI item {ScreenPath}/{ItemName}: {Error}",
+                        normalizedPath,
+                        itemName,
+                        creationResult.Error ?? "Unknown error");
+                    return null;
+                }
+
+                var item = creationResult.Item;
                 _adapter.TryApplyGeometry(item, left, top, width, height, out _);
                 return _adapter.ToItemInfo(item, normalizedPath);
             });

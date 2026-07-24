@@ -572,7 +572,10 @@ Creates a screen item if it does not already exist.
 
 ```bash
 OpenTiaToolkit.CLI.exe create-hmi-item --hmi-name="HMI_1" --screen-path="Codex/Main" --item-type="button" --item-name="StartButton" --left=40 --top=60 --width=160 --height=44
+OpenTiaToolkit.CLI.exe create-hmi-item --hmi-name="HMI_1" --screen-path="Codex/Main" --item-type="faceplate-container" --item-name="Valve_1" --contained-type="V0.0.9\Valve_Simple" --left=40 --top=120
 ```
+
+For a faceplate container, `contained-type` binds the faceplate type before its `Interface` composition is initialized. `faceplate-type` is accepted as a compatibility alias; when both parameters are supplied, their values must match.
 
 #### get-hmi-item-properties
 
@@ -761,7 +764,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - `rename-item`: Rename an item using `newName` or `targetName`; `source` is accepted as an alias for the current item name.
 - `create-item`: Create an item using `itemType`, geometry fields, and optional `properties`. Rectangular items use `left`/`top`/`width`/`height`; `HmiCircle` / `circle` uses `CenterX`, `CenterY`, and `Radius` inside `properties`.
 - `delete-item`: Delete an item from the screen.
-- `duplicate-item`: Clone `source`/`sourceItem` into `item`/`targetItem`/`targetName`, with optional geometry and property overrides.
+- `duplicate-item`: Clone `source`/`sourceItem` into `item`/`targetItem`/`targetName`, with optional geometry and property overrides. Faceplate duplication requires the snapshot filters to include both `ContainedType` and `Interface`.
 - `set-event-handler` / `remove-event-handler`: Create, replace, or remove event handlers. Use `eventHandler` for full JSON or `eventType` plus `scriptCode` for compact script handlers. Event names are Siemens object-type and TIA-version specific; `Tapped` is valid for a V21 `HmiButton`, while browser-style names such as `Click` must not be assumed.
 - `set-property-event-handler` / `remove-property-event-handler`: Create, replace, or remove property event handlers. Use `propertyEventHandler` for full JSON or `property`, `eventType`, and `scriptCode`.
 - `set-dynamization` / `remove-dynamization`: Create, replace, or remove property dynamizations. Use `dynamization` for full JSON or compact `property`, `dynamizationType`, and `tag`.
