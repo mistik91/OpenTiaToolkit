@@ -1,6 +1,6 @@
 ---
 name: opentia-dev-workflow
-description: Use for developing the OpenTiaToolkit repository, including C# command/service changes, tests, documentation, MCP/CLI behavior, plugin packaging, Codex/Claude/OpenCode skill updates, elevated Siemens Openness allow-list registration after rebuilds, live CLI/MCP smoke tests, and validation of repo changes before handoff.
+description: Use for developing the OpenTiaToolkit repository, including C# command/service changes, tests, documentation, MCP/CLI behavior, plugin packaging, Codex/Claude/OpenCode skill updates, risk-tiered validation, disposable TIA live-test campaigns, elevated Siemens Openness allow-list registration after rebuilds, and validation before handoff or merge.
 ---
 
 # OpenTiaToolkit Dev Workflow
@@ -11,11 +11,23 @@ Use this skill for repo work on OpenTiaToolkit itself. Preserve the shared comma
 
 ## Code Change Workflow
 
-1. Inspect the existing command/service/test pattern before editing.
-2. Keep command names and arguments kebab-case for CLI-shaped APIs.
-3. Add or update command schemas, CLI docs, MCP exposure, services, and tests together when behavior changes.
-4. Prefer focused service tests for parsing, safety, diffing, and command result behavior.
-5. Run the relevant fast tests before handoff. Use integration tests only when the change requires live TIA validation or the user asks for it.
+1. Inspect the existing command/service/test pattern and the current diff before editing.
+2. Classify the change by the highest affected validation tier below.
+3. Keep command names and arguments kebab-case for CLI-shaped APIs.
+4. Add or update command schemas, CLI docs, MCP exposure, services, and tests together when behavior changes.
+5. Treat documentation and skill payloads as executable contracts. Validate examples against the real parser and, when relevant, the actual Siemens object type and TIA version.
+6. Prefer focused service tests for parsing, safety, diffing, and command result behavior, then run the gates required by the selected tier.
+
+## Validation Ladder
+
+Use the highest tier touched by the change. Do not impose a full live campaign on documentation-only work, and do not downgrade transaction, worker-boundary, or broad refactor changes because unit tests pass.
+
+1. **Documentation and skills**: validate formatting, generated-reference drift, skill structure, packaged copies, and any focused behavior represented by changed examples.
+2. **Vendor-free contracts and hosts**: add a Release build, non-integration and architecture tests, command-surface drift checks, and relevant CLI/MCP/IPC smoke tests.
+3. **Worker or TIA behavior**: refresh the worker allow-list when rebuilt, prove the selected instance/project, start read-only, then run focused live integration on a disposable target when mutation behavior changed.
+4. **Transactions or broad refactors**: use an immutable archive plus independent disposable copies, applicable adversarial cases, fresh-state verification, and a final process/repository audit.
+
+Read [references/validation-ladder.md](references/validation-ladder.md) completely before Tier 3 or Tier 4 validation, and use its detailed gate matrix for lower tiers when the appropriate scope is unclear.
 
 ## Validation Commands
 
@@ -82,6 +94,15 @@ Before handoff, run the packaging drift guard:
 powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -CheckOnly
 ```
 
+When a changed skill is also installed in the active Codex environment, verify or refresh that explicit installed copy in addition to plugin packages. Never infer or bulk-replace an active skill root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -SkillName opentia-dev-workflow -ActiveSkillsRoot="<absolute-active-skills-root>" -CheckOnly
+powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -SkillName opentia-dev-workflow -ActiveSkillsRoot="<absolute-active-skills-root>"
+```
+
+Run the check again after refresh. Edit canonical skills first; do not hand-edit packaged or installed copies.
+
 Use the existing packaging script when installing or zipping a single skill:
 
 ```powershell
@@ -101,3 +122,14 @@ Good read-only smoke tests:
 - Domain-specific read such as `list-plcs`, `list-hmis`, `get-hardware-tree`, or `list-vci-workspaces`
 
 Keep MCP calls serial and verify project context after reconnecting.
+
+For mutation tests, never use the user's original open project as the test target. Follow the disposable-project, rollback, evidence, and process-ownership rules in [references/validation-ladder.md](references/validation-ladder.md). Treat environment-dependent skips as explicit skips, not passes.
+
+## Completion And Merge Gate
+
+Before handoff:
+
+1. Run `git diff --check`, inspect the complete diff, and rerun every gate required by the selected tier.
+2. Record the exact commit, build/test results, generated artifacts, live baselines and final-state evidence when applicable, and every justified skip.
+3. Confirm the worktree state and that no toolkit-owned MCP, worker, testhost, or disposable TIA process was orphaned.
+4. For merge work, fetch the actual remote default branch, confirm divergence and mergeability, open a pull request, wait for required remote checks, and merge only when GitHub reports the PR clean.

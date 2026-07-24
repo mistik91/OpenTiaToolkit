@@ -1,6 +1,10 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    [switch]$CheckOnly
+    [switch]$CheckOnly,
+
+    [string[]]$SkillName,
+
+    [string]$ActiveSkillsRoot
 )
 
 Set-StrictMode -Version Latest
@@ -18,6 +22,24 @@ $pluginSkillRoots = @(
     (Join-Path $repoRoot 'plugins\opentia-toolkit-claude-code\skills'),
     (Join-Path $repoRoot 'plugins\opentia-toolkit-opencode\.opencode\skills')
 )
+$requestedSkillNames = @(
+    $SkillName |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Sort-Object -Unique
+)
+$checkedSkillRoots = @($pluginSkillRoots)
+
+if (-not [string]::IsNullOrWhiteSpace($ActiveSkillsRoot)) {
+    if ($requestedSkillNames.Count -eq 0) {
+        throw 'ActiveSkillsRoot requires at least one explicit SkillName to prevent broad installed-skill replacement.'
+    }
+
+    if (-not [System.IO.Path]::IsPathRooted($ActiveSkillsRoot)) {
+        throw 'ActiveSkillsRoot must be an absolute path.'
+    }
+
+    $checkedSkillRoots += [System.IO.Path]::GetFullPath($ActiveSkillsRoot)
+}
 
 function Assert-ChildPath {
     param(
@@ -43,6 +65,20 @@ function Get-RelativePath {
     $baseUri = [System.Uri]::new(([System.IO.Path]::GetFullPath($BasePath).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar))
     $pathUri = [System.Uri]::new([System.IO.Path]::GetFullPath($Path))
     return [System.Uri]::UnescapeDataString($baseUri.MakeRelativeUri($pathUri).ToString()).Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+}
+
+function Get-DisplayPath {
+    param([string]$Path)
+
+    $repoFull = [System.IO.Path]::GetFullPath($repoRoot).TrimEnd('\', '/')
+    $pathFull = [System.IO.Path]::GetFullPath($Path)
+    $repoPrefix = $repoFull + [System.IO.Path]::DirectorySeparatorChar
+
+    if ($pathFull.StartsWith($repoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return Get-RelativePath -BasePath $repoRoot -Path $pathFull
+    }
+
+    return $pathFull
 }
 
 function Get-FileHashMap {
@@ -95,13 +131,23 @@ if (-not (Test-Path -LiteralPath $canonicalRoot -PathType Container)) {
 $drift = New-Object System.Collections.Generic.List[object]
 $canonicalSkills = Get-ChildItem -LiteralPath $canonicalRoot -Directory | Sort-Object Name
 
-foreach ($pluginRoot in $pluginSkillRoots) {
-    if (-not (Test-Path -LiteralPath $pluginRoot -PathType Container)) {
+if ($requestedSkillNames.Count -gt 0) {
+    $availableNames = @($canonicalSkills | ForEach-Object Name)
+    $missingNames = @($requestedSkillNames | Where-Object { $_ -notin $availableNames })
+    if ($missingNames.Count -gt 0) {
+        throw "Canonical skills were not found: $($missingNames -join ', ')"
+    }
+
+    $canonicalSkills = @($canonicalSkills | Where-Object { $_.Name -in $requestedSkillNames })
+}
+
+foreach ($skillRoot in $checkedSkillRoots) {
+    if (-not (Test-Path -LiteralPath $skillRoot -PathType Container)) {
         if ($CheckOnly) {
             foreach ($skill in $canonicalSkills) {
                 $drift.Add([pscustomobject]@{
                     Skill       = $skill.Name
-                    Destination = Get-RelativePath -BasePath $repoRoot -Path (Join-Path $pluginRoot $skill.Name)
+                    Destination = Get-DisplayPath -Path (Join-Path $skillRoot $skill.Name)
                     Differences = 'missing:skill-directory'
                 })
             }
@@ -109,12 +155,12 @@ foreach ($pluginRoot in $pluginSkillRoots) {
             continue
         }
 
-        New-Item -ItemType Directory -Force -Path $pluginRoot | Out-Null
+        New-Item -ItemType Directory -Force -Path $skillRoot | Out-Null
     }
 
     foreach ($skill in $canonicalSkills) {
-        $destination = Join-Path $pluginRoot $skill.Name
-        Assert-ChildPath -ParentPath $pluginRoot -ChildPath $destination
+        $destination = Join-Path $skillRoot $skill.Name
+        Assert-ChildPath -ParentPath $skillRoot -ChildPath $destination
         $differences = @(Compare-SkillDirectory -SourcePath $skill.FullName -DestinationPath $destination)
 
         if ($differences.Count -eq 0) {
@@ -123,7 +169,7 @@ foreach ($pluginRoot in $pluginSkillRoots) {
 
         $drift.Add([pscustomobject]@{
             Skill       = $skill.Name
-            Destination = Get-RelativePath -BasePath $repoRoot -Path $destination
+            Destination = Get-DisplayPath -Path $destination
             Differences = $differences -join ', '
         })
 
@@ -135,7 +181,7 @@ foreach ($pluginRoot in $pluginSkillRoots) {
             }
 
             if ($PSCmdlet.ShouldProcess($destination, 'Copy canonical skill')) {
-                Copy-Item -LiteralPath $skill.FullName -Destination $pluginRoot -Recurse -Force
+                Copy-Item -LiteralPath $skill.FullName -Destination $skillRoot -Recurse -Force
             }
         }
     }
@@ -145,13 +191,14 @@ if ($drift.Count -gt 0) {
     $drift | Format-Table -AutoSize | Out-String | Write-Host
 
     if ($CheckOnly) {
-        throw "Packaged skills differ from canonical skills. Run scripts\Sync-PluginSkills.ps1 to refresh them."
+        throw "Skill copies differ from canonical skills. Run scripts\Sync-PluginSkills.ps1 with the same roots and skill selection to refresh them."
     }
 }
 
 [pscustomobject]@{
     CanonicalRoot = $canonicalRoot
-    CheckedRoots  = $pluginSkillRoots
+    CheckedRoots  = $checkedSkillRoots
+    Skills        = @($canonicalSkills | ForEach-Object Name)
     DriftCount    = $drift.Count
     Mode          = if ($CheckOnly) { 'CheckOnly' } else { 'Sync' }
 }
