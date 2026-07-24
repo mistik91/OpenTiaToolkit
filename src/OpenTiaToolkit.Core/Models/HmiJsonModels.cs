@@ -499,6 +499,8 @@ namespace OpenTiaToolkit.Core.Models
 
         public string? Type { get; set; }
 
+        public string? ContainedType { get; set; }
+
         public string? EventType { get; set; }
 
         public string? ScriptCode { get; set; }

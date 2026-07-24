@@ -31,6 +31,8 @@ For generated item operations, include new target names in `item-names` before t
 
 Geometry fields are filtered properties too. Whenever an operation sets `left`, `top`, `width`, or `height`, include the corresponding `Left`, `Top`, `Width`, and/or `Height` names in `properties`. This applies to rectangular item types in `create-item`, `duplicate-item`, `move-item`, `resize-item`, and `set-layout`.
 
+Faceplate creation has an initialization dependency. For `HmiFaceplateContainer` / `faceplate-container`, set the canonical operation field `containedType` before any `set-interface` operations and include both `ContainedType` and `Interface` in the snapshot and patch `properties` filters. `contained-type`, `faceplateType`, and `faceplate-type` are compatibility aliases. For `duplicate-item`, include `ContainedType` and `Interface` in the source/target snapshot so the clone can bind the same faceplate type before its interface entries are applied.
+
 Circle geometry is different in the HMI JSON patch/import surface. For `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in `properties` and set them through the operation `properties` object. Do not use `left`, `top`, `width`, `height`, `Left`, `Top`, `Width`, or `Height` for circles in `apply-hmi-screen-json-patch` or `apply-hmi-screen-json-edit`; preflight should block those as not writable. If a lower-level `create-hmi-item` command accepts rectangular placement for a circle, treat that as command-specific convenience, not as the JSON patch shape.
 
 ## Command Schema Rules

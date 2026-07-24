@@ -81,7 +81,8 @@ namespace OpenTiaToolkit.Core.Services
             HmiSoftware software,
             HmiJsonFilterOptions filters,
             bool dryRun,
-            HmiJsonImportResult result)
+            HmiJsonImportResult result,
+            IReadOnlyDictionary<string, string?>? originalCreationPropertyValues = null)
         {
             foreach (var property in itemDocument.Properties.OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase))
             {
@@ -94,6 +95,30 @@ namespace OpenTiaToolkit.Core.Services
                 if (property.Value == null)
                 {
                     AddSkippedProperty(result, "Item", screenPath, itemDocument.Name, property.Key, "Null property values are not supported.");
+                    continue;
+                }
+
+                if (originalCreationPropertyValues != null &&
+                    originalCreationPropertyValues.TryGetValue(property.Key, out var originalValue))
+                {
+                    if (string.Equals(originalValue, property.Value, StringComparison.Ordinal))
+                    {
+                        result.PropertyUnchangedCount++;
+                    }
+                    else
+                    {
+                        AddPropertyChange(
+                            result,
+                            "Item",
+                            screenPath,
+                            itemDocument.Name,
+                            property.Key,
+                            originalValue == null ? "Create" : "Update",
+                            originalValue,
+                            property.Value);
+                        result.PropertySetCount++;
+                    }
+
                     continue;
                 }
 

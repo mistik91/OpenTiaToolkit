@@ -20,6 +20,7 @@ namespace OpenTiaToolkit.Core.Services
     {
         private readonly V21UnifiedHmiAccess _access;
         private readonly V21HmiCompositeAccess _composites;
+        private readonly V21HmiItemPropertyAccessor _properties;
         private readonly V21HmiScreenCopyEngine _screenCopy;
 
         public V21UnifiedHmiAdapter(ILogger? logger)
@@ -28,6 +29,7 @@ namespace OpenTiaToolkit.Core.Services
             var properties = new V21HmiItemPropertyAccessor(primitives);
             _access = new V21UnifiedHmiAccess(primitives, properties);
             _composites = new V21HmiCompositeAccess(properties);
+            _properties = properties;
             _screenCopy = new V21HmiScreenCopyEngine(_access);
         }
 
@@ -49,6 +51,8 @@ namespace OpenTiaToolkit.Core.Services
             _access.TryGetTag(software, tagPath, out tag, out normalizedPath);
         public HmiScreenItemBase? CreateScreenItem(HmiScreen screen, string itemType, string itemName) =>
             _access.CreateScreenItem(screen, itemType, itemName);
+        public IReadOnlyList<string> GetItemCreationPropertyNames(string itemType) =>
+            _properties.GetItemCreationPropertyNames(itemType);
         public HmiDataLog EnsureDataLog(HmiSoftware software, string dataLogName, out bool created) =>
             _access.EnsureDataLog(software, dataLogName, out created);
         public HmiDataLog? FindDataLog(HmiSoftware software, string dataLogName) => _access.FindDataLog(software, dataLogName);

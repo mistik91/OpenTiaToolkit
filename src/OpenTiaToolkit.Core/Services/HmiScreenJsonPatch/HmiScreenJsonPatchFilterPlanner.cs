@@ -66,6 +66,7 @@ namespace OpenTiaToolkit.Core.Services
                 case "createitem":
                 case "duplicateitem":
                     if (operation.Properties != null) foreach (var property in operation.Properties.Keys.Where(value => !string.IsNullOrWhiteSpace(value))) yield return property;
+                    if (!string.IsNullOrWhiteSpace(_reader.ContainedType(operation))) yield return "ContainedType";
                     if (operation.Left.HasValue) yield return "Left"; if (operation.Top.HasValue) yield return "Top";
                     if (operation.Width.HasValue) yield return "Width"; if (operation.Height.HasValue) yield return "Height"; break;
                 case "seteventhandler":

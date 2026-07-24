@@ -156,9 +156,18 @@ namespace OpenTiaToolkit.Core.Services
             int? left = null,
             int? top = null,
             int? width = null,
-            int? height = null)
+            int? height = null,
+            string? containedType = null)
         {
-            return await _mutationService.CreateScreenItemAsync(screenPath, itemType, itemName, left, top, width, height);
+            return await _mutationService.CreateScreenItemAsync(
+                screenPath,
+                itemType,
+                itemName,
+                left,
+                top,
+                width,
+                height,
+                containedType);
         }
 
         /// <inheritdoc/>

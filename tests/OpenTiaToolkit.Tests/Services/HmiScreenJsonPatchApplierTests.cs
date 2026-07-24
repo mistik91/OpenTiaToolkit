@@ -182,6 +182,72 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void Apply_CreatesFaceplateWithCanonicalContainedType()
+        {
+            var result = HmiScreenJsonPatchApplier.Apply(
+                CreateScreen(),
+                new[]
+                {
+                    new HmiScreenJsonPatchOperation
+                    {
+                        Op = "create-item",
+                        Item = "Faceplate_1",
+                        ItemType = "faceplate-container",
+                        ContainedType = @"V0.0.1\Slider_UNIFIED"
+                    }
+                });
+
+            Assert.AreEqual(0, result.FailedCount);
+            Assert.AreEqual(
+                @"V0.0.1\Slider_UNIFIED",
+                result.Screen.Items.Single(item => item.Name == "Faceplate_1").Properties["ContainedType"]);
+        }
+
+        [TestMethod]
+        public void Apply_CreatesFaceplateUsingKebabCaseContainedTypeAlias()
+        {
+            using var document = JsonDocument.Parse(
+                "[{\"op\":\"create-item\",\"item\":\"Faceplate_1\",\"itemType\":\"faceplate-container\",\"contained-type\":\"V0.0.1\\\\Slider_UNIFIED\"}]");
+            var args = new CommandArgs(new Dictionary<string, object?>
+            {
+                ["operations"] = document.RootElement.Clone()
+            });
+            Assert.IsTrue(HmiJsonCommandSupport.TryGetPatchOperationsArgument(args, "operations", out var operations, out var error), error);
+
+            var result = HmiScreenJsonPatchApplier.Apply(CreateScreen(), operations!);
+
+            Assert.AreEqual(0, result.FailedCount);
+            Assert.AreEqual(
+                @"V0.0.1\Slider_UNIFIED",
+                result.Screen.Items.Single(item => item.Name == "Faceplate_1").Properties["ContainedType"]);
+        }
+
+        [TestMethod]
+        public void Apply_RejectsConflictingContainedTypeRepresentations()
+        {
+            var result = HmiScreenJsonPatchApplier.Apply(
+                CreateScreen(),
+                new[]
+                {
+                    new HmiScreenJsonPatchOperation
+                    {
+                        Op = "create-item",
+                        Item = "Faceplate_1",
+                        ItemType = "faceplate-container",
+                        ContainedType = @"V0.0.1\Slider_UNIFIED",
+                        Properties = new Dictionary<string, object?>
+                        {
+                            ["ContainedType"] = @"V0.0.2\Slider_Light_UNIFIED"
+                        }
+                    }
+                });
+
+            Assert.AreEqual(1, result.FailedCount);
+            Assert.IsFalse(result.Screen.Items.Any(item => item.Name == "Faceplate_1"));
+            Assert.IsTrue(result.OperationResults.Single(operation => !operation.Succeeded).Message!.Contains("must match"));
+        }
+
+        [TestMethod]
         public void Apply_DeletesItem()
         {
             var result = HmiScreenJsonPatchApplier.Apply(
@@ -270,6 +336,53 @@ namespace OpenTiaToolkit.Tests.Services
 
             Assert.AreEqual(0, result.FailedCount);
             Assert.IsTrue(result.Screen.Items.Any(item => item.Name == "BtnCopy"));
+        }
+
+        [TestMethod]
+        public void Apply_DuplicatesFaceplateContainedTypeAndInterface()
+        {
+            var screen = CreateScreen();
+            screen.Items.Add(new HmiJsonItem
+            {
+                Name = "Faceplate_1",
+                Type = "HmiFaceplateContainer",
+                Properties =
+                {
+                    ["ContainedType"] = @"V0.0.1\Slider_UNIFIED"
+                },
+                Interface = new List<HmiJsonInterfaceBinding>
+                {
+                    new HmiJsonInterfaceBinding
+                    {
+                        PropertyName = "Command_DISA",
+                        Value = "Command_A"
+                    }
+                }
+            });
+
+            var result = HmiScreenJsonPatchApplier.Apply(
+                screen,
+                new[]
+                {
+                    new HmiScreenJsonPatchOperation
+                    {
+                        Op = "duplicate-item",
+                        Source = "Faceplate_1",
+                        Item = "Faceplate_2"
+                    },
+                    new HmiScreenJsonPatchOperation
+                    {
+                        Op = "set-interface",
+                        Item = "Faceplate_2",
+                        Property = "Command_DISA",
+                        Value = "Command_B"
+                    }
+                });
+
+            Assert.AreEqual(0, result.FailedCount);
+            var duplicate = result.Screen.Items.Single(item => item.Name == "Faceplate_2");
+            Assert.AreEqual(@"V0.0.1\Slider_UNIFIED", duplicate.Properties["ContainedType"]);
+            Assert.AreEqual("Command_B", duplicate.Interface!.Single().Value);
         }
 
         [TestMethod]
@@ -729,6 +842,23 @@ namespace OpenTiaToolkit.Tests.Services
             CollectionAssert.Contains(filters.Properties.ToList(), "EventHandlers");
             CollectionAssert.Contains(filters.Properties.ToList(), "Dynamizations");
             CollectionAssert.Contains(filters.Properties.ToList(), "Interface");
+        }
+
+        [TestMethod]
+        public void MergeOperationFilters_IncludesContainedTypeAlias()
+        {
+            using var document = JsonDocument.Parse(
+                "[{\"op\":\"create-item\",\"item\":\"Faceplate_1\",\"itemType\":\"faceplate-container\",\"faceplate-type\":\"V0.0.1\\\\Slider_UNIFIED\"}]");
+            var args = new CommandArgs(new Dictionary<string, object?>
+            {
+                ["operations"] = document.RootElement.Clone()
+            });
+            Assert.IsTrue(HmiJsonCommandSupport.TryGetPatchOperationsArgument(args, "operations", out var operations, out var error), error);
+
+            var filters = HmiScreenJsonPatchApplier.MergeOperationFilters(null, operations!);
+
+            CollectionAssert.Contains(filters.ItemNames.ToList(), "Faceplate_1");
+            CollectionAssert.Contains(filters.Properties.ToList(), "ContainedType");
         }
 
         [TestMethod]

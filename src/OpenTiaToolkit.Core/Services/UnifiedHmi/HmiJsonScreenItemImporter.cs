@@ -21,6 +21,7 @@ namespace OpenTiaToolkit.Core.Services
         private readonly V21UnifiedHmiAdapter _adapter;
         private readonly HmiJsonCompositeImportCoordinator _composites;
         private readonly HmiJsonScalarPropertyImporter _scalars;
+        private readonly HmiScreenItemCreationPipeline _creationPipeline;
 
         internal HmiJsonScreenItemImporter(
             V21UnifiedHmiAdapter adapter,
@@ -31,6 +32,7 @@ namespace OpenTiaToolkit.Core.Services
             if (primitives == null) throw new ArgumentNullException(nameof(primitives));
             _composites = composites ?? throw new ArgumentNullException(nameof(composites));
             _scalars = new HmiJsonScalarPropertyImporter(adapter, primitives);
+            _creationPipeline = new HmiScreenItemCreationPipeline(adapter);
         }
 
         internal void ProcessScreenDocument(
@@ -150,6 +152,7 @@ namespace OpenTiaToolkit.Core.Services
             var itemAction = NormalizeAction(itemDocument.Action, defaultAction: "Update");
             var existingItem = screen?.ScreenItems.Find(itemDocument.Name);
             HmiScreenItemBase? temporaryDryRunItem = null;
+            IReadOnlyDictionary<string, string?>? originalCreationPropertyValues = null;
 
             if (string.Equals(itemAction, "Delete", StringComparison.OrdinalIgnoreCase))
             {
@@ -179,7 +182,16 @@ namespace OpenTiaToolkit.Core.Services
                 AddObjectAction(result, "Item", screenPath, itemDocument.Name, itemDocument.Type, "Create", dryRun ? "Item would be created." : "Item was created.");
                 if (dryRun)
                 {
-                    temporaryDryRunItem = TryCreateTemporaryDryRunItem(screen, itemDocument, result, screenPath);
+                    var creationResult = TryCreateItem(
+                        screen,
+                        software,
+                        itemDocument,
+                        filters,
+                        $"__OpenTiaToolkit_Preflight_{Guid.NewGuid():N}",
+                        result,
+                        screenPath);
+                    temporaryDryRunItem = creationResult?.Item;
+                    originalCreationPropertyValues = creationResult?.OriginalCreationPropertyValues;
                     existingItem = temporaryDryRunItem;
                 }
                 else
@@ -190,14 +202,29 @@ namespace OpenTiaToolkit.Core.Services
                         return;
                     }
 
-                    existingItem = _adapter.CreateScreenItem(screen, itemDocument.Type, itemDocument.Name);
+                    var creationResult = TryCreateItem(
+                        screen,
+                        software,
+                        itemDocument,
+                        filters,
+                        itemDocument.Name,
+                        result,
+                        screenPath);
+                    existingItem = creationResult?.Item;
+                    originalCreationPropertyValues = creationResult?.OriginalCreationPropertyValues;
                     if (existingItem == null)
                     {
-                        AddWarning(result, $"Item '{screenPath}/{itemDocument.Name}' could not be created as type '{itemDocument.Type}'.");
                         return;
                     }
 
-                    if (HasInvalidItemProperties(screenPath, itemDocument, existingItem, software, filters, result))
+                    if (HasInvalidItemProperties(
+                        screenPath,
+                        itemDocument,
+                        existingItem,
+                        software,
+                        filters,
+                        result,
+                        originalCreationPropertyValues))
                     {
                         if (!TryDeleteEngineeringObject(existingItem, out var deleteError))
                         {
@@ -212,7 +239,21 @@ namespace OpenTiaToolkit.Core.Services
             {
                 result.ItemRecreated++;
                 AddObjectAction(result, "Item", screenPath, itemDocument.Name, itemDocument.Type, "Recreate", dryRun ? "Item would be recreated because the type changed." : "Item was recreated because the type changed.");
-                if (!dryRun)
+                if (dryRun)
+                {
+                    var creationResult = TryCreateItem(
+                        screen,
+                        software,
+                        itemDocument,
+                        filters,
+                        $"__OpenTiaToolkit_Preflight_{Guid.NewGuid():N}",
+                        result,
+                        screenPath);
+                    temporaryDryRunItem = creationResult?.Item;
+                    originalCreationPropertyValues = creationResult?.OriginalCreationPropertyValues;
+                    existingItem = temporaryDryRunItem;
+                }
+                else
                 {
                     if (!TryDeleteEngineeringObject(existingItem, out var error))
                     {
@@ -226,14 +267,29 @@ namespace OpenTiaToolkit.Core.Services
                         return;
                     }
 
-                    existingItem = _adapter.CreateScreenItem(screen, itemDocument.Type, itemDocument.Name);
+                    var creationResult = TryCreateItem(
+                        screen,
+                        software,
+                        itemDocument,
+                        filters,
+                        itemDocument.Name,
+                        result,
+                        screenPath);
+                    existingItem = creationResult?.Item;
+                    originalCreationPropertyValues = creationResult?.OriginalCreationPropertyValues;
                     if (existingItem == null)
                     {
-                        AddWarning(result, $"Item '{screenPath}/{itemDocument.Name}' could not be recreated as type '{itemDocument.Type}'.");
                         return;
                     }
 
-                    if (HasInvalidItemProperties(screenPath, itemDocument, existingItem, software, filters, result))
+                    if (HasInvalidItemProperties(
+                        screenPath,
+                        itemDocument,
+                        existingItem,
+                        software,
+                        filters,
+                        result,
+                        originalCreationPropertyValues))
                     {
                         AddWarning(result, $"Item '{screenPath}/{itemDocument.Name}' was recreated but property validation failed after the original item was deleted.");
                         return;
@@ -247,7 +303,15 @@ namespace OpenTiaToolkit.Core.Services
 
             try
             {
-                ProcessItemProperties(screenPath, itemDocument, existingItem, software, filters, dryRun, result);
+                ProcessItemProperties(
+                    screenPath,
+                    itemDocument,
+                    existingItem,
+                    software,
+                    filters,
+                    dryRun,
+                    result,
+                    originalCreationPropertyValues);
                 var itemTargetType = existingItem?.GetType();
                 if (itemTargetType == null && !_adapter.TryResolveItemClrType(itemDocument.Type, out itemTargetType))
                 {
@@ -312,14 +376,26 @@ namespace OpenTiaToolkit.Core.Services
             HmiSoftware software,
             HmiJsonFilterOptions filters,
             bool dryRun,
-            HmiJsonImportResult result)
+            HmiJsonImportResult result,
+            IReadOnlyDictionary<string, string?>? originalCreationPropertyValues)
         {
-            _scalars.ProcessItemProperties(screenPath, itemDocument, item, software, filters, dryRun, result);
+            _scalars.ProcessItemProperties(
+                screenPath,
+                itemDocument,
+                item,
+                software,
+                filters,
+                dryRun,
+                result,
+                originalCreationPropertyValues);
         }
 
-        private HmiScreenItemBase? TryCreateTemporaryDryRunItem(
+        private HmiScreenItemCreationResult? TryCreateItem(
             HmiScreen? screen,
+            HmiSoftware software,
             HmiJsonItem itemDocument,
+            HmiJsonFilterOptions filters,
+            string itemName,
             HmiJsonImportResult result,
             string screenPath)
         {
@@ -328,16 +404,29 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            var temporaryName = $"__OpenTiaToolkit_Preflight_{Guid.NewGuid():N}";
-            try
+            var creationProperties = itemDocument.Properties
+                .Where(property =>
+                    property.Value != null &&
+                    HmiJsonFilterMatcher.ShouldIncludeProperty(property.Key, filters))
+                .ToDictionary(
+                    property => property.Key,
+                    property => property.Value,
+                    StringComparer.OrdinalIgnoreCase);
+            var creationResult = _creationPipeline.Create(
+                screen,
+                software,
+                itemDocument.Type,
+                itemName,
+                creationProperties);
+            if (!creationResult.Succeeded)
             {
-                return _adapter.CreateScreenItem(screen, itemDocument.Type, temporaryName);
-            }
-            catch (Exception ex)
-            {
-                AddWarning(result, $"Temporary dry-run item for '{screenPath}/{itemDocument.Name}' could not be created as type '{itemDocument.Type}': {FormatExceptionMessage(ex)}");
+                AddWarning(
+                    result,
+                    $"Item '{screenPath}/{itemDocument.Name}' could not be initialized as type '{itemDocument.Type}': {creationResult.Error}");
                 return null;
             }
+
+            return creationResult;
         }
 
         private bool HasInvalidItemProperties(
@@ -346,12 +435,19 @@ namespace OpenTiaToolkit.Core.Services
             HmiScreenItemBase item,
             HmiSoftware software,
             HmiJsonFilterOptions filters,
-            HmiJsonImportResult result)
+            HmiJsonImportResult result,
+            IReadOnlyDictionary<string, string?>? initializedCreationProperties)
         {
             var hasInvalidProperties = false;
             foreach (var property in itemDocument.Properties.OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase))
             {
                 if (!HmiJsonFilterMatcher.ShouldIncludeProperty(property.Key, filters) || property.Value == null)
+                {
+                    continue;
+                }
+
+                if (initializedCreationProperties != null &&
+                    initializedCreationProperties.ContainsKey(property.Key))
                 {
                     continue;
                 }

@@ -477,6 +477,13 @@ namespace OpenTiaToolkit.Core.Services
             return false;
         }
 
+        internal IReadOnlyList<string> GetItemCreationPropertyNames(string itemType)
+        {
+            return TryResolveItemType(itemType, out var descriptor)
+                ? descriptor.CreationPropertyNames
+                : Array.Empty<string>();
+        }
+
         internal static Dictionary<string, Type> BuildDynamicItemTypeMap()
         {
             IEnumerable<Type> types;
