@@ -5,6 +5,7 @@ using Siemens.Engineering.HW;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services.Hardware
 {
@@ -13,12 +14,17 @@ namespace OpenTiaToolkit.Core.Services.Hardware
         private static readonly string[] DefaultNodeAttributeNames = { "Address", "SubnetMask", "PnDeviceName", "PnDeviceNameAutoGeneration" };
         private static readonly string[] DefaultIoConnectorAttributeNames = { "PnDeviceNumber" };
         private readonly HardwareEngineeringContext _context;
-        private readonly V21HardwareAdapter _adapter;
+        private readonly V21HardwareAttributeAccess _attributes;
+        private readonly V21HardwareNetworkAccess _networks;
 
-        public HardwareTopologyReader(HardwareEngineeringContext context, V21HardwareAdapter adapter)
+        public HardwareTopologyReader(
+            HardwareEngineeringContext context,
+            V21HardwareAttributeAccess attributes,
+            V21HardwareNetworkAccess networks)
         {
             _context = context;
-            _adapter = adapter;
+            _attributes = attributes;
+            _networks = networks;
         }
 
         public IReadOnlyList<HardwareDeviceTreeInfo> GetHardwareTree(string? deviceName) =>
@@ -76,14 +82,14 @@ namespace OpenTiaToolkit.Core.Services.Hardware
 
         private void AddIoAddresses(DeviceItem item, HardwareObjectRef reference, string[]? attributes, ICollection<HardwareIoAddressInfo> result)
         {
-            foreach (var value in _adapter.GetIoAddresses(item, reference, attributes)) result.Add(value);
+            foreach (var value in _attributes.GetIoAddresses(item, reference, attributes)) result.Add(value);
             foreach (var child in item.DeviceItems)
                 AddIoAddresses(child, HardwareReferenceRules.Child(reference, child.Name, child.TypeIdentifier), attributes, result);
         }
 
         private void AddNetworkInfo(HardwareObject target, HardwareObjectRef reference, ICollection<HardwareNetworkInfo> result)
         {
-            var info = _adapter.GetNetworkInfo(target, reference);
+            var info = _networks.GetNetworkInfo(target, reference);
             if (info != null) result.Add(info);
             foreach (var child in target.DeviceItems)
                 AddNetworkInfo(child, HardwareReferenceRules.Child(reference, child.Name, child.TypeIdentifier), result);
@@ -122,7 +128,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                     Name = TiaReflectionHelper.GetProperty(node, "Name")?.ToString(),
                     NodeType = TiaReflectionHelper.GetProperty(node, "NodeType")?.ToString(),
                     ConnectedSubnet = TiaReflectionHelper.GetName(subnet),
-                    Attributes = V21HardwareAdapter.GetSelectedEngineeringAttributeInfos(node, DefaultNodeAttributeNames)
+                    Attributes = V21HardwareAttributeAccess.ProjectSelectedEngineeringAttributeInfos(node, DefaultNodeAttributeNames)
                 };
             }).ToList();
             var networkConnectorIndex = EnumerateNetworkItems(network, "IoConnectors")
@@ -144,7 +150,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                     OwnerName = TiaReflectionHelper.GetName(owner),
                     OwnerTypeIdentifier = TiaReflectionHelper.GetProperty(owner, "TypeIdentifier")?.ToString(),
                     InterfaceOperatingMode = TiaReflectionHelper.GetProperty(network, "InterfaceOperatingMode")?.ToString(),
-                    Attributes = V21HardwareAdapter.GetSelectedEngineeringAttributeInfos(connector, DefaultIoConnectorAttributeNames)
+                    Attributes = V21HardwareAttributeAccess.ProjectSelectedEngineeringAttributeInfos(connector, DefaultIoConnectorAttributeNames)
                 }
             };
         }

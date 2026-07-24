@@ -18,14 +18,14 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             HardwarePatchRules.RequireText(op.DataHex, "dataHex");
             var target = context.Resolve(op);
             var bytes = HardwareHexCodec.Parse(op.DataHex!);
-            var before = context.Adapter.GetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, bytes.Length);
+            var before = context.Attributes.GetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, bytes.Length);
             if (!string.IsNullOrWhiteSpace(op.ExpectedDataHex))
             {
                 var expected = HardwareHexCodec.Parse(op.ExpectedDataHex!);
                 if (before == null || !before.SequenceEqual(expected))
                     throw new InvalidOperationException($"GSD parameter data differs from expectedDataHex at dataset {op.DatasetNumber.Value}, offset {op.ByteOffset}.");
             }
-            context.Adapter.SetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, bytes);
+            context.Attributes.SetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, bytes);
             return context.Success(index, op, target.Reference, $"Wrote {bytes.Length} GSD parameter byte(s).", new HardwareGsdParameterChangeInfo
             {
                 DatasetNumber = op.DatasetNumber.Value,
@@ -40,7 +40,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             if (!op.DatasetNumber.HasValue) throw new InvalidOperationException("datasetNumber is required for get-gsd-parameter-data.");
             if (!op.Length.HasValue || op.Length.Value <= 0) throw new InvalidOperationException("length is required for get-gsd-parameter-data.");
             var target = context.Resolve(op);
-            var bytes = context.Adapter.GetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, op.Length.Value)
+            var bytes = context.Attributes.GetGsdParameterData(target.Object, op.DatasetNumber.Value, op.ByteOffset, op.Length.Value)
                 ?? throw new InvalidOperationException("GSD parameter data could not be read.");
             return context.Success(index, op, target.Reference, $"Read {bytes.Length} GSD parameter byte(s).", new HardwareGsdParameterData
             {

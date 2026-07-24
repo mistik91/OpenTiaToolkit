@@ -4,6 +4,7 @@ using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services.Hardware;
 using OpenTiaToolkit.Core.Services.Hardware.Patching;
 using OpenTiaToolkit.Core.Services.PlcTags;
+using OpenTiaToolkit.Core.Services.V21;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -25,24 +26,30 @@ namespace OpenTiaToolkit.Core.Services
         internal HardwareService(
             IPortalService portalService,
             EngineeringSessionContext sessionContext,
-            V21HardwareAdapter adapter,
-            V21.V21SoftwareDiscovery software,
+            V21HardwareCatalogAccess catalog,
+            V21HardwareAttributeAccess attributes,
+            V21HardwareDriveAccess drives,
+            V21HardwareNetworkAccess networks,
+            V21SoftwareDiscovery software,
             IPlcTagRepository tagRepository,
             ILogger<HardwareService>? logger = null)
         {
             _ = portalService ?? throw new ArgumentNullException(nameof(portalService));
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            var hardwareAdapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
+            _ = catalog ?? throw new ArgumentNullException(nameof(catalog));
+            _ = attributes ?? throw new ArgumentNullException(nameof(attributes));
+            _ = drives ?? throw new ArgumentNullException(nameof(drives));
+            _ = networks ?? throw new ArgumentNullException(nameof(networks));
             _ = software ?? throw new ArgumentNullException(nameof(software));
             _ = tagRepository ?? throw new ArgumentNullException(nameof(tagRepository));
             var engineering = new HardwareEngineeringContext(_sessionContext);
             var resolver = new HardwareTargetResolver(engineering);
-            _topology = new HardwareTopologyReader(engineering, hardwareAdapter);
-            _drives = new HardwareDriveReader(engineering, hardwareAdapter);
-            _catalog = new HardwareCatalogCapabilityReader(engineering, resolver, hardwareAdapter);
+            _topology = new HardwareTopologyReader(engineering, attributes, networks);
+            _drives = new HardwareDriveReader(engineering, drives);
+            _catalog = new HardwareCatalogCapabilityReader(engineering, resolver, catalog, attributes);
             _audit = new HardwareTagMappingAuditWorkflow(
-                engineering, _topology, _drives, hardwareAdapter, software, tagRepository, logger);
-            _patch = new HardwarePatchWorkflow(engineering, hardwareAdapter, resolver, _topology, logger);
+                engineering, _topology, _drives, catalog, software, tagRepository, logger);
+            _patch = new HardwarePatchWorkflow(engineering, attributes, drives, networks, resolver, _topology, logger);
         }
 
         public Task<IReadOnlyList<HardwareCatalogItemInfo>> FindCatalogItemsAsync(string searchText, string? culture = null) =>

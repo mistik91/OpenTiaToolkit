@@ -43,7 +43,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             HardwarePatchRules.RequireText(op.FeatureService, "featureService");
             if (op.AttributeNames == null || op.AttributeNames.Length == 0) throw new InvalidOperationException("attributeNames is required for get-feature-attributes.");
             var target = context.Resolve(op);
-            var values = context.Adapter.GetFeatureAttributeInfos(target.Object, op.FeatureService!, op.AttributeNames).ToList();
+            var values = context.Attributes.GetFeatureAttributeInfos(target.Object, op.FeatureService!, op.AttributeNames).ToList();
             return context.Success(index, op, target.Reference, $"Read {values.Count} {op.FeatureService} feature attribute(s).",
                 new HardwareFeatureAttributesInfo { Target = target.Reference, FeatureService = op.FeatureService!, Attributes = values });
         }
@@ -57,7 +57,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             var before = op.Attributes.Keys.ToDictionary(name => name,
                 name => context.TryGetFeatureAttribute(target.Object, op.FeatureService!, name), StringComparer.OrdinalIgnoreCase);
             var values = ConvertValues(op.Attributes);
-            context.Adapter.SetFeatureAttributes(target.Object, op.FeatureService!, values);
+            context.Attributes.SetFeatureAttributes(target.Object, op.FeatureService!, values);
             return context.Success(index, op, target.Reference, $"Set {values.Count} {op.FeatureService} feature attribute(s).", Change(before, values));
         }
 
@@ -67,7 +67,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             if (op.AttributeNames == null || op.AttributeNames.Length == 0) throw new InvalidOperationException("attributeNames is required for get-network-item-attributes.");
             var target = context.Resolve(op);
             var itemIndex = op.NetworkItemIndex ?? 0;
-            var values = context.Adapter.GetNetworkItemAttributeInfos(target.Object, op.NetworkCollection!, itemIndex, op.AttributeNames).ToList();
+            var values = context.Attributes.GetNetworkItemAttributeInfos(target.Object, op.NetworkCollection!, itemIndex, op.AttributeNames).ToList();
             return context.Success(index, op, target.Reference, $"Read {values.Count} {op.NetworkCollection} item attribute(s).",
                 new HardwareNetworkItemAttributesInfo { Target = target.Reference, CollectionName = op.NetworkCollection!, Index = itemIndex, Attributes = values });
         }
@@ -82,7 +82,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             var before = op.Attributes.Keys.ToDictionary(name => name,
                 name => context.TryGetNetworkItemAttribute(target.Object, op.NetworkCollection!, itemIndex, name), StringComparer.OrdinalIgnoreCase);
             var values = ConvertValues(op.Attributes);
-            context.Adapter.SetNetworkItemAttributes(target.Object, op.NetworkCollection!, itemIndex, values);
+            context.Attributes.SetNetworkItemAttributes(target.Object, op.NetworkCollection!, itemIndex, values);
             return context.Success(index, op, target.Reference, $"Set {values.Count} {op.NetworkCollection} item attribute(s).", Change(before, values));
         }
 
@@ -110,8 +110,8 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             var change = new HardwareProfinetConfigurationChangeInfo();
             foreach (var value in nodeValues) { change.Node.Before[value.Key] = context.TryGetNetworkItemAttribute(target.Object, "Nodes", nodeIndex, value.Key); change.Node.Written[value.Key] = value.Value; }
             foreach (var value in connectorValues) { change.Connector.Before[value.Key] = context.TryGetNetworkItemAttribute(target.Object, "IoConnectors", connectorIndex, value.Key); change.Connector.Written[value.Key] = value.Value; }
-            if (nodeValues.Count > 0) context.Adapter.SetNetworkItemAttributes(target.Object, "Nodes", nodeIndex, nodeValues);
-            if (connectorValues.Count > 0) context.Adapter.SetNetworkItemAttributes(target.Object, "IoConnectors", connectorIndex, connectorValues);
+            if (nodeValues.Count > 0) context.Attributes.SetNetworkItemAttributes(target.Object, "Nodes", nodeIndex, nodeValues);
+            if (connectorValues.Count > 0) context.Attributes.SetNetworkItemAttributes(target.Object, "IoConnectors", connectorIndex, connectorValues);
             return context.Success(index, op, target.Reference, "Configured PROFINET device identity and addressing.", change);
         }
 

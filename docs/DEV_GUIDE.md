@@ -107,10 +107,17 @@ The public service interfaces stay stable, but the implementation is now split i
 - [PlcBlockMutationService.cs](../src/OpenTiaToolkit.Core/Services/PlcBlockMutationService.cs): block creation/deletion
 - [PlcTagService.cs](../src/OpenTiaToolkit.Core/Services/PlcTagService.cs): tag creation and update flows
 - [PlcMemberRenameService.cs](../src/OpenTiaToolkit.Core/Services/PlcMemberRenameService.cs): DB/UDT member rename flows
-- [PlcImportExportService.cs](../src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): XML and document import/export flows
+- [PlcImportExportService.cs](../src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): compatibility facade for PLC transfer commands
+- [PlcXmlTransferService.cs](../src/OpenTiaToolkit.Core/Services/PlcXmlTransferService.cs): XML block and PLC data-type import/export
+- [PlcDocumentTransferService.cs](../src/OpenTiaToolkit.Core/Services/PlcDocumentTransferService.cs): SIMATIC SD document import/export and V21 support checks
+- [PlcSurfaceService.cs](../src/OpenTiaToolkit.Core/Services/PlcSurfaceService.cs): compatibility facade for PLC surface commands
+- [PlcCrossReferenceService.cs](../src/OpenTiaToolkit.Core/Services/PlcCrossReferenceService.cs): cross-reference target discovery, compatibility lookup, traversal, and projection
+- [PlcExternalSourceService.cs](../src/OpenTiaToolkit.Core/Services/PlcExternalSourceService.cs): external-source import, generation, deletion, and block-to-source export
 - [LibraryService.cs](../src/OpenTiaToolkit.Core/Services/LibraryService.cs): project/global library listing, master-copy copy workflows, library type versions, and update checks
 - [VciService.cs](../src/OpenTiaToolkit.Core/Services/VciService.cs): VCI workspaces, mappings, comparison state, and surgical/bulk synchronization
 - [HardwareService.cs](../src/OpenTiaToolkit.Core/Services/HardwareService.cs): compatibility facade preserving the shared hardware service contract
+- [V21HardwareAdapter.cs](../src/OpenTiaToolkit.Core/Services/V21HardwareAdapter.cs): direct-construction compatibility facade only
+- `Services/V21/V21Hardware*Access.cs`: shared catalog, attribute/GSD/IO, Startdrive, and network Openness boundaries consumed directly by production hardware workflows
 - [Services/Hardware](../src/OpenTiaToolkit.Core/Services/Hardware): focused hardware catalog/capability, topology, drive, PLC-tag audit, target-resolution, reference/value-rule, and transactional patch components
 
 Hardware patches use one Siemens transaction for the complete ordered operation list. Domain handlers are registered through a duplicate-checked catalog; dry-runs execute the real operations and roll back, result references remain patch-local, expected-value guards run before writes, and only a fully successful non-dry-run selects commit-on-dispose. CLI and MCP continue to reach this behavior through the shared Core command and `IHardwareService` surface.

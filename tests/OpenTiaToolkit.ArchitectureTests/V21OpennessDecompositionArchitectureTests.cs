@@ -45,7 +45,8 @@ public class V21OpennessDecompositionArchitectureTests
         {
             "V21TypeServiceResolver", "V21EngineeringObjectAccess", "V21SoftwareDiscovery",
             "V21PlcTagStructureAccess", "V21CompilationAccess", "V21OnlineVerificationAccess",
-            "V21DocumentAccess", "V21HardwareAdapter", "V21PlcTagRepository"
+            "V21DocumentAccess", "V21HardwareCatalogAccess", "V21HardwareAttributeAccess",
+            "V21HardwareDriveAccess", "V21HardwareNetworkAccess", "V21HardwareAdapter", "V21PlcTagRepository"
         })
         {
             CollectionAssert.Contains(registrations, capability);
@@ -91,9 +92,16 @@ public class V21OpennessDecompositionArchitectureTests
         AssertV21Constructor(index, "PlcMemberRenameService", "V21PlcTagStructureAccess", "V21EngineeringObjectAccess");
         AssertV21Constructor(index, "PlcImportExportService", "V21DocumentAccess", "V21EngineeringObjectAccess");
         AssertV21Constructor(index, "PlcSurfaceService", "V21TypeServiceResolver", "V21PlcTagStructureAccess", "V21EngineeringObjectAccess");
+        AssertV21Constructor(index, "PlcXmlTransferService", "V21DocumentAccess", "V21EngineeringObjectAccess");
+        AssertV21Constructor(index, "PlcDocumentTransferService", "V21DocumentAccess");
+        AssertV21Constructor(index, "PlcTagExportService", "V21PlcTagStructureAccess", "V21EngineeringObjectAccess");
+        AssertV21Constructor(index, "PlcCrossReferenceService", "V21TypeServiceResolver", "V21PlcTagStructureAccess", "V21EngineeringObjectAccess");
         AssertV21Constructor(index, "V21PlcTagRepository", "V21PlcTagStructureAccess", "V21EngineeringObjectAccess");
         AssertV21Constructor(index, "V21HardwareAdapter", "V21TypeServiceResolver");
-        AssertV21Constructor(index, "HardwareTagMappingAuditWorkflow", "V21HardwareAdapter", "V21SoftwareDiscovery");
+        AssertV21Constructor(index, "V21HardwareAttributeAccess", "V21TypeServiceResolver");
+        AssertV21Constructor(index, "V21HardwareDriveAccess", "V21HardwareAttributeAccess");
+        AssertV21Constructor(index, "V21HardwareNetworkAccess", "V21HardwareAttributeAccess");
+        AssertV21Constructor(index, "HardwareTagMappingAuditWorkflow", "V21HardwareCatalogAccess", "V21SoftwareDiscovery");
         AssertV21Constructor(index, "PlcCodeTargetRepository", "V21DocumentAccess", "V21EngineeringObjectAccess");
     }
 

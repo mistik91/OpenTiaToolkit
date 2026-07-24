@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Services.V21;
 using Siemens.Engineering.HW;
 using System;
 using System.Collections.Generic;
@@ -64,14 +65,18 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
     {
         public HardwarePatchExecutionContext(
             HardwareEngineeringContext engineering,
-            V21HardwareAdapter adapter,
+            V21HardwareAttributeAccess attributes,
+            V21HardwareDriveAccess drives,
+            V21HardwareNetworkAccess networks,
             HardwareTargetResolver resolver,
             HardwareTopologyReader topology,
             bool dryRun,
             bool confirmDestructive)
         {
             Engineering = engineering;
-            Adapter = adapter;
+            Attributes = attributes;
+            Drives = drives;
+            Networks = networks;
             Resolver = resolver;
             Topology = topology;
             DryRun = dryRun;
@@ -79,7 +84,9 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         }
 
         public HardwareEngineeringContext Engineering { get; }
-        public V21HardwareAdapter Adapter { get; }
+        public V21HardwareAttributeAccess Attributes { get; }
+        public V21HardwareDriveAccess Drives { get; }
+        public V21HardwareNetworkAccess Networks { get; }
         public HardwareTargetResolver Resolver { get; }
         public HardwareTopologyReader Topology { get; }
         public bool DryRun { get; }
@@ -93,15 +100,15 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             HardwarePatchRules.Success(index, operation, target, message, data);
 
         public void EnsureExpectedAttributes(HardwareObject target, IDictionary<string, object?>? expected) =>
-            EnsureExpected(expected, name => Adapter.GetAttribute(target, name), name => $"Hardware attribute '{name}' differs from expectedAttributes.");
+            EnsureExpected(expected, name => Attributes.GetAttribute(target, name), name => $"Hardware attribute '{name}' differs from expectedAttributes.");
         public void EnsureExpectedFeatureAttributes(HardwareObject target, string service, IDictionary<string, object?>? expected) =>
-            EnsureExpected(expected, name => Adapter.GetFeatureAttribute(target, service, name), name => $"{service} feature attribute '{name}' differs from expectedAttributes.");
+            EnsureExpected(expected, name => Attributes.GetFeatureAttribute(target, service, name), name => $"{service} feature attribute '{name}' differs from expectedAttributes.");
         public void EnsureExpectedNetworkItemAttributes(HardwareObject target, string collection, int index, IDictionary<string, object?>? expected) =>
-            EnsureExpected(expected, name => Adapter.GetNetworkItemAttribute(target, collection, index, name), name => $"{collection} item attribute '{name}' differs from expectedAttributes.");
+            EnsureExpected(expected, name => Attributes.GetNetworkItemAttribute(target, collection, index, name), name => $"{collection} item attribute '{name}' differs from expectedAttributes.");
 
-        public object? TryGetAttribute(HardwareObject target, string name) => TryGet(() => Adapter.GetAttribute(target, name));
-        public object? TryGetFeatureAttribute(HardwareObject target, string service, string name) => TryGet(() => Adapter.GetFeatureAttribute(target, service, name));
-        public object? TryGetNetworkItemAttribute(HardwareObject target, string collection, int index, string name) => TryGet(() => Adapter.GetNetworkItemAttribute(target, collection, index, name));
+        public object? TryGetAttribute(HardwareObject target, string name) => TryGet(() => Attributes.GetAttribute(target, name));
+        public object? TryGetFeatureAttribute(HardwareObject target, string service, string name) => TryGet(() => Attributes.GetFeatureAttribute(target, service, name));
+        public object? TryGetNetworkItemAttribute(HardwareObject target, string collection, int index, string name) => TryGet(() => Attributes.GetNetworkItemAttribute(target, collection, index, name));
 
         private static object? TryGet(Func<object?> read) { try { return read(); } catch { return null; } }
         private static void EnsureExpected(IDictionary<string, object?>? expected, Func<string, object?> read, Func<string, string> error)
@@ -171,16 +178,27 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
     internal sealed class HardwarePatchWorkflow
     {
         private readonly HardwareEngineeringContext _engineering;
-        private readonly V21HardwareAdapter _adapter;
+        private readonly V21HardwareAttributeAccess _attributes;
+        private readonly V21HardwareDriveAccess _drives;
+        private readonly V21HardwareNetworkAccess _networks;
         private readonly HardwareTargetResolver _resolver;
         private readonly HardwareTopologyReader _topology;
         private readonly HardwarePatchOperationCatalog _catalog;
         private readonly ILogger? _logger;
 
-        public HardwarePatchWorkflow(HardwareEngineeringContext engineering, V21HardwareAdapter adapter, HardwareTargetResolver resolver, HardwareTopologyReader topology, ILogger? logger)
+        public HardwarePatchWorkflow(
+            HardwareEngineeringContext engineering,
+            V21HardwareAttributeAccess attributes,
+            V21HardwareDriveAccess drives,
+            V21HardwareNetworkAccess networks,
+            HardwareTargetResolver resolver,
+            HardwareTopologyReader topology,
+            ILogger? logger)
         {
             _engineering = engineering;
-            _adapter = adapter;
+            _attributes = attributes;
+            _drives = drives;
+            _networks = networks;
             _resolver = resolver;
             _topology = topology;
             _logger = logger;
@@ -203,7 +221,8 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
                 DryRun = dryRun,
                 TransactionDescription = string.IsNullOrWhiteSpace(description) ? "OpenTiaToolkit hardware patch" : description
             };
-            var execution = new HardwarePatchExecutionContext(_engineering, _adapter, _resolver, _topology, dryRun, confirmDestructive);
+            var execution = new HardwarePatchExecutionContext(
+                _engineering, _attributes, _drives, _networks, _resolver, _topology, dryRun, confirmDestructive);
             try
             {
                 var project = _engineering.RequireProject();

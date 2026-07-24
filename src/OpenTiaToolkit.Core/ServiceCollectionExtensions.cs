@@ -26,7 +26,15 @@ namespace OpenTiaToolkit.Core
             services.AddSingleton<V21CompilationAccess>();
             services.AddSingleton<V21OnlineVerificationAccess>();
             services.AddSingleton<V21DocumentAccess>();
-            services.AddSingleton<V21HardwareAdapter>();
+            services.AddSingleton<V21HardwareCatalogAccess>();
+            services.AddSingleton<V21HardwareAttributeAccess>();
+            services.AddSingleton<V21HardwareDriveAccess>();
+            services.AddSingleton<V21HardwareNetworkAccess>();
+            services.AddSingleton<V21HardwareAdapter>(serviceProvider => new V21HardwareAdapter(
+                serviceProvider.GetRequiredService<V21HardwareCatalogAccess>(),
+                serviceProvider.GetRequiredService<V21HardwareAttributeAccess>(),
+                serviceProvider.GetRequiredService<V21HardwareDriveAccess>(),
+                serviceProvider.GetRequiredService<V21HardwareNetworkAccess>()));
             services.AddSingleton<V21PlcTagRepository>();
             services.AddSingleton<IPlcTagRepository>(serviceProvider =>
                 serviceProvider.GetRequiredService<V21PlcTagRepository>());
@@ -113,7 +121,10 @@ namespace OpenTiaToolkit.Core
                 new HardwareService(
                     serviceProvider.GetRequiredService<IPortalService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
-                    serviceProvider.GetRequiredService<V21HardwareAdapter>(),
+                    serviceProvider.GetRequiredService<V21HardwareCatalogAccess>(),
+                    serviceProvider.GetRequiredService<V21HardwareAttributeAccess>(),
+                    serviceProvider.GetRequiredService<V21HardwareDriveAccess>(),
+                    serviceProvider.GetRequiredService<V21HardwareNetworkAccess>(),
                     serviceProvider.GetRequiredService<V21SoftwareDiscovery>(),
                     serviceProvider.GetRequiredService<IPlcTagRepository>(),
                     serviceProvider.GetService<ILogger<HardwareService>>()));

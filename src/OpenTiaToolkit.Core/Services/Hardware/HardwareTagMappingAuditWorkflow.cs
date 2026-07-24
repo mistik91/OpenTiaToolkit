@@ -18,7 +18,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
         private readonly HardwareEngineeringContext _context;
         private readonly HardwareTopologyReader _topology;
         private readonly HardwareDriveReader _drives;
-        private readonly V21HardwareAdapter _adapter;
+        private readonly V21HardwareCatalogAccess _catalog;
         private readonly V21SoftwareDiscovery _software;
         private readonly IPlcTagCatalogReader _tagCatalogReader;
         private readonly ILogger? _logger;
@@ -27,7 +27,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             HardwareEngineeringContext context,
             HardwareTopologyReader topology,
             HardwareDriveReader drives,
-            V21HardwareAdapter adapter,
+            V21HardwareCatalogAccess catalog,
             V21SoftwareDiscovery software,
             IPlcTagCatalogReader tagCatalogReader,
             ILogger? logger)
@@ -35,7 +35,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             _context = context;
             _topology = topology;
             _drives = drives;
-            _adapter = adapter;
+            _catalog = catalog;
             _software = software ?? throw new ArgumentNullException(nameof(software));
             _tagCatalogReader = tagCatalogReader;
             _logger = logger;
@@ -81,7 +81,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
 
             if (!string.IsNullOrWhiteSpace(catalogSearchText))
             {
-                result.CatalogMatches = _adapter.FindCatalogItems(_context.RequirePortal(), catalogSearchText!, null).Take(50).ToList();
+                result.CatalogMatches = _catalog.FindCatalogItems(_context.RequirePortal(), catalogSearchText!, null).Take(50).ToList();
                 result.MatchingHardwareTargets = FindHardwareTargets(devices, catalogSearchText!, result.CatalogMatches).ToList();
                 result.MatchingConnectedIoDevices = FindMatchingConnectedIoDevices(catalogSearchText!, result.CatalogMatches).ToList();
             }

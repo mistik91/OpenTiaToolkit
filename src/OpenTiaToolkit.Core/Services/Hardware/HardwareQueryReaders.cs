@@ -1,5 +1,6 @@
 using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services.Hardware.Patching;
+using OpenTiaToolkit.Core.Services.V21;
 using Siemens.Engineering.HW;
 using System;
 using System.Collections.Generic;
@@ -11,23 +12,29 @@ namespace OpenTiaToolkit.Core.Services.Hardware
     {
         private readonly HardwareEngineeringContext _context;
         private readonly HardwareTargetResolver _resolver;
-        private readonly V21HardwareAdapter _adapter;
+        private readonly V21HardwareCatalogAccess _catalog;
+        private readonly V21HardwareAttributeAccess _attributes;
 
-        public HardwareCatalogCapabilityReader(HardwareEngineeringContext context, HardwareTargetResolver resolver, V21HardwareAdapter adapter)
+        public HardwareCatalogCapabilityReader(
+            HardwareEngineeringContext context,
+            HardwareTargetResolver resolver,
+            V21HardwareCatalogAccess catalog,
+            V21HardwareAttributeAccess attributes)
         {
             _context = context;
             _resolver = resolver;
-            _adapter = adapter;
+            _catalog = catalog;
+            _attributes = attributes;
         }
 
         public IReadOnlyList<HardwareCatalogItemInfo> FindCatalogItems(string searchText, string? culture) =>
-            _adapter.FindCatalogItems(_context.RequirePortal(), searchText ?? string.Empty, culture);
+            _catalog.FindCatalogItems(_context.RequirePortal(), searchText ?? string.Empty, culture);
 
         public HardwareCapabilityInfo? GetCapabilities(HardwareObjectRef target, string[]? attributes)
         {
             var resolved = _resolver.Resolve(target).Object;
             var services = new[] { "GsdDevice", "GsdDeviceItem", "NetworkInterface" }
-                .Where(name => _adapter.GetFeatureService(resolved, name) != null).ToList();
+                .Where(name => _attributes.GetFeatureService(resolved, name) != null).ToList();
             return new HardwareCapabilityInfo
             {
                 Target = HardwareReferenceRules.Clone(target),
@@ -37,7 +44,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                 SupportsGsdParameters = services.Contains("GsdDeviceItem"),
                 SupportsNetworkInterface = services.Contains("NetworkInterface"),
                 AvailableServices = services,
-                Attributes = _adapter.GetAttributeInfos(resolved, attributes).ToList()
+                Attributes = _attributes.GetAttributeInfos(resolved, attributes).ToList()
             };
         }
 
@@ -49,7 +56,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             {
                 Target = HardwareReferenceRules.Clone(target),
                 FeatureService = featureService,
-                Attributes = _adapter.GetFeatureAttributeInfos(resolved, featureService, attributes).ToList()
+                Attributes = _attributes.GetFeatureAttributeInfos(resolved, featureService, attributes).ToList()
             };
         }
 
@@ -62,7 +69,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                 Target = HardwareReferenceRules.Clone(target),
                 CollectionName = collectionName,
                 Index = index,
-                Attributes = _adapter.GetNetworkItemAttributeInfos(resolved, collectionName, index, attributes).ToList()
+                Attributes = _attributes.GetNetworkItemAttributeInfos(resolved, collectionName, index, attributes).ToList()
             };
         }
 
@@ -80,11 +87,11 @@ namespace OpenTiaToolkit.Core.Services.Hardware
         }
 
         public IReadOnlyList<string> FindModuleTypes(string partialTypeIdentifier) =>
-            _adapter.FindModuleTypes(_context.RequireProject(), partialTypeIdentifier ?? string.Empty);
+            _catalog.FindModuleTypes(_context.RequireProject(), partialTypeIdentifier ?? string.Empty);
 
         public HardwareGsdParameterData? GetGsdParameterData(HardwareObjectRef target, int datasetNumber, int byteOffset, int length)
         {
-            var bytes = _adapter.GetGsdParameterData(_resolver.Resolve(target).Object, datasetNumber, byteOffset, length);
+            var bytes = _attributes.GetGsdParameterData(_resolver.Resolve(target).Object, datasetNumber, byteOffset, length);
             return bytes == null ? null : new HardwareGsdParameterData
             {
                 Target = HardwareReferenceRules.Clone(target),
@@ -99,12 +106,12 @@ namespace OpenTiaToolkit.Core.Services.Hardware
     internal sealed class HardwareDriveReader
     {
         private readonly HardwareEngineeringContext _context;
-        private readonly V21HardwareAdapter _adapter;
+        private readonly V21HardwareDriveAccess _drives;
 
-        public HardwareDriveReader(HardwareEngineeringContext context, V21HardwareAdapter adapter)
+        public HardwareDriveReader(HardwareEngineeringContext context, V21HardwareDriveAccess drives)
         {
             _context = context;
-            _adapter = adapter;
+            _drives = drives;
         }
 
         public IReadOnlyList<HardwareDriveTelegramInfo> GetDriveTelegrams(string? deviceName, string[]? attributes)
@@ -142,14 +149,14 @@ namespace OpenTiaToolkit.Core.Services.Hardware
 
         private void AddTelegrams(DeviceItem item, HardwareObjectRef reference, string[]? attributes, ICollection<HardwareDriveTelegramInfo> result)
         {
-            foreach (var value in _adapter.GetDriveTelegrams(item, reference, attributes)) result.Add(value);
+            foreach (var value in _drives.GetDriveTelegrams(item, reference, attributes)) result.Add(value);
             foreach (var child in item.DeviceItems)
                 AddTelegrams(child, HardwareReferenceRules.Child(reference, child.Name, child.TypeIdentifier), attributes, result);
         }
 
         private void AddParameters(DeviceItem item, HardwareObjectRef reference, int? index, string? filter, int max, ICollection<HardwareDriveParameterInfo> result)
         {
-            foreach (var value in _adapter.GetDriveParameters(item, reference, index, filter, max - result.Count)) result.Add(value);
+            foreach (var value in _drives.GetDriveParameters(item, reference, index, filter, max - result.Count)) result.Add(value);
             if (result.Count >= max) return;
             foreach (var child in item.DeviceItems)
             {

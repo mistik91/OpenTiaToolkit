@@ -35,7 +35,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             if (!op.StartAddress.HasValue) throw new InvalidOperationException("startAddress is required for set-io-address-start.");
             var target = context.Resolve(op);
             if (!(target.Object is DeviceItem item)) throw new InvalidOperationException("set-io-address-start target must be a nested device item.");
-            var change = context.Adapter.SetIoAddressStart(item, op.AddressIndex.Value, op.StartAddress.Value, op.ExpectedStartAddress);
+            var change = context.Attributes.SetIoAddressStart(item, op.AddressIndex.Value, op.StartAddress.Value, op.ExpectedStartAddress);
             return context.Success(index, op, target.Reference, "Set hardware IO start address.", change);
         }
 
@@ -44,7 +44,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             HardwarePatchRules.RequireText(op.TelegramType, "telegramType");
             if (!op.TelegramNumber.HasValue) throw new InvalidOperationException("telegramNumber is required for change-drive-telegram.");
             var item = ResolveDriveItem(op, context, "change-drive-telegram", out var target);
-            var change = context.Adapter.ChangeDriveTelegramNumber(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.TelegramNumber.Value, op.ExpectedTelegramNumber);
+            var change = context.Drives.ChangeDriveTelegramNumber(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.TelegramNumber.Value, op.ExpectedTelegramNumber);
             return context.Success(index, op, target.Reference, "Changed Startdrive telegram number.", change);
         }
 
@@ -54,7 +54,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             HardwarePatchRules.RequireText(op.IoType, "ioType");
             if (!op.StartAddress.HasValue) throw new InvalidOperationException("startAddress is required for set-drive-telegram-address.");
             var item = ResolveDriveItem(op, context, "set-drive-telegram-address", out var target);
-            var change = context.Adapter.SetDriveTelegramAddress(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.IoType!, op.StartAddress.Value, op.ExpectedStartAddress);
+            var change = context.Drives.SetDriveTelegramAddress(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.IoType!, op.StartAddress.Value, op.ExpectedStartAddress);
             return context.Success(index, op, target.Reference, "Set Startdrive telegram IO start address.", change);
         }
 
@@ -65,7 +65,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             if (!op.InputStartAddress.HasValue && !op.OutputStartAddress.HasValue)
                 throw new InvalidOperationException("configure-drive-telegram requires inputStartAddress or outputStartAddress.");
             var item = ResolveDriveItem(op, context, "configure-drive-telegram", out var target);
-            var changes = context.Adapter.ConfigureDriveTelegram(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.TelegramNumber.Value,
+            var changes = context.Drives.ConfigureDriveTelegram(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.TelegramNumber.Value,
                 op.ExpectedTelegramNumber, op.InputStartAddress, op.ExpectedInputStartAddress, op.OutputStartAddress, op.ExpectedOutputStartAddress);
             return context.Success(index, op, target.Reference, "Configured Startdrive telegram number and IO start address(es).",
                 new HardwareDriveTelegramConfigurationInfo { Changes = changes.ToList() });
@@ -77,7 +77,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             HardwarePatchRules.RequireText(op.IoType, "ioType");
             if (!op.SizeInWords.HasValue) throw new InvalidOperationException("sizeInWords is required for change-drive-telegram-size.");
             var item = ResolveDriveItem(op, context, "change-drive-telegram-size", out var target);
-            var change = context.Adapter.ChangeDriveTelegramSize(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.IoType!,
+            var change = context.Drives.ChangeDriveTelegramSize(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.IoType!,
                 op.SizeInWords.Value, op.ExpectedSizeInWords, op.KeepOriginalAddress);
             return context.Success(index, op, target.Reference, "Changed Startdrive telegram IO size.", change);
         }
@@ -87,7 +87,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
             HardwarePatchRules.RequireText(op.TelegramType, "telegramType");
             if (!op.TelegramNumber.HasValue) throw new InvalidOperationException("telegramNumber is required for insert-drive-telegram.");
             var item = ResolveDriveItem(op, context, "insert-drive-telegram", out var target);
-            var change = context.Adapter.InsertDriveTelegram(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.TelegramNumber.Value);
+            var change = context.Drives.InsertDriveTelegram(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.TelegramNumber.Value);
             return context.Success(index, op, target.Reference, "Inserted Startdrive telegram.", change);
         }
 
@@ -95,7 +95,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         {
             HardwarePatchRules.RequireText(op.TelegramType, "telegramType");
             var item = ResolveDriveItem(op, context, "erase-drive-telegram", out var target);
-            var change = context.Adapter.EraseDriveTelegram(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.ExpectedTelegramNumber);
+            var change = context.Drives.EraseDriveTelegram(item, op.DriveObjectIndex ?? 0, op.TelegramType!, op.ExpectedTelegramNumber);
             return context.Success(index, op, target.Reference, "Erased Startdrive telegram.", change);
         }
 

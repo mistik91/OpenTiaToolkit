@@ -41,18 +41,18 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         {
             HardwarePatchRules.RequireText(op.SubnetName, "subnetName");
             var target = context.Resolve(op);
-            var node = context.Adapter.RequireNetworkItem(target.Object, "Nodes", op.NodeIndex ?? 0);
+            var node = context.Attributes.RequireNetworkItem(target.Object, "Nodes", op.NodeIndex ?? 0);
             var subnet = context.Engineering.RequireProject().Subnets.FirstOrDefault(candidate =>
                 string.Equals(candidate.Name, op.SubnetName, StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidOperationException($"Subnet not found: {op.SubnetName}");
-            context.Adapter.ConnectNodeToSubnet(node, subnet);
+            context.Networks.ConnectNodeToSubnet(node, subnet);
             return context.Success(index, op, target.Reference, $"Connected node to subnet: {subnet.Name}");
         }
 
         private static HardwareOperationResult DisconnectNode(int index, HardwarePatchOperation op, HardwarePatchExecutionContext context)
         {
             var target = context.Resolve(op);
-            context.Adapter.DisconnectNode(context.Adapter.RequireNetworkItem(target.Object, "Nodes", op.NodeIndex ?? 0));
+            context.Networks.DisconnectNode(context.Attributes.RequireNetworkItem(target.Object, "Nodes", op.NodeIndex ?? 0));
             return context.Success(index, op, target.Reference, "Disconnected node from subnet.");
         }
 
@@ -60,7 +60,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         {
             HardwarePatchRules.RequireText(op.IoSystemName, "ioSystemName");
             var target = context.Resolve(op);
-            context.Adapter.CreateIoSystem(context.Adapter.RequireNetworkItem(target.Object, "IoControllers", op.ControllerIndex ?? 0), op.IoSystemName!);
+            context.Networks.CreateIoSystem(context.Attributes.RequireNetworkItem(target.Object, "IoControllers", op.ControllerIndex ?? 0), op.IoSystemName!);
             return context.Success(index, op, target.Reference, $"Created IO system: {op.IoSystemName}");
         }
 
@@ -68,15 +68,15 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         {
             HardwarePatchRules.RequireText(op.IoSystemName, "ioSystemName");
             var target = context.Resolve(op);
-            var connector = context.Adapter.RequireNetworkItem(target.Object, "IoConnectors", op.ConnectorIndex ?? 0);
-            context.Adapter.ConnectIoConnector(connector, FindIoSystem(op.IoSystemName!, context));
+            var connector = context.Attributes.RequireNetworkItem(target.Object, "IoConnectors", op.ConnectorIndex ?? 0);
+            context.Networks.ConnectIoConnector(connector, FindIoSystem(op.IoSystemName!, context));
             return context.Success(index, op, target.Reference, $"Connected IO connector to IO system: {op.IoSystemName}");
         }
 
         private static HardwareOperationResult DisconnectIoConnector(int index, HardwarePatchOperation op, HardwarePatchExecutionContext context)
         {
             var target = context.Resolve(op);
-            context.Adapter.DisconnectIoConnector(context.Adapter.RequireNetworkItem(target.Object, "IoConnectors", op.ConnectorIndex ?? 0));
+            context.Networks.DisconnectIoConnector(context.Attributes.RequireNetworkItem(target.Object, "IoConnectors", op.ConnectorIndex ?? 0));
             return context.Success(index, op, target.Reference, "Disconnected IO connector.");
         }
 
@@ -87,7 +87,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
                 HardwareResolvedTarget target;
                 try { target = context.Resolver.Resolve(network.Target); }
                 catch (InvalidOperationException) { continue; }
-                if (!(context.Adapter.GetFeatureService(target.Object, "NetworkInterface") is NetworkInterface feature)) continue;
+                if (!(context.Attributes.GetFeatureService(target.Object, "NetworkInterface") is NetworkInterface feature)) continue;
                 foreach (var controller in feature.IoControllers)
                     if (controller.IoSystem != null && string.Equals(controller.IoSystem.Name, name, StringComparison.OrdinalIgnoreCase))
                         return controller.IoSystem;
