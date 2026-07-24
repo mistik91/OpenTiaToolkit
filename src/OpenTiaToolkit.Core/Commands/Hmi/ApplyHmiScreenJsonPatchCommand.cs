@@ -114,7 +114,16 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             var action = dryRun ? "preflighted" : result.Applied ? "applied" : "blocked";
             context.CompleteCommand(Name, $"Unified HMI screen JSON patch {action}: {screenPath}");
             var message = $"Unified HMI screen JSON patch {action}: {screenPath}";
-            return result.SafetyBlocked || (!dryRun && !result.Applied)
+            // Safety blocks are expected, structured outcomes for agent patch workflows
+            // (for example, stale base hashes). Keep the command transport successful so
+            // callers can inspect SafetyBlocked and recover without treating it as an
+            // execution or protocol failure.
+            if (result.SafetyBlocked)
+            {
+                return CommandResult.CreateSuccess(result, message);
+            }
+
+            return !dryRun && !result.Applied
                 ? CommandResult.CreateFailure(message, result)
                 : CommandResult.CreateSuccess(result, message);
         }

@@ -116,6 +116,9 @@ Opens a TIA Portal project file (.ap21 for local projects, .als21 for multiuser 
 ```bash
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\MyProject.ap21"
 
+# Opening a different project while the attached instance is occupied requires an explicit hidden instance
+OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\OtherProject.ap21" --open-in-new-instance=true
+
 # Protected projects: keep the password out of shell history
 $env:OPENTIA_UMAC_PASSWORD = "<your-project-password>"
 OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Protected.ap21" --umac-user="Engineer"
@@ -123,6 +126,7 @@ OpenTiaToolkit.CLI.exe open-project --project-path="C:\Projects\Protected.ap21" 
 
 **Parameters**:
 - `project-path` (required): Full path to the project file
+- `open-in-new-instance` (optional, default: `false`): Explicitly open a different project in a dedicated hidden TIA instance. Without this option, the command fails if the attached instance already contains another project.
 - `umac-user` (optional): UMAC user name for protected projects
 - `umac-password-env` (optional, default: `OPENTIA_UMAC_PASSWORD`): Environment variable containing the UMAC password
 - `umac-user-type` (optional, default: `project`): UMAC user type (`project` or `global`)
@@ -135,7 +139,12 @@ Name:     MyProject
 Path:     C:\Projects\MyProject.ap21
 Version:  V21
 Created:  2025-01-15 10:30:00
+PortalProcessId: 1234
+IsPortalVisible: True
+IsToolkitOwned: False
 ```
+
+`close-project` closes the selected Siemens project even when it was discovered by attaching to an existing UI instance. It reports success only after the project is no longer present in that portal.
 
 #### create-project
 
@@ -688,14 +697,14 @@ OpenTiaToolkit.CLI.exe import-hmi-json --hmi-name="HMI_1" --input-path="C:\Expor
 - `output-path` (export): Target folder or `.json` file
 - `base-path`, `modified-path`, `patch-path` (diff): Export or patch folders/files
 - `input-path` (import): Source export or patch folder/file
-- `dry-run` (import, default `true`): Validate without applying
+- `dry-run` (import, default `true`): Validate inside a rollback-only Siemens transaction; no preflight mutation is committed
 - `apply` and `confirm` (import, default `false`): Both are required with `dry-run=false` after reviewing a dry-run result
 - `fail-on-warning` (import, default `true`): Treat warnings as blocking
 - `require-clean-preflight` (import, default `true`): Re-run a clean preflight before applying
 - `backup` (import, default `true` on apply) and `backup-path`: Export a backup before mutation; when screen/item/property filters are supplied, the backup uses the same scope.
 - `screens`, `item-names`, `properties`: Optional filters for export, diff, and import
 
-Applied HMI JSON imports require the target to be offline in TIA Portal before the Siemens Openness transaction is opened. If TIA reports online mode, the import is returned as a failed command with the structured result preserved and `blockedReason: "tia-online-mode"`; agents should take the HMI/project offline manually, then replay the same explicitly confirmed apply command. The toolkit does not call `GoOffline()` automatically.
+HMI JSON dry-runs, required apply-gate preflights, and applies require the target to permit a Siemens Openness transaction. Dry-run and gate preflight transactions are rollback-only and never select commit-on-dispose; apply commits only after clean preflight, required backup, successful execution, and safety-policy checks. If TIA reports online mode, the operation returns a structured safety block with `blockedReason: "tia-online-mode"`; agents should take the HMI/project offline manually, then replay the same command. The toolkit does not call `GoOffline()` automatically.
 
 #### get-hmi-screen-json
 
@@ -715,7 +724,7 @@ Large snapshots are automatically returned as a compact artifact manifest with `
 
 #### apply-hmi-screen-json-edit
 
-Dry-runs or applies one edited screen JSON object through the same export, diff, preflight, transactional import, backup, and verify pipeline used by the lower-level JSON commands. `dry-run` defaults to `true`; `backup` defaults to `true` when applying. For filtered screen edits, backup uses the same screen/item/property filters rather than exporting the whole HMI.
+Dry-runs or applies one edited screen JSON object through the same export, diff, preflight, transactional import, backup, and verify pipeline used by the lower-level JSON commands. `dry-run` defaults to `true` and executes preflight inside a rollback-only Siemens transaction; `backup` defaults to `true` when applying. For filtered screen edits, backup uses the same screen/item/property filters rather than exporting the whole HMI.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-path="Codex/Main" --edited-screen="{...}" --base-hash="..." --dry-run=true
@@ -726,13 +735,13 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-edit --hmi-name="HMI_1" --screen-pa
 - `edited-screen` (required): Edited `HmiJsonScreen` object. MCP clients should pass a JSON object; CLI users can pass a JSON string.
 - `base-hash`: Optional hash returned by `get-hmi-screen-json`; mismatches block the edit by default.
 - `allow-stale-base`: Allows edits when the current screen hash differs from `base-hash`.
-- `dry-run`: Validate and return patch/preflight details without applying.
+- `dry-run`: Validate and return patch/preflight details from a rollback-only transaction without committing changes.
 - `backup` and `backup-path`: Export a filtered backup before mutation; omit filters only when a full-HMI backup is intended.
 - `working-path`: Optional root for generated base, edited, patch, backup, and verify artifacts.
 
 #### apply-hmi-screen-json-patch
 
-Dry-runs or applies compact agent operations by first transforming the current single-screen JSON snapshot, then running the same safe edit pipeline as `apply-hmi-screen-json-edit`. `dry-run` defaults to `true`; `backup` defaults to `true` when applying. Applied imports run inside a Siemens undo transaction: successful imports commit, while safety-blocked or failed property updates roll back. If the HMI/project is online, apply is blocked with `blockedReason: "tia-online-mode"` and `guidance.recommendedNextAction: "take-hmi-offline-and-retry"`; take the target offline in TIA Portal before replaying the same apply payload.
+Dry-runs or applies compact agent operations by first transforming the current single-screen JSON snapshot, then running the same safe edit pipeline as `apply-hmi-screen-json-edit`. `dry-run` defaults to `true`; explicit dry-runs and required apply-gate preflights run in rollback-only Siemens transactions, while successful applies commit only after all safety gates pass. `backup` defaults to `true` when applying. If the HMI/project is online, preflight or apply is blocked with `blockedReason: "tia-online-mode"` and `guidance.recommendedNextAction: "take-hmi-offline-and-retry"`; take the target offline in TIA Portal before replaying the same payload.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-property\",\"item\":\"Button_1\",\"property\":\"Text\",\"value\":\"Start\"}]}" --base-hash="..." --dry-run=true
@@ -740,7 +749,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-layout\",\"item\":\"Button_1\",\"left\":120,\"top\":80,\"width\":180,\"height\":44}]}" --base-hash="..." --dry-run=false
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"create-item\",\"item\":\"StatusText\",\"itemType\":\"text\",\"left\":120,\"top\":140,\"width\":240,\"height\":40,\"properties\":{\"Text\":\"Ready\"}}]}" --base-hash="..." --dry-run=false
 OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"duplicate-item\",\"source\":\"Button_1\",\"item\":\"Button_2\",\"left\":120,\"top\":200,\"properties\":{\"Text\":\"Start backup\"}},{\"op\":\"delete-item\",\"item\":\"OldButton\"}]}" --base-hash="..." --dry-run=true
-OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-event-handler\",\"item\":\"Button_1\",\"eventType\":\"Click\",\"scriptCode\":\"return 42;\"},{\"op\":\"set-dynamization\",\"item\":\"Button_1\",\"property\":\"Visible\",\"tag\":\"HmiTag_Bool\"}]}" --base-hash="..." --dry-run=true
+OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-path="Codex/Main" --operations="{\"operations\":[{\"op\":\"set-event-handler\",\"item\":\"Button_1\",\"eventType\":\"Tapped\",\"scriptCode\":\"return 42;\"},{\"op\":\"set-dynamization\",\"item\":\"Button_1\",\"property\":\"Visible\",\"tag\":\"HmiTag_Bool\"}]}" --base-hash="..." --dry-run=true
 ```
 
 **Supported operations**:
@@ -753,7 +762,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - `create-item`: Create an item using `itemType`, geometry fields, and optional `properties`. Rectangular items use `left`/`top`/`width`/`height`; `HmiCircle` / `circle` uses `CenterX`, `CenterY`, and `Radius` inside `properties`.
 - `delete-item`: Delete an item from the screen.
 - `duplicate-item`: Clone `source`/`sourceItem` into `item`/`targetItem`/`targetName`, with optional geometry and property overrides.
-- `set-event-handler` / `remove-event-handler`: Create, replace, or remove event handlers. Use `eventHandler` for full JSON or `eventType` plus `scriptCode` for compact script handlers.
+- `set-event-handler` / `remove-event-handler`: Create, replace, or remove event handlers. Use `eventHandler` for full JSON or `eventType` plus `scriptCode` for compact script handlers. Event names are Siemens object-type and TIA-version specific; `Tapped` is valid for a V21 `HmiButton`, while browser-style names such as `Click` must not be assumed.
 - `set-property-event-handler` / `remove-property-event-handler`: Create, replace, or remove property event handlers. Use `propertyEventHandler` for full JSON or `property`, `eventType`, and `scriptCode`.
 - `set-dynamization` / `remove-dynamization`: Create, replace, or remove property dynamizations. Use `dynamization` for full JSON or compact `property`, `dynamizationType`, and `tag`.
 - `set-interface`: Set one faceplate container interface binding. Use `item`, `property`/`propertyName`, and `value`; filter with the root property `Interface`. Interface entries can also contain nested `Dynamizations`, including `TagParameter` bindings. Compact `set-interface` can set a nested interface dynamization with `dynamizationType` and `dynamicTagName`; when omitted, the nested dynamization property defaults to the interface entry name exported by TIA.
@@ -765,7 +774,7 @@ OpenTiaToolkit.CLI.exe apply-hmi-screen-json-patch --hmi-name="HMI_1" --screen-p
 - `item-names` and `properties`: When using `base-hash`, keep these identical to the snapshot filters so the hash represents the same JSON shape. `get-hmi-screen-json` returns `snapshotFilters` and `recommendedPatchArgs` to make this round-trip explicit for agents. For `duplicate-item`, include both source and target item names. For composite operations, include the composite root property: `EventHandlers`, `PropertyEventHandlers`, `Dynamizations`, or `Interface`.
 - Circle geometry: For `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in the operation `properties` object and include those names in the filter. Do not use `Left`, `Top`, `Width`, or `Height` for circles in JSON patch/edit payloads.
 - `allow-stale-base`: Allows patches when the current screen hash differs from `base-hash`.
-- `dry-run`: Validate and return operation, diff, and preflight details without applying.
+- `dry-run`: Validate and return operation, diff, and preflight details from a rollback-only transaction without committing changes.
 - `backup` and `backup-path`: Export a backup before mutation using the same targeted screen/item/property filters.
 - `working-path`: Optional root for generated base, edited, patch, backup, and verify artifacts.
 

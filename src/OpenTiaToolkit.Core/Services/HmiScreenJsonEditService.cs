@@ -252,22 +252,7 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             result.Import = await _importService.ImportAsync(result.Diff.OutputPath, effectiveFilters, dryRun: false, executionOptions: options);
-            result.BackupPath = result.Import?.BackupPath;
-            if (result.Import == null)
-            {
-                result.SafetyBlocked = true;
-                result.SafetyMessage = "Screen edit import did not return a result.";
-                result.Warnings.Add(result.SafetyMessage);
-            }
-            else
-            {
-                HmiJsonImportService.ApplySafetyPolicy(result.Import, options, result.Import.BackupPath);
-                result.SafetyBlocked = result.Import.SafetyBlocked;
-                result.SafetyMessage = result.Import.SafetyMessage;
-                result.BlockedReason = result.Import.BlockedReason;
-            }
-
-            result.Applied = result.Import != null && !result.SafetyBlocked;
+            ProjectImportOutcome(result, result.Import, options);
 
             if (result.Applied)
             {
@@ -279,6 +264,32 @@ namespace OpenTiaToolkit.Core.Services
 
             result.Guidance = HmiScreenJsonAgentSupport.CreateGuidance(result);
             return result;
+        }
+
+        internal static void ProjectImportOutcome(
+            HmiScreenJsonEditResult result,
+            HmiJsonImportResult? import,
+            HmiJsonImportExecutionOptions options)
+        {
+            result.Import = import;
+            result.BackupPath = import?.BackupPath;
+            if (import == null)
+            {
+                result.SafetyBlocked = true;
+                result.SafetyMessage = "Screen edit import did not return a result.";
+                result.Warnings.Add(result.SafetyMessage);
+                result.Applied = false;
+                return;
+            }
+
+            HmiJsonImportService.ApplySafetyPolicy(import, options, import.BackupPath);
+            result.SafetyBlocked = import.SafetyBlocked;
+            result.SafetyMessage = import.SafetyMessage;
+            result.BlockedReason = import.BlockedReason;
+            result.Applied = !import.DryRun &&
+                             !import.SafetyBlocked &&
+                             import.TransactionUsed &&
+                             !import.RolledBack;
         }
 
         public async Task<HmiScreenJsonEditResult?> ApplyScreenJsonPatchAsync(

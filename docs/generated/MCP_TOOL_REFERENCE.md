@@ -152,7 +152,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `modify-tags` | PLC | `plc-name`, `operations`, `input-path`, `dry-run`, `confirm`, `safety-password-env`, `output-path` | Plans or applies explicit PLC tag create, update, delete, and replace operations |
 | `open-global-library` | Libraries | `path`, `read-only`, `upgrade`, `confirm` | Opens a TIA Portal global library by file path |
 | `open-plc` | PLC | `plc-name` | Opens a PLC device software by name |
-| `open-project` | Portal | `project-path`, `umac-user`, `umac-password-env`, `umac-user-type` | Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported) |
+| `open-project` | Portal | `project-path`, `open-in-new-instance`, `umac-user`, `umac-password-env`, `umac-user-type` | Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported) |
 | `open-tia-portal` | Portal | `with-ui` | Opens a new TIA Portal instance (with UI by default) |
 | `open-unified-hmi` | Unified HMI | `hmi-name` | Opens a Unified HMI by device or device item name |
 | `plan-block-document-import` | PLC | `plc-name`, `import-directory`, `file-name`, `group-path`, `import-option` | Binds an exact PLC block identity and creates a state-bound, rollback-capable SIMATIC SD apply plan |

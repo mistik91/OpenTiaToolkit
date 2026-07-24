@@ -15,26 +15,32 @@
     <Reference Include="Siemens.Engineering.Base">
       <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Base.dll</HintPath>
       <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
     </Reference>
     <Reference Include="Siemens.Engineering.Step7">
       <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Step7.dll</HintPath>
       <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
     </Reference>
     <Reference Include="Siemens.Engineering.WinCCUnified">
       <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.WinCCUnified.dll</HintPath>
       <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
     </Reference>
     <Reference Include="Siemens.Engineering.Startdrive">
       <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Startdrive.dll</HintPath>
       <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
     </Reference>
     <Reference Include="Siemens.Engineering.Safety">
       <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Safety.dll</HintPath>
       <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
     </Reference>
     <Reference Include="Siemens.Engineering.SafetyValidation">
       <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.SafetyValidation.dll</HintPath>
       <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
     </Reference>
   </ItemGroup>
 

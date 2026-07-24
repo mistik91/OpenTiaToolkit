@@ -46,12 +46,11 @@ namespace OpenTiaToolkit.Tests.Integration
         [TestCleanup]
         public async Task TestCleanup()
         {
-            // Close project and disconnect
+            // Disconnect without closing a project owned by an already-running TIA instance.
             if (_portalService?.IsConnected == true)
             {
                 try
                 {
-                    await _portalService.CloseProjectAsync(false);
                     await _portalService.DisconnectAsync();
                 }
                 catch

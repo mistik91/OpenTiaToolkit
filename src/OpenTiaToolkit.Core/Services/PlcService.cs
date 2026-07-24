@@ -14,6 +14,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using OpenTiaToolkit.Core.Services.PlcTags;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -24,7 +26,7 @@ namespace OpenTiaToolkit.Core.Services
     {
         private readonly IPortalService _portalService;
         private readonly EngineeringSessionContext _sessionContext;
-        private readonly V21OpennessAdapter _v21Adapter;
+        private readonly V21SoftwareDiscovery _software;
         private readonly PlcBrowseService _browseService;
         private readonly PlcCompileService _compileService;
         private readonly PlcVerificationService _verificationService;
@@ -59,24 +61,55 @@ namespace OpenTiaToolkit.Core.Services
         /// <param name="portalService">The portal service instance.</param>
         /// <param name="logger">Optional logger for diagnostic output.</param>
         public PlcService(IPortalService portalService, ILogger<PlcService>? logger = null)
-            : this(portalService, ResolveSessionContext(portalService), logger)
+            : this(portalService, ResolveSessionContext(portalService), logger, V21ComponentGraph.CreateDefault())
         {
         }
 
-        internal PlcService(IPortalService portalService, EngineeringSessionContext sessionContext, ILogger<PlcService>? logger = null)
+        private PlcService(
+            IPortalService portalService,
+            EngineeringSessionContext sessionContext,
+            ILogger<PlcService>? logger,
+            V21ComponentGraph components)
+            : this(
+                portalService,
+                sessionContext,
+                logger,
+                components.Software,
+                components.Compilation,
+                components.Types,
+                components.Online,
+                components.Documents,
+                components.Objects,
+                components.Tags,
+                new V21PlcTagRepository(components.Tags, components.Objects))
         {
-            _portalService = portalService;
+        }
+
+        internal PlcService(
+            IPortalService portalService,
+            EngineeringSessionContext sessionContext,
+            ILogger<PlcService>? logger,
+            V21SoftwareDiscovery software,
+            V21CompilationAccess compilation,
+            V21TypeServiceResolver types,
+            V21OnlineVerificationAccess online,
+            V21DocumentAccess documents,
+            V21EngineeringObjectAccess objects,
+            V21PlcTagStructureAccess tags,
+            IPlcTagRepository tagRepository)
+        {
+            _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _logger = logger;
-            _v21Adapter = new V21OpennessAdapter();
+            _software = software ?? throw new ArgumentNullException(nameof(software));
             _browseService = new PlcBrowseService(_sessionContext, _logger);
-            _compileService = new PlcCompileService(_sessionContext, _logger, _v21Adapter);
-            _verificationService = new PlcVerificationService(_sessionContext, _logger, _v21Adapter);
-            _blockMutationService = new PlcBlockMutationService(_sessionContext, _browseService, _logger, _v21Adapter);
-            _memberRenameService = new PlcMemberRenameService(_sessionContext, _logger, _v21Adapter);
-            _importExportService = new PlcImportExportService(_sessionContext, _portalService, _browseService, _logger, _v21Adapter);
-            _tagService = new PlcTagService(_sessionContext, _logger, _v21Adapter);
-            _surfaceService = new PlcSurfaceService(_sessionContext, _browseService, _logger, _v21Adapter);
+            _compileService = new PlcCompileService(_sessionContext, _logger, compilation);
+            _verificationService = new PlcVerificationService(_sessionContext, _logger, types, online);
+            _blockMutationService = new PlcBlockMutationService(_sessionContext, _browseService, _logger, documents, objects);
+            _memberRenameService = new PlcMemberRenameService(_sessionContext, _logger, tags, objects);
+            _importExportService = new PlcImportExportService(_sessionContext, _portalService, _browseService, _logger, documents, objects);
+            _tagService = new PlcTagService(_sessionContext, tagRepository, _logger);
+            _surfaceService = new PlcSurfaceService(_sessionContext, _browseService, _logger, types, tags, objects);
         }
 
         private static EngineeringSessionContext ResolveSessionContext(IPortalService portalService)
@@ -156,7 +189,7 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         try
                         {
-                            plcSoftware = _v21Adapter.GetPlcSoftware(deviceItem);
+                            plcSoftware = _software.GetPlcSoftware(deviceItem);
                             if (plcSoftware != null)
                             {
                                 _currentDevice = device;
@@ -216,7 +249,7 @@ namespace OpenTiaToolkit.Core.Services
                 }
 
                 _logger?.LogInformation("Attempting safety offline program login for PLC {PlcName}", CurrentPlcName);
-                return _v21Adapter.LoginToSafetyOfflineProgram(_currentDeviceItem, password);
+                return _software.LoginToSafetyOfflineProgram(_currentDeviceItem, password);
             });
         }
 

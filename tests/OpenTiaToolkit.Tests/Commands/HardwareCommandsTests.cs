@@ -6,6 +6,7 @@ using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Hardware;
 using OpenTiaToolkit.Core.Services;
+using OpenTiaToolkit.Core.Services.Hardware;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -762,9 +763,9 @@ namespace OpenTiaToolkit.Tests.Commands
         [TestMethod]
         public void HardwareTagAddressParser_ParsesByteWordDwordAndBitAddresses()
         {
-            var inputDword = HardwareService.TryParseTagAddress("FLOW_METERS", "156FT220_Volume_Flow", "%ID1572");
-            var outputByte = HardwareService.TryParseTagAddress("FLOW_METERS", "156FT220_TOT_1_Ctrl", "%QB1577");
-            var inputBit = HardwareService.TryParseTagAddress("FLOW_METERS", "Ready", "%I1580.1");
+            var inputDword = HardwareAuditRules.TryParseTagAddress("FLOW_METERS", "156FT220_Volume_Flow", "%ID1572");
+            var outputByte = HardwareAuditRules.TryParseTagAddress("FLOW_METERS", "156FT220_TOT_1_Ctrl", "%QB1577");
+            var inputBit = HardwareAuditRules.TryParseTagAddress("FLOW_METERS", "Ready", "%I1580.1");
 
             Assert.IsNotNull(inputDword);
             Assert.AreEqual("I", inputDword!.Area);

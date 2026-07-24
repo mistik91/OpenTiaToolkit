@@ -17,9 +17,11 @@ public sealed class PlcCodeFormatService
     private static readonly Regex SclDeclarationRegex = new Regex(@"(?im)^\s*(FUNCTION_BLOCK|FUNCTION|ORGANIZATION_BLOCK|DATA_BLOCK|TYPE)\s+(?:""(?<quoted>[^""]+)""|(?<plain>[^\s:]+))", RegexOptions.Compiled);
     private static readonly Regex SclCallRegex = new Regex(@"(?im)(?<![#\w])(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*\(", RegexOptions.Compiled);
     private static readonly Regex StatefulTypeRegex = new Regex(@"\b(TON|TOF|TP|TON_TIME|TOF_TIME|TP_TIME|IEC_TIMER|R_TRIG|F_TRIG|CTU|CTD|CTUD|IEC_COUNTER)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private readonly PlcDocumentWorkflowService _documentWorkflow;
+    private readonly Func<string, string, PlcDocumentValidationResult> _validateDocuments;
 
-    public PlcCodeFormatService(PlcDocumentWorkflowService documentWorkflow) => _documentWorkflow = documentWorkflow;
+    public PlcCodeFormatService(PlcDocumentWorkflowService documentWorkflow) => _validateDocuments = documentWorkflow.Validate;
+
+    internal PlcCodeFormatService(PlcDocumentValidator documentValidator) => _validateDocuments = documentValidator.Validate;
 
     public IReadOnlyList<PlcCodeFormatCapability> DescribeFormats() => new[]
     {
@@ -49,7 +51,7 @@ public sealed class PlcCodeFormatService
         else if (normalized == "S7DCL")
         {
             string fullPath = Path.GetFullPath(inputPath);
-            PlcDocumentValidationResult document = _documentWorkflow.Validate(Path.GetDirectoryName(fullPath)!, Path.GetFileNameWithoutExtension(fullPath));
+            PlcDocumentValidationResult document = _validateDocuments(Path.GetDirectoryName(fullPath)!, Path.GetFileNameWithoutExtension(fullPath));
             result = new PlcCodeArtifactValidationResult
             {
                 Valid = document.Valid,
@@ -257,8 +259,8 @@ public sealed class PlcCodeFormatService
 
     public PlcCodeChangeContract AnalyzeS7DclChange(string candidateDirectory, string candidateFileName, string baselineDirectory, string baselineFileName, string? allowedChanges)
     {
-        PlcDocumentValidationResult candidate = _documentWorkflow.Validate(candidateDirectory, candidateFileName);
-        PlcDocumentValidationResult baseline = _documentWorkflow.Validate(baselineDirectory, baselineFileName);
+        PlcDocumentValidationResult candidate = _validateDocuments(candidateDirectory, candidateFileName);
+        PlcDocumentValidationResult baseline = _validateDocuments(baselineDirectory, baselineFileName);
         if (!candidate.Valid) throw new InvalidDataException("Candidate SIMATIC SD documents are invalid: " + string.Join("; ", candidate.Errors));
         if (!baseline.Valid) throw new InvalidDataException("Baseline SIMATIC SD documents are invalid: " + string.Join("; ", baseline.Errors));
         if (!string.Equals(candidate.BlockName, baseline.BlockName, StringComparison.Ordinal) ||

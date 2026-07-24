@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Services;
+using OpenTiaToolkit.Core.Services.PlcTags;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core
 {
@@ -17,8 +19,28 @@ namespace OpenTiaToolkit.Core
         public static IServiceCollection AddOpenTiaToolkitCoreServices(this IServiceCollection services)
         {
             services.AddSingleton<EngineeringSessionContext>();
+            services.AddSingleton<V21TypeServiceResolver>();
+            services.AddSingleton<V21EngineeringObjectAccess>();
+            services.AddSingleton<V21SoftwareDiscovery>();
+            services.AddSingleton<V21PlcTagStructureAccess>();
+            services.AddSingleton<V21CompilationAccess>();
+            services.AddSingleton<V21OnlineVerificationAccess>();
+            services.AddSingleton<V21DocumentAccess>();
+            services.AddSingleton<V21HardwareCatalogAccess>();
+            services.AddSingleton<V21HardwareAttributeAccess>();
+            services.AddSingleton<V21HardwareDriveAccess>();
+            services.AddSingleton<V21HardwareNetworkAccess>();
+            services.AddSingleton<V21HardwareAdapter>(serviceProvider => new V21HardwareAdapter(
+                serviceProvider.GetRequiredService<V21HardwareCatalogAccess>(),
+                serviceProvider.GetRequiredService<V21HardwareAttributeAccess>(),
+                serviceProvider.GetRequiredService<V21HardwareDriveAccess>(),
+                serviceProvider.GetRequiredService<V21HardwareNetworkAccess>()));
+            services.AddSingleton<V21PlcTagRepository>();
+            services.AddSingleton<IPlcTagRepository>(serviceProvider =>
+                serviceProvider.GetRequiredService<V21PlcTagRepository>());
             services.AddSingleton<PlcCodeEvidenceRegistry>();
             services.AddSingleton<PlcBehaviorVectorService>();
+            services.AddSingleton<PlcDocumentValidator>();
             services.AddSingleton<IPlcSimulationRuntime, PlcSimulationRuntime>();
             services.AddSingleton<ISessionResetService, EngineeringSessionResetService>();
             services.AddSingleton(serviceProvider => new PlcDocumentWorkflowService(
@@ -26,13 +48,17 @@ namespace OpenTiaToolkit.Core
                 serviceProvider.GetRequiredService<EngineeringSessionContext>(),
                 serviceProvider.GetRequiredService<PlcCodeCapabilityDiscoveryService>(),
                 serviceProvider.GetRequiredService<PlcCodeEvidenceRegistry>(),
-                serviceProvider.GetRequiredService<IPlcSimulationRuntime>()));
-            services.AddSingleton<PlcCodeFormatService>();
+                serviceProvider.GetRequiredService<IPlcSimulationRuntime>(),
+                serviceProvider.GetRequiredService<V21DocumentAccess>(),
+                serviceProvider.GetRequiredService<V21EngineeringObjectAccess>()));
+            services.AddSingleton(serviceProvider => new PlcCodeFormatService(serviceProvider.GetRequiredService<PlcDocumentValidator>()));
 
             services.AddSingleton<PortalService>(serviceProvider =>
                 new PortalService(
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
-                    serviceProvider.GetService<ILogger<PortalService>>()));
+                    serviceProvider.GetService<ILogger<PortalService>>(),
+                    serviceProvider.GetRequiredService<V21TypeServiceResolver>(),
+                    serviceProvider.GetRequiredService<V21SoftwareDiscovery>()));
             services.AddSingleton<IPortalService>(serviceProvider =>
                 SessionSerializedServiceProxy<IPortalService>.Create(
                     serviceProvider.GetRequiredService<PortalService>(),
@@ -42,7 +68,15 @@ namespace OpenTiaToolkit.Core
                 new PlcService(
                     serviceProvider.GetRequiredService<IPortalService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
-                    serviceProvider.GetService<ILogger<PlcService>>()));
+                    serviceProvider.GetService<ILogger<PlcService>>(),
+                    serviceProvider.GetRequiredService<V21SoftwareDiscovery>(),
+                    serviceProvider.GetRequiredService<V21CompilationAccess>(),
+                    serviceProvider.GetRequiredService<V21TypeServiceResolver>(),
+                    serviceProvider.GetRequiredService<V21OnlineVerificationAccess>(),
+                    serviceProvider.GetRequiredService<V21DocumentAccess>(),
+                    serviceProvider.GetRequiredService<V21EngineeringObjectAccess>(),
+                    serviceProvider.GetRequiredService<V21PlcTagStructureAccess>(),
+                    serviceProvider.GetRequiredService<IPlcTagRepository>()));
             services.AddSingleton<IPlcService>(serviceProvider =>
                 SessionSerializedServiceProxy<IPlcService>.Create(
                     serviceProvider.GetRequiredService<PlcService>(),
@@ -87,6 +121,12 @@ namespace OpenTiaToolkit.Core
                 new HardwareService(
                     serviceProvider.GetRequiredService<IPortalService>(),
                     serviceProvider.GetRequiredService<EngineeringSessionContext>(),
+                    serviceProvider.GetRequiredService<V21HardwareCatalogAccess>(),
+                    serviceProvider.GetRequiredService<V21HardwareAttributeAccess>(),
+                    serviceProvider.GetRequiredService<V21HardwareDriveAccess>(),
+                    serviceProvider.GetRequiredService<V21HardwareNetworkAccess>(),
+                    serviceProvider.GetRequiredService<V21SoftwareDiscovery>(),
+                    serviceProvider.GetRequiredService<IPlcTagRepository>(),
                     serviceProvider.GetService<ILogger<HardwareService>>()));
             services.AddSingleton<IHardwareService>(serviceProvider =>
                 SessionSerializedServiceProxy<IHardwareService>.Create(

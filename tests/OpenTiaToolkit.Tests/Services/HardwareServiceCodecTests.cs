@@ -1,6 +1,7 @@
 using OpenTiaToolkit.Core.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.Core.Services;
+using OpenTiaToolkit.Core.Services.Hardware;
 using System;
 using System.Collections.Generic;
 
@@ -12,16 +13,16 @@ namespace OpenTiaToolkit.Tests.Services
         [TestMethod]
         public void ParseHex_AcceptsReadableByteFormatting()
         {
-            var result = HardwareService.ParseHex("0x01 02-0A,FF");
+            var result = HardwareHexCodec.Parse("0x01 02-0A,FF");
 
             CollectionAssert.AreEqual(new byte[] { 0x01, 0x02, 0x0A, 0xFF }, result);
-            Assert.AreEqual("01 02 0A FF", HardwareService.ToHex(result));
+            Assert.AreEqual("01 02 0A FF", HardwareHexCodec.Format(result));
         }
 
         [TestMethod]
         public void ParseHex_RejectsPartialBytes()
         {
-            Assert.ThrowsException<FormatException>(() => HardwareService.ParseHex("0A F"));
+            Assert.ThrowsException<FormatException>(() => HardwareHexCodec.Parse("0A F"));
         }
 
         [TestMethod]
@@ -38,7 +39,7 @@ namespace OpenTiaToolkit.Tests.Services
                 ItemPath = new[] { "totalizer_1", "totalizercontrol" }
             };
 
-            Assert.IsTrue(HardwareService.HardwarePathsEqual(left, right));
+            Assert.IsTrue(HardwareReferenceRules.PathsEqual(left, right));
         }
 
         [TestMethod]
@@ -50,7 +51,7 @@ namespace OpenTiaToolkit.Tests.Services
                 ItemPath = new[] { "Totalizer_1", "TotalizerControl" }
             };
 
-            Assert.AreEqual("Promag_1/Totalizer_1/TotalizerControl", HardwareService.FormatHardwarePath(reference));
+            Assert.AreEqual("Promag_1/Totalizer_1/TotalizerControl", HardwareReferenceRules.FormatPath(reference));
         }
 
         [TestMethod]
@@ -67,7 +68,7 @@ namespace OpenTiaToolkit.Tests.Services
                 ItemPath = new[] { "Totalizer_1", "TotalizerControl" }
             };
 
-            var warning = HardwareService.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: false);
+            var warning = HardwareReferenceRules.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: false);
 
             Assert.IsNull(warning);
         }
@@ -87,7 +88,7 @@ namespace OpenTiaToolkit.Tests.Services
             };
 
             var ex = Assert.ThrowsException<InvalidOperationException>(() =>
-                HardwareService.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: false));
+                HardwareReferenceRules.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: false));
 
             StringAssert.Contains(ex.Message, "Set allowDisplacedPlacement=true");
             StringAssert.Contains(ex.Message, "Promag_1/TotalizerControl");
@@ -107,7 +108,7 @@ namespace OpenTiaToolkit.Tests.Services
                 ItemPath = new[] { "TotalizerControl" }
             };
 
-            var warning = HardwareService.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: true);
+            var warning = HardwareReferenceRules.ValidatePlugPlacement("TotalizerControl", requested, actual, allowDisplacedPlacement: true);
 
             Assert.IsNotNull(warning);
             StringAssert.Contains(warning, "Promag_1/TotalizerControl");

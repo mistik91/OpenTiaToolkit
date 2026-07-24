@@ -13,11 +13,4 @@
     <ProjectReference Include="..\OpenTiaToolkit.Contracts\OpenTiaToolkit.Contracts.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="Program.cs" />
-    <Compile Remove="Routing\CommandRouter.cs" />
-    <Compile Remove="Output\TableOutputFormatter.cs" />
-    <Compile Remove="Output\TreeTextFormatter.cs" />
-  </ItemGroup>
-
 </Project>

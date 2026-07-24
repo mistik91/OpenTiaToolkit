@@ -98,7 +98,8 @@ The main goal is to keep portal/project/PLC state consistent across services.
 The public service interfaces stay stable, but the implementation is now split into capability services:
 
 - [PortalService.cs](../src/OpenTiaToolkit.Core/Services/PortalService.cs): thin facade for the public portal API
-- [PortalSessionService.cs](../src/OpenTiaToolkit.Core/Services/PortalSessionService.cs): portal attachment, open/close, ownership, save flows
+- [PortalSessionService.cs](../src/OpenTiaToolkit.Core/Services/PortalSessionService.cs): small compatibility facade for portal workflows
+- [Services/Portal](../src/OpenTiaToolkit.Core/Services/Portal): portal workflow coordination, atomic session-state ownership, and path/authentication/result policies
 - [PortalInspectionService.cs](../src/OpenTiaToolkit.Core/Services/PortalInspectionService.cs): read-only project/device/PLC/HMI inspection
 - [PlcService.cs](../src/OpenTiaToolkit.Core/Services/PlcService.cs): thin facade for the public PLC API
 - [PlcBrowseService.cs](../src/OpenTiaToolkit.Core/Services/PlcBrowseService.cs): read-only browse/search/info operations
@@ -106,10 +107,20 @@ The public service interfaces stay stable, but the implementation is now split i
 - [PlcBlockMutationService.cs](../src/OpenTiaToolkit.Core/Services/PlcBlockMutationService.cs): block creation/deletion
 - [PlcTagService.cs](../src/OpenTiaToolkit.Core/Services/PlcTagService.cs): tag creation and update flows
 - [PlcMemberRenameService.cs](../src/OpenTiaToolkit.Core/Services/PlcMemberRenameService.cs): DB/UDT member rename flows
-- [PlcImportExportService.cs](../src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): XML and document import/export flows
+- [PlcImportExportService.cs](../src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): compatibility facade for PLC transfer commands
+- [PlcXmlTransferService.cs](../src/OpenTiaToolkit.Core/Services/PlcXmlTransferService.cs): XML block and PLC data-type import/export
+- [PlcDocumentTransferService.cs](../src/OpenTiaToolkit.Core/Services/PlcDocumentTransferService.cs): SIMATIC SD document import/export and V21 support checks
+- [PlcSurfaceService.cs](../src/OpenTiaToolkit.Core/Services/PlcSurfaceService.cs): compatibility facade for PLC surface commands
+- [PlcCrossReferenceService.cs](../src/OpenTiaToolkit.Core/Services/PlcCrossReferenceService.cs): cross-reference target discovery, compatibility lookup, traversal, and projection
+- [PlcExternalSourceService.cs](../src/OpenTiaToolkit.Core/Services/PlcExternalSourceService.cs): external-source import, generation, deletion, and block-to-source export
 - [LibraryService.cs](../src/OpenTiaToolkit.Core/Services/LibraryService.cs): project/global library listing, master-copy copy workflows, library type versions, and update checks
 - [VciService.cs](../src/OpenTiaToolkit.Core/Services/VciService.cs): VCI workspaces, mappings, comparison state, and surgical/bulk synchronization
-- [HardwareService.cs](../src/OpenTiaToolkit.Core/Services/HardwareService.cs): generic hardware catalog, topology, network, GSD record, and transactional patch operations
+- [HardwareService.cs](../src/OpenTiaToolkit.Core/Services/HardwareService.cs): compatibility facade preserving the shared hardware service contract
+- [V21HardwareAdapter.cs](../src/OpenTiaToolkit.Core/Services/V21HardwareAdapter.cs): direct-construction compatibility facade only
+- `Services/V21/V21Hardware*Access.cs`: shared catalog, attribute/GSD/IO, Startdrive, and network Openness boundaries consumed directly by production hardware workflows
+- [Services/Hardware](../src/OpenTiaToolkit.Core/Services/Hardware): focused hardware catalog/capability, topology, drive, PLC-tag audit, target-resolution, reference/value-rule, and transactional patch components
+
+Hardware patches use one Siemens transaction for the complete ordered operation list. Domain handlers are registered through a duplicate-checked catalog; dry-runs execute the real operations and roll back, result references remain patch-local, expected-value guards run before writes, and only a fully successful non-dry-run selects commit-on-dispose. CLI and MCP continue to reach this behavior through the shared Core command and `IHardwareService` surface.
 
 ### Builders
 
@@ -122,17 +133,19 @@ These builders are intended to be testable with fake object graphs so traversal 
 
 ### V21 Adapter Boundary
 
-[V21OpennessAdapter.cs](../src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs) is the current boundary for version-sensitive Siemens reflection. It centralizes:
+[V21OpennessAdapter.cs](../src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs) is a compatibility facade, not the destination for new V21 behavior. Focused components under [Services/V21](../src/OpenTiaToolkit.Core/Services/V21) own:
 
-- V21 type and service discovery
-- compile-service invocation
-- V21 block creation helpers
-- export/import method selection
-- tag-table access, tag creation, logical-address updates, and comment access
-- recursive Global DB / UDT discovery and nested member traversal
-- PLC and HMI service detection
+- `V21TypeServiceResolver`: exact/short type lookup, caches, Siemens assembly enumeration, and generic service lookup
+- `V21SoftwareDiscovery`: PLC/Unified HMI discovery, HMI classification, and safety login
+- `V21EngineeringObjectAccess`: names, addresses, data types, comments, consistency, and bounded object primitives
+- `V21PlcTagStructureAccess`: tag tables/tags plus recursive DB, UDT, and nested-member access
+- `V21CompilationAccess`: compile invocation and diagnostic projection
+- `V21OnlineVerificationAccess`: compare, download configuration, online transitions, and CPU control
+- `V21DocumentAccess`: language/FB creation and XML/document import-export overload selection
 
-When new V21-specific Siemens reflection is needed, prefer adding it there instead of duplicating assembly/type lookup in feature services.
+`AddOpenTiaToolkitCoreServices` registers one shared instance of each focused component. Production feature services must request only the capabilities they use; do not register, construct, store, or inject `V21OpennessAdapter` in the production graph. Direct public service constructors remain compatible by composing their own local focused graph at the public composition boundary.
+
+Add version-sensitive behavior to the narrowest component. Keep `IServiceProvider` access inside `ServiceCollectionExtensions`; do not replace the adapter with a service locator or another broad manager.
 
 ### Parallel Development Guidance
 
@@ -215,15 +228,25 @@ Typical local verification:
 
 ```bash
 dotnet build OpenTiaToolkit.sln
+dotnet test tests/OpenTiaToolkit.ArchitectureTests/OpenTiaToolkit.ArchitectureTests.csproj
 dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
 powershell -ExecutionPolicy Bypass -File .\scripts\Generate-CommandReference.ps1 -CheckOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-RepositoryHygiene.ps1
 ```
+
+Private audit reports stay local and ignored. Do not force-add `report.md` or `suggestions.md` to Git.
 
 ## Testing Strategy
 
 ### Fast Tests
 
 Fast tests live under `tests/OpenTiaToolkit.Tests/` and should not require a live TIA session.
+
+The vendor-free architecture suite lives under `tests/OpenTiaToolkit.ArchitectureTests/`. It parses production source with Roslyn to enforce per-file screening, fully-qualified aggregate type ceilings, and decomposition boundaries without loading Siemens/TIA assemblies. Run it in the normal verification sequence:
+
+```bash
+dotnet test tests/OpenTiaToolkit.ArchitectureTests/OpenTiaToolkit.ArchitectureTests.csproj
+```
 
 Typical coverage:
 

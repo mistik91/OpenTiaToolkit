@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using OpenTiaToolkit.Core.Services.V21;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -32,16 +33,27 @@ namespace OpenTiaToolkit.Core.Services
         /// </summary>
         /// <param name="logger">Optional logger for diagnostic output.</param>
         public PortalService(ILogger<PortalService>? logger = null)
-            : this(new EngineeringSessionContext(), logger)
+            : this(new EngineeringSessionContext(), logger, V21ComponentGraph.CreateDefault())
         {
         }
 
-        internal PortalService(EngineeringSessionContext sessionContext, ILogger<PortalService>? logger = null)
+        private PortalService(
+            EngineeringSessionContext sessionContext,
+            ILogger<PortalService>? logger,
+            V21ComponentGraph components)
+            : this(sessionContext, logger, components.Types, components.Software)
+        {
+        }
+
+        internal PortalService(
+            EngineeringSessionContext sessionContext,
+            ILogger<PortalService>? logger,
+            V21TypeServiceResolver types,
+            V21SoftwareDiscovery software)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
-            var v21Adapter = new V21OpennessAdapter();
             _sessionService = new PortalSessionService(_sessionContext, logger);
-            _inspectionService = new PortalInspectionService(_sessionContext, logger, v21Adapter);
+            _inspectionService = new PortalInspectionService(_sessionContext, logger, types, software);
         }
 
         EngineeringSessionContext IEngineeringSessionContextAccessor.SessionContext => _sessionContext;
@@ -104,6 +116,15 @@ namespace OpenTiaToolkit.Core.Services
         public async Task<bool> OpenProjectAsync(string projectPath, ProjectAuthenticationOptions? authentication)
         {
             return await _sessionService.OpenProjectAsync(projectPath, authentication);
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> OpenProjectAsync(
+            string projectPath,
+            ProjectAuthenticationOptions? authentication,
+            bool openInNewInstance)
+        {
+            return await _sessionService.OpenProjectAsync(projectPath, authentication, openInNewInstance);
         }
 
         /// <inheritdoc/>

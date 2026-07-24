@@ -6,6 +6,8 @@ using OpenTiaToolkit.Core;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Services;
+using OpenTiaToolkit.Core.Services.PlcTags;
+using OpenTiaToolkit.Core.Services.V21;
 using System;
 using System.IO;
 using System.Linq;
@@ -62,6 +64,82 @@ namespace OpenTiaToolkit.Tests.Composition
             Assert.AreSame(portalContext, hardwareContext);
             Assert.AreSame(portalContext, libraryContext);
             Assert.AreSame(portalContext, textContext);
+        }
+
+        [TestMethod]
+        public void AddOpenTiaToolkitCoreServices_SharesFocusedV21CapabilitiesAcrossProductionGraph()
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddOpenTiaToolkitCoreServices();
+            services.AddOpenTiaToolkitCommands();
+
+            using var serviceProvider = services.BuildServiceProvider();
+            var types = serviceProvider.GetRequiredService<V21TypeServiceResolver>();
+            var objects = serviceProvider.GetRequiredService<V21EngineeringObjectAccess>();
+            var software = serviceProvider.GetRequiredService<V21SoftwareDiscovery>();
+            var tags = serviceProvider.GetRequiredService<V21PlcTagStructureAccess>();
+            var compilation = serviceProvider.GetRequiredService<V21CompilationAccess>();
+            var online = serviceProvider.GetRequiredService<V21OnlineVerificationAccess>();
+            var documents = serviceProvider.GetRequiredService<V21DocumentAccess>();
+            var hardwareCatalog = serviceProvider.GetRequiredService<V21HardwareCatalogAccess>();
+            var hardwareAttributes = serviceProvider.GetRequiredService<V21HardwareAttributeAccess>();
+            var hardwareDrives = serviceProvider.GetRequiredService<V21HardwareDriveAccess>();
+            var hardwareNetworks = serviceProvider.GetRequiredService<V21HardwareNetworkAccess>();
+            var tagRepository = serviceProvider.GetRequiredService<IPlcTagRepository>();
+            var hardwareAdapter = serviceProvider.GetRequiredService<V21HardwareAdapter>();
+
+            Assert.AreSame(types, GetPrivateFieldValue(software, "_resolver"));
+            Assert.AreSame(types, GetPrivateFieldValue(compilation, "_resolver"));
+            Assert.AreSame(types, GetPrivateFieldValue(online, "_resolver"));
+            Assert.AreSame(types, GetPrivateFieldValue(documents, "_resolver"));
+            Assert.AreSame(objects, GetPrivateFieldValue(tags, "_objects"));
+            Assert.AreSame(tags, GetPrivateFieldValue(tagRepository, "_tags"));
+            Assert.AreSame(objects, GetPrivateFieldValue(tagRepository, "_objects"));
+            Assert.AreSame(types, GetPrivateFieldValue(hardwareAttributes, "_services"));
+            Assert.AreSame(hardwareCatalog, GetPrivateFieldValue(hardwareAdapter, "_catalog"));
+            Assert.AreSame(hardwareAttributes, GetPrivateFieldValue(hardwareAdapter, "_attributes"));
+            Assert.AreSame(hardwareDrives, GetPrivateFieldValue(hardwareAdapter, "_drives"));
+            Assert.AreSame(hardwareNetworks, GetPrivateFieldValue(hardwareAdapter, "_networks"));
+            Assert.AreSame(hardwareAttributes, GetPrivateFieldValue(hardwareDrives, "_attributes"));
+            Assert.AreSame(hardwareAttributes, GetPrivateFieldValue(hardwareNetworks, "_attributes"));
+
+            var portal = serviceProvider.GetRequiredService<PortalService>();
+            var inspection = GetPrivateFieldValue(portal, "_inspectionService")!;
+            Assert.AreSame(types, GetPrivateFieldValue(inspection, "_types"));
+            Assert.AreSame(software, GetPrivateFieldValue(inspection, "_software"));
+
+            var plc = serviceProvider.GetRequiredService<PlcService>();
+            Assert.AreSame(software, GetPrivateFieldValue(plc, "_software"));
+            Assert.AreSame(compilation, GetPrivateFieldValue(GetPrivateFieldValue(plc, "_compileService")!, "_compilation"));
+            Assert.AreSame(online, GetPrivateFieldValue(GetPrivateFieldValue(plc, "_verificationService")!, "_online"));
+            Assert.AreSame(documents, GetPrivateFieldValue(GetPrivateFieldValue(plc, "_blockMutationService")!, "_documents"));
+            Assert.AreSame(objects, GetPrivateFieldValue(GetPrivateFieldValue(plc, "_memberRenameService")!, "_objects"));
+            var surface = GetPrivateFieldValue(plc, "_surfaceService")!;
+            Assert.AreSame(tags, GetPrivateFieldValue(GetPrivateFieldValue(surface, "_tags")!, "_tags"));
+            Assert.AreSame(types, GetPrivateFieldValue(GetPrivateFieldValue(surface, "_crossReferences")!, "_types"));
+            var importExport = GetPrivateFieldValue(plc, "_importExportService")!;
+            Assert.AreSame(documents, GetPrivateFieldValue(GetPrivateFieldValue(importExport, "_xml")!, "_documents"));
+            Assert.AreSame(documents, GetPrivateFieldValue(GetPrivateFieldValue(importExport, "_documents")!, "_documents"));
+            var findReplace = GetPrivateFieldValue(GetPrivateFieldValue(plc, "_tagService")!, "_findReplace")!;
+            Assert.AreSame(tagRepository, GetPrivateFieldValue(findReplace, "_repository"));
+
+            var hardware = serviceProvider.GetRequiredService<HardwareService>();
+            var audit = GetPrivateFieldValue(hardware, "_audit")!;
+            Assert.AreSame(software, GetPrivateFieldValue(audit, "_software"));
+            Assert.AreSame(tagRepository, GetPrivateFieldValue(audit, "_tagCatalogReader"));
+            Assert.AreSame(hardwareCatalog, GetPrivateFieldValue(audit, "_catalog"));
+            Assert.AreSame(hardwareDrives, GetPrivateFieldValue(GetPrivateFieldValue(hardware, "_drives")!, "_drives"));
+            Assert.AreSame(hardwareAttributes, GetPrivateFieldValue(GetPrivateFieldValue(hardware, "_topology")!, "_attributes"));
+            Assert.AreSame(hardwareNetworks, GetPrivateFieldValue(GetPrivateFieldValue(hardware, "_topology")!, "_networks"));
+
+            var workflow = serviceProvider.GetRequiredService<PlcDocumentWorkflowService>();
+            var importWorkflow = GetPrivateFieldValue(workflow, "_documents")!;
+            var targets = GetPrivateFieldValue(importWorkflow, "_targets")!;
+            Assert.AreSame(documents, GetPrivateFieldValue(targets, "_documents"));
+            Assert.AreSame(objects, GetPrivateFieldValue(targets, "_objects"));
+
+            Assert.IsTrue(serviceProvider.GetServices<ICommand>().Any());
         }
 
         [TestMethod]

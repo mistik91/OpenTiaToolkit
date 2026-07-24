@@ -1340,6 +1340,7 @@ Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats al
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `project-path` | Path | yes |  | Full path to the project file |
+| `open-in-new-instance` | Boolean | no | False | Open in a dedicated hidden TIA instance when another project is already open (default: false) |
 | `umac-user` | String | no |  | Optional UMAC user name |
 | `umac-password-env` | String | no | OPENTIA_UMAC_PASSWORD | Environment variable containing the UMAC password (default: OPENTIA_UMAC_PASSWORD) |
 | `umac-user-type` | String | no | project | UMAC user type: project or global |

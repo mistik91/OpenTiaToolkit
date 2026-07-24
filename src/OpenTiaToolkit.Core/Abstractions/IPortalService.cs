@@ -85,6 +85,18 @@ public interface IPortalService : IDisposable
     Task<bool> OpenProjectAsync(string projectPath, ProjectAuthenticationOptions? authentication);
 
     /// <summary>
+    /// Opens a TIA Portal project, optionally in a dedicated hidden instance.
+    /// </summary>
+    /// <param name="projectPath">The full path to the project file.</param>
+    /// <param name="authentication">Optional UMAC authentication options.</param>
+    /// <param name="openInNewInstance">Whether a different project may be opened in a dedicated hidden instance.</param>
+    /// <returns>True if the requested project is selected and its exact path was verified.</returns>
+    Task<bool> OpenProjectAsync(
+        string projectPath,
+        ProjectAuthenticationOptions? authentication,
+        bool openInNewInstance);
+
+    /// <summary>
     /// Creates a new TIA Portal project and selects it as the current project.
     /// </summary>
     /// <param name="projectPath">Project folder path or .ap21 file path.</param>

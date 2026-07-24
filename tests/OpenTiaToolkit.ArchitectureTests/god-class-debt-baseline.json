@@ -1,0 +1,25 @@
+{
+  "screeningThreshold": 1000,
+  "historicalHotspots": {},
+  "reviewedFileGrowthCeilings": {
+    "src/OpenTiaToolkit.Core/Services/PlcAncillarySurfaceReader.cs": 91,
+    "src/OpenTiaToolkit.Core/Services/PlcCrossReferenceService.cs": 305,
+    "src/OpenTiaToolkit.Core/Services/PlcDocumentTransferService.cs": 288,
+    "src/OpenTiaToolkit.Core/Services/PlcExternalSourceService.cs": 269,
+    "src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs": 81,
+    "src/OpenTiaToolkit.Core/Services/PlcSurfaceService.cs": 78,
+    "src/OpenTiaToolkit.Core/Services/PlcTagExportService.cs": 56,
+    "src/OpenTiaToolkit.Core/Services/PlcTransferRules.cs": 42,
+    "src/OpenTiaToolkit.Core/Services/PlcXmlTransferService.cs": 320,
+    "src/OpenTiaToolkit.Core/Services/PlcTags/PlcTagCsvWorkflow.cs": 894,
+    "src/OpenTiaToolkit.Core/Services/UnifiedHmi/V21HmiDynamizationSynchronizer.cs": 759,
+    "src/OpenTiaToolkit.Core/Services/UnifiedHmi/V21HmiEngineeringPrimitives.cs": 759,
+    "src/OpenTiaToolkit.Core/Services/UnifiedHmi/V21UnifiedHmiAccess.cs": 748,
+    "src/OpenTiaToolkit.Core/Services/V21/V21HardwareAttributeAccess.cs": 237,
+    "src/OpenTiaToolkit.Core/Services/V21/V21HardwareCatalogAccess.cs": 49,
+    "src/OpenTiaToolkit.Core/Services/V21/V21HardwareDriveAccess.cs": 450,
+    "src/OpenTiaToolkit.Core/Services/V21/V21HardwareNetworkAccess.cs": 94,
+    "src/OpenTiaToolkit.Core/Services/V21HardwareAdapter.cs": 119
+  },
+  "typeAggregateExceptions": {}
+}

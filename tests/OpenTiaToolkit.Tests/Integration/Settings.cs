@@ -12,12 +12,12 @@ namespace OpenTiaToolkit.Tests.Integration
         // Export paths for testing
         public static string TestExportPath => GetSetting(
             "OPEN_TIA_TEST_EXPORT_PATH",
-            Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "Integration", "Exports"));
+            Path.Combine(Path.GetTempPath(), "OTT", "Exports"));
 
         // Output path for test files (outside project directory to avoid TIA Portal access issues)
         public static string TestOutputPath => GetSetting(
             "OPEN_TIA_TEST_OUTPUT_PATH",
-            Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "Integration", "Output"));
+            Path.Combine(Path.GetTempPath(), "OTT", "Output"));
 
         // Unified HMI-specific validation project
         public static string UnifiedHmiProjectPath => GetRequiredPath("OPEN_TIA_TEST_HMI_PROJECT_PATH");

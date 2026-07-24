@@ -57,12 +57,22 @@ public class ProjectTreeNode
 /// </summary>
 public class ProjectInfo
 {
-    public ProjectInfo(string name, string path, string? version, DateTime? created)
+    public ProjectInfo(
+        string name,
+        string path,
+        string? version,
+        DateTime? created,
+        int? portalProcessId = null,
+        bool isPortalVisible = false,
+        bool isToolkitOwned = false)
     {
         Name = name;
         Path = path;
         Version = version;
         Created = created;
+        PortalProcessId = portalProcessId;
+        IsPortalVisible = isPortalVisible;
+        IsToolkitOwned = isToolkitOwned;
     }
 
     /// <summary>Gets the project name.</summary>
@@ -76,6 +86,15 @@ public class ProjectInfo
 
     /// <summary>Gets when the project was created.</summary>
     public DateTime? Created { get; }
+
+    /// <summary>Gets the attached TIA Portal process ID when the toolkit is attached to an existing instance.</summary>
+    public int? PortalProcessId { get; }
+
+    /// <summary>Gets whether the selected portal has a visible user interface.</summary>
+    public bool IsPortalVisible { get; }
+
+    /// <summary>Gets whether the toolkit owns the selected project lifecycle.</summary>
+    public bool IsToolkitOwned { get; }
 }
 
 /// <summary>

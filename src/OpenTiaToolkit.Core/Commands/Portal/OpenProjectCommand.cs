@@ -38,6 +38,13 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                         CommandParameterType.Path,
                         "Full path to the project file",
                         required: true
+                    ),
+                    new CommandParameter(
+                        "open-in-new-instance",
+                        CommandParameterType.Boolean,
+                        "Open in a dedicated hidden TIA instance when another project is already open (default: false)",
+                        required: false,
+                        defaultValue: false
                     )
                 },
                 ProjectCommandSupport.UmacParameters()
@@ -69,7 +76,8 @@ namespace OpenTiaToolkit.Core.Commands.Portal
                 context.Checkpoint($"Opening TIA Portal project: {projectPath}.", 45, "open-project");
                 var success = await _portalService.OpenProjectAsync(
                     projectPath,
-                    ProjectCommandSupport.GetAuthenticationOptions(args));
+                    ProjectCommandSupport.GetAuthenticationOptions(args),
+                    args.GetBool("open-in-new-instance", false));
 
                 if (success)
                 {

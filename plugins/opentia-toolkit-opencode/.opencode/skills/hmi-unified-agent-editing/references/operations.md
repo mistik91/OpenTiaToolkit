@@ -105,12 +105,12 @@ Duplicate and rename:
 
 ```json
 [
-  { "op": "duplicate-item", "itemName": "Button_Start", "targetName": "Button_Stop" },
+  { "op": "duplicate-item", "source": "Button_Start", "targetName": "Button_Stop" },
   { "op": "rename-item", "itemName": "Button_Stop", "targetName": "Button_Reset" }
 ]
 ```
 
-`duplicate-item` accepts `item`, `target`, `targetItem`, or `targetName` for the new item. Prefer `targetName` when the source is already provided with `itemName`.
+`duplicate-item` requires `source` or `sourceItem` for the existing item. It accepts `item`, `itemName`, `target`, `targetItem`, or `targetName` for the new item. Prefer `source` and `targetName` in new payloads.
 
 Delete:
 
@@ -129,12 +129,14 @@ Set an item event handler:
 {
   "op": "set-event-handler",
   "itemName": "Button_1",
-  "eventType": "Click",
+  "eventType": "Tapped",
   "scriptCode": "return 42;",
   "globalDefinitionAreaScriptCode": "",
   "async": false
 }
 ```
+
+Event types are Siemens object-type and TIA-version specific. `Tapped` is valid for a V21 `HmiButton`; do not assume that browser-style names such as `Click` are supported. Inspect the target capability or preserve an event type exported from the same target type.
 
 Do not use an empty `scriptCode`. If the script is unknown, ask for it before producing a ready-to-run apply payload.
 
@@ -144,7 +146,7 @@ Remove an item event handler:
 {
   "op": "remove-event-handler",
   "itemName": "Button_1",
-  "eventType": "Click"
+  "eventType": "Tapped"
 }
 ```
 

@@ -436,6 +436,83 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public async Task UpdateTagsFromCsvAsync_ReplacementCreationFailure_RestoresOriginalTag()
+        {
+            var original = new FakeTag
+            {
+                Name = "OldSignal",
+                DataType = "Bool",
+                LogicalAddress = "%I9.2"
+            };
+            original.Comment.Items[0].Text = "Original comment";
+            var table = new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags = { original }
+            };
+            table.Tags.CreateFailureMessage = "replacement creation failed";
+            table.Tags.CreateFailuresRemaining = 1;
+            var service = CreateService(table);
+            var csvPath = WriteCsv(
+                "TagName,Address,DataType,Comment",
+                "NewSignal,%E9.2,Bool,Replacement comment");
+
+            try
+            {
+                var result = await service.UpdateTagsFromCsvAsync(csvPath, dryRun: false);
+
+                Assert.AreEqual(1, result.Errors.Count);
+                Assert.AreEqual(0, result.Summary.TagsDeleted);
+                Assert.AreEqual(0, result.Summary.TagsCreated);
+                StringAssert.Contains(result.Errors.Single().Error, "original tag was restored");
+                var restored = table.Tags.Single(tag => !tag.IsDeleted && tag.Name == "OldSignal");
+                Assert.AreEqual("Bool", restored.DataType);
+                Assert.AreEqual("%I9.2", restored.LogicalAddress);
+                Assert.AreEqual("Original comment", restored.Comment.Items[0].Text);
+            }
+            finally
+            {
+                File.Delete(csvPath);
+            }
+        }
+
+        [TestMethod]
+        public async Task UpdateTagsFromCsvAsync_DryRun_DoesNotMutateRepositoryObjects()
+        {
+            var original = new FakeTag
+            {
+                Name = "OldSignal",
+                DataType = "Bool",
+                LogicalAddress = "%I9.2"
+            };
+            var table = new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags = { original }
+            };
+            var service = CreateService(table);
+            var csvPath = WriteCsv(
+                "TagName,Address,DataType,Comment",
+                "NewSignal,%E9.2,Bool,Replacement comment");
+
+            try
+            {
+                var result = await service.UpdateTagsFromCsvAsync(csvPath, dryRun: true);
+
+                Assert.AreEqual(1, result.Summary.TagsDeleted);
+                Assert.AreEqual(1, result.Summary.TagsCreated);
+                Assert.IsFalse(original.IsDeleted);
+                Assert.AreEqual("OldSignal", original.Name);
+                Assert.AreEqual("%I9.2", original.LogicalAddress);
+                Assert.AreEqual(1, table.Tags.Count);
+            }
+            finally
+            {
+                File.Delete(csvPath);
+            }
+        }
+
+        [TestMethod]
         public async Task ModifyTagsAsync_DryRunTracksSequentialRenameAndCreate()
         {
             var service = CreateService(new FakeTagTable
@@ -541,6 +618,63 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsTrue(oldTag.IsDeleted);
             Assert.IsTrue(table.Tags.Any(tag => !tag.IsDeleted && tag.Name == "OldSignal"));
             StringAssert.Contains(result.Operations.Single().Message, "original tag was restored");
+        }
+
+        [TestMethod]
+        public async Task ModifyTagsAsync_UpdateSetterFailure_RestoresOriginalSnapshot()
+        {
+            var tag = new FakeTag
+            {
+                Name = "Signal",
+                DataType = "Bool",
+                LogicalAddress = "%I0.0"
+            };
+            tag.Comment.Items[0].Text = "Original";
+            tag.FailNextDataTypeSet = true;
+            var service = CreateService(new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags = { tag }
+            });
+            var operations = TagModificationInputParser.ParseJson(
+                "[{\"action\":\"update\",\"match\":{\"tagTable\":\"INPUT\",\"name\":\"Signal\"}," +
+                "\"set\":{\"name\":\"Renamed\",\"dataType\":\"Int\",\"logicalAddress\":\"%I2.0\"}}]");
+
+            var result = await service.ModifyTagsAsync(operations, dryRun: false);
+
+            Assert.AreEqual(1, result.Summary.Failed);
+            Assert.AreEqual("Signal", tag.Name);
+            Assert.AreEqual("Bool", tag.DataType);
+            Assert.AreEqual("%I0.0", tag.LogicalAddress);
+            Assert.AreEqual("Original", tag.Comment.Items[0].Text);
+            Assert.AreEqual("Signal", result.Operations.Single().Before!.Name);
+            Assert.AreEqual("Renamed", result.Operations.Single().After!.Name);
+        }
+
+        [TestMethod]
+        public async Task ModifyTagsAsync_ReplacementRestorationFailure_ReportsBothFailures()
+        {
+            var table = new FakeTagTable
+            {
+                Name = "INPUT",
+                Tags =
+                {
+                    new FakeTag { Name = "OldSignal", DataType = "Bool", LogicalAddress = "%I0.0" }
+                }
+            };
+            table.Tags.CreateFailureMessage = "creation denied";
+            table.Tags.CreateFailuresRemaining = 2;
+            var service = CreateService(table);
+            var operations = TagModificationInputParser.ParseJson(
+                "[{\"action\":\"replace\",\"match\":{\"tagTable\":\"INPUT\",\"name\":\"OldSignal\"}," +
+                "\"set\":{\"name\":\"NewSignal\"}}]");
+
+            var result = await service.ModifyTagsAsync(operations, dryRun: false);
+
+            Assert.AreEqual(1, result.Summary.Failed);
+            StringAssert.Contains(result.Operations.Single().Message, "Replacement creation failed");
+            StringAssert.Contains(result.Operations.Single().Message, "restoring the original tag failed");
+            StringAssert.Contains(result.Operations.Single().Message, "creation denied");
         }
 
         [TestMethod]
@@ -748,9 +882,24 @@ namespace OpenTiaToolkit.Tests.Services
 
         private sealed class FakeTag
         {
+            private string _dataType = string.Empty;
+
             public string Name { get; set; } = string.Empty;
 
-            public string DataType { get; set; } = string.Empty;
+            public string DataType
+            {
+                get => _dataType;
+                set
+                {
+                    if (FailNextDataTypeSet)
+                    {
+                        FailNextDataTypeSet = false;
+                        throw new InvalidOperationException("datatype setter failed");
+                    }
+
+                    _dataType = value;
+                }
+            }
 
             public string LogicalAddress { get; set; } = string.Empty;
 
@@ -759,6 +908,8 @@ namespace OpenTiaToolkit.Tests.Services
             public bool IsDeleted { get; private set; }
 
             public Action? OnDelete { get; set; }
+
+            public bool FailNextDataTypeSet { get; set; }
 
             public void Delete()
             {

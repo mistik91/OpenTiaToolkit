@@ -5464,6 +5464,13 @@
           "description": "Full path to the project file"
         },
         {
+          "name": "open-in-new-instance",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Open in a dedicated hidden TIA instance when another project is already open (default: false)"
+        },
+        {
           "name": "umac-user",
           "type": "String",
           "required": false,

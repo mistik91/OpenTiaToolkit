@@ -23,6 +23,8 @@ namespace OpenTiaToolkit.Core.Services
 
         public int? AttachedPortalProcessId { get; set; }
 
+        public bool IsPortalVisible { get; set; }
+
         public ProjectBase? Project { get; set; }
 
         public LocalSession? Session { get; set; }
@@ -49,6 +51,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             Portal = null;
             AttachedPortalProcessId = null;
+            IsPortalVisible = false;
             ClearProjectSelection();
         }
 
