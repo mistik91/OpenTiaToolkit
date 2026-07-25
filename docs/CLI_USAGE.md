@@ -835,6 +835,8 @@ OpenTiaToolkit.CLI.exe probe-hmi-faceplate-interface --hmi-name="HMI_1" --screen
 OpenTiaToolkit.CLI.exe probe-hmi-faceplate-interface --hmi-name="HMI_1" --screen-path="Codex/Main" --item-name-path="C:\Exports\Hmi\item-name.txt" --property="GEN" --write=true --value="Valve_1_GEN" --restore=true
 ```
 
+Probe entries report both the declared `ValuePropertyType` and the boxed `ValueRuntimeType`. Write probes convert the supplied text to that runtime type (or deterministic interface metadata when the current value is null) before calling Siemens, and restoration reapplies the exact original boxed value.
+
 #### audit-hmi-label-proximity
 
 Creates an offline JSON report from an exported HMI JSON file showing nearest-label matches before a bulk edit. The report includes target item, matched label item/text, distance, deltas, candidate counts, skipped candidates, and duplicate-label flags.

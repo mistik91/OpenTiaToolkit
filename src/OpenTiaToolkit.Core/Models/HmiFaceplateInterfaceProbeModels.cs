@@ -41,6 +41,8 @@ namespace OpenTiaToolkit.Core.Models
 
         public string? ValuePropertyType { get; set; }
 
+        public string? ValueRuntimeType { get; set; }
+
         public string? ValueDeclaringType { get; set; }
 
         public bool ValueCanRead { get; set; }

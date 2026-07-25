@@ -184,6 +184,154 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void InterfaceSynchronization_BoxesBooleanForObjectTypedValueProperty()
+        {
+            var entry = new FakeInterfaceEntry("NO", false, typeof(bool));
+            var composition = new FakeInterfaceComposition(entry);
+
+            var success = V21HmiDynamizationSynchronizer.TrySynchronizeInterfaceBindings(
+                composition,
+                new[]
+                {
+                    new HmiJsonInterfaceBinding
+                    {
+                        PropertyName = "NO",
+                        ValueType = "String",
+                        Value = "True"
+                    }
+                },
+                out var error);
+
+            Assert.IsTrue(success, error);
+            Assert.AreEqual(true, entry.Value);
+            Assert.AreEqual(typeof(bool), entry.LastAssignedType);
+            Assert.AreEqual(1, entry.WriteCount);
+        }
+
+        [TestMethod]
+        public void InterfaceSynchronization_UsesSupportedTypeWhenCurrentValueIsNull()
+        {
+            var entry = new FakeInterfaceEntry(
+                "Enable",
+                initialValue: null,
+                requiredWriteType: typeof(bool),
+                supportedTypes: new[] { typeof(bool) });
+            var composition = new FakeInterfaceComposition(entry);
+
+            var success = V21HmiDynamizationSynchronizer.TrySynchronizeInterfaceBindings(
+                composition,
+                new[]
+                {
+                    new HmiJsonInterfaceBinding
+                    {
+                        PropertyName = "Enable",
+                        Value = "true"
+                    }
+                },
+                out var error);
+
+            Assert.IsTrue(success, error);
+            Assert.AreEqual(true, entry.Value);
+            Assert.AreEqual(typeof(bool), entry.LastAssignedType);
+        }
+
+        [TestMethod]
+        public void InterfaceSynchronization_ConvertsInvariantNumericValue()
+        {
+            var entry = new FakeInterfaceEntry("TrendMax", 0L, typeof(long));
+            var composition = new FakeInterfaceComposition(entry);
+
+            var success = V21HmiDynamizationSynchronizer.TrySynchronizeInterfaceBindings(
+                composition,
+                new[]
+                {
+                    new HmiJsonInterfaceBinding
+                    {
+                        PropertyName = "TrendMax",
+                        ValueType = "Int64",
+                        Value = "150"
+                    }
+                },
+                out var error);
+
+            Assert.IsTrue(success, error);
+            Assert.AreEqual(150L, entry.Value);
+            Assert.AreEqual(typeof(long), entry.LastAssignedType);
+        }
+
+        [TestMethod]
+        public void InterfaceValidation_DryRunRejectsInvalidBooleanWithoutWriting()
+        {
+            var entry = new FakeInterfaceEntry("NO", false, typeof(bool));
+            var owner = new FakeInterfaceOwner(entry);
+            var primitives = new V21HmiEngineeringPrimitives(null);
+            var properties = new V21HmiItemPropertyAccessor(primitives);
+            var composites = new V21HmiCompositeAccess(properties);
+
+            var valid = composites.TryValidateOrApplyInterfaceBindings(
+                owner,
+                owner.GetType(),
+                new[]
+                {
+                    new HmiJsonInterfaceBinding
+                    {
+                        PropertyName = "NO",
+                        ValueType = "Boolean",
+                        Value = "not-a-boolean"
+                    }
+                },
+                apply: false,
+                out var error);
+
+            Assert.IsFalse(valid);
+            StringAssert.Contains(error, "Boolean");
+            Assert.AreEqual(false, entry.Value);
+            Assert.AreEqual(0, entry.WriteCount);
+        }
+
+        [TestMethod]
+        public void InterfaceValidation_DryRunAcceptsTypedBooleanWithoutWriting()
+        {
+            var entry = new FakeInterfaceEntry("NO", false, typeof(bool));
+            var owner = new FakeInterfaceOwner(entry);
+            var primitives = new V21HmiEngineeringPrimitives(null);
+            var properties = new V21HmiItemPropertyAccessor(primitives);
+            var composites = new V21HmiCompositeAccess(properties);
+
+            var valid = composites.TryValidateOrApplyInterfaceBindings(
+                owner,
+                owner.GetType(),
+                new[]
+                {
+                    new HmiJsonInterfaceBinding
+                    {
+                        PropertyName = "NO",
+                        ValueType = "Boolean",
+                        Value = "True"
+                    }
+                },
+                apply: false,
+                out var error);
+
+            Assert.IsTrue(valid, error);
+            Assert.AreEqual(false, entry.Value);
+            Assert.AreEqual(0, entry.WriteCount);
+        }
+
+        [TestMethod]
+        public void InterfaceValueAccessor_RestoresNullWithoutSubstitutingEmptyString()
+        {
+            var entry = new FakeInterfaceEntry("Optional", "temporary", requiredWriteType: null);
+
+            var success = V21HmiInterfaceValueAccessor.TryWriteRawValue(entry, null, out var error);
+
+            Assert.IsTrue(success, error);
+            Assert.IsNull(entry.Value);
+            Assert.IsNull(entry.LastAssignedType);
+            Assert.AreEqual(1, entry.WriteCount);
+        }
+
+        [TestMethod]
         public void MappingTableValidation_RejectsUnsupportedEntryType()
         {
             var dynamization = Dynamization("Visible", "Tag");
@@ -332,6 +480,83 @@ namespace OpenTiaToolkit.Tests.Services
         private sealed class NestedChild { public string? Value { get; set; } }
         private sealed class ReadOnlyOwner { public string Value => "fixed"; }
         private sealed class FakeDynamizationOwner { public object Dynamizations { get; } = new object(); public string Visible { get; set; } = string.Empty; }
+        private sealed class FakeInterfaceOwner
+        {
+            internal FakeInterfaceOwner(FakeInterfaceEntry entry)
+            {
+                Interface = new FakeInterfaceComposition(entry);
+            }
+
+            public FakeInterfaceComposition Interface { get; }
+        }
+
+        private sealed class FakeInterfaceComposition : IEnumerable
+        {
+            private readonly IReadOnlyList<FakeInterfaceEntry> _entries;
+
+            internal FakeInterfaceComposition(params FakeInterfaceEntry[] entries)
+            {
+                _entries = entries;
+            }
+
+            public IEnumerator GetEnumerator() => _entries.GetEnumerator();
+        }
+
+        private sealed class FakeInterfaceEntry
+        {
+            private readonly Type? _requiredWriteType;
+            private readonly IReadOnlyList<Type> _supportedTypes;
+            private object? _value;
+
+            internal FakeInterfaceEntry(
+                string propertyName,
+                object? initialValue,
+                Type? requiredWriteType,
+                IReadOnlyList<Type>? supportedTypes = null)
+            {
+                PropertyName = propertyName;
+                _value = initialValue;
+                _requiredWriteType = requiredWriteType;
+                _supportedTypes = supportedTypes ?? Array.Empty<Type>();
+            }
+
+            public string PropertyName { get; }
+            public Type? LastAssignedType { get; private set; }
+            public int WriteCount { get; private set; }
+
+            public object? Value
+            {
+                get => _value;
+                set
+                {
+                    LastAssignedType = value?.GetType();
+                    WriteCount++;
+                    if (_requiredWriteType != null && LastAssignedType != _requiredWriteType)
+                    {
+                        throw new InvalidOperationException(
+                            $"Expected {_requiredWriteType.Name}, received {LastAssignedType?.Name ?? "null"}.");
+                    }
+
+                    _value = value;
+                }
+            }
+
+            public IEnumerable<FakeAttributeInfo> GetAttributeInfos()
+            {
+                yield return new FakeAttributeInfo
+                {
+                    Name = "Value",
+                    SupportedTypes = _supportedTypes
+                };
+            }
+        }
+
+        private sealed class FakeAttributeInfo
+        {
+            public string Name { get; set; } = string.Empty;
+            public IReadOnlyList<Type> SupportedTypes { get; set; } = Array.Empty<Type>();
+        }
+
         private enum FakeEvent { Click, Change, Loaded }
         private sealed class FakeEventOwner { public FakeEventComposition EventHandlers { get; } = new FakeEventComposition(); }
         private sealed class FakeEventComposition : IEnumerable

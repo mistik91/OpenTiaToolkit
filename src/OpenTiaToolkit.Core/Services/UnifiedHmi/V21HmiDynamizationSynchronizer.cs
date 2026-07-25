@@ -582,7 +582,7 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         if (valueChanged)
                         {
-                            SetObjectPropertyValueFlexible(currentEntry.Raw, "Value", binding.Value ?? string.Empty);
+                            if (!V21HmiInterfaceValueAccessor.TryWriteValue(currentEntry.Raw, binding, out var valueError)) throw new InvalidOperationException(valueError);
                         }
                     }
                     catch (Exception ex)
