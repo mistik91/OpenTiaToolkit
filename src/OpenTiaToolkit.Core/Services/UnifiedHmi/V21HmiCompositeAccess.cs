@@ -208,6 +208,7 @@ namespace OpenTiaToolkit.Core.Services
                     Value = NormalizeOptionalString(V21HmiEngineeringPrimitives.FormatValue(rawValue)),
                     EntryType = entry.GetType().FullName ?? entry.GetType().Name,
                     ValuePropertyType = valueProperty?.PropertyType.FullName,
+                    ValueRuntimeType = rawValue?.GetType().FullName,
                     ValueDeclaringType = valueProperty?.DeclaringType?.FullName,
                     ValueCanRead = valueProperty?.CanRead == true,
                     ValueCanWrite = valueProperty?.CanWrite == true,
@@ -247,7 +248,16 @@ namespace OpenTiaToolkit.Core.Services
             var targetProbeEntry = result.Entries.First(entry => entry.IsTarget);
             try
             {
-                V21HmiEngineeringPrimitives.SetObjectPropertyValueFlexible(targetEntry, "Value", value ?? string.Empty);
+                var binding = new HmiJsonInterfaceBinding
+                {
+                    PropertyName = targetProperty!,
+                    ValueType = originalRawValue?.GetType().Name,
+                    Value = value
+                };
+                if (!V21HmiInterfaceValueAccessor.TryWriteValue(targetEntry, binding, out var valueError))
+                {
+                    throw new InvalidOperationException(valueError);
+                }
                 result.WriteSucceeded = true;
                 targetProbeEntry.ValueAfterWrite = NormalizeOptionalString(V21HmiEngineeringPrimitives.FormatValue(V21HmiEngineeringPrimitives.TryReadPropertyValue(targetEntry, "Value")));
             }
@@ -261,7 +271,10 @@ namespace OpenTiaToolkit.Core.Services
             {
                 try
                 {
-                    V21HmiEngineeringPrimitives.SetObjectPropertyValueFlexible(targetEntry, "Value", originalRawValue ?? string.Empty);
+                    if (!V21HmiInterfaceValueAccessor.TryWriteRawValue(targetEntry, originalRawValue, out var restoreError))
+                    {
+                        throw new InvalidOperationException(restoreError);
+                    }
                     result.RestoreSucceeded = true;
                     targetProbeEntry.ValueAfterRestore = NormalizeOptionalString(V21HmiEngineeringPrimitives.FormatValue(V21HmiEngineeringPrimitives.TryReadPropertyValue(targetEntry, "Value")));
                 }
@@ -554,6 +567,25 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         error = $"Interface property '{propertyName}' was not found.";
                         return false;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(propertyName) &&
+                        availableBindings.TryGetValue(propertyName!, out var currentEntry))
+                    {
+                        var valueChanged = !string.Equals(
+                            NormalizeOptionalString(currentEntry.Export?.Value),
+                            NormalizeOptionalString(binding.Value),
+                            StringComparison.Ordinal);
+                        if (valueChanged &&
+                            !V21HmiInterfaceValueAccessor.TryConvertValue(
+                                currentEntry.Raw,
+                                binding,
+                                out _,
+                                out var valueError))
+                        {
+                            error = $"Interface.{propertyName}.Value: {valueError}";
+                            return false;
+                        }
                     }
 
                     if (!TryValidateDynamizationDefinitions(binding.Dynamizations ?? new List<HmiJsonDynamization>(), out error))
