@@ -191,8 +191,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 
 | Tool | Description |
 |---|---|
-| `operation-status` | Reports the active serialized operation and latest progress. |
-| `cancel-operation` | Requests cooperative cancellation of the active operation. |
-| `reset-session` | Waits for quiescence, then disposes the TIA attachment; fails closed when a vendor call remains active. |
+| `operation-status` | Reports the active serialized operation. |
+| `cancel-operation` | Requests cancellation, then terminates and replaces the worker running the active operation. |
+| `reset-session` | Requests cancellation and waits for quiescence, then replaces the worker; fails closed after the configured grace period. |
 
 MCP path parameters are restricted by `OPEN_TIA_MCP_ALLOWED_ROOTS`, input size by `OPEN_TIA_MCP_MAX_INPUT_FILE_BYTES`, and explicit output overwrite by `OPEN_TIA_MCP_ALLOW_FILE_OVERWRITE`.

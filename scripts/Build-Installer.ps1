@@ -210,9 +210,14 @@ if ($RequireSigning) { $supplyChainArguments += '-RequireSigning' }
 if ($LASTEXITCODE -ne 0) { throw "Release metadata/signing generation failed with exit code $LASTEXITCODE." }
 
 $stagedMcpExe = Join-Path $mcpStageRoot 'OpenTiaToolkit.MCP.exe'
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\Test-McpStdio.ps1') -ExecutablePath $stagedMcpExe
+$stagedCliExe = Join-Path $cliStageRoot 'OpenTiaToolkit.CLI.exe'
+$stagedWorkerExe = Join-Path $workerStageRoot 'OpenTiaToolkit.Worker.V21.exe'
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\Test-McpStdio.ps1') `
+    -ExecutablePath $stagedMcpExe `
+    -CommandCatalogExecutablePath $stagedCliExe `
+    -WorkerExecutablePath $stagedWorkerExe
 if ($LASTEXITCODE -ne 0) {
-    throw "Staged MCP stdio initialization smoke failed with exit code $LASTEXITCODE."
+    throw "Staged MCP stable-SDK and stdio compatibility smoke failed with exit code $LASTEXITCODE."
 }
 
 if ($StageOnly) {
@@ -283,6 +288,23 @@ New-Item -ItemType Directory -Force -Path $releaseMetadataRoot | Out-Null
 $installerHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$installerHash  $([System.IO.Path]::GetFileName($installerPath))" | Set-Content -LiteralPath (Join-Path $releaseMetadataRoot 'INSTALLER-SHA256SUMS.txt') -Encoding UTF8
 Copy-Item -Path (Join-Path $stageRoot 'release-metadata\*') -Destination $releaseMetadataRoot -Force
+
+$unsignedNoticePath = Join-Path $releaseMetadataRoot 'UNSIGNED-NOTICE.txt'
+if ([string]::IsNullOrWhiteSpace($SigningCertificateThumbprint)) {
+    @"
+OpenTiaToolkit $Version is an unsigned preview release.
+
+The installer and product binaries do not carry an Authenticode signature. Windows may display an unknown-publisher or SmartScreen warning.
+
+Installer: $([System.IO.Path]::GetFileName($installerPath))
+SHA-256: $installerHash
+
+Verify this hash against INSTALLER-SHA256SUMS.txt from the same GitHub release before running the installer.
+"@ | Set-Content -LiteralPath $unsignedNoticePath -Encoding UTF8
+}
+elseif (Test-Path -LiteralPath $unsignedNoticePath) {
+    Remove-Item -LiteralPath $unsignedNoticePath -Force
+}
 
 [pscustomobject]@{
     StageRoot = $stageRoot

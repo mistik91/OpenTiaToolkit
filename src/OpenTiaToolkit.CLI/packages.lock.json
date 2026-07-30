@@ -75,7 +75,7 @@
       "opentiatoolkit.application": {
         "type": "Project",
         "dependencies": {
-          "OpenTiaToolkit.Contracts": "[0.1.0, )",
+          "OpenTiaToolkit.Contracts": "[1.0.0-preview.4, )",
           "System.Text.Json": "[8.0.5, )"
         }
       },

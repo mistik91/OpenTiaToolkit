@@ -7,11 +7,22 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-preview.4] - 2026-07-30
+
 ### Added
 - Added canonical `contained-type` support (with `faceplate-type` compatibility aliases) to direct and JSON-patch Unified HMI item creation.
+- Added a documented MCP protocol compatibility matrix, exhaustive raw-stdio validation, and a live read-only MCP coverage harness.
 
 ### Fixed
 - Bound a faceplate container's `ContainedType` before importing interface values, including real rollback-only initialization during JSON patch dry-runs, so bound faceplates can be created and duplicated without losing their interface schema.
+- Made MCP reset wait for active worker operations to quiesce and fail closed when the grace period expires, while cancellation replaces the affected worker to restore a clean session.
+- Preserved typed JSON-RPC errors for unknown or blank tool names and made request argument lookup consistently case-insensitive.
+
+### Changed
+- Migrated the MCP host from the preview C# SDK to stable `ModelContextProtocol` 2.0.0 and the MCP `2026-07-28` discovery and per-request metadata model, while retaining initialize-based compatibility with older clients.
+- Derived the complete MCP catalog and strict JSON Schemas from the runtime command surface: 182 shared commands plus 3 infrastructure tools.
+- Added structured content with text fallback, large-result spill artifacts, deterministic duplicate/collision checks, and exact CLI/MCP/worker parity validation for staged installer and MCPB payloads.
+- Updated host dependencies to the stable .NET 10.0.10 extensions stack and removed preview transitive dependencies.
 
 ## [1.0.0-preview.3] - 2026-07-18
 

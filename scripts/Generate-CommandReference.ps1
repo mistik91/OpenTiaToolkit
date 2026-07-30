@@ -79,9 +79,9 @@ foreach ($command in @($catalog.commands | Sort-Object name)) {
 [void]$mcpReference.AppendLine()
 [void]$mcpReference.AppendLine('| Tool | Description |')
 [void]$mcpReference.AppendLine('|---|---|')
-[void]$mcpReference.AppendLine('| `operation-status` | Reports the active serialized operation and latest progress. |')
-[void]$mcpReference.AppendLine('| `cancel-operation` | Requests cooperative cancellation of the active operation. |')
-[void]$mcpReference.AppendLine('| `reset-session` | Waits for quiescence, then disposes the TIA attachment; fails closed when a vendor call remains active. |')
+[void]$mcpReference.AppendLine('| `operation-status` | Reports the active serialized operation. |')
+[void]$mcpReference.AppendLine('| `cancel-operation` | Requests cancellation, then terminates and replaces the worker running the active operation. |')
+[void]$mcpReference.AppendLine('| `reset-session` | Requests cancellation and waits for quiescence, then replaces the worker; fails closed after the configured grace period. |')
 [void]$mcpReference.AppendLine()
 [void]$mcpReference.AppendLine('MCP path parameters are restricted by `OPEN_TIA_MCP_ALLOWED_ROOTS`, input size by `OPEN_TIA_MCP_MAX_INPUT_FILE_BYTES`, and explicit output overwrite by `OPEN_TIA_MCP_ALLOW_FILE_OVERWRITE`.')
 
