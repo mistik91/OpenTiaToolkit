@@ -3,7 +3,14 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ExecutablePath,
 
+    [string]$CommandCatalogExecutablePath = '',
+
+    [string]$WorkerExecutablePath = '',
+
     [switch]$LiveProject,
+
+    [ValidateRange(0, [int]::MaxValue)]
+    [int]$LiveInstanceId = 0,
 
     [string]$DisposableArchivePath = '',
 
@@ -19,21 +26,64 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $resolvedExecutable = (Resolve-Path -LiteralPath $ExecutablePath).Path
+$executableDirectory = Split-Path -Parent $resolvedExecutable
+$payloadRoot = Split-Path -Parent $executableDirectory
+
+function Assert-StableMcpSdkAssemblies {
+    $observed = @()
+    foreach ($assemblyFileName in @('ModelContextProtocol.dll', 'ModelContextProtocol.Core.dll')) {
+        $assemblyPath = Join-Path $executableDirectory $assemblyFileName
+        if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
+            throw "The MCP payload is missing required stable SDK assembly '$assemblyPath'."
+        }
+
+        $assemblyVersion = [Reflection.AssemblyName]::GetAssemblyName($assemblyPath).Version.ToString()
+        $productVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($assemblyPath).ProductVersion
+        if ($assemblyVersion -ne '2.0.0.0' -or
+            [string]::IsNullOrWhiteSpace($productVersion) -or
+            $productVersion -notmatch '^2\.0\.0(?:\+.*)?$' -or
+            $productVersion -match '(?i)preview|prerelease|alpha|beta|rc') {
+            throw "MCP SDK assembly '$assemblyFileName' is not stable 2.0.0. AssemblyVersion='$assemblyVersion', ProductVersion='$productVersion'."
+        }
+
+        $observed += "$assemblyFileName=$productVersion"
+    }
+
+    return $observed
+}
+
+$mcpSdkAssemblies = @(Assert-StableMcpSdkAssemblies)
+
+$stagedWorker = ''
+if (-not [string]::IsNullOrWhiteSpace($WorkerExecutablePath)) {
+    $stagedWorker = (Resolve-Path -LiteralPath $WorkerExecutablePath).Path
+}
+else {
+    foreach ($candidate in @(
+        (Join-Path $payloadRoot 'worker-v21\OpenTiaToolkit.Worker.V21.exe'),
+        (Join-Path $executableDirectory 'worker-v21\OpenTiaToolkit.Worker.V21.exe')
+    )) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            $stagedWorker = (Resolve-Path -LiteralPath $candidate).Path
+            break
+        }
+    }
+}
+
 $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
 $startInfo.FileName = $resolvedExecutable
-$startInfo.WorkingDirectory = Split-Path -Parent $resolvedExecutable
+$startInfo.WorkingDirectory = $executableDirectory
 $startInfo.UseShellExecute = $false
 $startInfo.CreateNoWindow = $true
 $startInfo.RedirectStandardInput = $true
 $startInfo.RedirectStandardOutput = $true
 $startInfo.RedirectStandardError = $true
-$startInfo.EnvironmentVariables['OPEN_TIA_MCP_LOG_LEVEL'] = 'None'
+$stderrMarker = 'Ignoring invalid OPEN_TIA_MCP_LOG_LEVEL value'
+$startInfo.EnvironmentVariables['OPEN_TIA_MCP_LOG_LEVEL'] = 'InvalidForStdioSeparationTest'
 
 # A staged MCP payload must exercise the worker shipped beside it instead of
 # inheriting a developer-machine OPEN_TIA_WORKER_EXE value.
-$payloadRoot = Split-Path -Parent (Split-Path -Parent $resolvedExecutable)
-$stagedWorker = Join-Path $payloadRoot 'worker-v21\OpenTiaToolkit.Worker.V21.exe'
-if (Test-Path -LiteralPath $stagedWorker -PathType Leaf) {
+if (-not [string]::IsNullOrWhiteSpace($stagedWorker)) {
     $startInfo.EnvironmentVariables['OPEN_TIA_WORKER_EXE'] = $stagedWorker
 }
 
@@ -44,12 +94,16 @@ if (-not $process.Start()) {
 }
 
 $requestId = 0
+$script:requestEra = 'Modern'
 $stderrTask = $process.StandardError.ReadToEndAsync()
+$ownedWorkerPids = @()
 
 function Read-McpResponse {
     param(
         [Parameter(Mandatory = $true)]
-        [int]$ExpectedId
+        [int]$ExpectedId,
+
+        [switch]$AllowError
     )
 
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
@@ -72,7 +126,7 @@ function Read-McpResponse {
         $response = $line | ConvertFrom-Json
         if ($null -ne $response.id -and [int]$response.id -eq $ExpectedId) {
             $errorProperty = $response.PSObject.Properties['error']
-            if ($null -ne $errorProperty -and $null -ne $errorProperty.Value) {
+            if (-not $AllowError -and $null -ne $errorProperty -and $null -ne $errorProperty.Value) {
                 throw "MCP request $ExpectedId failed: $($errorProperty.Value | ConvertTo-Json -Compress -Depth 20)"
             }
 
@@ -89,19 +143,70 @@ function Invoke-McpRequest {
         [string]$Method,
 
         [Parameter(Mandatory = $true)]
-        [object]$Params
+        [object]$Params,
+
+        [ValidateSet('Modern', 'Legacy')]
+        [string]$Era = $script:requestEra,
+
+        [switch]$AllowError
     )
+
+    $requestParams = [ordered]@{}
+    if ($Params -is [System.Collections.IDictionary]) {
+        foreach ($key in $Params.Keys) {
+            $requestParams[[string]$key] = $Params[$key]
+        }
+    }
+    else {
+        foreach ($property in $Params.PSObject.Properties) {
+            $requestParams[$property.Name] = $property.Value
+        }
+    }
+    if ($Era -eq 'Modern') {
+        $requestParams['_meta'] = [ordered]@{
+            'io.modelcontextprotocol/protocolVersion' = '2026-07-28'
+            'io.modelcontextprotocol/clientInfo' = [ordered]@{
+                name = 'OpenTiaToolkit raw stdio smoke'
+                version = '2.0'
+            }
+            'io.modelcontextprotocol/clientCapabilities' = @{}
+        }
+    }
 
     $script:requestId++
     $request = [ordered]@{
         jsonrpc = '2.0'
         id = $script:requestId
         method = $Method
-        params = $Params
+        params = $requestParams
     }
     $process.StandardInput.WriteLine(($request | ConvertTo-Json -Compress -Depth 30))
     $process.StandardInput.Flush()
-    return Read-McpResponse -ExpectedId $script:requestId
+    return Read-McpResponse -ExpectedId $script:requestId -AllowError:$AllowError
+}
+
+function Invoke-McpRequestExpectProtocolError {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Method,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Params,
+
+        [Parameter(Mandatory = $true)]
+        [int]$ExpectedCode
+    )
+
+    $response = Invoke-McpRequest -Method $Method -Params $Params -AllowError
+    $errorProperty = $response.PSObject.Properties['error']
+    if ($null -eq $errorProperty -or $null -eq $errorProperty.Value) {
+        throw "MCP request '$Method' was expected to return JSON-RPC error $ExpectedCode, but it succeeded."
+    }
+    if ([int]$errorProperty.Value.code -ne $ExpectedCode) {
+        throw "MCP request '$Method' returned JSON-RPC error $($errorProperty.Value.code), expected ${ExpectedCode}: $($errorProperty.Value | ConvertTo-Json -Compress -Depth 20)"
+    }
+
+    return $response
 }
 
 function Invoke-McpTool {
@@ -144,14 +249,265 @@ function Invoke-McpToolExpectError {
     return $response
 }
 
+function Assert-ToolResultShape {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Response,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$ExpectedIsError,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Modern', 'Legacy')]
+        [string]$Era
+    )
+
+    $result = $Response.result
+    if ($null -eq $result) {
+        throw 'tools/call response did not contain a result.'
+    }
+    if ($null -eq $result.PSObject.Properties['structuredContent']) {
+        throw 'tools/call response did not contain structuredContent.'
+    }
+    $isErrorProperty = $result.PSObject.Properties['isError']
+    if ($null -eq $isErrorProperty -or [bool]$isErrorProperty.Value -ne $ExpectedIsError) {
+        throw "tools/call isError was '$($isErrorProperty.Value)', expected '$ExpectedIsError'."
+    }
+    $textBlocks = @($result.content | Where-Object { $_.type -eq 'text' })
+    if ($textBlocks.Count -lt 1 -or [string]::IsNullOrWhiteSpace([string]$textBlocks[0].text)) {
+        throw 'tools/call response did not contain text fallback content.'
+    }
+    $fallback = $textBlocks[0].text | ConvertFrom-Json
+    if ([string]$fallback.correlationId -ne [string]$result.structuredContent.correlationId -or
+        [bool]$fallback.success -ne [bool]$result.structuredContent.success -or
+        [string]$fallback.message -ne [string]$result.structuredContent.message) {
+        throw 'tools/call text fallback did not match structuredContent.'
+    }
+
+    $resultTypeProperty = $result.PSObject.Properties['resultType']
+    if ($Era -eq 'Modern') {
+        if ($null -eq $resultTypeProperty -or [string]$resultTypeProperty.Value -ne 'complete') {
+            throw 'Modern tools/call response did not contain resultType=complete.'
+        }
+    }
+    elseif ($null -ne $resultTypeProperty) {
+        throw 'Legacy tools/call response unexpectedly contained resultType.'
+    }
+}
+
+function Resolve-CommandCatalogExecutable {
+    if (-not [string]::IsNullOrWhiteSpace($CommandCatalogExecutablePath)) {
+        return (Resolve-Path -LiteralPath $CommandCatalogExecutablePath).Path
+    }
+
+    $stagedCli = Join-Path $payloadRoot 'cli\OpenTiaToolkit.CLI.exe'
+    if (Test-Path -LiteralPath $stagedCli -PathType Leaf) {
+        return $stagedCli
+    }
+
+    $current = Split-Path -Parent $resolvedExecutable
+    while (-not [string]::IsNullOrWhiteSpace($current)) {
+        if (Test-Path -LiteralPath (Join-Path $current 'OpenTiaToolkit.sln') -PathType Leaf) {
+            $configuration = Split-Path -Leaf (Split-Path -Parent (Split-Path -Parent $resolvedExecutable))
+            $developerCli = Join-Path $current "src\OpenTiaToolkit.CLI\bin\$configuration\net48\OpenTiaToolkit.CLI.exe"
+            if (Test-Path -LiteralPath $developerCli -PathType Leaf) {
+                return $developerCli
+            }
+            break
+        }
+
+        $parent = Split-Path -Parent $current
+        if ([string]::Equals($parent, $current, [StringComparison]::OrdinalIgnoreCase)) {
+            break
+        }
+        $current = $parent
+    }
+
+    throw 'Unable to locate the matching OpenTiaToolkit.CLI executable required for runtime command-catalog parity. Pass -CommandCatalogExecutablePath explicitly.'
+}
+
+function Get-RuntimeCommandCatalog {
+    $catalogExecutable = Resolve-CommandCatalogExecutable
+    $catalogStartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $catalogStartInfo.FileName = $catalogExecutable
+    $catalogStartInfo.Arguments = '--command-catalog'
+    $catalogStartInfo.WorkingDirectory = Split-Path -Parent $catalogExecutable
+    $catalogStartInfo.UseShellExecute = $false
+    $catalogStartInfo.CreateNoWindow = $true
+    $catalogStartInfo.RedirectStandardOutput = $true
+    $catalogStartInfo.RedirectStandardError = $true
+    if (Test-Path -LiteralPath $stagedWorker -PathType Leaf) {
+        $catalogStartInfo.EnvironmentVariables['OPEN_TIA_WORKER_EXE'] = $stagedWorker
+    }
+
+    $catalogProcess = [System.Diagnostics.Process]::new()
+    $catalogProcess.StartInfo = $catalogStartInfo
+    if (-not $catalogProcess.Start()) {
+        throw "Failed to start command-catalog executable '$catalogExecutable'."
+    }
+    try {
+        $stdout = $catalogProcess.StandardOutput.ReadToEnd()
+        $stderr = $catalogProcess.StandardError.ReadToEnd()
+        if (-not $catalogProcess.WaitForExit($TimeoutSeconds * 1000)) {
+            $catalogProcess.Kill()
+            $catalogProcess.WaitForExit()
+            throw "Timed out reading runtime command catalog from '$catalogExecutable'."
+        }
+        if ($catalogProcess.ExitCode -ne 0) {
+            throw "Runtime command catalog failed with exit code $($catalogProcess.ExitCode): $stderr"
+        }
+        return [ordered]@{
+            Executable = $catalogExecutable
+            Catalog = ($stdout | ConvertFrom-Json)
+        }
+    }
+    finally {
+        $catalogProcess.Dispose()
+    }
+}
+
+function Assert-ToolCatalogParity {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$Tools,
+
+        [Parameter(Mandatory = $true)]
+        [object]$RuntimeCatalog
+    )
+
+    $duplicateNames = @($Tools | Group-Object { ([string]$_.name).ToLowerInvariant() } | Where-Object { $_.Count -ne 1 })
+    if ($duplicateNames.Count -gt 0) {
+        throw "tools/list returned duplicate tool names: $($duplicateNames.Name -join ', ')"
+    }
+
+    foreach ($tool in $Tools) {
+        if ([string]::IsNullOrWhiteSpace([string]$tool.name)) {
+            throw 'tools/list returned a tool without a name.'
+        }
+        if ($null -eq $tool.inputSchema -or [string]$tool.inputSchema.type -ne 'object') {
+            throw "Tool '$($tool.name)' did not expose an object inputSchema."
+        }
+        if ($tool.inputSchema.PSObject.Properties['additionalProperties'].Value -ne $false) {
+            throw "Tool '$($tool.name)' did not preserve additionalProperties=false."
+        }
+        foreach ($property in $tool.inputSchema.properties.PSObject.Properties) {
+            if ([string]::IsNullOrWhiteSpace([string]$property.Value.type)) {
+                throw "Tool '$($tool.name)' parameter '$($property.Name)' did not declare a JSON Schema type."
+            }
+            if ([string]$property.Value.type -eq 'array' -and
+                [string]::IsNullOrWhiteSpace([string]$property.Value.items.type)) {
+                throw "Tool '$($tool.name)' array parameter '$($property.Name)' did not declare items.type."
+            }
+        }
+    }
+
+    $infrastructureTools = @('operation-status', 'cancel-operation', 'reset-session')
+    $expectedNames = @($RuntimeCatalog.commands.name) + $infrastructureTools
+    $observedNames = @($Tools.name)
+    $difference = @(Compare-Object -ReferenceObject $expectedNames -DifferenceObject $observedNames)
+    if ($difference.Count -gt 0) {
+        throw "MCP/runtime command-catalog drift: $($difference | ConvertTo-Json -Compress -Depth 10)"
+    }
+    if ([int]$RuntimeCatalog.commandCount -ne @($RuntimeCatalog.commands).Count) {
+        throw "Runtime command catalog count $($RuntimeCatalog.commandCount) did not match its command array."
+    }
+    if ($Tools.Count -ne ([int]$RuntimeCatalog.commandCount + $infrastructureTools.Count)) {
+        throw "MCP tool count $($Tools.Count) did not equal runtime commands $($RuntimeCatalog.commandCount) plus $($infrastructureTools.Count) infrastructure tools."
+    }
+}
+
 try {
+    $runtimeCatalogResult = Get-RuntimeCommandCatalog
+    $runtimeCatalog = $runtimeCatalogResult.Catalog
+
+    $discover = Invoke-McpRequest -Method 'server/discover' -Params @{}
+    if (-not (@($discover.result.supportedVersions) -contains '2026-07-28')) {
+        throw "server/discover did not advertise MCP 2026-07-28: $($discover.result.supportedVersions -join ', ')"
+    }
+    if ($null -eq $discover.result.capabilities.tools) {
+        throw 'server/discover did not advertise the tools capability.'
+    }
+    $discoverServerInfo = $discover.result._meta.PSObject.Properties['io.modelcontextprotocol/serverInfo'].Value
+    if ([string]::IsNullOrWhiteSpace([string]$discoverServerInfo.name)) {
+        throw 'server/discover did not return server identity metadata.'
+    }
+    if ([string]$discover.result.resultType -ne 'complete') {
+        throw 'server/discover did not return resultType=complete.'
+    }
+    if ($null -eq $discover.result.PSObject.Properties['ttlMs'] -or
+        $null -eq $discover.result.PSObject.Properties['cacheScope']) {
+        throw 'server/discover did not return the required cache hints.'
+    }
+
+    $modernToolsResponse = Invoke-McpRequest -Method 'tools/list' -Params @{}
+    $modernTools = @($modernToolsResponse.result.tools)
+    if ([string]$modernToolsResponse.result.resultType -ne 'complete') {
+        throw 'Modern tools/list did not return resultType=complete.'
+    }
+    if ($null -eq $modernToolsResponse.result.PSObject.Properties['ttlMs'] -or
+        $null -eq $modernToolsResponse.result.PSObject.Properties['cacheScope']) {
+        throw 'Modern tools/list did not return the required cache hints.'
+    }
+    Assert-ToolCatalogParity -Tools $modernTools -RuntimeCatalog $runtimeCatalog
+
+    $modernStatus = Invoke-McpTool -Name 'operation-status'
+    Assert-ToolResultShape -Response $modernStatus -ExpectedIsError $false -Era Modern
+    $modernPortalStatus = Invoke-McpTool -Name 'portal-status'
+    Assert-ToolResultShape -Response $modernPortalStatus -ExpectedIsError $false -Era Modern
+
+    $modernCommandFailure = Invoke-McpToolExpectError -Name 'connect-instance'
+    Assert-ToolResultShape -Response $modernCommandFailure -ExpectedIsError $true -Era Modern
+    if ([string]$modernCommandFailure.result.structuredContent.error.code -ne 'ValidationFailed') {
+        throw "Missing connect-instance arguments returned '$($modernCommandFailure.result.structuredContent.error.code)', expected ValidationFailed."
+    }
+
+    $policyFailure = Invoke-McpToolExpectError -Name 'validate-blueprint' -Arguments @{
+        # Deliberately vary casing to prove the SDK v2 argument adapter
+        # preserves the command surface's case-insensitive lookup behavior.
+        'BLUEPRINT-PATH' = 'C:\Windows\win.ini'
+    }
+    Assert-ToolResultShape -Response $policyFailure -ExpectedIsError $true -Era Modern
+    if ([string]$policyFailure.result.structuredContent.error.code -ne 'PolicyDenied') {
+        throw "Outside-root path returned '$($policyFailure.result.structuredContent.error.code)', expected PolicyDenied."
+    }
+
+    $deniedProjectPath = Join-Path (
+        Join-Path ([System.IO.Path]::GetTempPath()) 'OpenTiaToolkit\McpStdioPolicy') (
+            'Denied-' + [Guid]::NewGuid().ToString('N') + '.ap21')
+    $mutationFailure = Invoke-McpToolExpectError -Name 'create-project' -Arguments @{
+        'project-path' = $deniedProjectPath
+    }
+    Assert-ToolResultShape -Response $mutationFailure -ExpectedIsError $true -Era Modern
+    if ([string]$mutationFailure.result.structuredContent.error.code -ne 'PolicyDenied') {
+        throw "Unconfirmed mutation returned '$($mutationFailure.result.structuredContent.error.code)', expected PolicyDenied."
+    }
+    if (Test-Path -LiteralPath $deniedProjectPath) {
+        throw "Unconfirmed mutation created '$deniedProjectPath'."
+    }
+
+    $unknownTool = Invoke-McpRequestExpectProtocolError -Method 'tools/call' -Params ([ordered]@{
+        name = 'tool-that-does-not-exist'
+        arguments = @{}
+    }) -ExpectedCode -32602
+    $malformedToolCall = Invoke-McpRequestExpectProtocolError -Method 'tools/call' -Params ([ordered]@{
+        name = ' '
+        arguments = @{}
+    }) -ExpectedCode -32602
+
+    $script:requestEra = 'Legacy'
     $initialize = Invoke-McpRequest -Method 'initialize' -Params ([ordered]@{
-        protocolVersion = '2024-11-05'
+        protocolVersion = '2025-11-25'
         capabilities = @{}
-        clientInfo = [ordered]@{ name = 'OpenTiaToolkit staged payload smoke'; version = '1.0' }
+        clientInfo = [ordered]@{ name = 'OpenTiaToolkit legacy stdio smoke'; version = '2.0' }
     })
     if ([string]::IsNullOrWhiteSpace([string]$initialize.result.serverInfo.name)) {
         throw 'MCP initialize response did not contain serverInfo.name.'
+    }
+    if ([string]$initialize.result.protocolVersion -ne '2025-11-25') {
+        throw "Legacy initialize negotiated '$($initialize.result.protocolVersion)', expected 2025-11-25."
+    }
+    if ($null -ne $initialize.result.PSObject.Properties['resultType']) {
+        throw 'Legacy initialize unexpectedly returned resultType.'
     }
 
     $initialized = [ordered]@{
@@ -162,23 +518,41 @@ try {
     $process.StandardInput.WriteLine(($initialized | ConvertTo-Json -Compress -Depth 10))
     $process.StandardInput.Flush()
 
-    $toolsResponse = Invoke-McpRequest -Method 'tools/list' -Params @{}
-    $tools = @($toolsResponse.result.tools)
-    if ($tools.Count -lt 145) {
-        throw "Expected the shared command surface, but tools/list returned only $($tools.Count) tools."
-    }
-
-    foreach ($requiredTool in @('list-instances', 'connect-instance', 'list-projects', 'list-devices', 'reset-session', 'validate-blueprint', 'plan-blueprint', 'apply-blueprint', 'validate-plc-documents', 'plan-block-document-import', 'apply-block-document-import', 'discover-plc-code-capabilities', 'begin-plc-code-transaction', 'add-plc-code-transaction-operation', 'add-delete-plc-type-transaction-operation', 'plan-plc-code-transaction', 'get-plc-code-impact', 'approve-plc-code-impact', 'apply-plc-code-transaction', 'get-plc-code-transaction', 'list-plc-code-transactions', 'recover-plc-code-transaction', 'discard-plc-code-transaction', 'run-plc-code-probe', 'query-plc-code-evidence', 'validate-plc-behavior-vector', 'validate-plc-behavior-package', 'discover-plc-simulator-capabilities', 'query-plc-behavior-evidence', 'run-plc-code-behavior-probe', 'recover-plc-code-behavior-probe', 'get-plc-code-evidence', 'list-plc-code-evidence', 'describe-api', 'diff-api-profile', 'get-hardware-drive-parameters', 'list-unified-alarms')) {
-        if (-not ($tools.name -contains $requiredTool)) {
-            throw "tools/list did not include required tool '$requiredTool'."
+    $legacyToolsResponse = Invoke-McpRequest -Method 'tools/list' -Params @{}
+    $legacyTools = @($legacyToolsResponse.result.tools)
+    Assert-ToolCatalogParity -Tools $legacyTools -RuntimeCatalog $runtimeCatalog
+    foreach ($modernOnlyProperty in @('resultType', 'ttlMs', 'cacheScope')) {
+        if ($null -ne $legacyToolsResponse.result.PSObject.Properties[$modernOnlyProperty]) {
+            throw "Legacy tools/list unexpectedly returned '$modernOnlyProperty'."
         }
     }
 
+    $catalogDifference = @(Compare-Object -ReferenceObject @($modernTools.name) -DifferenceObject @($legacyTools.name))
+    if ($catalogDifference.Count -gt 0) {
+        throw "Modern and legacy tools/list results drifted: $($catalogDifference | ConvertTo-Json -Compress -Depth 10)"
+    }
+    $legacyStatus = Invoke-McpTool -Name 'operation-status'
+    Assert-ToolResultShape -Response $legacyStatus -ExpectedIsError $false -Era Legacy
+
+    # Once initialize pins this stdio connection to a legacy revision, every
+    # remaining request on the same connection must stay in that era.
+    $script:requestEra = 'Legacy'
+
     $summary = [ordered]@{
         Executable = $resolvedExecutable
-        Server = [string]$initialize.result.serverInfo.name
-        ProtocolVersion = [string]$initialize.result.protocolVersion
-        ToolCount = $tools.Count
+        CommandCatalogExecutable = [string]$runtimeCatalogResult.Executable
+        Server = [string]$discoverServerInfo.name
+        ModernProtocolVersion = '2026-07-28'
+        LegacyProtocolVersion = [string]$initialize.result.protocolVersion
+        RuntimeCommandCount = [int]$runtimeCatalog.commandCount
+        InfrastructureToolCount = 3
+        ToolCount = $modernTools.Count
+        McpSdkAssemblies = $mcpSdkAssemblies
+        WorkerExecutable = $stagedWorker
+        ModernSuccessfulToolCalls = 2
+        ModernToolExecutionErrors = 3
+        ModernProtocolErrors = 2
+        LegacySuccessfulToolCalls = 1
         LiveProject = $LiveProject.IsPresent
     }
 
@@ -232,11 +606,23 @@ try {
         $instancesResponse = Invoke-McpTool -Name 'list-instances'
         $instanceData = $instancesResponse.result.structuredContent.data
         $instances = @($instanceData.instances)
-        if ($instances.Count -ne 1) {
-            throw "Live project smoke requires exactly one running TIA instance; found $($instances.Count)."
+        if ($instances.Count -lt 1) {
+            throw 'Live project smoke did not find a running TIA instance.'
         }
 
-        $processId = [int]$instances[0].processId
+        $selectedInstances = @(
+            if ($LiveInstanceId -gt 0) {
+                $instances | Where-Object { [int]$_.processId -eq $LiveInstanceId }
+            }
+            else {
+                $instances
+            }
+        )
+        if ($selectedInstances.Count -ne 1) {
+            throw "Live project smoke requires one selected TIA instance. Found $($instances.Count); pass -LiveInstanceId using this discovery result: $($instances | ConvertTo-Json -Compress -Depth 20)"
+        }
+
+        $processId = [int]$selectedInstances[0].processId
         [void](Invoke-McpTool -Name 'connect-instance' -Arguments @{ 'instance-id' = $processId })
 
         $projectsResponse = Invoke-McpTool -Name 'list-projects'
@@ -576,6 +962,12 @@ try {
         [void](Invoke-McpTool -Name 'reset-session')
 
         $summary['InstanceCount'] = $instances.Count
+        $summary['SelectedInstanceId'] = $processId
+        $summary['Projects'] = @($projects | ForEach-Object {
+            if ($_.PSObject.Properties['path']) { [string]$_.path }
+            elseif ($_.PSObject.Properties['name']) { [string]$_.name }
+            else { [string]$_ }
+        })
         $summary['ProjectCount'] = $projects.Count
         $summary['DeviceCount'] = $devices.Count
         $summary['PlcCount'] = $plcs.Count
@@ -590,20 +982,47 @@ try {
 }
 finally {
     try {
+        $ownedWorkerPids = @(
+            Get-CimInstance Win32_Process -Filter "ParentProcessId = $($process.Id)" -ErrorAction Stop |
+                Where-Object { $_.Name -like 'OpenTiaToolkit.Worker.*' } |
+                ForEach-Object { [int]$_.ProcessId }
+        )
+    }
+    catch {
+        $ownedWorkerPids = @()
+    }
+
+    try {
         $process.StandardInput.Close()
     }
     catch {
     }
 
+    $forcedShutdown = $false
     if (-not $process.WaitForExit(5000)) {
+        $forcedShutdown = $true
         $process.Kill()
         $process.WaitForExit()
     }
 
     $stderr = $stderrTask.GetAwaiter().GetResult()
-    if ($process.ExitCode -ne 0) {
-        throw "MCP process exited with code $($process.ExitCode). stderr: $stderr"
-    }
-
+    $exitCode = $process.ExitCode
     $process.Dispose()
+
+    $orphanedWorkers = @(
+        $ownedWorkerPids |
+            Where-Object { $null -ne (Get-Process -Id $_ -ErrorAction SilentlyContinue) }
+    )
+    if ($forcedShutdown) {
+        throw "MCP process did not exit within five seconds after stdin closed and required forced termination. stderr: $stderr"
+    }
+    if ($exitCode -ne 0) {
+        throw "MCP process exited with code $exitCode. stderr: $stderr"
+    }
+    if (-not $stderr.Contains($stderrMarker)) {
+        throw "MCP stderr separation marker was not observed. stderr: $stderr"
+    }
+    if ($orphanedWorkers.Count -gt 0) {
+        throw "MCP shutdown left worker process(es) running: $($orphanedWorkers -join ', ')."
+    }
 }

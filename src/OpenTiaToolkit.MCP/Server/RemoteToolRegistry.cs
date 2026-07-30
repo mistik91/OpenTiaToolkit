@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -19,27 +19,61 @@ namespace OpenTiaToolkit.MCP.Server;
 
 public sealed class ToolRegistry : IDisposable
 {
-    private readonly string _workerPath;
-    private readonly string _auditPath;
+    private static readonly HashSet<string> InfrastructureToolNames =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "operation-status",
+            "cancel-operation",
+            "reset-session"
+        };
+    private static readonly Regex KebabCaseName =
+        new Regex("^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$", RegexOptions.CultureInvariant);
+
+    private readonly Func<IToolSession> _startSession;
     private readonly McpRuntimeOptions _options;
     private readonly ILogger<ToolRegistry> _logger;
     private readonly McpFileAccessPolicy _filePolicy;
     private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
     private readonly object _sync = new object();
-    private ToolkitSession _session;
+    private IToolSession _session;
     private Dictionary<string, CommandDescriptor> _commands;
     private OperationSnapshot? _active;
+    private CancellationTokenSource? _activeCancellation;
 
     public ToolRegistry(string workerPath, string auditPath, McpRuntimeOptions options, ILogger<ToolRegistry> logger)
+        : this(
+            () => WorkerToolSession.Start(workerPath, auditPath),
+            options,
+            logger)
     {
-        _workerPath = workerPath;
-        _auditPath = auditPath;
+    }
+
+    internal ToolRegistry(
+        Func<IToolSession> startSession,
+        McpRuntimeOptions options,
+        ILogger<ToolRegistry> logger)
+    {
+        _startSession = startSession ?? throw new ArgumentNullException(nameof(startSession));
         _options = options;
         _logger = logger;
         _filePolicy = new McpFileAccessPolicy(options);
-        _session = StartSession();
-        _commands = _session.Commands.ToDictionary(command => command.Name, StringComparer.OrdinalIgnoreCase);
+        IToolSession session = StartSession();
+        try
+        {
+            _commands = CreateCommandMap(session.Commands);
+            _session = session;
+        }
+        catch
+        {
+            session.Dispose();
+            throw;
+        }
     }
+
+    internal IReadOnlyCollection<string> CommandNames => _commands.Keys;
+
+    internal IReadOnlyCollection<CommandDescriptor> CommandDescriptors =>
+        _commands.Values.ToArray();
 
     public List<Tool> ListTools()
     {
@@ -55,7 +89,8 @@ public sealed class ToolRegistry : IDisposable
         IReadOnlyDictionary<string, JsonElement>? arguments,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(toolName)) throw new McpException("Tool name is required.");
+        if (string.IsNullOrWhiteSpace(toolName))
+            throw new McpProtocolException("Tool name is required.", McpErrorCode.InvalidParams);
         if (string.Equals(toolName, "operation-status", StringComparison.OrdinalIgnoreCase))
             return Result(StatusOutcome());
         if (string.Equals(toolName, "cancel-operation", StringComparison.OrdinalIgnoreCase))
@@ -63,7 +98,7 @@ public sealed class ToolRegistry : IDisposable
         if (string.Equals(toolName, "reset-session", StringComparison.OrdinalIgnoreCase))
             return await ResetAsync(cancellationToken).ConfigureAwait(false);
         if (!_commands.TryGetValue(toolName!, out CommandDescriptor descriptor))
-            throw new McpException($"Tool '{toolName}' not found.");
+            throw new McpProtocolException($"Tool '{toolName}' not found.", McpErrorCode.InvalidParams);
 
         string? fileError = _filePolicy.Validate(descriptor, arguments);
         if (fileError != null) return Result(Failure(fileError, ErrorCode.PolicyDenied));
@@ -76,7 +111,13 @@ public sealed class ToolRegistry : IDisposable
             ToolName = toolName!,
             StartedAtUtc = DateTimeOffset.UtcNow
         };
-        lock (_sync) _active = operation;
+        using var operationCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        lock (_sync)
+        {
+            _active = operation;
+            _activeCancellation = operationCancellation;
+        }
         try
         {
             var invocation = new CommandInvocation
@@ -85,7 +126,8 @@ public sealed class ToolRegistry : IDisposable
                 CommandName = toolName!,
                 Arguments = arguments ?? new Dictionary<string, JsonElement>()
             };
-            Task<CommandOutcome> execution = _session.ExecuteAsync(invocation, cancellationToken);
+            Task<CommandOutcome> execution =
+                _session.ExecuteAsync(invocation, operationCancellation.Token);
             if (_options.ToolTimeout.HasValue)
             {
                 Task completed = await Task.WhenAny(execution, Task.Delay(_options.ToolTimeout.Value)).ConfigureAwait(false);
@@ -93,6 +135,7 @@ public sealed class ToolRegistry : IDisposable
                 {
                     operation.TimedOut = true;
                     operation.CancelRequested = true;
+                    TryCancel(operationCancellation);
                     ReplaceWorker(force: true);
                     return Result(Failure(
                         $"Tool '{toolName}' exceeded {_options.ToolTimeout.Value.TotalSeconds:0.###} seconds; its isolated worker was terminated and replaced.",
@@ -114,7 +157,13 @@ public sealed class ToolRegistry : IDisposable
         }
         finally
         {
-            lock (_sync) _active = null;
+            lock (_sync)
+            {
+                if (ReferenceEquals(_active, operation))
+                    _active = null;
+                if (ReferenceEquals(_activeCancellation, operationCancellation))
+                    _activeCancellation = null;
+            }
             _gate.Release();
         }
     }
@@ -122,12 +171,15 @@ public sealed class ToolRegistry : IDisposable
     private async ValueTask<CallToolResult> CancelAsync()
     {
         OperationSnapshot? active;
+        CancellationTokenSource? activeCancellation;
         lock (_sync)
         {
             active = _active;
+            activeCancellation = _activeCancellation;
             if (active != null) active.CancelRequested = true;
         }
         if (active == null) return Result(Success("No operation is active."));
+        TryCancel(activeCancellation);
         ReplaceWorker(force: true);
         await Task.Yield();
         return Result(Success($"Terminated the isolated worker running '{active.ToolName}'."));
@@ -135,7 +187,27 @@ public sealed class ToolRegistry : IDisposable
 
     private async ValueTask<CallToolResult> ResetAsync(CancellationToken cancellationToken)
     {
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        OperationSnapshot? active;
+        CancellationTokenSource? activeCancellation;
+        lock (_sync)
+        {
+            active = _active;
+            activeCancellation = _activeCancellation;
+            if (active != null) active.CancelRequested = true;
+        }
+        TryCancel(activeCancellation);
+
+        bool entered = await _gate.WaitAsync(
+            _options.SessionResetGracePeriod,
+            cancellationToken).ConfigureAwait(false);
+        if (!entered)
+        {
+            return Result(Failure(
+                $"The active operation did not quiesce within {_options.SessionResetGracePeriod.TotalSeconds:0.###} seconds; reset left the worker and TIA attachment intact.",
+                ErrorCode.Conflict,
+                active?.Id));
+        }
+
         try
         {
             ReplaceWorker(force: false);
@@ -144,20 +216,72 @@ public sealed class ToolRegistry : IDisposable
         finally { _gate.Release(); }
     }
 
+    private static void TryCancel(CancellationTokenSource? cancellation)
+    {
+        if (cancellation == null) return;
+        try { cancellation.Cancel(); }
+        catch (ObjectDisposedException) { }
+    }
+
     private void ReplaceWorker(bool force)
     {
-        ToolkitSession old;
+        IToolSession replacement = StartSession();
+        Dictionary<string, CommandDescriptor> replacementCommands;
+        try
+        {
+            replacementCommands = CreateCommandMap(replacement.Commands);
+        }
+        catch
+        {
+            replacement.Dispose();
+            throw;
+        }
+
+        IToolSession old;
         lock (_sync)
         {
             old = _session;
-            _session = StartSession();
-            _commands = _session.Commands.ToDictionary(command => command.Name, StringComparer.OrdinalIgnoreCase);
+            _session = replacement;
+            _commands = replacementCommands;
         }
         if (force) old.Terminate(); else old.Dispose();
     }
 
-    private ToolkitSession StartSession() => ToolkitSession.StartAsync(
-        _workerPath, _auditPath, CancellationToken.None).GetAwaiter().GetResult();
+    private IToolSession StartSession() => _startSession();
+
+    private static Dictionary<string, CommandDescriptor> CreateCommandMap(
+        IReadOnlyList<CommandDescriptor> commands)
+    {
+        foreach (CommandDescriptor command in commands)
+        {
+            if (!KebabCaseName.IsMatch(command.Name))
+            {
+                throw new InvalidOperationException(
+                    $"Runtime command name '{command.Name}' is not kebab-case.");
+            }
+
+            string? invalidParameter = command.Parameters
+                .Select(parameter => parameter.Name)
+                .FirstOrDefault(name => !KebabCaseName.IsMatch(name));
+            if (invalidParameter != null)
+            {
+                throw new InvalidOperationException(
+                    $"Runtime command '{command.Name}' parameter '{invalidParameter}' is not kebab-case.");
+            }
+        }
+
+        var map = commands.ToDictionary(
+            command => command.Name,
+            StringComparer.OrdinalIgnoreCase);
+        string? collision = map.Keys.FirstOrDefault(InfrastructureToolNames.Contains);
+        if (collision != null)
+        {
+            throw new InvalidOperationException(
+                $"Runtime command '{collision}' collides with an MCP infrastructure tool.");
+        }
+
+        return map;
+    }
 
     private CommandOutcome StatusOutcome()
     {
@@ -180,11 +304,18 @@ public sealed class ToolRegistry : IDisposable
         var required = new List<string>();
         foreach (CommandParameterContract parameter in descriptor.Parameters)
         {
-            properties[parameter.Name] = new Dictionary<string, object?>
+            var parameterSchema = new Dictionary<string, object?>
             {
                 ["type"] = JsonType(parameter.Kind),
                 ["description"] = parameter.Description
             };
+            if (parameter.Kind == CommandParameterKind.StringArray)
+                parameterSchema["items"] = new Dictionary<string, object?> { ["type"] = "string" };
+            else if (parameter.Kind == CommandParameterKind.ObjectArray)
+                parameterSchema["items"] = new Dictionary<string, object?> { ["type"] = "object" };
+            if (parameter.DefaultValue.HasValue)
+                parameterSchema["default"] = parameter.DefaultValue.Value;
+            properties[parameter.Name] = parameterSchema;
             if (parameter.Required) required.Add(parameter.Name);
         }
         var schema = new Dictionary<string, object?>
@@ -210,7 +341,12 @@ public sealed class ToolRegistry : IDisposable
     {
         Name = name,
         Description = description,
-        InputSchema = JsonSerializer.SerializeToElement(new { type = "object", additionalProperties = false })
+        InputSchema = JsonSerializer.SerializeToElement(new
+        {
+            type = "object",
+            additionalProperties = false,
+            properties = new Dictionary<string, object?>()
+        })
     };
 
     private static CallToolResult Result(CommandOutcome outcome)
@@ -233,19 +369,27 @@ public sealed class ToolRegistry : IDisposable
             });
         }
 
-        JsonNode structured = JsonSerializer.SerializeToNode(new
+        JsonElement structured = JsonSerializer.SerializeToElement(new
         {
             success = outcome.Success,
             message = outcome.Message,
             error = outcome.Error,
             data,
             correlationId = outcome.CorrelationId
-        }, ContractJson.CreateOptions()) ?? new JsonObject();
+        }, ContractJson.CreateOptions());
         return new CallToolResult
         {
             IsError = !outcome.Success,
             StructuredContent = structured,
-            Content = new List<ContentBlock> { new TextContentBlock { Text = structured.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) } }
+            Content = new List<ContentBlock>
+            {
+                new TextContentBlock
+                {
+                    Text = JsonSerializer.Serialize(
+                        structured,
+                        new JsonSerializerOptions { WriteIndented = true })
+                }
+            }
         };
     }
 

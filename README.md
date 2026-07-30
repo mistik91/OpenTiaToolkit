@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="TIA Portal V21" src="https://img.shields.io/badge/TIA_Portal-V21_only-0078D4">
-  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.3-orange">
+  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.4-orange">
   <img alt="Platform Windows" src="https://img.shields.io/badge/platform-Windows-0078D6">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-2ea44f">
 </p>
@@ -29,7 +29,7 @@ OpenTiaToolkit is an open-source Windows engineering automation platform for Sie
 The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and later require a dedicated worker package, compatibility profile, and live validation before support is claimed.
 
 > [!IMPORTANT]
-> The current public build is [`1.0.0-preview.3`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.3) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
+> The current public build is [`1.0.0-preview.4`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.4) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
 
 ## Why OpenTiaToolkit
 
@@ -62,7 +62,7 @@ Browse the [generated command reference](docs/generated/COMMAND_REFERENCE.md), [
 flowchart LR
     U["Engineer or automation agent"]
     CLI["CLI"]
-    MCP["MCP server — 178 tools"]
+    MCP["MCP server<br/>runtime catalog + infrastructure tools"]
     APP["Vendor-free application host<br/>validation · policy · typed results"]
     W["Isolated V21 worker<br/>single request queue"]
     TIA["TIA Portal V21<br/>Siemens Openness API"]
@@ -102,12 +102,12 @@ Always review previews and keep project backups before applying engineering chan
 
 ### Install the public preview
 
-1. Download `OpenTiaToolkit-1.0.0-preview.3-Setup.exe` and `INSTALLER-SHA256SUMS.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.3).
+1. Download `OpenTiaToolkit-1.0.0-preview.4-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.4).
 2. Verify the installer:
 
 ```powershell
 $expected = (Get-Content .\INSTALLER-SHA256SUMS.txt).Split()[0]
-$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.3-Setup.exe -Algorithm SHA256).Hash
+$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.4-Setup.exe -Algorithm SHA256).Hash
 $actual.ToLowerInvariant() -eq $expected.ToLowerInvariant()
 ```
 
@@ -167,6 +167,8 @@ A typical installed-product configuration is:
 
 Ready-to-use configurations are included for Codex, Claude Desktop, Claude Code, OpenCode, Google Antigravity, and VS Code/GitHub Copilot. See the [MCP client configuration matrix](docs/mcp-client-configs/README.md).
 
+The server uses the stable C# MCP SDK 2.0.0 over stdio. It supports the MCP `2026-07-28` discovery and per-request metadata model while retaining initialize-based compatibility for older protocol revisions. See [MCP protocol support](docs/MCP_PROTOCOL.md) for the exact wire contract, compatibility matrix, and unsupported optional capabilities.
+
 ## Declarative Blueprints
 
 Blueprints package a reviewed multi-command engineering intent into one validate → plan → apply workflow. The plan token is bound to the blueprint content and current TIA project state, so it cannot be reused after the project or desired state changes.
@@ -215,24 +217,24 @@ See the [developer guide](docs/DEV_GUIDE.md) for repository architecture and con
 |---|---|
 | [Setup and Openness registration](docs/SETUP.md) | [Generated CLI reference](docs/generated/COMMAND_REFERENCE.md) |
 | [CLI workflows and examples](docs/CLI_USAGE.md) | [Generated MCP reference](docs/generated/MCP_TOOL_REFERENCE.md) |
+| [MCP protocol support](docs/MCP_PROTOCOL.md) | [MCP client configurations](docs/mcp-client-configs/README.md) |
 | [Install agent plugins](docs/INSTALL_AGENT_PLUGINS.md) | [TIA V21 compatibility](docs/TIA_PORTAL_VERSION_SUPPORT.md) |
 | [Blueprint workflow](docs/BLUEPRINTS.md) | [API compatibility and migration](docs/API_COMPATIBILITY.md) |
 | [Hardware automation](docs/HARDWARE_AUTOMATION.md) | [Production architecture and recovery](docs/PRODUCTION_ARCHITECTURE.md) |
 | [Repository examples](examples/README.md) | [Supply chain and release integrity](docs/SUPPLY_CHAIN.md) |
-| [Preview.3 release notes](docs/RELEASE_NOTES_1.0.0-preview.3.md) | [Security policy](SECURITY.md) |
+| [Preview.4 release notes](docs/RELEASE_NOTES_1.0.0-preview.4.md) | [Security policy](SECURITY.md) |
 
 ## Validation
 
-The `1.0.0-preview.3` release passed:
+The `1.0.0-preview.4` release passed:
 
 - Release build with zero warnings and errors
-- 445 fast tests and 10 architecture tests
-- generated CLI and MCP reference validation for 182 commands
-- transaction, rollback, stale-state, compile, and behavioral verification coverage for PLC code engineering
+- 633 fast tests, 54 architecture tests, 3 MCP registry integration tests, and 4 worker IPC integration tests
+- generated CLI and MCP reference validation for 182 shared commands plus 3 MCP infrastructure tools
+- stable MCP SDK 2.0.0 protocol, schema, structured-output, cancellation, reset, and large-result coverage
 - generated-reference, packaged-skill, formatting, locked-restore, and vulnerability checks
-- staged MCP initialization with 185 tools
-- live V21 and PLCSIM Advanced end-to-end workflows
-- same-machine Multiuser identity isolation, markings, conflict/stale detection, safe local save, and exact fresh-session verification
+- staged installer and MCPB stdio validation with exact CLI/MCP/worker binary parity
+- live V21 read-only discovery across projects, devices, PLCs, blocks, HMIs, and screens, with policy-denied and invalid-request checks
 
 Run the vendor-free fast suite locally with:
 

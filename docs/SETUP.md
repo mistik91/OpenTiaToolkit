@@ -10,6 +10,12 @@ This guide covers a normal OpenTiaToolkit setup on Windows with TIA Portal V21.
 - Git
 - Inno Setup 6, only when building the installer
 
+Install Inno Setup for the current Windows user with:
+
+```powershell
+winget install --id JRSoftware.InnoSetup --exact --scope user
+```
+
 The default Siemens Openness reference path is:
 
 ```text
@@ -26,6 +32,13 @@ For local development or release packaging, build the installer from the repo ro
 
 ```powershell
 .\scripts\Build-Installer.ps1
+```
+
+That command produces an unsigned installer when no signing certificate is configured. Unsigned builds are permitted only for an explicitly labeled preview and include `UNSIGNED-NOTICE.txt`. Stable release builds require a certificate in the Windows certificate store:
+
+```powershell
+$env:OPEN_TIA_SIGNING_CERT_THUMBPRINT = "<certificate-thumbprint>"
+.\scripts\Build-Installer.ps1 -RequireSigning
 ```
 
 To validate the payload without compiling an installer, stage the product layout:
@@ -117,6 +130,8 @@ The Claude Desktop MCPB source package lives in `plugins/opentia-toolkit-claude-
 ```powershell
 .\scripts\Pack-ClaudeDesktopMcpb.ps1
 ```
+
+The packer writes `opentia-toolkit.mcpb` and `MCPB-SHA256SUMS.txt` under `artifacts\claude-desktop-mcpb`.
 
 The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its contents into an OpenCode project root to get the MCP launcher config, `.opencode` plugin, OpenTiaToolkit workflow skills, and `AGENTS.md` rules. For a development checkout, you can also use `docs/mcp-client-configs/opencode.jsonc` and replace the placeholder path with your local build output.
 

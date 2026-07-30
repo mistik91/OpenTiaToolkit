@@ -85,7 +85,13 @@ namespace OpenTiaToolkit.MCP
                     {
                         var services = request.Services ?? throw new InvalidOperationException("MCP request services are unavailable.");
                         var toolRegistry = services.GetRequiredService<ToolRegistry>();
-                        return toolRegistry.CallToolAsync(request.Params?.Name, request.Params?.Arguments, cancellationToken);
+                        IReadOnlyDictionary<string, System.Text.Json.JsonElement>? arguments =
+                            request.Params?.Arguments == null
+                                ? null
+                                : new Dictionary<string, System.Text.Json.JsonElement>(
+                                    request.Params.Arguments,
+                                    StringComparer.OrdinalIgnoreCase);
+                        return toolRegistry.CallToolAsync(request.Params?.Name, arguments, cancellationToken);
                     });
             });
 
@@ -225,19 +231,19 @@ namespace OpenTiaToolkit.MCP
                 "",
                 "Environment:",
                 "  OPEN_TIA_MCP_LOG_LEVEL             Trace, Debug, Information, Warning, Error, Critical, or None. Default: Warning.",
-                "  OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS  Optional positive timeout for one tool call. Timed-out calls are asked to cancel; use reset-session if the attachment stays busy.",
-                "  OPEN_TIA_MCP_RESET_GRACE_SECONDS   Seconds reset-session waits for cooperative quiescence. Default: 5. A still-running call is never disposed in-process.",
+                "  OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS  Optional positive timeout for one tool call. A timed-out worker is terminated and replaced.",
+                "  OPEN_TIA_MCP_RESET_GRACE_SECONDS   Seconds reset-session waits after requesting cooperative cancellation. Default: 5. A still-running call is left intact.",
                 "  OPEN_TIA_MCP_ALLOWED_ROOTS         Semicolon-separated roots allowed for MCP path parameters. Defaults: Documents, Desktop, and the OpenTiaToolkit temp directory.",
                 "  OPEN_TIA_MCP_MAX_INPUT_FILE_BYTES Maximum existing input file size. Default: 16777216 (16 MiB).",
                 "  OPEN_TIA_MCP_ALLOW_FILE_OVERWRITE Allow explicit MCP output paths to overwrite existing files. Default: false.",
                 "  OPEN_TIA_ARTIFACT_RETENTION_DAYS   Optional retention window for temporary command artifacts. Default: 7.",
                 "",
                 "Built-in MCP tools:",
-                "  operation-status                    Reports active operation details and latest progress.",
-                "  cancel-operation                    Requests cancellation of the active operation.",
-                "  reset-session                       Cancels and waits for the active operation, then disposes the TIA attachment only after it is quiescent.",
+                "  operation-status                    Reports active operation details.",
+                "  cancel-operation                    Requests cancellation, then terminates and replaces the active worker.",
+                "  reset-session                       Requests cancellation and waits for quiescence before replacing the worker; fails closed after the grace period.",
                 "",
-                "After rebuilding this executable, refresh the Siemens Openness allow-list for this exact path and hash."
+                "Register only the exact isolated V21 worker path/hash with Siemens Openness. Do not register this vendor-free MCP host."
             });
         }
     }

@@ -30,6 +30,12 @@ The MCP executable is produced by the `OpenTiaToolkit.MCP` project:
 
 If you switch to a Release build, replace `Debug` with `Release` in the snippets.
 
+## Protocol Compatibility
+
+OpenTiaToolkit uses `ModelContextProtocol` 2.0.0 and newline-delimited JSON-RPC over stdio. Modern MCP `2026-07-28` clients use `server/discover` and the required protocol, client-info, and client-capabilities request metadata. Initialize-based clients remain supported for the `2025-11-25`, `2025-06-18`, `2025-03-26`, and `2024-11-05` revisions provided by the stable SDK.
+
+The server advertises tools only. It does not advertise prompts, resources, Tasks, Apps, sampling, elicitation, or HTTP transports. Tasks and Apps are optional MCP extensions and are not required for OpenTiaToolkit's local, serialized TIA Portal command model. See [`../MCP_PROTOCOL.md`](../MCP_PROTOCOL.md) for the wire-level behavior and validation commands.
+
 ## Files
 
 ### Development Checkout
@@ -113,7 +119,7 @@ Install the MCPB CLI first if needed:
 npm install -g @anthropic-ai/mcpb
 ```
 
-The pack script stages the MCP executable under `artifacts\claude-desktop-mcpb\opentia-toolkit`, validates the manifest with `mcpb` or `npx -y @anthropic-ai/mcpb`, and writes `artifacts\claude-desktop-mcpb\opentia-toolkit.mcpb`.
+The pack script stages the MCP executable under `artifacts\claude-desktop-mcpb\opentia-toolkit`, verifies the stable SDK assemblies and modern/downlevel stdio behavior against the staged server and worker, validates the manifest with `mcpb` or `npx -y @anthropic-ai/mcpb`, and writes `artifacts\claude-desktop-mcpb\opentia-toolkit.mcpb` plus `MCPB-SHA256SUMS.txt`.
 
 ## OpenCode Plugin Bundle
 
@@ -171,12 +177,12 @@ The CLI and MCP executables are vendor-free and must not be registered with Siem
 - TOML configs can use single-quoted Windows paths, for example `'E:\Path\To\OpenTiaToolkit\...'`.
 - OpenCode local MCP configs use a `command` array and `environment` object inside an `mcp.<server-name>` entry.
 - Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.
-- `OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS` can be set to a positive number to make long tool calls return a structured timeout result. Timed-out calls are asked to cancel; use `operation-status` to inspect the active operation and `reset-session` if the TIA attachment remains busy.
-- `OPEN_TIA_MCP_RESET_GRACE_SECONDS` controls how long `reset-session` waits for the active operation to become quiescent (default 5 seconds).
+- `OPEN_TIA_MCP_TOOL_TIMEOUT_SECONDS` can be set to a positive number to make long tool calls return a structured timeout result. A timed-out isolated worker is terminated and replaced before the timeout result is returned.
+- `OPEN_TIA_MCP_RESET_GRACE_SECONDS` controls how long `reset-session` waits after requesting cooperative cancellation (default 5 seconds). If the active call does not quiesce, reset fails closed and leaves that worker and TIA attachment intact.
 - `OPEN_TIA_MCP_ALLOWED_ROOTS` is a semicolon-separated allow-list for every MCP path parameter. It defaults to Documents, Desktop, and `%TEMP%\OpenTiaToolkit`.
 - `OPEN_TIA_MCP_MAX_INPUT_FILE_BYTES` caps existing input files at 16 MiB by default.
 - `OPEN_TIA_MCP_ALLOW_FILE_OVERWRITE` defaults to `false`; enable it only for an intentional overwrite of an explicit output path.
-- The MCP server exposes built-in infrastructure tools: `operation-status` reports the active operation and latest progress, `cancel-operation` requests cooperative cancellation, and `reset-session` cancels and waits before disposing the TIA attachment. If the operation does not quiesce during the grace period, reset fails without disposing or releasing the gate; terminate and restart the MCP process to recover safely.
+- The MCP server exposes built-in infrastructure tools: `operation-status` reports the active operation, `cancel-operation` requests cancellation then terminates and replaces the active worker, and `reset-session` requests cancellation and waits for quiescence before replacing the worker.
 - PLC batch tag commands (`modify-tags`, `find-replace-tags`, `find-replace-db-members`, and `find-replace-udt-members`) report per-operation or per-item progress and honor cooperative cancellation between items and before TIA write calls.
 - `OPEN_TIA_ARTIFACT_RETENTION_DAYS` controls best-effort cleanup for temporary command artifacts written under `%TEMP%\OpenTiaToolkit\CommandArtifacts`; the default is 7 days.
 - Do not enable parallel MCP tool calls for this server. TIA Portal sessions are stateful and should be driven serially.
