@@ -8,6 +8,8 @@
 [Ll]og/
 [Ll]ogs/
 artifacts/
+benchmarks/artifacts/
+benchmarks/node_modules/
 
 # Visual Studio and editor state
 .vs/

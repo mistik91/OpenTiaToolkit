@@ -1,0 +1,14 @@
+{
+  "name": "opentia-opencode-benchmarks",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pinned OpenCode runtime for OpenTiaToolkit agent benchmarks",
+  "license": "MIT",
+  "dependencies": {
+    "opencode-ai": "1.18.10"
+  },
+  "scripts": {
+    "validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-BenchmarkDefinitions.ps1",
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-BenchmarkDefinitions.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-OpenCodeBenchmarkCommon.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-TraceEvaluator.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-MergeOpenCodeCampaignResults.ps1"
+  }
+}

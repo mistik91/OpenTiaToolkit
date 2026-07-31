@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-10",
+  "title": "Focused Unified HMI patch",
+  "description": "Tests filtered snapshot/base-hash discipline, dry-run/apply, backup, and fresh verification.",
+  "fixtureId": "tia-v21-baseline-1",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 480,
+  "passScore": 80,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hmi-unified-agent-editing"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hmi-opened",
+      "type": "tool",
+      "points": 10,
+      "namePattern": "open_unified_hmi$",
+      "minCount": 1,
+      "inputEquals": {
+        "hmi-name": "HMI_RT_1"
+      }
+    },
+    {
+      "id": "focused-snapshots",
+      "type": "tool",
+      "points": 20,
+      "namePattern": "get_hmi_screen_json$",
+      "minCount": 2,
+      "inputEquals": {
+        "screen-path": "Overview"
+      },
+      "outputPatterns": [
+        "StartButton"
+      ]
+    },
+    {
+      "id": "patch-preview",
+      "type": "tool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_hmi_screen_json_patch$",
+      "minCount": 1,
+      "inputEquals": {
+        "dry-run": true
+      },
+      "outputPatterns": [
+        "(?i)(safe|rolled back|dry.run)"
+      ]
+    },
+    {
+      "id": "patch-apply",
+      "type": "tool",
+      "points": 25,
+      "critical": true,
+      "namePattern": "apply_hmi_screen_json_patch$",
+      "minCount": 1,
+      "inputEquals": {
+        "dry-run": false,
+        "confirm": true,
+        "backup": true
+      },
+      "outputPatterns": [
+        "\"success\"\\s*:\\s*true"
+      ]
+    },
+    {
+      "id": "fresh-readback",
+      "type": "traceRegex",
+      "points": 15,
+      "pattern": "(?s)StartButton.{0,1000}\"Text\"\\s*:\\s*\"Run\""
+    },
+    {
+      "id": "final-summary",
+      "type": "finalRegex",
+      "points": 5,
+      "pattern": "(?s)(?=.*Overview)(?=.*StartButton)(?=.*Run)"
+    }
+  ]
+}

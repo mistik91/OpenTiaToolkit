@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-01",
+  "title": "Read-only project discovery",
+  "description": "Tests safe instance selection, project verification, and exact PLC/HMI discovery.",
+  "fixtureId": "tia-v21-baseline-1",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 240,
+  "passScore": 75,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 10,
+      "critical": true
+    },
+    {
+      "id": "instance-discovery",
+      "type": "tool",
+      "points": 15,
+      "namePattern": "list_instances$",
+      "minCount": 1
+    },
+    {
+      "id": "project-verification",
+      "type": "tool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "(list_projects|get_project_info)$",
+      "minCount": 1,
+      "outputPatterns": [
+        "OTT_Benchmark"
+      ]
+    },
+    {
+      "id": "device-discovery",
+      "type": "tool",
+      "points": 15,
+      "namePattern": "list_devices$",
+      "minCount": 1
+    },
+    {
+      "id": "plc-discovery",
+      "type": "tool",
+      "points": 10,
+      "namePattern": "list_plcs$",
+      "minCount": 1,
+      "outputPatterns": [
+        "PLC_Main"
+      ]
+    },
+    {
+      "id": "hmi-discovery",
+      "type": "tool",
+      "points": 10,
+      "namePattern": "list_hmis$",
+      "minCount": 1,
+      "outputPatterns": [
+        "HMI_RT_1"
+      ]
+    },
+    {
+      "id": "no-mutation",
+      "type": "forbiddenTool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "(create|add|apply|modify|delete|import|compile|save|close|archive|retrieve|download|sync|commit)_"
+    },
+    {
+      "id": "exact-final-names",
+      "type": "finalRegex",
+      "points": 10,
+      "pattern": "(?s)(?=.*OTT_Benchmark)(?=.*PLC_Main)(?=.*HMI_RT_1)"
+    }
+  ]
+}
