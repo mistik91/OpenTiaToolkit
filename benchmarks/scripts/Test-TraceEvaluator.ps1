@@ -97,6 +97,7 @@ try {
 
     $metadata = [ordered]@{
         model           = 'synthetic/model'
+        trialIndex      = 2
         reasoningEffort = 'provider-default'
         variant         = $null
         openCodeVersion = '1.18.10'
@@ -124,6 +125,9 @@ try {
     }
     if ([long]$result.usage.tokens.total -ne 12) {
         throw "Expected 12 total tokens, got $($result.usage.tokens.total)."
+    }
+    if ([int]$result.trialIndex -ne 2) {
+        throw "Expected trialIndex 2, got $($result.trialIndex)."
     }
 
     Write-Host 'Trace evaluator synthetic test passed.'

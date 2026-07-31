@@ -180,8 +180,9 @@ foreach ($modelEntry in $selectedModelEntries) {
 }
 
 $catalogSnapshot = [ordered]@{
-    schemaVersion   = 1
+    schemaVersion   = 2
     campaignId      = [string]$campaign.id
+    trialCount      = [int]$campaign.trialCount
     checkedAtUtc    = [DateTime]::UtcNow.ToString('o')
     openCodeVersion = $openCodeVersion
     models          = $catalogEntries
@@ -215,102 +216,127 @@ try {
             $modelResults.Add($modelRecord)
 
             foreach ($selectedCaseId in $selectedCaseIds) {
-                if ($totalCost -ge [double]$campaign.maxCostUsd) {
-                    $modelRecord.status = 'not-completed-budget-guard'
-                    $campaignStatus = 'budget-guard-reached'
-                    $stopCampaign = $true
-                    break
-                }
+                for ($trialIndex = 1; $trialIndex -le [int]$campaign.trialCount; $trialIndex++) {
+                    if ($totalCost -ge [double]$campaign.maxCostUsd) {
+                        $modelRecord.status = 'not-completed-budget-guard'
+                        $campaignStatus = 'budget-guard-reached'
+                        $stopCampaign = $true
+                        break
+                    }
 
-                $existingSuitePaths = @(
-                    Get-ChildItem -LiteralPath $campaignDirectory -Filter 'suite-*.json' -File |
-                        ForEach-Object { $_.FullName }
-                )
-                $runnerParameters = @{
-                    CaseId                 = @([string]$selectedCaseId)
-                    Model                  = $modelId
-                    ReasoningEffort        = $reasoningEffort
-                    FixtureArchivePath     = $FixtureArchivePath
-                    OutputRoot             = $campaignDirectory
-                    UseUserOpenCodeAuth    = [bool]$UseUserOpenCodeAuth
-                    AllowPrimaryBranch     = [bool]$AllowPrimaryBranch
-                }
-                if (-not [string]::IsNullOrWhiteSpace([string]$variant)) {
-                    $runnerParameters.Variant = [string]$variant
-                }
-                if (-not [string]::IsNullOrWhiteSpace($MultiuserSessionPath)) {
-                    $runnerParameters.MultiuserSessionPath = $MultiuserSessionPath
-                }
-                if ($TiaInstanceId -gt 0) {
-                    $runnerParameters.TiaInstanceId = $TiaInstanceId
-                }
-                if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
-                    $runnerParameters.WorkspaceRoot = $WorkspaceRoot
-                }
-                if (-not [string]::IsNullOrWhiteSpace($CliPath)) {
-                    $runnerParameters.CliPath = $CliPath
-                }
-                if (-not [string]::IsNullOrWhiteSpace($McpPath)) {
-                    $runnerParameters.McpPath = $McpPath
-                }
-                if ($UseUserOpenCodeAuth) {
-                    $runnerParameters.UserAuthPath = $resolvedUserAuthPath
-                }
-                if ($TimeoutOverrideSeconds -gt 0) {
-                    $runnerParameters.TimeoutOverrideSeconds = $TimeoutOverrideSeconds
-                }
+                    $existingSuitePaths = @(
+                        Get-ChildItem -LiteralPath $campaignDirectory -Filter 'suite-*.json' -File |
+                            ForEach-Object { $_.FullName }
+                    )
+                    $runnerParameters = @{
+                        CaseId                 = @([string]$selectedCaseId)
+                        Model                  = $modelId
+                        TrialIndex             = $trialIndex
+                        ReasoningEffort        = $reasoningEffort
+                        FixtureArchivePath     = $FixtureArchivePath
+                        OutputRoot             = $campaignDirectory
+                        UseUserOpenCodeAuth    = [bool]$UseUserOpenCodeAuth
+                        AllowPrimaryBranch     = [bool]$AllowPrimaryBranch
+                    }
+                    if (-not [string]::IsNullOrWhiteSpace([string]$variant)) {
+                        $runnerParameters.Variant = [string]$variant
+                    }
+                    if (-not [string]::IsNullOrWhiteSpace($MultiuserSessionPath)) {
+                        $runnerParameters.MultiuserSessionPath = $MultiuserSessionPath
+                    }
+                    if ($TiaInstanceId -gt 0) {
+                        $runnerParameters.TiaInstanceId = $TiaInstanceId
+                    }
+                    if (-not [string]::IsNullOrWhiteSpace($WorkspaceRoot)) {
+                        $runnerParameters.WorkspaceRoot = $WorkspaceRoot
+                    }
+                    if (-not [string]::IsNullOrWhiteSpace($CliPath)) {
+                        $runnerParameters.CliPath = $CliPath
+                    }
+                    if (-not [string]::IsNullOrWhiteSpace($McpPath)) {
+                        $runnerParameters.McpPath = $McpPath
+                    }
+                    if ($UseUserOpenCodeAuth) {
+                        $runnerParameters.UserAuthPath = $resolvedUserAuthPath
+                    }
+                    if ($TimeoutOverrideSeconds -gt 0) {
+                        $runnerParameters.TimeoutOverrideSeconds = $TimeoutOverrideSeconds
+                    }
 
-                [void]@(& $runnerPath @runnerParameters)
+                    [void]@(& $runnerPath @runnerParameters)
 
-                $newSuite = @(Get-ChildItem -LiteralPath $campaignDirectory -Filter 'suite-*.json' -File |
-                        Where-Object { $existingSuitePaths -notcontains $_.FullName } |
-                        Sort-Object LastWriteTimeUtc -Descending |
-                        Select-Object -First 1)
-                if ($newSuite.Count -ne 1) {
-                    throw "Expected one new suite result for '$modelId' / '$selectedCaseId', got $($newSuite.Count)."
-                }
-                $suite = Get-Content -LiteralPath $newSuite[0].FullName -Raw | ConvertFrom-Json
-                if (@($suite.results).Count -ne 1) {
-                    throw "Expected one case result in '$($newSuite[0].FullName)', got $(@($suite.results).Count)."
-                }
-                $resultPath = [string]$suite.results[0].resultPath
-                if (-not (Test-Path -LiteralPath $resultPath -PathType Leaf)) {
-                    throw "Suite result references a missing case result: $resultPath"
-                }
-                $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
+                    $newSuite = @(Get-ChildItem -LiteralPath $campaignDirectory -Filter 'suite-*.json' -File |
+                            Where-Object { $existingSuitePaths -notcontains $_.FullName } |
+                            Sort-Object LastWriteTimeUtc -Descending |
+                            Select-Object -First 1)
+                    if ($newSuite.Count -ne 1) {
+                        throw "Expected one new suite result for '$modelId' / '$selectedCaseId' / trial $trialIndex, got $($newSuite.Count)."
+                    }
+                    $suite = Get-Content -LiteralPath $newSuite[0].FullName -Raw | ConvertFrom-Json
+                    if (@($suite.results).Count -ne 1) {
+                        throw "Expected one case result in '$($newSuite[0].FullName)', got $(@($suite.results).Count)."
+                    }
+                    $resultPath = [string]$suite.results[0].resultPath
+                    if (-not (Test-Path -LiteralPath $resultPath -PathType Leaf)) {
+                        throw "Suite result references a missing case result: $resultPath"
+                    }
+                    $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
+                    if ([int]$result.trialIndex -ne $trialIndex) {
+                        throw "Result '$resultPath' reports trial $($result.trialIndex), expected $trialIndex."
+                    }
 
-                $caseCost = [double]$result.usage.cost
-                $totalCost += $caseCost
-                $criticalFailures = @($result.assertions |
-                        Where-Object { [bool]$_.critical -and -not [bool]$_.passed })
-                $modelRecord.cases.Add([pscustomobject][ordered]@{
-                        caseId          = [string]$result.caseId
-                        score           = [double]$result.score
-                        passed          = [bool]$result.passed
-                        criticalFailure = $criticalFailures.Count -gt 0
-                        timedOut        = [bool]$result.timedOut
-                        exitCode        = [int]$result.exitCode
-                        durationSeconds = [double]$result.durationSeconds
-                        cost            = $caseCost
-                        resultPath      = $resultPath
-                    })
-
-                if ([bool]$result.timedOut -or [int]$result.exitCode -ne 0) {
-                    $modelRecord.status = 'runtime-failure'
-                    $campaignStatus = 'stopped-on-runtime-failure'
-                    $stopCampaign = $true
-                    break
+                    $caseCost = [double]$result.usage.cost
+                    $totalCost += $caseCost
+                    $criticalFailures = @($result.assertions |
+                            Where-Object { [bool]$_.critical -and -not [bool]$_.passed })
+                    $modelRecord.cases.Add([pscustomobject][ordered]@{
+                            caseId          = [string]$result.caseId
+                            trialIndex      = [int]$result.trialIndex
+                            score           = [double]$result.score
+                            passed          = [bool]$result.passed
+                            criticalFailure = $criticalFailures.Count -gt 0
+                            timedOut        = [bool]$result.timedOut
+                            exitCode        = [int]$result.exitCode
+                            durationSeconds = [double]$result.durationSeconds
+                            cost            = $caseCost
+                            reasoningTokens = [long]$result.usage.tokens.reasoning
+                            resultPath      = $resultPath
+                        })
                 }
-                if ($criticalFailures.Count -gt 0) {
-                    $modelRecord.status = 'disqualified-critical-failure'
+                if ($stopCampaign) {
                     break
                 }
             }
 
             if ([string]$modelRecord.status -eq 'running') {
-                $allPassed = @($modelRecord.cases | Where-Object { -not [bool]$_.passed }).Count -eq 0
-                $modelRecord.status = if ($allPassed) { 'qualified' } else { 'not-qualified' }
+                $trials = @($modelRecord.cases)
+                $expectedTrialCount = $selectedCaseIds.Count * [int]$campaign.trialCount
+                $hasRuntimeFailure = @($trials | Where-Object {
+                        [bool]$_.timedOut -or [int]$_.exitCode -ne 0
+                    }).Count -gt 0
+                $hasCriticalFailure = @($trials | Where-Object { [bool]$_.criticalFailure }).Count -gt 0
+                $allPassed = $trials.Count -eq $expectedTrialCount -and
+                    @($trials | Where-Object { -not [bool]$_.passed }).Count -eq 0
+                $modelRecord.status = if ($hasRuntimeFailure) {
+                    'runtime-failure'
+                }
+                elseif ($hasCriticalFailure) {
+                    'disqualified-critical-failure'
+                }
+                elseif ($allPassed) {
+                    'qualified'
+                }
+                elseif ($trials.Count -eq $expectedTrialCount) {
+                    'not-qualified'
+                }
+                else {
+                    'incomplete'
+                }
             }
+            $modelRecord | Add-Member -NotePropertyName aggregate `
+                -NotePropertyValue (Get-BenchmarkTrialStatistics -Trials @($modelRecord.cases))
+            $modelRecord | Add-Member -NotePropertyName caseAggregates `
+                -NotePropertyValue @(Get-BenchmarkCaseAggregates -Trials @($modelRecord.cases))
         }
 
         if ([string]$campaignStatus -eq 'running') {
@@ -326,7 +352,7 @@ catch {
 finally {
     $campaignFinished = [DateTime]::UtcNow
     $campaignResult = [ordered]@{
-        schemaVersion       = 1
+        schemaVersion       = 2
         campaignId          = [string]$campaign.id
         title               = [string]$campaign.title
         status              = $campaignStatus
@@ -339,6 +365,7 @@ finally {
         durationSeconds     = [Math]::Round(($campaignFinished - $campaignStarted).TotalSeconds, 3)
         maxCostUsd          = [double]$campaign.maxCostUsd
         totalCostUsd        = [Math]::Round($totalCost, 8)
+        trialCount          = [int]$campaign.trialCount
         selectedCaseIds     = $selectedCaseIds
         selectedModels      = @($selectedModelEntries | ForEach-Object { [string]$_.model })
         models              = $modelResults

@@ -10,6 +10,9 @@ param(
 
     [string]$ReasoningEffort,
 
+    [ValidateRange(1, 1000)]
+    [int]$TrialIndex = 1,
+
     [string]$FixtureArchivePath,
 
     [string]$MultiuserSessionPath,
@@ -446,8 +449,8 @@ foreach ($requestedCaseId in $CaseId) {
     finally {
         $modelHashAlgorithm.Dispose()
     }
-    $runDirectory = Join-Path $OutputRoot "$runStamp-$requestedCaseId-$safeModel"
-    $executionDirectory = Join-Path $WorkspaceRoot "$runStamp-$requestedCaseId-$modelHash"
+    $runDirectory = Join-Path $OutputRoot "$runStamp-$requestedCaseId-trial-$TrialIndex-$safeModel"
+    $executionDirectory = Join-Path $WorkspaceRoot "$runStamp-$requestedCaseId-t$TrialIndex-$modelHash"
     $workspace = Join-Path $executionDirectory 'workspace'
     New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
     New-Item -ItemType Directory -Path $workspace -Force | Out-Null
@@ -602,6 +605,7 @@ foreach ($requestedCaseId in $CaseId) {
 
     $metadata = [ordered]@{
         model           = $Model
+        trialIndex      = $TrialIndex
         reasoningEffort = $effectiveReasoningEffort
         variant         = if ([string]::IsNullOrWhiteSpace($Variant)) { $null } else { $Variant }
         authProvider    = if ($UseUserOpenCodeAuth) { $modelProvider } else { $null }
@@ -636,6 +640,7 @@ foreach ($requestedCaseId in $CaseId) {
     $results += $result
     $suiteResults += [pscustomobject][ordered]@{
         caseId          = [string]$result.caseId
+        trialIndex      = [int]$result.trialIndex
         score           = [double]$result.score
         passed          = [bool]$result.passed
         durationSeconds = [double]$result.durationSeconds
@@ -644,8 +649,8 @@ foreach ($requestedCaseId in $CaseId) {
         resultPath      = $resultPath
     }
 
-    Write-Host ("{0}: score={1} passed={2} artifacts={3}" -f
-        $result.caseId, $result.score, $result.passed, $runDirectory)
+    Write-Host ("{0} trial {1}: score={2} passed={3} artifacts={4}" -f
+        $result.caseId, $result.trialIndex, $result.score, $result.passed, $runDirectory)
 }
 
 $results
@@ -654,8 +659,9 @@ if ($suiteResults.Count -gt 0) {
     $meanScore = [Math]::Round([double](($suiteResults | Measure-Object -Property score -Average).Average), 2)
     $totalCost = [double](($suiteResults | Measure-Object -Property cost -Sum).Sum)
     $suiteSummary = [ordered]@{
-        schemaVersion   = 1
+        schemaVersion   = 2
         model           = $Model
+        trialIndex      = $TrialIndex
         reasoningEffort = $effectiveReasoningEffort
         variant         = if ([string]::IsNullOrWhiteSpace($Variant)) { $null } else { $Variant }
         authProvider    = if ($UseUserOpenCodeAuth) { $modelProvider } else { $null }
@@ -674,7 +680,7 @@ if ($suiteResults.Count -gt 0) {
         totalCost       = $totalCost
         results         = $suiteResults
     }
-    $suitePath = Join-Path $OutputRoot "suite-$suiteStamp-$safeModel.json"
+    $suitePath = Join-Path $OutputRoot "suite-$suiteStamp-trial-$TrialIndex-$safeModel.json"
     $suiteSummary | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $suitePath -Encoding UTF8
     Write-Host "Suite summary: $suitePath"
 }

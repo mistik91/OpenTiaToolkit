@@ -14,9 +14,15 @@ Each run records:
 - the Git commit, branch, dirty flag, and deterministic worktree-state hash under test;
 - newline-delimited OpenCode events, including MCP calls and outputs;
 - elapsed time, token usage, cost, exit status, and timeout status;
+- the one-based trial index for repeated model/task executions;
 - deterministic trace and final-answer assertions.
 
-Every invocation also writes a suite summary with mean score, pass count, duration, cost, and links to the individual result files. Those summaries are the comparison input when the same cases are run against multiple models.
+Every invocation also writes a suite summary with mean score, pass count,
+duration, cost, and links to the individual result files. Campaign and merged
+reports retain every trial and aggregate each model/task combination with score
+range, pass rate, critical-failure rate, runtime-failure count, mean and median
+duration, mean reasoning tokens, total and mean cost, and cost per passing
+trial.
 
 Cases contain no hidden answers in the model workspace. The runner copies only the OpenCode plugin bundle and the selected prompt into an isolated directory outside the Git worktree. Evaluation happens after OpenCode exits.
 
@@ -69,6 +75,12 @@ Run all single-user cases:
 
 `campaigns/initial-model-qualification.json` is the first versioned model cohort. It qualifies three inexpensive paid models and one free control on `ott-01`, `ott-03`, and `ott-14` before any full-suite comparison.
 
+The campaign declares `trialCount: 3`. Each model/task pair is executed three
+times from a fresh fixture restore. Qualification status remains strict:
+runtime or critical failures take precedence, and a model qualifies only when
+every expected trial passes. The aggregates remain available when a model does
+not qualify so variance and failure rates can still be compared.
+
 Reasoning policy is explicit per model. Paid models currently use
 `reasoningEffort: "provider-default"` with `variant: null`, preserving their
 out-of-box behavior. The free control uses the highest variant advertised by
@@ -100,7 +112,11 @@ Run the live qualification campaign:
   -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_20260731.zap21
 ```
 
-Paid execution needs two independent opt-ins: `allowPaidModels=true` in the versioned campaign and `-AllowPaidModels` at runtime. The campaign stops before starting another case once cumulative reported cost reaches `maxCostUsd`. Because providers report cost after a request completes, this is a between-case stop guard rather than a hard per-request spending limit.
+Paid execution needs two independent opt-ins: `allowPaidModels=true` in the
+versioned campaign and `-AllowPaidModels` at runtime. The campaign stops before
+starting another trial once cumulative reported cost reaches `maxCostUsd`.
+Because providers report cost after a request completes, this is a
+between-trial stop guard rather than a hard per-request spending limit.
 
 Use `-Model` or `-CaseId` to execute an ordered subset from the versioned campaign, for example when continuing after a deliberate runtime-failure stop. The filter cannot introduce models or cases that are absent from the campaign:
 

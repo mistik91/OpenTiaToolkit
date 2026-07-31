@@ -182,3 +182,105 @@ function Get-OpenCodeModelMetadata {
     }
     return ConvertFrom-OpenCodeModelListing -Lines $lines -Model $Model
 }
+
+function Get-BenchmarkTrialStatistics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Trials
+    )
+
+    $items = @($Trials)
+    if ($items.Count -eq 0) {
+        return [pscustomobject][ordered]@{
+            trialCount             = 0
+            passedCount            = 0
+            passRate               = 0.0
+            criticalFailureCount   = 0
+            criticalFailureRate    = 0.0
+            runtimeFailureCount    = 0
+            meanScore              = 0.0
+            minScore               = 0.0
+            maxScore               = 0.0
+            totalCostUsd           = 0.0
+            meanCostUsd            = 0.0
+            costPerPassedTrialUsd  = $null
+            meanDurationSeconds    = 0.0
+            p50DurationSeconds     = 0.0
+            meanReasoningTokens    = 0.0
+        }
+    }
+
+    $passedCount = @($items | Where-Object { [bool]$_.passed }).Count
+    $criticalFailureCount = @($items | Where-Object { [bool]$_.criticalFailure }).Count
+    $runtimeFailureCount = @($items | Where-Object {
+            [bool]$_.timedOut -or [int]$_.exitCode -ne 0
+        }).Count
+    $scores = @($items | ForEach-Object { [double]$_.score })
+    $durations = @($items | ForEach-Object { [double]$_.durationSeconds } | Sort-Object)
+    $costs = @($items | ForEach-Object { [double]$_.cost })
+    $reasoningTokens = @($items | ForEach-Object {
+            $property = $_.PSObject.Properties['reasoningTokens']
+            if ($null -eq $property) {
+                0L
+            }
+            else {
+                [long]$property.Value
+            }
+        })
+
+    $middle = [int][Math]::Floor($durations.Count / 2)
+    $medianDuration = if ($durations.Count % 2 -eq 1) {
+        [double]$durations[$middle]
+    }
+    else {
+        ([double]$durations[$middle - 1] + [double]$durations[$middle]) / 2.0
+    }
+    $totalCost = [double](($costs | Measure-Object -Sum).Sum)
+
+    return [pscustomobject][ordered]@{
+        trialCount             = $items.Count
+        passedCount            = $passedCount
+        passRate               = [Math]::Round($passedCount / [double]$items.Count, 4)
+        criticalFailureCount   = $criticalFailureCount
+        criticalFailureRate    = [Math]::Round($criticalFailureCount / [double]$items.Count, 4)
+        runtimeFailureCount    = $runtimeFailureCount
+        meanScore              = [Math]::Round([double](($scores | Measure-Object -Average).Average), 2)
+        minScore               = [Math]::Round([double](($scores | Measure-Object -Minimum).Minimum), 2)
+        maxScore               = [Math]::Round([double](($scores | Measure-Object -Maximum).Maximum), 2)
+        totalCostUsd           = [Math]::Round($totalCost, 8)
+        meanCostUsd            = [Math]::Round($totalCost / $items.Count, 8)
+        costPerPassedTrialUsd  = if ($passedCount -gt 0) {
+            [Math]::Round($totalCost / $passedCount, 8)
+        }
+        else {
+            $null
+        }
+        meanDurationSeconds    = [Math]::Round(
+            [double](($durations | Measure-Object -Average).Average),
+            3)
+        p50DurationSeconds     = [Math]::Round($medianDuration, 3)
+        meanReasoningTokens    = [Math]::Round(
+            [double](($reasoningTokens | Measure-Object -Average).Average),
+            2)
+    }
+}
+
+function Get-BenchmarkCaseAggregates {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Trials
+    )
+
+    $aggregates = [System.Collections.Generic.List[object]]::new()
+    foreach ($group in @($Trials | Group-Object -Property caseId | Sort-Object Name)) {
+        $statistics = Get-BenchmarkTrialStatistics -Trials @($group.Group)
+        $record = [ordered]@{ caseId = [string]$group.Name }
+        foreach ($property in $statistics.PSObject.Properties) {
+            $record[$property.Name] = $property.Value
+        }
+        $aggregates.Add([pscustomobject]$record)
+    }
+    return $aggregates
+}

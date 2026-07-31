@@ -10,6 +10,8 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+. (Join-Path $PSScriptRoot 'OpenCodeBenchmark.Common.ps1')
+
 function Get-ModelReasoningEffort {
     param([Parameter(Mandatory = $true)][object]$Model)
 
@@ -40,6 +42,19 @@ $openCodeVersions = @($segments | ForEach-Object { [string]$_.openCodeVersion } 
 if ($openCodeVersions.Count -ne 1) {
     throw "Campaign results do not share one OpenCode version: $($openCodeVersions -join ', ')"
 }
+$trialCounts = @($segments | ForEach-Object {
+        $property = $_.PSObject.Properties['trialCount']
+        if ($null -eq $property) {
+            1
+        }
+        else {
+            [int]$property.Value
+        }
+    } | Sort-Object -Unique)
+if ($trialCounts.Count -ne 1) {
+    throw "Campaign results do not share one trialCount: $($trialCounts -join ', ')"
+}
+$trialCount = [int]$trialCounts[0]
 
 $expectedCaseIdList = [System.Collections.Generic.List[string]]::new()
 foreach ($segment in $segments) {
@@ -92,8 +107,24 @@ for ($segmentIndex = 0; $segmentIndex -lt $segments.Count; $segmentIndex++) {
         $mergedModel.sourceResults.Add($resolvedPaths[$segmentIndex])
         foreach ($case in $model.cases) {
             $caseId = [string]$case.caseId
-            if (@($mergedModel.cases | Where-Object { [string]$_.caseId -eq $caseId }).Count -gt 0) {
-                throw "Duplicate result for model '$modelId' and case '$caseId'."
+            $trialProperty = $case.PSObject.Properties['trialIndex']
+            $trialIndex = if ($null -eq $trialProperty) { 1 } else { [int]$trialProperty.Value }
+            if (@($mergedModel.cases | Where-Object {
+                        [string]$_.caseId -eq $caseId -and [int]$_.trialIndex -eq $trialIndex
+                    }).Count -gt 0) {
+                throw "Duplicate result for model '$modelId', case '$caseId', and trial $trialIndex."
+            }
+            $case | Add-Member -NotePropertyName trialIndex -NotePropertyValue $trialIndex -Force
+            if ($null -eq $case.PSObject.Properties['reasoningTokens']) {
+                $reasoningTokens = 0L
+                $resultPathProperty = $case.PSObject.Properties['resultPath']
+                if ($null -ne $resultPathProperty -and
+                    (Test-Path -LiteralPath ([string]$resultPathProperty.Value) -PathType Leaf)) {
+                    $caseResult = Get-Content -LiteralPath ([string]$resultPathProperty.Value) -Raw |
+                        ConvertFrom-Json
+                    $reasoningTokens = [long]$caseResult.usage.tokens.reasoning
+                }
+                $case | Add-Member -NotePropertyName reasoningTokens -NotePropertyValue $reasoningTokens
             }
             $mergedModel.cases.Add($case)
         }
@@ -110,7 +141,9 @@ foreach ($entry in $modelsById.GetEnumerator()) {
     $hasCriticalFailure = @($cases | Where-Object { [bool]$_.criticalFailure }).Count -gt 0
     $hasAllCases = @($expectedCaseIds | Where-Object {
             $caseId = $_
-            @($cases | Where-Object { [string]$_.caseId -eq $caseId }).Count -eq 1
+            $caseTrials = @($cases | Where-Object { [string]$_.caseId -eq $caseId })
+            $caseTrials.Count -eq $trialCount -and
+                @($caseTrials.trialIndex | Sort-Object -Unique).Count -eq $trialCount
         }).Count -eq $expectedCaseIds.Count
     $allPassed = $hasAllCases -and @($cases | Where-Object { -not [bool]$_.passed }).Count -eq 0
 
@@ -130,39 +163,34 @@ foreach ($entry in $modelsById.GetEnumerator()) {
         'incomplete'
     }
 
-    $meanScore = if ($cases.Count -gt 0) {
-        [Math]::Round([double](($cases | Measure-Object -Property score -Average).Average), 2)
-    }
-    else {
-        0.0
-    }
-    $modelCost = if ($cases.Count -gt 0) {
-        [double](($cases | Measure-Object -Property cost -Sum).Sum)
-    }
-    else {
-        0.0
-    }
+    $statistics = Get-BenchmarkTrialStatistics -Trials $cases
+    $caseAggregates = @(Get-BenchmarkCaseAggregates -Trials $cases)
     $mergedModels.Add([pscustomobject][ordered]@{
             model         = $model.model
             reasoningEffort = $model.reasoningEffort
             variant       = $model.variant
             costClass     = $model.costClass
             status        = $status
-            caseCount     = $cases.Count
-            meanScore     = $meanScore
-            totalCostUsd  = [Math]::Round($modelCost, 8)
+            caseCount     = @($cases.caseId | Sort-Object -Unique).Count
+            completedTrialCount = $cases.Count
+            meanScore     = $statistics.meanScore
+            totalCostUsd  = $statistics.totalCostUsd
+            aggregate     = $statistics
+            caseAggregates = $caseAggregates
             sourceResults = $model.sourceResults
             cases         = $model.cases
         })
 }
 
-$totalCost = [double](($segments | Measure-Object -Property totalCostUsd -Sum).Sum)
+$totalCost = [double](($mergedModels | Measure-Object -Property totalCostUsd -Sum).Sum)
 $result = [ordered]@{
-    schemaVersion         = 1
+    schemaVersion         = 2
     campaignId            = $campaignIds[0]
     openCodeVersion       = $openCodeVersions[0]
     mergedAtUtc           = [DateTime]::UtcNow.ToString('o')
     expectedCaseIds       = $expectedCaseIds
+    trialCount            = $trialCount
+    expectedTrialCountPerModel = $expectedCaseIds.Count * $trialCount
     sourceCampaignResults = $resolvedPaths
     totalCostUsd          = [Math]::Round($totalCost, 8)
     models                = $mergedModels

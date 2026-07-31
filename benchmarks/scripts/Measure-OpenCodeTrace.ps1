@@ -273,9 +273,15 @@ $usage = [ordered]@{
 }
 
 $result = [ordered]@{
-    schemaVersion   = 1
+    schemaVersion   = 2
     caseId          = [string]$case.id
     model           = [string]$metadata.model
+    trialIndex      = if ($null -ne $metadata.PSObject.Properties['trialIndex']) {
+        [int]$metadata.trialIndex
+    }
+    else {
+        1
+    }
     reasoningEffort = if ($null -ne $metadata.PSObject.Properties['reasoningEffort']) {
         [string]$metadata.reasoningEffort
     }

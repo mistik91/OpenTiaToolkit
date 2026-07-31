@@ -140,7 +140,7 @@ foreach ($campaignFile in $campaignFiles) {
         continue
     }
 
-    if ([int]$campaign.schemaVersion -ne 1) {
+    if ([int]$campaign.schemaVersion -ne 2) {
         $errors.Add("$($campaignFile.FullName): unsupported schemaVersion '$($campaign.schemaVersion)'.")
     }
     if ([string]$campaign.id -notmatch '^[a-z0-9][a-z0-9-]*$') {
@@ -151,6 +151,9 @@ foreach ($campaignFile in $campaignFiles) {
     }
     if ([double]$campaign.maxCostUsd -le 0) {
         $errors.Add("$($campaignFile.FullName): maxCostUsd must be positive.")
+    }
+    if ([int]$campaign.trialCount -lt 1 -or [int]$campaign.trialCount -gt 10) {
+        $errors.Add("$($campaignFile.FullName): trialCount must be between 1 and 10.")
     }
     if (@($campaign.caseIds).Count -eq 0) {
         $errors.Add("$($campaignFile.FullName): at least one caseId is required.")

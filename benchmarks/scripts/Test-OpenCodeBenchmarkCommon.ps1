@@ -34,6 +34,34 @@ try {
         throw 'Verbose model metadata parsing returned the wrong model.'
     }
 
+    $statistics = Get-BenchmarkTrialStatistics -Trials @(
+        [pscustomobject]@{
+            caseId = 'ott-01'; score = 100; passed = $true; criticalFailure = $false
+            timedOut = $false; exitCode = 0; cost = 0.01; durationSeconds = 10
+            reasoningTokens = 100
+        },
+        [pscustomobject]@{
+            caseId = 'ott-01'; score = 80; passed = $true; criticalFailure = $false
+            timedOut = $false; exitCode = 0; cost = 0.02; durationSeconds = 20
+            reasoningTokens = 200
+        },
+        [pscustomobject]@{
+            caseId = 'ott-01'; score = 20; passed = $false; criticalFailure = $true
+            timedOut = $false; exitCode = 0; cost = 0.03; durationSeconds = 90
+            reasoningTokens = 300
+        }
+    )
+    if ([int]$statistics.trialCount -ne 3 -or
+        [double]$statistics.passRate -ne 0.6667 -or
+        [double]$statistics.criticalFailureRate -ne 0.3333 -or
+        [double]$statistics.meanScore -ne 66.67 -or
+        [double]$statistics.p50DurationSeconds -ne 20 -or
+        [double]$statistics.totalCostUsd -ne 0.06 -or
+        [double]$statistics.costPerPassedTrialUsd -ne 0.03 -or
+        [double]$statistics.meanReasoningTokens -ne 200) {
+        throw 'Trial aggregation returned unexpected statistics.'
+    }
+
     $sourceAuthPath = Join-Path $testRoot 'source-auth.json'
     $scopedAuthPath = Join-Path $testRoot 'isolated-data\opencode\auth.json'
     [ordered]@{

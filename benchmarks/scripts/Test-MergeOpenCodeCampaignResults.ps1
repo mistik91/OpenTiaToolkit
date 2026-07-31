@@ -15,7 +15,9 @@ try {
     [ordered]@{
         campaignId      = 'synthetic'
         openCodeVersion = '1.18.10'
+        trialCount      = 2
         totalCostUsd    = 0.01
+        selectedCaseIds = @('ott-01')
         models          = @(
             [ordered]@{
                 model     = 'provider/model-a'
@@ -23,12 +25,14 @@ try {
                 costClass = 'paid'
                 cases     = @(
                     [ordered]@{
-                        caseId = 'ott-01'; score = 100; passed = $true; criticalFailure = $false
-                        timedOut = $false; exitCode = 0; cost = 0.01
+                        caseId = 'ott-01'; trialIndex = 1; score = 100; passed = $true
+                        criticalFailure = $false; timedOut = $false; exitCode = 0; cost = 0.01
+                        durationSeconds = 10; reasoningTokens = 100
                     },
                     [ordered]@{
-                        caseId = 'ott-03'; score = 80; passed = $true; criticalFailure = $false
-                        timedOut = $false; exitCode = 0; cost = 0
+                        caseId = 'ott-01'; trialIndex = 2; score = 80; passed = $true
+                        criticalFailure = $false; timedOut = $false; exitCode = 0; cost = 0
+                        durationSeconds = 20; reasoningTokens = 200
                     }
                 )
             }
@@ -38,8 +42,9 @@ try {
     [ordered]@{
         campaignId      = 'synthetic'
         openCodeVersion = '1.18.10'
+        trialCount      = 2
         totalCostUsd    = 0
-        selectedCaseIds = @('ott-01', 'ott-03')
+        selectedCaseIds = @('ott-01')
         models          = @(
             [ordered]@{
                 model     = 'provider/model-b'
@@ -48,8 +53,9 @@ try {
                 costClass = 'free'
                 cases     = @(
                     [ordered]@{
-                        caseId = 'ott-01'; score = 20; passed = $false; criticalFailure = $true
-                        timedOut = $false; exitCode = 0; cost = 0
+                        caseId = 'ott-01'; trialIndex = 1; score = 20; passed = $false
+                        criticalFailure = $true; timedOut = $false; exitCode = 0; cost = 0
+                        durationSeconds = 30; reasoningTokens = 300
                     }
                 )
             }
@@ -63,7 +69,10 @@ try {
     $modelB = @($merged.models | Where-Object { $_.model -eq 'provider/model-b' })
     if ($modelA.Count -ne 1 -or [string]$modelA[0].status -ne 'qualified' -or
         [double]$modelA[0].meanScore -ne 90 -or
-        [string]$modelA[0].reasoningEffort -ne 'provider-default') {
+        [string]$modelA[0].reasoningEffort -ne 'provider-default' -or
+        [int]$modelA[0].aggregate.trialCount -ne 2 -or
+        [double]$modelA[0].aggregate.passRate -ne 1 -or
+        [int]$modelA[0].caseAggregates[0].trialCount -ne 2) {
         throw 'Expected model-a to merge as qualified with mean score 90 and inferred provider-default reasoning.'
     }
     if ($modelB.Count -ne 1 -or [string]$modelB[0].status -ne 'disqualified-critical-failure') {
@@ -71,6 +80,9 @@ try {
     }
     if ([double]$merged.totalCostUsd -ne 0.01) {
         throw "Expected merged cost 0.01, got $($merged.totalCostUsd)."
+    }
+    if ([int]$merged.trialCount -ne 2 -or [int]$merged.expectedTrialCountPerModel -ne 2) {
+        throw 'Expected the merged report to preserve two trials per model.'
     }
 
     Write-Host 'Campaign result merge test passed.'
