@@ -4,6 +4,9 @@ This directory contains the first executable OpenTiaToolkit agent benchmark slic
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
+The first formal 3-trial model campaign is summarized in
+[`reports/initial-model-qualification-20260731.md`](reports/initial-model-qualification-20260731.md).
+
 ## What is measured
 
 Each run records:
@@ -138,6 +141,21 @@ Merge continuation results into one qualification report:
 ```
 
 The merge rejects duplicate model/case results and derives one model status from runtime failures, critical failures, case completeness, and pass results.
+
+If the top-level campaign process is interrupted after individual trials have
+written their `result.json` files, rebuild a validated campaign summary without
+rerunning completed work:
+
+```powershell
+.\scripts\Recover-OpenCodeCampaignResult.ps1 `
+  -CampaignPath .\campaigns\initial-model-qualification.json `
+  -ArtifactDirectory .\artifacts\<campaign-directory> `
+  -OutputPath .\artifacts\<campaign-directory>\campaign-result.recovered.json
+```
+
+Recovery rejects results from unknown models or cases, duplicate
+model/case/trial keys, out-of-range trials, mixed Git/OpenCode/fixture
+baselines, and reasoning configurations that differ from the campaign.
 
 ## Safety model
 

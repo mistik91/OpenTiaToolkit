@@ -9,6 +9,6 @@
   },
   "scripts": {
     "validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-BenchmarkDefinitions.ps1",
-    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-BenchmarkDefinitions.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-OpenCodeBenchmarkCommon.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-TraceEvaluator.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-MergeOpenCodeCampaignResults.ps1"
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-BenchmarkDefinitions.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-OpenCodeBenchmarkCommon.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-TraceEvaluator.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-MergeOpenCodeCampaignResults.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/Test-RecoverOpenCodeCampaignResult.ps1"
   }
 }
