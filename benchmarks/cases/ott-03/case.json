@@ -64,7 +64,7 @@
       "id": "tag-readback",
       "type": "traceRegex",
       "points": 15,
-      "pattern": "(?s)TagTableName,Name,DataType,LogicalAddress,Comment.*Default tag table,OccupiedBefore,Bool,%M99\\.7,Updated by benchmark OTT-03"
+      "pattern": "(?ms)(?:^opentia_export-tags\\r?$.*?){2}(?:\"TagTableName\"\\s*:\\s*\"Default tag table\".*?\"Name\"\\s*:\\s*\"OccupiedBefore\".*?\"DataType\"\\s*:\\s*\"Bool\".*?\"LogicalAddress\"\\s*:\\s*\"%M99\\.7\".*?\"Comment\"\\s*:\\s*\"Updated by benchmark OTT-03\"|TagTableName,Name,DataType,LogicalAddress,Comment\\r?\\nDefault tag table,OccupiedBefore,Bool,%M99\\.7,Updated by benchmark OTT-03)"
     },
     {
       "id": "compile",
