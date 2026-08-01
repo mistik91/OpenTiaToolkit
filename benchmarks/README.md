@@ -162,7 +162,12 @@ station to an existing subnet and controller IO system, configure PROFINET
 identity, and verify the new topology from fresh reads. Its immutable fixture
 and Tier 4 forward/inverse/rollback proof are in
 `reports/ott-22-gold-audit-20260801.md`. The skills remain unchanged for the
-qualification campaign.
+qualification campaign. The strict DeepSeek V4 Flash Free control failed 0/3
+with a mean score of 26.67: one trace reached the correct final state through
+a non-atomic 50-call exploration, one stalled after catalog discovery, and
+one produced no runtime events before timeout. The qualification analysis is
+in `reports/hardware-topology-provisioning-20260801.md`; the benchmark remains
+unchanged for a surgical skill A/B.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
