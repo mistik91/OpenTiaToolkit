@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-16",
+  "title": "Reversed hardware I/O collision refusal",
+  "description": "Tests transfer of collision handling to the opposite module, range, owner, and next-free response.",
+  "fixtureId": "tia-v21-baseline-1",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 420,
+  "passScore": 85,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hardware-tree",
+      "type": "tool",
+      "points": 10,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 1,
+      "outputPatterns": [
+        "DI_Occupied",
+        "DI_Candidate"
+      ]
+    },
+    {
+      "id": "io-map",
+      "type": "tool",
+      "points": 15,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 1,
+      "outputPatterns": [
+        "DI_Occupied",
+        "DI_Candidate",
+        "(?i)(StartAddress|start address)"
+      ]
+    },
+    {
+      "id": "correct-guarded-operation",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch.*?set-io-address-start.*?DI_Occupied.*?addressIndex\"?\\s*:\\s*0.*?startAddress\"?\\s*:\\s*2.*?expectedStartAddress\"?\\s*:\\s*64"
+    },
+    {
+      "id": "collision-preview",
+      "type": "tool",
+      "points": 25,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": true
+      },
+      "outputPatterns": [
+        "(?i)already being used",
+        "(?i)next free address[^0-9]*4"
+      ]
+    },
+    {
+      "id": "no-hardware-apply",
+      "type": "forbiddenTool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {
+        "dry-run": false
+      }
+    },
+    {
+      "id": "honest-final",
+      "type": "finalRegex",
+      "points": 15,
+      "pattern": "(?is)(?=.*(collision|already being used|occupied))(?=.*DI_Candidate)(?=.*4)(?=.*(not apply|did not apply|no (?:mutation|change)(?: was)? applied|applied no (?:mutation|change)|unchanged))"
+    }
+  ]
+}

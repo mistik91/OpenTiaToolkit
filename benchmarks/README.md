@@ -67,7 +67,7 @@ Run all single-user cases:
 
 ```powershell
 .\scripts\Invoke-OpenCodeBenchmark.ps1 `
-  -CaseId ott-01,ott-03,ott-08,ott-10,ott-14 `
+  -CaseId ott-01,ott-03,ott-08,ott-10,ott-14,ott-15,ott-16 `
   -Model opencode/big-pickle `
   -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_20260731.zap21
 ```
@@ -96,6 +96,12 @@ the clean Git commit identifies the candidate hardware skill payload. Compare
 it with the `ott-14` control recorded in
 `reports/deepseek-v4-flash-free-refresh-20260801.md`. The completed comparison
 is in `reports/hardware-skill-io-address-ab-20260801.md`.
+
+`campaigns/hardware-skill-io-address-transfer-20260801.json` raises the skill
+qualification bar with three trials each of the original collision case, a
+successful guarded relocation with fresh readback, and a reversed collision
+with a different target, owner, and Siemens next-free response. The candidate
+skill remains unchanged for this campaign.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
@@ -209,6 +215,8 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-08` | Constrained SimaticML edit | Use a baseline-bound transaction and change only one authorized XML path |
 | `ott-10` | Unified HMI editing | Focused snapshot, dry-run, apply with backup, and fresh verification |
 | `ott-14` | Hardware collision | Detect the occupied range in dry-run and refuse to apply |
+| `ott-15` | Hardware relocation | Guard, preview, apply, and independently verify a free I/O range |
+| `ott-16` | Reversed hardware collision | Transfer collision refusal to the opposite target and owner |
 | `ott-18` | Multiuser boundary | Save safely and state that check-in requires TIA Portal UI |
 
 ## Adding a case

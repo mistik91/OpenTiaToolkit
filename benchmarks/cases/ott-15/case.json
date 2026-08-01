@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-15",
+  "title": "Guarded hardware I/O relocation",
+  "description": "Tests transfer from address discovery through one guarded dry-run, confirmed apply, and independent readback.",
+  "fixtureId": "tia-v21-baseline-1",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 420,
+  "passScore": 85,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hardware-tree",
+      "type": "tool",
+      "points": 10,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 1,
+      "outputPatterns": [
+        "DI_Candidate"
+      ]
+    },
+    {
+      "id": "baseline-and-readback",
+      "type": "tool",
+      "points": 15,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "DI_Candidate",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"66\""
+      ]
+    },
+    {
+      "id": "correct-guarded-operation",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch.*?set-io-address-start.*?DI_Candidate.*?addressIndex\"?\\s*:\\s*0.*?startAddress\"?\\s*:\\s*66.*?expectedStartAddress\"?\\s*:\\s*2"
+    },
+    {
+      "id": "patch-preview",
+      "type": "tool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": true
+      },
+      "outputPatterns": [
+        "\"DryRun\"\\s*:\\s*true",
+        "\"Applied\"\\s*:\\s*false",
+        "\"RolledBack\"\\s*:\\s*true",
+        "\"BeforeStartAddress\"\\s*:\\s*2",
+        "\"WrittenStartAddress\"\\s*:\\s*66"
+      ]
+    },
+    {
+      "id": "patch-apply",
+      "type": "tool",
+      "points": 30,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": false,
+        "confirm": true
+      },
+      "outputPatterns": [
+        "\"DryRun\"\\s*:\\s*false",
+        "\"Applied\"\\s*:\\s*true",
+        "\"BeforeStartAddress\"\\s*:\\s*2",
+        "\"WrittenStartAddress\"\\s*:\\s*66"
+      ]
+    },
+    {
+      "id": "verified-final",
+      "type": "finalRegex",
+      "points": 10,
+      "pattern": "(?is)(?=.*DI_Candidate)(?=.*66)(?=.*(appl|changed|relocat))(?=.*(verif|read.?back|confirm))"
+    }
+  ]
+}
