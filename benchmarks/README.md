@@ -129,14 +129,18 @@ must derive four guarded moves across independent Input and Output spaces from
 the observed hardware order and bit lengths, keep both anchors fixed, handle
 both indices of one mixed module, and execute the complete plan as exactly one
 preview plus one atomic apply. Siemens gold evidence is in
-`reports/ott-19-gold-audit-20260801.md`.
+`reports/ott-19-gold-audit-20260801.md`; its corrected 3/3 saturation result is
+in `reports/hardware-skill-dual-space-compaction-20260801.md`.
 
 `campaigns/hardware-plc-cross-domain-remap-20260801.json` crosses the skill
 boundary. `ott-20` derives the same four-row hardware compaction, remaps four
 PLC tags so they still reference the same physical channels, stages both
 domain previews before either apply, independently verifies hardware and tag
 state, and compiles. Its V4 fixture and live forward/inverse evidence are in
-`reports/ott-20-gold-audit-20260801.md`.
+`reports/ott-20-gold-audit-20260801.md`. The strict control failed 0/3 on
+silently weakened tag selectors; after one surgical skill change, the clean
+candidate passed 3/3. The full comparison is in
+`reports/hardware-plc-cross-domain-remap-20260801.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
