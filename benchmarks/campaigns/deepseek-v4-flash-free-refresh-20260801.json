@@ -1,0 +1,22 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "deepseek-v4-flash-free-refresh-20260801",
+  "title": "DeepSeek V4 Flash Free refreshed serving qualification",
+  "caseIds": [
+    "ott-01",
+    "ott-03",
+    "ott-14"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}

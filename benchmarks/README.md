@@ -82,6 +82,13 @@ Run all single-user cases:
 `openai/gpt-5.6-sol` ceiling baseline on the same cases at reasoning effort
 `max`.
 
+`campaigns/deepseek-v4-flash-free-refresh-20260801.json` reruns the stable
+OpenCode Zen `deepseek-v4-flash-free` alias after its provider-side refresh.
+The public alias does not expose a dated backend revision, so the campaign ID
+records the serving epoch rather than claiming equivalence to a separately
+versioned provider model. It preserves the original free-model configuration:
+three trials per case at reasoning effort and variant `max`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
