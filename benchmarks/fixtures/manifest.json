@@ -52,6 +52,23 @@
       ]
     },
     {
+      "id": "tia-v21-cross-domain-4",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_CrossDomain_20260801.zap21",
+      "sha256": "C89FDAD14AF95CCC9DA216E4C82FD710A60774D9E7C4D9CB07A6185FB350999D",
+      "sizeBytes": 5535034,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-multi-address-3 with four Bool PLC tags mapped to bit 0 of each movable Candidate address row.",
+        "DI_Candidate_Channel0=%I2.0, DIDQ_Candidate_Input0=%I0.0, DQ_Candidate_Channel0=%Q2.0, and DIDQ_Candidate_Output0=%Q0.0.",
+        "All four tags are in Default tag table with comment 'OTT benchmark hardware mapping'.",
+        "The archive was independently restored on a fresh TIA process; hardware, tags, and a zero-error/zero-warning compile were verified before the cross-domain gold audit."
+      ]
+    },
+    {
       "id": "tia-v21-multiuser-1",
       "kind": "preprovisioned-multiuser-session",
       "tiaVersion": "V21 Update 2",

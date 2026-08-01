@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-20",
+  "title": "Cross-domain hardware and PLC tag remap",
+  "description": "Tests coordinated computed hardware compaction and guarded PLC tag remapping with all previews staged before either domain is mutated.",
+  "fixtureId": "tia-v21-cross-domain-4",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 720,
+  "passScore": 85,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow",
+    "plc-block-and-tag-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hardware-discovery",
+      "type": "tool",
+      "points": 5,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 1,
+      "outputPatterns": [
+        "DI_Occupied",
+        "DI_Candidate",
+        "DQ_Occupied",
+        "DQ_Candidate",
+        "DIDQ_Candidate",
+        "PositionNumber"
+      ]
+    },
+    {
+      "id": "tag-discovery-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "export_tags$",
+      "minCount": 2,
+      "outputPatterns": [
+        "DI_Candidate_Channel0",
+        "DIDQ_Candidate_Input0",
+        "DQ_Candidate_Channel0",
+        "DIDQ_Candidate_Output0",
+        "OTT benchmark hardware mapping"
+      ]
+    },
+    {
+      "id": "one-four-operation-hardware-plan",
+      "type": "traceRegex",
+      "points": 15,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DI_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*0(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*66(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*2(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DIDQ_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*0(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*68(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*0(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DQ_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*0(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*130(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*2(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DIDQ_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*1(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*132(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*0"
+    },
+    {
+      "id": "one-four-operation-tag-plan",
+      "type": "traceRegex",
+      "points": 15,
+      "critical": true,
+      "pattern": "(?is)opentia_modify-tags(?:(?!opentia_modify-tags).)*\"action\"\\s*:\\s*\"update\"(?:(?!opentia_modify-tags).)*\"match\"\\s*:\\s*\\{(?:(?!\\}\\s*,\\s*\"set\").)*\"name\"\\s*:\\s*\"DI_Candidate_Channel0\"(?:(?!\\}\\s*,\\s*\"set\").)*\"logicalAddress\"\\s*:\\s*\"%I2\\.0\"(?:(?!opentia_modify-tags).)*\"set\"\\s*:\\s*\\{(?:(?!opentia_modify-tags).)*\"logicalAddress\"\\s*:\\s*\"%I66\\.0\"(?:(?!opentia_modify-tags).)*\"action\"\\s*:\\s*\"update\"(?:(?!opentia_modify-tags).)*\"match\"\\s*:\\s*\\{(?:(?!\\}\\s*,\\s*\"set\").)*\"name\"\\s*:\\s*\"DIDQ_Candidate_Input0\"(?:(?!\\}\\s*,\\s*\"set\").)*\"logicalAddress\"\\s*:\\s*\"%I0\\.0\"(?:(?!opentia_modify-tags).)*\"set\"\\s*:\\s*\\{(?:(?!opentia_modify-tags).)*\"logicalAddress\"\\s*:\\s*\"%I68\\.0\"(?:(?!opentia_modify-tags).)*\"action\"\\s*:\\s*\"update\"(?:(?!opentia_modify-tags).)*\"match\"\\s*:\\s*\\{(?:(?!\\}\\s*,\\s*\"set\").)*\"name\"\\s*:\\s*\"DQ_Candidate_Channel0\"(?:(?!\\}\\s*,\\s*\"set\").)*\"logicalAddress\"\\s*:\\s*\"%Q2\\.0\"(?:(?!opentia_modify-tags).)*\"set\"\\s*:\\s*\\{(?:(?!opentia_modify-tags).)*\"logicalAddress\"\\s*:\\s*\"%Q130\\.0\"(?:(?!opentia_modify-tags).)*\"action\"\\s*:\\s*\"update\"(?:(?!opentia_modify-tags).)*\"match\"\\s*:\\s*\\{(?:(?!\\}\\s*,\\s*\"set\").)*\"name\"\\s*:\\s*\"DIDQ_Candidate_Output0\"(?:(?!\\}\\s*,\\s*\"set\").)*\"logicalAddress\"\\s*:\\s*\"%Q0\\.0\"(?:(?!opentia_modify-tags).)*\"set\"\\s*:\\s*\\{(?:(?!opentia_modify-tags).)*\"logicalAddress\"\\s*:\\s*\"%Q132\\.0\""
+    },
+    {
+      "id": "both-previews-before-apply",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?:(?!opentia_modify-tags).)*\"dry-run\"\\s*:\\s*true.*?opentia_modify-tags(?:(?!opentia_apply-hardware-patch).)*\"dry-run\"\\s*:\\s*true.*?opentia_apply-hardware-patch(?:(?!opentia_modify-tags).)*\"dry-run\"\\s*:\\s*false.*?opentia_modify-tags(?:(?!opentia_modify-tags).)*\"dry-run\"\\s*:\\s*false"
+    },
+    {
+      "id": "hardware-call-ceiling",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "tag-call-ceiling",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "modify_tags$",
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "hardware-apply",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": false,
+        "confirm": true
+      },
+      "outputPatterns": [
+        "\"Applied\"\\s*:\\s*true",
+        "\"WrittenStartAddress\"\\s*:\\s*66",
+        "\"WrittenStartAddress\"\\s*:\\s*68",
+        "\"WrittenStartAddress\"\\s*:\\s*130",
+        "\"WrittenStartAddress\"\\s*:\\s*132"
+      ]
+    },
+    {
+      "id": "tag-apply",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "modify_tags$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": false,
+        "confirm": true
+      },
+      "outputPatterns": [
+        "\"Applied\"\\s*:\\s*4",
+        "\"Failed\"\\s*:\\s*0",
+        "DI_Candidate_Channel0",
+        "%I66\\.0",
+        "DIDQ_Candidate_Input0",
+        "%I68\\.0",
+        "DQ_Candidate_Channel0",
+        "%Q130\\.0",
+        "DIDQ_Candidate_Output0",
+        "%Q132\\.0"
+      ]
+    },
+    {
+      "id": "fresh-dual-domain-verification",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)opentia_modify-tags(?:(?!opentia_get-hardware-io-addresses).)*\"DryRun\"\\s*:\\s*false(?:(?!opentia_get-hardware-io-addresses).)*\"Applied\"\\s*:\\s*4.*?opentia_get-hardware-io-addresses(?=.*?DI_Candidate.*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"66\")(?=.*?DQ_Candidate.*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"130\")(?=.*?DIDQ_Candidate.*?\"Index\"\\s*:\\s*0.*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"68\")(?=.*?DIDQ_Candidate.*?\"Index\"\\s*:\\s*1.*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"132\").*?opentia_export-tags(?=.*?DI_Candidate_Channel0.*?%I66\\.0)(?=.*?DIDQ_Candidate_Input0.*?%I68\\.0)(?=.*?DQ_Candidate_Channel0.*?%Q130\\.0)(?=.*?DIDQ_Candidate_Output0.*?%Q132\\.0)"
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount)[^0-9]*0",
+        "(?i)(warning count|WarningCount)[^0-9]*0"
+      ]
+    }
+  ]
+}

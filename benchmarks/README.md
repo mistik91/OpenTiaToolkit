@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twelve cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row address planning, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: thirteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -131,6 +131,13 @@ both indices of one mixed module, and execute the complete plan as exactly one
 preview plus one atomic apply. Siemens gold evidence is in
 `reports/ott-19-gold-audit-20260801.md`.
 
+`campaigns/hardware-plc-cross-domain-remap-20260801.json` crosses the skill
+boundary. `ott-20` derives the same four-row hardware compaction, remaps four
+PLC tags so they still reference the same physical channels, stages both
+domain previews before either apply, independently verifies hardware and tag
+state, and compiles. Its V4 fixture and live forward/inverse evidence are in
+`reports/ott-20-gold-audit-20260801.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -250,6 +257,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-17` | Mixed I/O atomic rollback | Keep a valid input move and colliding output move in one transaction, then prove both rolled back |
 | `ott-18` | Multiuser boundary | Save safely and state that check-in requires TIA Portal UI |
 | `ott-19` | Computed dual-space compaction | Derive four contiguous starts across Input and Output spaces and apply them in one guarded transaction |
+| `ott-20` | Cross-domain remap | Coordinate computed hardware moves with guarded PLC-tag address remapping and compilation |
 
 ## Adding a case
 
