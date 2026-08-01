@@ -111,6 +111,8 @@ proves that a later output collision rolls back an earlier valid input change.
 These cases use the independently verified `tia-v21-io-2` fixture archive.
 The Siemens gold audit and immutable archive identity are recorded in
 `reports/ott-13-17-gold-audit-20260801.md`.
+The scorer audit, two surgical skill iterations, and final 3/3 qualification
+are reported in `reports/hardware-skill-io-atomicity-20260801.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
