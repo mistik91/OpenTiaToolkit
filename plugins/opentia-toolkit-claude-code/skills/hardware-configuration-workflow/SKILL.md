@@ -56,6 +56,8 @@ PROFINET station name is not the same as the TIA display `Name`. Use the patch o
 
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
+Treat `Length` on ordinary hardware I/O address rows as a bit count when translating it into byte ranges: occupied bytes are `ceiling(Length / 8)`, so a 16-bit row spans two bytes. Prefer Siemens' own collision and next-free-address diagnostics over a recomputed next-free value.
+
 For an ordinary module address returned by `get-hardware-io-addresses`, use the exact patch operation `set-io-address-start`; do not guess alternative operation names. Select `addressIndex` from the matching address row, bind the write to the current value with `expectedStartAddress`, and submit the operation through `apply-hardware-patch` with `dry-run=true` first:
 
 ```json
