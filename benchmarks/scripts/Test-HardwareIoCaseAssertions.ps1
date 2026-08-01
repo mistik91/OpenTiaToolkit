@@ -195,7 +195,7 @@ try {
         (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $dualSpaceOperations; 'dry-run' = $true }) -Output $dualSpacePreview),
         (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $dualSpaceOperations; 'dry-run' = $false; confirm = $true }) -Output $dualSpaceApply),
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $dualSpaceFinalMap),
-        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'One atomic patch preserved DI_Occupied Input at 64 and moved DI_Candidate Input to 66; DIDQ_Candidate Input index 0 is 68. It preserved DQ_Occupied Output at 128 and moved DQ_Candidate Output to 130; DIDQ_Candidate Output index 1 is 132.' } }
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Final readback preserved DI_Occupied Input at 64 and moved DI_Candidate Input to 66; DIDQ_Candidate Input index 0 is 68. It preserved DQ_Occupied Output at 128 and moved DQ_Candidate Output to 130; DIDQ_Candidate Output index 1 is 132.' } }
     )
 
     $byteConfusionOperations = [ordered]@{ operations = @(

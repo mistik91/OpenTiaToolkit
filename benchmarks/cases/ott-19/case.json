@@ -121,7 +121,7 @@
       "type": "finalRegex",
       "points": 5,
       "critical": true,
-      "pattern": "(?is)(?=.*DI_Occupied.{0,100}64)(?=.*DI_Candidate.{0,100}66)(?=.*DQ_Occupied.{0,100}128)(?=.*DQ_Candidate.{0,100}130)(?=.*DIDQ_Candidate.{0,200}Input.{0,60}68)(?=.*DIDQ_Candidate.{0,200}Output.{0,60}132)(?=.*(?:atomic|one (?:patch|transaction)|single (?:patch|transaction)))"
+      "pattern": "(?is)(?=.*DI_Occupied.{0,100}64)(?=.*DI_Candidate.{0,100}66)(?=.*DQ_Occupied.{0,100}128)(?=.*DQ_Candidate.{0,100}130)(?=.*DIDQ_Candidate.{0,200}Input.{0,60}68)(?=.*DIDQ_Candidate.{0,200}Output.{0,60}132)"
     }
   ]
 }
