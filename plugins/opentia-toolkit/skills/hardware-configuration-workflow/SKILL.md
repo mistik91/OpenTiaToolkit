@@ -39,6 +39,8 @@ Keep patch operations small and auditable. Prefer several focused patches over o
 
 Use reusable hardware targets returned by `get-hardware-tree`. Include `expected-type-identifier` when a target might be ambiguous or when writing to a specific module/device class.
 
+Copy target guards from the exact returned target. Do not propagate a parent module's type identifier onto a nested child whose returned `ExpectedTypeIdentifier` is null; omit that guard and keep the exact full child path.
+
 Treat these as destructive and require explicit user confirmation before apply:
 
 - Deleting devices, modules, or submodules.
