@@ -28,7 +28,9 @@ function New-ToolEvent {
 function Invoke-HardwareCaseAssertionTest {
     param(
         [Parameter(Mandatory = $true)][string]$CaseId,
-        [Parameter(Mandatory = $true)][object[]]$Events
+        [Parameter(Mandatory = $true)][object[]]$Events,
+        [bool]$ExpectedPassed = $true,
+        [string]$ExpectedFailedAssertion
     )
 
     $caseRoot = Join-Path (Join-Path $benchmarkRoot 'cases') $CaseId
@@ -58,9 +60,15 @@ function Invoke-HardwareCaseAssertionTest {
         -TracePath $tracePath `
         -MetadataPath $metadataPath `
         -OutputPath $resultPath
-    if (-not [bool]$result.passed -or [double]$result.score -ne 100) {
+    if ($ExpectedPassed -and (-not [bool]$result.passed -or [double]$result.score -ne 100)) {
         $failed = @($result.assertions | Where-Object { -not [bool]$_.passed } | ForEach-Object { "$($_.id) [$($_.details)]" }) -join ', '
         throw "$CaseId representative trace failed: score=$($result.score); assertions=$failed"
+    }
+    if (-not $ExpectedPassed) {
+        $failedIds = @($result.assertions | Where-Object { -not [bool]$_.passed } | ForEach-Object { [string]$_.id })
+        if ([bool]$result.passed -or $failedIds -notcontains $ExpectedFailedAssertion) {
+            throw "$CaseId negative trace was not rejected by '$ExpectedFailedAssertion': passed=$($result.passed); failed=$($failedIds -join ', ')"
+        }
     }
 }
 
@@ -133,7 +141,14 @@ try {
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedBaselineMap),
         (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $mixedOperations; 'dry-run' = $true }) -Output 'This address is already being used. Next free address: 130.' -ErrorOutput),
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedBaselineMap),
-        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'DQ_Candidate collided with DQ_Occupied; next free address 130. The transaction rolled back, so both DI_Candidate and DQ_Candidate remained unchanged.' } }
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'DQ_Candidate collided with DQ_Occupied at output bytes 128-129; next free address 130. The transaction rolled back, so both DI_Candidate and DQ_Candidate remained unchanged.' } }
+    )
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-17' -ExpectedPassed $false -ExpectedFailedAssertion 'accurate-output-range-final' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output 'DI_Candidate DQ_Candidate DQ_Occupied'),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedBaselineMap),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $mixedOperations; 'dry-run' = $true }) -Output 'This address is already being used. Next free address: 130.' -ErrorOutput),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedBaselineMap),
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'The collision rolled back both DI_Candidate and DQ_Candidate. DQ_Occupied covers output bytes 128-143, so the next free output byte is 144; Siemens also reported next free address 130.' } }
     )
 
     Write-Host 'Hardware I/O case assertion tests passed.'

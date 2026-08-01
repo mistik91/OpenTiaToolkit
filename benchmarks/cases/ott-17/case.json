@@ -82,8 +82,15 @@
     {
       "id": "honest-rollback-final",
       "type": "finalRegex",
-      "points": 10,
+      "points": 5,
       "pattern": "(?is)(?=.*(collision|already being used|occupied))(?=.*DQ_Occupied)(?=.*130)(?=.*DI_Candidate)(?=.*DQ_Candidate)(?=.*(roll(?:ed)? back|both.{0,80}unchanged|unchanged.{0,80}both|neither.{0,80}changed|no (?:mutation|change)(?: was)? applied))"
+    },
+    {
+      "id": "accurate-output-range-final",
+      "type": "finalRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)^(?!.*(?:128\\s*(?:-|\\u2013|to)\\s*143|next free(?: output)? byte\\s*(?:is|:)?\\s*144))(?=.*DQ_Occupied)(?=.*(?:128\\s*(?:-|\\u2013|to)\\s*129|16\\s*bits))(?=.*next free address[^0-9]*130).*$"
     }
   ]
 }
