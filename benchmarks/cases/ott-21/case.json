@@ -87,7 +87,7 @@
       "points": 15,
       "critical": true,
       "namePattern": "apply_hardware_patch$",
-      "operationPath": "operations.operations",
+      "operationPath": "operations",
       "expectedOperations": [
         {
           "op": "set-io-address-start",

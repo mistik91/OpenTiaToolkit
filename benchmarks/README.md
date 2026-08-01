@@ -149,7 +149,10 @@ rule, and preserves four nonzero tag bit offsets. Its case definition also uses
 an order-independent structured operation-set assertion instead of encoding a
 preferred JSON array/property order. The immutable fixture, forward/inverse
 proof, failed-preview no-write check, and real mid-transaction rollback are in
-`reports/ott-21-gold-audit-20260801.md`.
+`reports/ott-21-gold-audit-20260801.md`. The unchanged skill passed 3/3 after a
+generic scorer correction normalized the MCP's direct and wrapped operation
+array forms; the qualification audit is in
+`reports/hardware-plc-cross-domain-transfer-20260801.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:

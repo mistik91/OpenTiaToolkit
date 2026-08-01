@@ -140,6 +140,15 @@ function Test-OperationSet {
         [AllowNull()][object]$ExpectedOperations
     )
 
+    $nestedOperationsFound = $false
+    $nestedOperations = Get-PropertyValue `
+        -Object $ActualOperations `
+        -Name 'operations' `
+        -Found ([ref]$nestedOperationsFound)
+    if ($nestedOperationsFound) {
+        $ActualOperations = $nestedOperations
+    }
+
     $actual = @($ActualOperations)
     $expected = @($ExpectedOperations)
     if ($actual.Count -ne $expected.Count) {

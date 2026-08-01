@@ -321,8 +321,10 @@ try {
         [ordered]@{ action = 'update'; match = [ordered]@{ logicalAddress = '%Q14.5'; name = 'GateOpen'; tagTable = 'Default tag table' }; set = [ordered]@{ logicalAddress = '%Q94.5' } },
         [ordered]@{ action = 'update'; match = [ordered]@{ logicalAddress = '%I20.3'; name = 'SkidReady'; tagTable = 'Default tag table' }; set = [ordered]@{ logicalAddress = '%I42.3' } }
     )
-    $transferHardwarePreviewInput = [ordered]@{ operations = $transferHardwareOperations; 'dry-run' = $true }
-    $transferHardwareApplyInput = [ordered]@{ operations = $transferHardwareOperations; 'dry-run' = $false; confirm = $true }
+    $transferHardwarePreviewInput = [ordered]@{ operations = $transferHardwareOperations.operations; 'dry-run' = $true }
+    $transferHardwareApplyInput = [ordered]@{ operations = $transferHardwareOperations.operations; 'dry-run' = $false; confirm = $true }
+    $transferWrappedHardwarePreviewInput = [ordered]@{ operations = $transferHardwareOperations; 'dry-run' = $true }
+    $transferWrappedHardwareApplyInput = [ordered]@{ operations = $transferHardwareOperations; 'dry-run' = $false; confirm = $true }
     $transferTagPreviewInput = [ordered]@{ 'plc-name' = 'PLC_Main'; operations = $transferTagOperations; 'dry-run' = $true }
     $transferTagApplyInput = [ordered]@{ 'plc-name' = 'PLC_Main'; operations = $transferTagOperations; 'dry-run' = $false; confirm = $true }
     $transferHardwarePreview = '{"DryRun":true,"Applied":false,"RolledBack":true,"Operations":[{"Data":{"BeforeStartAddress":14,"WrittenStartAddress":94}},{"Data":{"BeforeStartAddress":20,"WrittenStartAddress":42}},{"Data":{"BeforeStartAddress":10,"WrittenStartAddress":44}},{"Data":{"BeforeStartAddress":28,"WrittenStartAddress":92}}]}'
@@ -337,9 +339,9 @@ try {
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferBaselineMap),
         (New-ToolEvent -Tool 'opentia_export-tags' -InputObject ([ordered]@{ 'plc-name' = 'PLC_Main' }) -Output $transferBaselineTags),
         (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject $transferTagPreviewInput -Output $transferTagPreview),
-        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwarePreviewInput -Output $transferHardwarePreview),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferWrappedHardwarePreviewInput -Output $transferHardwarePreview),
         (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject $transferTagApplyInput -Output $transferTagApply),
-        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwareApplyInput -Output $transferHardwareApply),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferWrappedHardwareApplyInput -Output $transferHardwareApply),
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferFinalMap),
         (New-ToolEvent -Tool 'opentia_export-tags' -InputObject ([ordered]@{ 'plc-name' = 'PLC_Main' }) -Output $transferFinalTags),
         (New-ToolEvent -Tool 'opentia_compile-software' -InputObject ([ordered]@{ 'plc-name' = 'PLC_Main' }) -Output '{"success":true,"ErrorCount":0,"WarningCount":0}')

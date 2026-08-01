@@ -44,13 +44,13 @@ try {
                 points      = 20
                 critical    = $true
                 namePattern = 'batch_target$'
-                operationPath = 'operations.items'
+                operationPath = 'operations'
                 expectedOperations = @(
                     [ordered]@{ action = 'update'; match = [ordered]@{ name = 'A'; address = 1 } },
                     [ordered]@{ action = 'update'; match = [ordered]@{ name = 'B'; address = 2 } }
                 )
-                minCount = 1
-                maxCount = 1
+                minCount = 2
+                maxCount = 2
             },
             [ordered]@{
                 id          = 'forbidden'
@@ -97,11 +97,25 @@ try {
                 tool  = 'opentia_batch_target'
                 state = [ordered]@{
                     status = 'completed'
-                    input  = [ordered]@{ operations = [ordered]@{ items = @(
+                    input  = [ordered]@{ operations = [ordered]@{ operations = @(
                                     [ordered]@{ action = 'update'; match = [ordered]@{ address = 2; name = 'B'; guard = 'kept' } },
                                     [ordered]@{ action = 'update'; match = [ordered]@{ address = 1; name = 'A'; guard = 'kept' } }
                                 ) } }
                     output = 'safe batch'
+                }
+            }
+        },
+        [ordered]@{
+            type = 'tool_use'
+            part = [ordered]@{
+                tool  = 'opentia_batch_target'
+                state = [ordered]@{
+                    status = 'completed'
+                    input  = [ordered]@{ operations = @(
+                            [ordered]@{ action = 'update'; match = [ordered]@{ name = 'A'; address = 1; guard = 'kept' } },
+                            [ordered]@{ action = 'update'; match = [ordered]@{ name = 'B'; address = 2; guard = 'kept' } }
+                        ) }
+                    output = 'safe direct batch'
                 }
             }
         },
