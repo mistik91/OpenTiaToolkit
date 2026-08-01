@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-19",
+  "title": "Dual-space computed atomic compaction",
+  "description": "Tests dynamic byte-range planning across independent input and output spaces, mixed address indices, four guarded operations, and one atomic apply.",
+  "fixtureId": "tia-v21-multi-address-3",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 540,
+  "passScore": 85,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hardware-tree",
+      "type": "tool",
+      "points": 5,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 1,
+      "outputPatterns": [
+        "DI_Occupied",
+        "DI_Candidate",
+        "DQ_Occupied",
+        "DQ_Candidate",
+        "DIDQ_Candidate",
+        "PositionNumber"
+      ]
+    },
+    {
+      "id": "baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "DI_Occupied",
+        "DI_Candidate",
+        "DQ_Occupied",
+        "DQ_Candidate",
+        "DIDQ_Candidate",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"16\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\""
+      ]
+    },
+    {
+      "id": "one-four-operation-plan",
+      "type": "traceRegex",
+      "points": 20,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DI_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*0(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*66(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*2(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DIDQ_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*0(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*68(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*0(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DQ_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*0(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*130(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*2(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DIDQ_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*1(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*132(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*0"
+    },
+    {
+      "id": "exactly-two-patch-calls",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "single-preview",
+      "type": "tool",
+      "points": 15,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": true
+      },
+      "outputPatterns": [
+        "\"DryRun\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*true",
+        "\"WrittenStartAddress\"\\s*:\\s*66",
+        "\"WrittenStartAddress\"\\s*:\\s*68",
+        "\"WrittenStartAddress\"\\s*:\\s*130",
+        "\"WrittenStartAddress\"\\s*:\\s*132"
+      ]
+    },
+    {
+      "id": "single-apply",
+      "type": "tool",
+      "points": 15,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": false,
+        "confirm": true
+      },
+      "outputPatterns": [
+        "\"DryRun\"\\s*:\\s*false",
+        "\"Applied\"\\s*:\\s*true",
+        "\"WrittenStartAddress\"\\s*:\\s*66",
+        "\"WrittenStartAddress\"\\s*:\\s*68",
+        "\"WrittenStartAddress\"\\s*:\\s*130",
+        "\"WrittenStartAddress\"\\s*:\\s*132"
+      ]
+    },
+    {
+      "id": "fresh-six-row-verification",
+      "type": "traceRegex",
+      "points": 15,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?:(?!opentia_get-hardware-io-addresses).)*\"DryRun\"\\s*:\\s*false(?:(?!opentia_get-hardware-io-addresses).)*\"Applied\"\\s*:\\s*true.*?opentia_get-hardware-io-addresses.*?DI_Occupied(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*0(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\")(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"64\")(?:(?!\"Index\"\\s*:).)*DI_Candidate(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*0(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\")(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"66\")(?:(?!\"Index\"\\s*:).)*DQ_Occupied(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*0(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\")(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"128\")(?:(?!\"Index\"\\s*:).)*DQ_Candidate(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*0(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\")(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"130\")(?:(?!\"Index\"\\s*:).)*DIDQ_Candidate(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*0(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\")(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"68\")(?:(?!\"Index\"\\s*:).)*DIDQ_Candidate(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*1(?=(?:(?!opentia_apply-hardware-patch).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\")(?=(?:(?!opentia_apply-hardware-patch).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"132\")"
+    },
+    {
+      "id": "accurate-final",
+      "type": "finalRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)(?=.*DI_Occupied.{0,100}64)(?=.*DI_Candidate.{0,100}66)(?=.*DQ_Occupied.{0,100}128)(?=.*DQ_Candidate.{0,100}130)(?=.*DIDQ_Candidate.{0,200}Input.{0,60}68)(?=.*DIDQ_Candidate.{0,200}Output.{0,60}132)(?=.*(?:atomic|one (?:patch|transaction)|single (?:patch|transaction)))"
+    }
+  ]
+}

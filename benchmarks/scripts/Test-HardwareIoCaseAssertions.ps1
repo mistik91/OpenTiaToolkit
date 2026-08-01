@@ -178,6 +178,52 @@ try {
         [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Incorrectly selected input index 0.' } }
     )
 
+    $dualSpaceTree = 'DI_Occupied PositionNumber 2 DI_Candidate PositionNumber 3 DQ_Occupied PositionNumber 4 DQ_Candidate PositionNumber 5 DIDQ_Candidate PositionNumber 6'
+    $dualSpaceBaselineMap = '[{"Target":{"ItemPath":["DI_Occupied","DI_Occupied"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"64"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DI_Candidate","DI_Candidate"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"2"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DQ_Occupied","DQ_Occupied"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"128"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DQ_Candidate","DQ_Candidate"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"2"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"0"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":1,"Attributes":[{"Name":"StartAddress","Value":"0"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]}]'
+    $dualSpaceFinalMap = '[{"Target":{"ItemPath":["DI_Occupied","DI_Occupied"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"64"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DI_Candidate","DI_Candidate"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"66"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DQ_Occupied","DQ_Occupied"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"128"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DQ_Candidate","DQ_Candidate"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"130"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"68"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":1,"Attributes":[{"Name":"StartAddress","Value":"132"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]}]'
+    $dualSpaceOperations = [ordered]@{ operations = @(
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DI_Candidate', 'DI_Candidate') }; addressIndex = 0; startAddress = 66; expectedStartAddress = 2 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DIDQ_Candidate', 'DIDQ_Candidate') }; addressIndex = 0; startAddress = 68; expectedStartAddress = 0 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DQ_Candidate', 'DQ_Candidate') }; addressIndex = 0; startAddress = 130; expectedStartAddress = 2 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DIDQ_Candidate', 'DIDQ_Candidate') }; addressIndex = 1; startAddress = 132; expectedStartAddress = 0 }
+        ) }
+    $dualSpacePreview = '{"DryRun":true,"Applied":false,"RolledBack":true,"Operations":[{"Data":{"AddressIndex":0,"IoType":"Input","BeforeStartAddress":2,"WrittenStartAddress":66}},{"Data":{"AddressIndex":0,"IoType":"Input","BeforeStartAddress":0,"WrittenStartAddress":68}},{"Data":{"AddressIndex":0,"IoType":"Output","BeforeStartAddress":2,"WrittenStartAddress":130}},{"Data":{"AddressIndex":1,"IoType":"Output","BeforeStartAddress":0,"WrittenStartAddress":132}}]}'
+    $dualSpaceApply = '{"DryRun":false,"Applied":true,"RolledBack":false,"Operations":[{"Data":{"AddressIndex":0,"IoType":"Input","BeforeStartAddress":2,"WrittenStartAddress":66}},{"Data":{"AddressIndex":0,"IoType":"Input","BeforeStartAddress":0,"WrittenStartAddress":68}},{"Data":{"AddressIndex":0,"IoType":"Output","BeforeStartAddress":2,"WrittenStartAddress":130}},{"Data":{"AddressIndex":1,"IoType":"Output","BeforeStartAddress":0,"WrittenStartAddress":132}}]}'
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-19' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output $dualSpaceTree),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $dualSpaceBaselineMap),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $dualSpaceOperations; 'dry-run' = $true }) -Output $dualSpacePreview),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $dualSpaceOperations; 'dry-run' = $false; confirm = $true }) -Output $dualSpaceApply),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $dualSpaceFinalMap),
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'One atomic patch preserved DI_Occupied Input at 64 and moved DI_Candidate Input to 66; DIDQ_Candidate Input index 0 is 68. It preserved DQ_Occupied Output at 128 and moved DQ_Candidate Output to 130; DIDQ_Candidate Output index 1 is 132.' } }
+    )
+
+    $byteConfusionOperations = [ordered]@{ operations = @(
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DI_Candidate', 'DI_Candidate') }; addressIndex = 0; startAddress = 80; expectedStartAddress = 2 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DIDQ_Candidate', 'DIDQ_Candidate') }; addressIndex = 0; startAddress = 96; expectedStartAddress = 0 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DQ_Candidate', 'DQ_Candidate') }; addressIndex = 0; startAddress = 144; expectedStartAddress = 2 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DIDQ_Candidate', 'DIDQ_Candidate') }; addressIndex = 1; startAddress = 160; expectedStartAddress = 0 }
+        ) }
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-19' -ExpectedPassed $false -ExpectedFailedAssertion 'one-four-operation-plan' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output $dualSpaceTree),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $dualSpaceBaselineMap),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $byteConfusionOperations; 'dry-run' = $true }) -Output 'Incorrect 16-byte allocation preview.'),
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Incorrectly treated Length 16 as bytes.' } }
+    )
+
+    $inputHalf = [ordered]@{ operations = [ordered]@{ operations = @($dualSpaceOperations.operations[0], $dualSpaceOperations.operations[1]) } }
+    $outputHalf = [ordered]@{ operations = [ordered]@{ operations = @($dualSpaceOperations.operations[2], $dualSpaceOperations.operations[3]) } }
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-19' -ExpectedPassed $false -ExpectedFailedAssertion 'exactly-two-patch-calls' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output $dualSpaceTree),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $dualSpaceBaselineMap),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $inputHalf.operations; 'dry-run' = $true }) -Output $dualSpacePreview),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $inputHalf.operations; 'dry-run' = $false; confirm = $true }) -Output $dualSpaceApply),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $outputHalf.operations; 'dry-run' = $true }) -Output $dualSpacePreview),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $outputHalf.operations; 'dry-run' = $false; confirm = $true }) -Output $dualSpaceApply),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $dualSpaceFinalMap),
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Split the work into two transactions.' } }
+    )
+
     Write-Host 'Hardware I/O case assertion tests passed.'
 }
 finally {

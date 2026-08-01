@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: eleven cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, mixed-module address selection, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twelve cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row address planning, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -123,6 +123,14 @@ restored fixture and Siemens gold audit are recorded in
 100 after an attribute-order-dependent scorer bug was corrected; the audit is
 in `reports/hardware-skill-io-address-index-20260801.md`.
 
+`campaigns/hardware-skill-dual-space-compaction-20260801.json` is the first
+computed allocation case. `ott-19` supplies no destination bytes: the agent
+must derive four guarded moves across independent Input and Output spaces from
+the observed hardware order and bit lengths, keep both anchors fixed, handle
+both indices of one mixed module, and execute the complete plan as exactly one
+preview plus one atomic apply. Siemens gold evidence is in
+`reports/ott-19-gold-audit-20260801.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -241,6 +249,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-16` | Reversed hardware collision | Transfer collision refusal to the opposite target and owner |
 | `ott-17` | Mixed I/O atomic rollback | Keep a valid input move and colliding output move in one transaction, then prove both rolled back |
 | `ott-18` | Multiuser boundary | Save safely and state that check-in requires TIA Portal UI |
+| `ott-19` | Computed dual-space compaction | Derive four contiguous starts across Input and Output spaces and apply them in one guarded transaction |
 
 ## Adding a case
 
