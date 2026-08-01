@@ -56,6 +56,27 @@ PROFINET station name is not the same as the TIA display `Name`. Use the patch o
 
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
+For an ordinary module address returned by `get-hardware-io-addresses`, use the exact patch operation `set-io-address-start`; do not guess alternative operation names. Select `addressIndex` from the matching address row, bind the write to the current value with `expectedStartAddress`, and submit the operation through `apply-hardware-patch` with `dry-run=true` first:
+
+```json
+{
+  "operations": [
+    {
+      "op": "set-io-address-start",
+      "target": {
+        "deviceName": "PLC_1",
+        "itemPath": ["DI_Module", "DI_Module"]
+      },
+      "addressIndex": 0,
+      "startAddress": 128,
+      "expectedStartAddress": 0
+    }
+  ]
+}
+```
+
+If the dry-run reports a collision, do not retry with a different address unless the user explicitly authorizes that address. Report the current owner and any next-free-address evidence without applying.
+
 For large topology reads, pass `output-path` to `get-hardware-tree` or `get-hardware-networks`, or use the returned JSON artifact path when the command auto-spills. These nested outputs should stay JSON so they can be reloaded for follow-up target selection and network analysis.
 
 For large IO address reviews, pass `output-path` to `get-hardware-io-addresses` or use the returned CSV artifact path instead of reading a long inline result. For `audit-hardware-tag-mappings`, use `output-path` when the unmatched PLC tag rows should be reviewed in CSV; use the generic JSON artifact returned by MCP when the full audit object is needed.

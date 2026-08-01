@@ -89,6 +89,13 @@ records the serving epoch rather than claiming equivalence to a separately
 versioned provider model. It preserves the original free-model configuration:
 three trials per case at reasoning effort and variant `max`.
 
+`campaigns/hardware-skill-io-address-candidate-20260801.json` is the candidate
+half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
+prompt, fixture, three-trial count, and maximum reasoning configuration fixed;
+the clean Git commit identifies the candidate hardware skill payload. Compare
+it with the `ott-14` control recorded in
+`reports/deepseek-v4-flash-free-refresh-20260801.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
