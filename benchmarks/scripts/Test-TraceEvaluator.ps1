@@ -39,6 +39,20 @@ try {
                 outputPatterns = @('safe')
             },
             [ordered]@{
+                id          = 'operation-set'
+                type        = 'toolOperationSet'
+                points      = 20
+                critical    = $true
+                namePattern = 'batch_target$'
+                operationPath = 'operations.items'
+                expectedOperations = @(
+                    [ordered]@{ action = 'update'; match = [ordered]@{ name = 'A'; address = 1 } },
+                    [ordered]@{ action = 'update'; match = [ordered]@{ name = 'B'; address = 2 } }
+                )
+                minCount = 1
+                maxCount = 1
+            },
+            [ordered]@{
                 id          = 'forbidden'
                 type        = 'forbiddenTool'
                 points      = 20
@@ -76,6 +90,20 @@ try {
         [ordered]@{
             type = 'text'
             part = [ordered]@{ text = 'Target verified' }
+        },
+        [ordered]@{
+            type = 'tool_use'
+            part = [ordered]@{
+                tool  = 'opentia_batch_target'
+                state = [ordered]@{
+                    status = 'completed'
+                    input  = [ordered]@{ operations = [ordered]@{ items = @(
+                                    [ordered]@{ action = 'update'; match = [ordered]@{ address = 2; name = 'B'; guard = 'kept' } },
+                                    [ordered]@{ action = 'update'; match = [ordered]@{ address = 1; name = 'A'; guard = 'kept' } }
+                                ) } }
+                    output = 'safe batch'
+                }
+            }
         },
         [ordered]@{
             type = 'step_finish'

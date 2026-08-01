@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-21",
+  "title": "Held-out cross-domain transfer",
+  "description": "Tests transfer of coordinated hardware and PLC-tag remapping to unrelated identities, descending hardware order, different ranges, and nonzero bit offsets.",
+  "fixtureId": "tia-v21-cross-domain-transfer-5",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 720,
+  "passScore": 85,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow",
+    "plc-block-and-tag-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hardware-discovery",
+      "type": "tool",
+      "points": 5,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 1,
+      "outputPatterns": [
+        "RackInputsFixed",
+        "RackOutputsFixed",
+        "ConveyorSense",
+        "GateActuator",
+        "SkidSignals",
+        "PositionNumber"
+      ]
+    },
+    {
+      "id": "hardware-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "RackInputsFixed",
+        "RackOutputsFixed",
+        "ConveyorSense",
+        "GateActuator",
+        "SkidSignals",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"10\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"20\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"14\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"28\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"42\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"44\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"92\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"94\""
+      ]
+    },
+    {
+      "id": "tag-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "export_tags$",
+      "minCount": 2,
+      "outputPatterns": [
+        "ConveyorPhotoeye",
+        "SkidReady",
+        "GateOpen",
+        "SkidValve",
+        "transfer-map:",
+        "%I10\\.6",
+        "%I20\\.3",
+        "%Q14\\.5",
+        "%Q28\\.1",
+        "%I44\\.6",
+        "%I42\\.3",
+        "%Q94\\.5",
+        "%Q92\\.1"
+      ]
+    },
+    {
+      "id": "exact-hardware-operation-set",
+      "type": "toolOperationSet",
+      "points": 15,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "operationPath": "operations.operations",
+      "expectedOperations": [
+        {
+          "op": "set-io-address-start",
+          "target": {
+            "deviceName": "PLC_Main",
+            "itemPath": ["SkidSignals", "SkidSignals"]
+          },
+          "addressIndex": 0,
+          "startAddress": 42,
+          "expectedStartAddress": 20
+        },
+        {
+          "op": "set-io-address-start",
+          "target": {
+            "deviceName": "PLC_Main",
+            "itemPath": ["ConveyorSense", "ConveyorSense"]
+          },
+          "addressIndex": 0,
+          "startAddress": 44,
+          "expectedStartAddress": 10
+        },
+        {
+          "op": "set-io-address-start",
+          "target": {
+            "deviceName": "PLC_Main",
+            "itemPath": ["SkidSignals", "SkidSignals"]
+          },
+          "addressIndex": 1,
+          "startAddress": 92,
+          "expectedStartAddress": 28
+        },
+        {
+          "op": "set-io-address-start",
+          "target": {
+            "deviceName": "PLC_Main",
+            "itemPath": ["GateActuator", "GateActuator"]
+          },
+          "addressIndex": 0,
+          "startAddress": 94,
+          "expectedStartAddress": 14
+        }
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "exact-tag-operation-set",
+      "type": "toolOperationSet",
+      "points": 15,
+      "critical": true,
+      "namePattern": "modify_tags$",
+      "operationPath": "operations",
+      "expectedOperations": [
+        {
+          "action": "update",
+          "match": {
+            "tagTable": "Default tag table",
+            "name": "ConveyorPhotoeye",
+            "logicalAddress": "%I10.6"
+          },
+          "set": {"logicalAddress": "%I44.6"}
+        },
+        {
+          "action": "update",
+          "match": {
+            "tagTable": "Default tag table",
+            "name": "SkidReady",
+            "logicalAddress": "%I20.3"
+          },
+          "set": {"logicalAddress": "%I42.3"}
+        },
+        {
+          "action": "update",
+          "match": {
+            "tagTable": "Default tag table",
+            "name": "GateOpen",
+            "logicalAddress": "%Q14.5"
+          },
+          "set": {"logicalAddress": "%Q94.5"}
+        },
+        {
+          "action": "update",
+          "match": {
+            "tagTable": "Default tag table",
+            "name": "SkidValve",
+            "logicalAddress": "%Q28.1"
+          },
+          "set": {"logicalAddress": "%Q92.1"}
+        }
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "both-previews-before-first-apply",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)(?:(?:opentia_apply-hardware-patch(?:(?!opentia_(?:apply-hardware-patch|modify-tags)).)*\"dry-run\"\\s*:\\s*true(?:(?!opentia_(?:apply-hardware-patch|modify-tags)).)*opentia_modify-tags(?:(?!opentia_(?:apply-hardware-patch|modify-tags)).)*\"dry-run\"\\s*:\\s*true)|(?:opentia_modify-tags(?:(?!opentia_(?:apply-hardware-patch|modify-tags)).)*\"dry-run\"\\s*:\\s*true(?:(?!opentia_(?:apply-hardware-patch|modify-tags)).)*opentia_apply-hardware-patch(?:(?!opentia_(?:apply-hardware-patch|modify-tags)).)*\"dry-run\"\\s*:\\s*true)).*?(?:opentia_apply-hardware-patch(?:(?!opentia_(?:apply-hardware-patch|modify-tags)).)*\"dry-run\"\\s*:\\s*false|opentia_modify-tags(?:(?!opentia_(?:apply-hardware-patch|modify-tags)).)*\"dry-run\"\\s*:\\s*false)"
+    },
+    {
+      "id": "hardware-apply",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {"dry-run": false, "confirm": true},
+      "outputPatterns": [
+        "\"Applied\"\\s*:\\s*true",
+        "\"WrittenStartAddress\"\\s*:\\s*42",
+        "\"WrittenStartAddress\"\\s*:\\s*44",
+        "\"WrittenStartAddress\"\\s*:\\s*92",
+        "\"WrittenStartAddress\"\\s*:\\s*94"
+      ]
+    },
+    {
+      "id": "tag-apply",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "modify_tags$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {"dry-run": false, "confirm": true},
+      "outputPatterns": [
+        "\"Applied\"\\s*:\\s*4",
+        "\"Failed\"\\s*:\\s*0",
+        "ConveyorPhotoeye",
+        "%I44\\.6",
+        "SkidReady",
+        "%I42\\.3",
+        "GateOpen",
+        "%Q94\\.5",
+        "SkidValve",
+        "%Q92\\.1"
+      ]
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount)[^0-9]*0",
+        "(?i)(warning count|WarningCount)[^0-9]*0"
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: thirteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: fourteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -142,6 +142,15 @@ silently weakened tag selectors; after one surgical skill change, the clean
 candidate passed 3/3. The full comparison is in
 `reports/hardware-plc-cross-domain-remap-20260801.md`.
 
+`campaigns/hardware-plc-cross-domain-transfer-20260801.json` is the held-out
+qualification for that unchanged skill. `ott-21` replaces every task identity,
+uses different baseline and destination ranges, reverses the hardware ordering
+rule, and preserves four nonzero tag bit offsets. Its case definition also uses
+an order-independent structured operation-set assertion instead of encoding a
+preferred JSON array/property order. The immutable fixture, forward/inverse
+proof, failed-preview no-write check, and real mid-transaction rollback are in
+`reports/ott-21-gold-audit-20260801.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -262,6 +271,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-18` | Multiuser boundary | Save safely and state that check-in requires TIA Portal UI |
 | `ott-19` | Computed dual-space compaction | Derive four contiguous starts across Input and Output spaces and apply them in one guarded transaction |
 | `ott-20` | Cross-domain remap | Coordinate computed hardware moves with guarded PLC-tag address remapping and compilation |
+| `ott-21` | Held-out cross-domain transfer | Transfer coordinated remapping to unrelated identities, descending hardware order, different ranges, and nonzero bit offsets |
 
 ## Adding a case
 

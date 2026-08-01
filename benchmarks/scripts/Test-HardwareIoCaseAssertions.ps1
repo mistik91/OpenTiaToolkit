@@ -304,6 +304,87 @@ try {
         [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Hardware was applied before the tag preview.' } }
     )
 
+    $transferTree = 'RackInputsFixed PositionNumber 2 ConveyorSense PositionNumber 3 RackOutputsFixed PositionNumber 4 GateActuator PositionNumber 5 SkidSignals PositionNumber 6'
+    $transferBaselineMap = '[{"Target":{"ItemPath":["RackInputsFixed","RackInputsFixed"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"40"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["ConveyorSense","ConveyorSense"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"10"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["RackOutputsFixed","RackOutputsFixed"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"90"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["GateActuator","GateActuator"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"14"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["SkidSignals","SkidSignals"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"20"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["SkidSignals","SkidSignals"]},"Index":1,"Attributes":[{"Name":"StartAddress","Value":"28"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]}]'
+    $transferFinalMap = '[{"Target":{"ItemPath":["RackInputsFixed","RackInputsFixed"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"40"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["ConveyorSense","ConveyorSense"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"44"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["RackOutputsFixed","RackOutputsFixed"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"90"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["GateActuator","GateActuator"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"94"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["SkidSignals","SkidSignals"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"42"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]},{"Target":{"ItemPath":["SkidSignals","SkidSignals"]},"Index":1,"Attributes":[{"Name":"StartAddress","Value":"92"},{"Name":"IoType","Value":"Output"},{"Name":"Length","Value":"16"}]}]'
+    $transferBaselineTags = '[{"TagTableName":"Default tag table","Name":"ConveyorPhotoeye","DataType":"Bool","LogicalAddress":"%I10.6","Comment":"transfer-map: ConveyorSense Input bit 6"},{"TagTableName":"Default tag table","Name":"SkidReady","DataType":"Bool","LogicalAddress":"%I20.3","Comment":"transfer-map: SkidSignals Input bit 3"},{"TagTableName":"Default tag table","Name":"GateOpen","DataType":"Bool","LogicalAddress":"%Q14.5","Comment":"transfer-map: GateActuator Output bit 5"},{"TagTableName":"Default tag table","Name":"SkidValve","DataType":"Bool","LogicalAddress":"%Q28.1","Comment":"transfer-map: SkidSignals Output bit 1"}]'
+    $transferFinalTags = '[{"TagTableName":"Default tag table","Name":"ConveyorPhotoeye","DataType":"Bool","LogicalAddress":"%I44.6","Comment":"transfer-map: ConveyorSense Input bit 6"},{"TagTableName":"Default tag table","Name":"SkidReady","DataType":"Bool","LogicalAddress":"%I42.3","Comment":"transfer-map: SkidSignals Input bit 3"},{"TagTableName":"Default tag table","Name":"GateOpen","DataType":"Bool","LogicalAddress":"%Q94.5","Comment":"transfer-map: GateActuator Output bit 5"},{"TagTableName":"Default tag table","Name":"SkidValve","DataType":"Bool","LogicalAddress":"%Q92.1","Comment":"transfer-map: SkidSignals Output bit 1"}]'
+    $transferHardwareOperations = [ordered]@{ operations = @(
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('GateActuator', 'GateActuator') }; expectedStartAddress = 14; startAddress = 94; addressIndex = 0 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('SkidSignals', 'SkidSignals') }; expectedStartAddress = 20; startAddress = 42; addressIndex = 0 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('ConveyorSense', 'ConveyorSense') }; expectedStartAddress = 10; startAddress = 44; addressIndex = 0 },
+            [ordered]@{ op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('SkidSignals', 'SkidSignals') }; expectedStartAddress = 28; startAddress = 92; addressIndex = 1 }
+        ) }
+    $transferTagOperations = @(
+        [ordered]@{ action = 'update'; match = [ordered]@{ logicalAddress = '%Q28.1'; name = 'SkidValve'; tagTable = 'Default tag table' }; set = [ordered]@{ logicalAddress = '%Q92.1' } },
+        [ordered]@{ action = 'update'; match = [ordered]@{ logicalAddress = '%I10.6'; name = 'ConveyorPhotoeye'; tagTable = 'Default tag table' }; set = [ordered]@{ logicalAddress = '%I44.6' } },
+        [ordered]@{ action = 'update'; match = [ordered]@{ logicalAddress = '%Q14.5'; name = 'GateOpen'; tagTable = 'Default tag table' }; set = [ordered]@{ logicalAddress = '%Q94.5' } },
+        [ordered]@{ action = 'update'; match = [ordered]@{ logicalAddress = '%I20.3'; name = 'SkidReady'; tagTable = 'Default tag table' }; set = [ordered]@{ logicalAddress = '%I42.3' } }
+    )
+    $transferHardwarePreviewInput = [ordered]@{ operations = $transferHardwareOperations; 'dry-run' = $true }
+    $transferHardwareApplyInput = [ordered]@{ operations = $transferHardwareOperations; 'dry-run' = $false; confirm = $true }
+    $transferTagPreviewInput = [ordered]@{ 'plc-name' = 'PLC_Main'; operations = $transferTagOperations; 'dry-run' = $true }
+    $transferTagApplyInput = [ordered]@{ 'plc-name' = 'PLC_Main'; operations = $transferTagOperations; 'dry-run' = $false; confirm = $true }
+    $transferHardwarePreview = '{"DryRun":true,"Applied":false,"RolledBack":true,"Operations":[{"Data":{"BeforeStartAddress":14,"WrittenStartAddress":94}},{"Data":{"BeforeStartAddress":20,"WrittenStartAddress":42}},{"Data":{"BeforeStartAddress":10,"WrittenStartAddress":44}},{"Data":{"BeforeStartAddress":28,"WrittenStartAddress":92}}]}'
+    $transferHardwareApply = '{"DryRun":false,"Applied":true,"RolledBack":false,"Operations":[{"Data":{"BeforeStartAddress":14,"WrittenStartAddress":94}},{"Data":{"BeforeStartAddress":20,"WrittenStartAddress":42}},{"Data":{"BeforeStartAddress":10,"WrittenStartAddress":44}},{"Data":{"BeforeStartAddress":28,"WrittenStartAddress":92}}]}'
+    $transferTagPreview = '{"DryRun":true,"Summary":{"Total":4,"Planned":4,"Applied":0,"Failed":0}}'
+    $transferTagApply = '{"DryRun":false,"Summary":{"Total":4,"Planned":0,"Applied":4,"Failed":0},"Addresses":["%I44.6","%I42.3","%Q94.5","%Q92.1"],"Names":["ConveyorPhotoeye","SkidReady","GateOpen","SkidValve"]}'
+
+    # The structured operation-set assertion accepts both operation/property
+    # orders, while the sequencing assertion accepts either preview order.
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-21' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output $transferTree),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferBaselineMap),
+        (New-ToolEvent -Tool 'opentia_export-tags' -InputObject ([ordered]@{ 'plc-name' = 'PLC_Main' }) -Output $transferBaselineTags),
+        (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject $transferTagPreviewInput -Output $transferTagPreview),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwarePreviewInput -Output $transferHardwarePreview),
+        (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject $transferTagApplyInput -Output $transferTagApply),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwareApplyInput -Output $transferHardwareApply),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferFinalMap),
+        (New-ToolEvent -Tool 'opentia_export-tags' -InputObject ([ordered]@{ 'plc-name' = 'PLC_Main' }) -Output $transferFinalTags),
+        (New-ToolEvent -Tool 'opentia_compile-software' -InputObject ([ordered]@{ 'plc-name' = 'PLC_Main' }) -Output '{"success":true,"ErrorCount":0,"WarningCount":0}')
+    )
+
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-21' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output $transferTree),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferBaselineMap),
+        (New-ToolEvent -Tool 'opentia_export-tags' -InputObject @{} -Output $transferBaselineTags),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwarePreviewInput -Output $transferHardwarePreview),
+        (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject $transferTagPreviewInput -Output $transferTagPreview),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwareApplyInput -Output $transferHardwareApply),
+        (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject $transferTagApplyInput -Output $transferTagApply),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferFinalMap),
+        (New-ToolEvent -Tool 'opentia_export-tags' -InputObject @{} -Output $transferFinalTags),
+        (New-ToolEvent -Tool 'opentia_compile-software' -InputObject @{} -Output '{"success":true,"ErrorCount":0,"WarningCount":0}')
+    )
+
+    $transferAliasOperations = @($transferTagOperations | ForEach-Object {
+            $copy = $_ | ConvertTo-Json -Depth 20 | ConvertFrom-Json
+            $copy.match | Add-Member -NotePropertyName table -NotePropertyValue $copy.match.tagTable
+            $copy.match.PSObject.Properties.Remove('tagTable')
+            $copy
+        })
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-21' -ExpectedPassed $false -ExpectedFailedAssertion 'exact-tag-operation-set' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output $transferTree),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferBaselineMap),
+        (New-ToolEvent -Tool 'opentia_export-tags' -InputObject @{} -Output $transferBaselineTags),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwarePreviewInput -Output $transferHardwarePreview),
+        (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject ([ordered]@{ operations = $transferAliasOperations; 'dry-run' = $true }) -Output $transferTagPreview)
+    )
+
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-21' -ExpectedPassed $false -ExpectedFailedAssertion 'both-previews-before-first-apply' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output $transferTree),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferBaselineMap),
+        (New-ToolEvent -Tool 'opentia_export-tags' -InputObject @{} -Output $transferBaselineTags),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwarePreviewInput -Output $transferHardwarePreview),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $transferHardwareApplyInput -Output $transferHardwareApply),
+        (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject $transferTagPreviewInput -Output $transferTagPreview),
+        (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject $transferTagApplyInput -Output $transferTagApply),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $transferFinalMap),
+        (New-ToolEvent -Tool 'opentia_export-tags' -InputObject @{} -Output $transferFinalTags),
+        (New-ToolEvent -Tool 'opentia_compile-software' -InputObject @{} -Output '{"success":true,"ErrorCount":0,"WarningCount":0}')
+    )
+
     Write-Host 'Hardware I/O case assertion tests passed.'
 }
 finally {

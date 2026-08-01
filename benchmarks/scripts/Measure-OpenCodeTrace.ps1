@@ -68,6 +68,102 @@ function Test-InputEquals {
     return $true
 }
 
+function Test-ValueSubset {
+    param(
+        [AllowNull()][object]$Actual,
+        [AllowNull()][object]$Expected
+    )
+
+    if ($null -eq $Expected) {
+        return $null -eq $Actual
+    }
+
+    if ($Expected -is [System.Management.Automation.PSCustomObject] -or
+        $Expected -is [System.Collections.IDictionary]) {
+        if ($null -eq $Actual) {
+            return $false
+        }
+        foreach ($property in $Expected.PSObject.Properties) {
+            $found = $false
+            $actualValue = Get-PropertyValue -Object $Actual -Name $property.Name -Found ([ref]$found)
+            if (-not $found -or -not (Test-ValueSubset -Actual $actualValue -Expected $property.Value)) {
+                return $false
+            }
+        }
+        return $true
+    }
+
+    if ($Expected -is [System.Collections.IEnumerable] -and $Expected -isnot [string]) {
+        if ($null -eq $Actual -or $Actual -is [string]) {
+            return $false
+        }
+        $expectedItems = @($Expected)
+        $actualItems = @($Actual)
+        if ($expectedItems.Count -ne $actualItems.Count) {
+            return $false
+        }
+        for ($index = 0; $index -lt $expectedItems.Count; $index++) {
+            if (-not (Test-ValueSubset -Actual $actualItems[$index] -Expected $expectedItems[$index])) {
+                return $false
+            }
+        }
+        return $true
+    }
+
+    return (($Actual | ConvertTo-Json -Depth 100 -Compress) -ceq
+        ($Expected | ConvertTo-Json -Depth 100 -Compress))
+}
+
+function Get-PropertyPathValue {
+    param(
+        [AllowNull()][object]$Object,
+        [Parameter(Mandatory = $true)][string]$Path,
+        [ref]$Found
+    )
+
+    $Found.Value = $false
+    $current = $Object
+    foreach ($segment in $Path.Split('.')) {
+        $segmentFound = $false
+        $current = Get-PropertyValue -Object $current -Name $segment -Found ([ref]$segmentFound)
+        if (-not $segmentFound) {
+            return $null
+        }
+    }
+    $Found.Value = $true
+    return $current
+}
+
+function Test-OperationSet {
+    param(
+        [AllowNull()][object]$ActualOperations,
+        [AllowNull()][object]$ExpectedOperations
+    )
+
+    $actual = @($ActualOperations)
+    $expected = @($ExpectedOperations)
+    if ($actual.Count -ne $expected.Count) {
+        return $false
+    }
+
+    $used = [bool[]]::new($actual.Count)
+    foreach ($expectedOperation in $expected) {
+        $matched = $false
+        for ($index = 0; $index -lt $actual.Count; $index++) {
+            if (-not $used[$index] -and
+                (Test-ValueSubset -Actual $actual[$index] -Expected $expectedOperation)) {
+                $used[$index] = $true
+                $matched = $true
+                break
+            }
+        }
+        if (-not $matched) {
+            return $false
+        }
+    }
+    return $true
+}
+
 function Convert-ValueToText {
     param([AllowNull()][object]$Value)
 
@@ -202,6 +298,37 @@ foreach ($assertion in $case.assertions) {
                 $matchingTools.Count -le $maximum -and
                 $patternsPassed
             $details = "matched=$($matchingTools.Count); expected=$minimum..$maximum; outputsMatched=$patternsPassed"
+        }
+        'toolOperationSet' {
+            $namePattern = [string]$assertion.namePattern
+            $operationPath = [string]$assertion.operationPath
+            $matchingTools = @($toolEvents | Where-Object {
+                    if ((([string]$_.part.tool -replace '-', '_') -notmatch $namePattern) -or
+                        -not (Test-InputEquals -InputObject $_.part.state.input -Expected $expectedInput)) {
+                        return $false
+                    }
+                    $foundOperations = $false
+                    $actualOperations = Get-PropertyPathValue `
+                        -Object $_.part.state.input `
+                        -Path $operationPath `
+                        -Found ([ref]$foundOperations)
+                    return $foundOperations -and
+                        (Test-OperationSet -ActualOperations $actualOperations -ExpectedOperations $assertion.expectedOperations)
+                })
+            $minimum = if ($null -ne $assertion.PSObject.Properties['minCount']) {
+                [int]$assertion.minCount
+            }
+            else {
+                1
+            }
+            $maximum = if ($null -ne $assertion.PSObject.Properties['maxCount']) {
+                [int]$assertion.maxCount
+            }
+            else {
+                [int]::MaxValue
+            }
+            $passed = $matchingTools.Count -ge $minimum -and $matchingTools.Count -le $maximum
+            $details = "matchedOperationSets=$($matchingTools.Count); expected=$minimum..$maximum; path=$operationPath"
         }
         'forbiddenTool' {
             $namePattern = [string]$assertion.namePattern

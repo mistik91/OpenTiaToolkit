@@ -86,6 +86,7 @@
         "type": {
           "enum": [
             "tool",
+            "toolOperationSet",
             "forbiddenTool",
             "finalRegex",
             "traceRegex",
@@ -112,6 +113,17 @@
         },
         "inputEquals": {
           "type": "object"
+        },
+        "operationPath": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$"
+        },
+        "expectedOperations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object"
+          }
         },
         "outputPatterns": {
           "type": "array",

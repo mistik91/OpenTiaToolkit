@@ -14,7 +14,7 @@ $fixtureManifestPath = Join-Path $benchmarkRoot 'fixtures\manifest.json'
 $errors = [System.Collections.Generic.List[string]]::new()
 $fixtures = (Get-Content -LiteralPath $fixtureManifestPath -Raw | ConvertFrom-Json).fixtures
 $fixtureIds = @($fixtures | ForEach-Object { [string]$_.id })
-$validTypes = @('tool', 'forbiddenTool', 'finalRegex', 'traceRegex', 'run')
+$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'finalRegex', 'traceRegex', 'run')
 
 foreach ($fixture in $fixtures) {
     if ([string]::IsNullOrWhiteSpace([string]$fixture.id)) {
@@ -93,7 +93,7 @@ foreach ($caseFile in $caseFiles) {
             $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' points must be positive.")
         }
 
-        if ($assertion.type -in @('tool', 'forbiddenTool')) {
+        if ($assertion.type -in @('tool', 'toolOperationSet', 'forbiddenTool')) {
             if ([string]::IsNullOrWhiteSpace([string]$assertion.namePattern)) {
                 $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' needs namePattern.")
             }
@@ -104,6 +104,15 @@ foreach ($caseFile in $caseFiles) {
                 catch {
                     $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' has invalid namePattern.")
                 }
+            }
+        }
+        if ($assertion.type -eq 'toolOperationSet') {
+            if ([string]::IsNullOrWhiteSpace([string]$assertion.operationPath)) {
+                $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' needs operationPath.")
+            }
+            if ($null -eq $assertion.PSObject.Properties['expectedOperations'] -or
+                @($assertion.expectedOperations).Count -eq 0) {
+                $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' needs expectedOperations.")
             }
         }
         if ($assertion.type -in @('finalRegex', 'traceRegex')) {

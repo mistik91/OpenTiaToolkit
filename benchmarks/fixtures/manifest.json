@@ -69,6 +69,23 @@
       ]
     },
     {
+      "id": "tia-v21-cross-domain-transfer-5",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Transfer_20260801.zap21",
+      "sha256": "B57573BBD33E185D7B843CDED87362F6BF08932944388508BFD934D575C35A56",
+      "sizeBytes": 5582666,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Held-out transfer fixture with RackInputsFixed at input bytes 40-41 and RackOutputsFixed at output bytes 90-91.",
+        "ConveyorSense input starts at byte 10, GateActuator output at byte 14, and mixed SkidSignals input/output rows at bytes 20 and 28.",
+        "Four transfer-map Bool tags use different identities and nonzero bit offsets: %I10.6, %I20.3, %Q14.5, and %Q28.1.",
+        "The archive passed forward/inverse cross-domain audit, a failed-preview no-write check, real mid-transaction hardware rollback, and a fresh-process zero-error/zero-warning compile."
+      ]
+    },
+    {
       "id": "tia-v21-multiuser-1",
       "kind": "preprovisioned-multiuser-session",
       "tiaVersion": "V21 Update 2",
