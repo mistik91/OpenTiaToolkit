@@ -94,7 +94,8 @@ half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
 prompt, fixture, three-trial count, and maximum reasoning configuration fixed;
 the clean Git commit identifies the candidate hardware skill payload. Compare
 it with the `ott-14` control recorded in
-`reports/deepseek-v4-flash-free-refresh-20260801.md`.
+`reports/deepseek-v4-flash-free-refresh-20260801.md`. The completed comparison
+is in `reports/hardware-skill-io-address-ab-20260801.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
