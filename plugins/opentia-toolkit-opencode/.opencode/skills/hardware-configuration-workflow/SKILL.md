@@ -55,6 +55,18 @@ deserialization and silently weaken an operation. Use `op`, never `operation`.
 `subnetMask`, `pnDeviceName`, and `pnDeviceNumber`; `address`, `stationName`,
 and `deviceNumber` are not aliases.
 
+Before the first topology preview, check every dependent target explicitly:
+
+- Give each `plug-item` a top-level `targetRef` and the intended parent in
+  `target.itemPath`; `targetRef` alone addresses the device root and is not a
+  substitute for the rack, module, or submodule parent.
+- For a newly created interface child, give `connect-node-to-subnet`,
+  `connect-io-connector`, and `configure-profinet-device` the same top-level
+  `targetRef` plus the discovered interface `target.itemPath`.
+- Set `nodeIndex` on `connect-node-to-subnet` and `connectorIndex` on
+  `connect-io-connector`, even when the discovered index is zero. Do not use
+  `ioConnectorIndex` as an alias.
+
 Keep the complete candidate batch intact while learning TIA placement. Start
 each `plug-item` without `allowDisplacedPlacement`. When a dry-run reports a
 different actual path, validate that path, enable displaced placement only for
