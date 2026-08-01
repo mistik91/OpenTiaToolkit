@@ -16,7 +16,7 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
 1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven. For greenfield work, create the project first with `create-project --project-path`.
 2. Discover the current hardware shape with `get-hardware-tree`, scoped by `device-name` when possible. For PROFINET work, also inspect `get-hardware-networks`; project IO-system `connectedIoDevices` can contain GSD/GSDML IO devices that are not visible as top-level `Project.Devices`.
 3. Discover catalog and type identifiers with `find-hardware-catalog-items` or `find-hardware-module-types`.
-4. For a new station in a greenfield project, call `add-device` only after catalog lookup confirms the exact order number/type identifier and version. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
+4. For standalone device creation in a greenfield project, call `add-device` only after catalog lookup confirms the exact order number/type identifier and version. When creation is part of a coordinated topology change, keep it inside `apply-hardware-patch`: start with `create-device` or `create-device-with-item`, assign a `resultId`, and use `targetRef` for every dependent operation. Do not pre-create the station with `add-device`, because that leaves the reviewed transaction incomplete. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
 5. Inspect feature services with `get-hardware-item-capabilities` before writing attributes.
 6. Read current network, IO, telegram, or GSD state using the narrowest command:
    - `get-hardware-networks`
@@ -33,9 +33,38 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
 11. Apply with `dry-run=false` only after the dry-run validates and the user has confirmed destructive operations when needed.
 12. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, audit result, or GSD parameter bytes.
 
+## Bounded Topology Construction
+
+For a new PROFINET station, build one coherent patch from the documented
+operation roles: create the device, plug its modules, connect its node to a
+subnet, connect its IO connector to a controller IO system, and configure its
+PROFINET identity. Use `create-device` or `create-device-with-item`,
+`plug-item`, `connect-node-to-subnet`, `connect-io-connector`, and
+`configure-profinet-device` as applicable. Discover every catalog identifier,
+target path, index, subnet, and IO-system name from the live project. If an
+operation schema is unclear, inspect `describe-api` once; do not use repeated
+dry-runs to guess operation names or substitute generic attribute setters for
+a dedicated operation.
+
+Keep the complete candidate batch intact while learning TIA placement. Start
+each `plug-item` without `allowDisplacedPlacement`. When a dry-run reports a
+different actual path, validate that path, enable displaced placement only for
+that plug, and dry-run the complete batch again so execution can reach the next
+strict plug. Each retry must advance past one newly observed displacement or
+correct one concrete validation error; otherwise stop and report the blocker.
+After the first full successful preview, issue exactly one apply with the same
+operations and values, changing only `dry-run` and required confirmation
+fields. Do not recreate, split, or reinterpret the topology between preview
+and apply.
+
 ## Patch Safety
 
 Keep patch operations small and auditable. Prefer several focused patches over one broad hardware rewrite.
+
+Treat one newly created station and its required child modules, network
+connections, and identity as one atomic unit. Do not split that unit merely to
+make individual calls smaller; a successful final state does not prove that
+the reviewed transaction caused the whole state change.
 
 Use reusable hardware targets returned by `get-hardware-tree`. Include `expected-type-identifier` when a target might be ambiguous or when writing to a specific module/device class.
 
@@ -54,7 +83,13 @@ For GSD/GSDML submodules, TIA may legally place the created item somewhere other
 
 ## PROFINET And IO Notes
 
-PROFINET station name is not the same as the TIA display `Name`. Use the patch operation field intended for station identity when setting station name, and use guarded attribute writes for display names.
+PROFINET station name is not the same as the TIA display `Name`. Use
+`configure-profinet-device` for the requested IP address, subnet mask, station
+name, and device number, and use guarded attribute writes only for display
+names or attributes without a dedicated operation. Omit optional identity
+fields the task does not require; if TIA rejects an optional setter, treat it
+as unsupported for that interface rather than probing alternative operation
+names.
 
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
