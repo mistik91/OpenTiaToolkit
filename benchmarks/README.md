@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: ten cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: eleven cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, mixed-module address selection, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -114,6 +114,13 @@ The Siemens gold audit and immutable archive identity are recorded in
 The scorer audit, two surgical skill iterations, and final 3/3 qualification
 are reported in `reports/hardware-skill-io-atomicity-20260801.md`.
 
+`campaigns/hardware-skill-io-address-index-20260801.json` removes the single-
+address-object shortcut. `ott-12` uses a real mixed DI/DQ module whose input is
+address index 0 and output is address index 1, then requires the output move to
+byte 132 while proving that the input remains at byte 0. Its independently
+restored fixture and Siemens gold audit are recorded in
+`reports/ott-12-gold-audit-20260801.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -225,6 +232,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-03` | Guarded PLC tag mutation | Preview, apply, independently read back, and compile |
 | `ott-08` | Constrained SimaticML edit | Use a baseline-bound transaction and change only one authorized XML path |
 | `ott-10` | Unified HMI editing | Focused snapshot, dry-run, apply with backup, and fresh verification |
+| `ott-12` | Mixed-module address selection | Select output index 1 by observed I/O type, relocate it, and prove input index 0 stayed unchanged |
 | `ott-13` | Hardware output relocation | Transfer guarded relocation and readback to an output address object |
 | `ott-14` | Hardware collision | Detect the occupied range in dry-run and refuse to apply |
 | `ott-15` | Hardware relocation | Guard, preview, apply, and independently verify a free I/O range |

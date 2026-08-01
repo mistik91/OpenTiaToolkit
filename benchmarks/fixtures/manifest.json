@@ -36,6 +36,22 @@
       ]
     },
     {
+      "id": "tia-v21-multi-address-3",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_MultiAddress_20260801.zap21",
+      "sha256": "3B4F832B1F32ECDF20C8905E8CE07C429DC808F00C3C15B03688E0AB7E168585",
+      "sizeBytes": 5582000,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-io-2 with one DI 16x24VDC/DQ 16x24VDC/0.5A BA V1.1 mixed module named DIDQ_Candidate.",
+        "DIDQ_Candidate exposes input address index 0 at byte 0 and output address index 1 at byte 0; both address objects have Length=16 bits.",
+        "The archive compiled with zero errors and warnings and was independently restored on a fresh TIA Portal process before its identity was recorded."
+      ]
+    },
+    {
       "id": "tia-v21-multiuser-1",
       "kind": "preprovisioned-multiuser-session",
       "tiaVersion": "V21 Update 2",

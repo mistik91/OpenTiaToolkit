@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-12",
+  "title": "Mixed-module nonzero address index",
+  "description": "Tests selection and guarded mutation of the output address object at index 1 while preserving the input address object at index 0 on the same module.",
+  "fixtureId": "tia-v21-multi-address-3",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 420,
+  "passScore": 85,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hardware-tree",
+      "type": "tool",
+      "points": 5,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 1,
+      "outputPatterns": [
+        "DIDQ_Candidate"
+      ]
+    },
+    {
+      "id": "baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "DIDQ_Candidate",
+        "\"Index\"\\s*:\\s*0[\\s\\S]*?\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"[\\s\\S]*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"0\"",
+        "\"Index\"\\s*:\\s*1[\\s\\S]*?\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\""
+      ]
+    },
+    {
+      "id": "nonzero-index-operation",
+      "type": "traceRegex",
+      "points": 15,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?:(?!opentia_apply-hardware-patch).)*set-io-address-start(?:(?!opentia_apply-hardware-patch).)*DIDQ_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*1(?:(?!opentia_apply-hardware-patch).)*startAddress\"?\\s*:\\s*132(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress\"?\\s*:\\s*0"
+    },
+    {
+      "id": "guarded-preview",
+      "type": "tool",
+      "points": 15,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": true
+      },
+      "outputPatterns": [
+        "\"DryRun\"\\s*:\\s*true",
+        "\"IoType\"\\s*:\\s*\"Output\"",
+        "\"BeforeStartAddress\"\\s*:\\s*0",
+        "\"WrittenStartAddress\"\\s*:\\s*132"
+      ]
+    },
+    {
+      "id": "guarded-apply",
+      "type": "tool",
+      "points": 15,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": false,
+        "confirm": true
+      },
+      "outputPatterns": [
+        "\"DryRun\"\\s*:\\s*false",
+        "\"Applied\"\\s*:\\s*true",
+        "\"IoType\"\\s*:\\s*\"Output\"",
+        "\"BeforeStartAddress\"\\s*:\\s*0",
+        "\"WrittenStartAddress\"\\s*:\\s*132"
+      ]
+    },
+    {
+      "id": "no-index-zero-mutation",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)^(?!.*opentia_apply-hardware-patch(?:(?!opentia_apply-hardware-patch).)*DIDQ_Candidate(?:(?!opentia_apply-hardware-patch).)*addressIndex\"?\\s*:\\s*0).*$"
+    },
+    {
+      "id": "fresh-two-row-verification",
+      "type": "traceRegex",
+      "points": 20,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?:(?!opentia_get-hardware-io-addresses).)*\"DryRun\"\\s*:\\s*false(?:(?!opentia_get-hardware-io-addresses).)*\"Applied\"\\s*:\\s*true.*?opentia_get-hardware-io-addresses.*?DIDQ_Candidate.*?\"Index\"\\s*:\\s*0.*?\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\".*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"0\".*?DIDQ_Candidate.*?\"Index\"\\s*:\\s*1.*?\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\".*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"132\""
+    },
+    {
+      "id": "accurate-final",
+      "type": "finalRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)(?=.*DIDQ_Candidate)(?=.*output)(?=.*132)(?=.*input)(?=.*(?:unchanged|remained|still|byte\\s*0))(?=.*verif)"
+    }
+  ]
+}

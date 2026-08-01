@@ -151,6 +151,31 @@ try {
         [ordered]@{ type = 'text'; part = [ordered]@{ text = 'The collision rolled back both DI_Candidate and DQ_Candidate. DQ_Occupied covers output bytes 128-143, so the next free output byte is 144; Siemens also reported next free address 130.' } }
     )
 
+    $mixedModuleBaselineMap = '[{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":0,"Attributes":[{"Name":"IoType","Value":"Input"},{"Name":"StartAddress","Value":"0"}]},{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":1,"Attributes":[{"Name":"IoType","Value":"Output"},{"Name":"StartAddress","Value":"0"}]}]'
+    $mixedModuleRelocatedMap = '[{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":0,"Attributes":[{"Name":"IoType","Value":"Input"},{"Name":"StartAddress","Value":"0"}]},{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":1,"Attributes":[{"Name":"IoType","Value":"Output"},{"Name":"StartAddress","Value":"132"}]}]'
+    $mixedModuleOperation = [ordered]@{ operations = @([ordered]@{
+                op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DIDQ_Candidate', 'DIDQ_Candidate') }
+                addressIndex = 1; startAddress = 132; expectedStartAddress = 0
+            }) }
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-12' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output 'DIDQ_Candidate'),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedModuleBaselineMap),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $mixedModuleOperation; 'dry-run' = $true }) -Output '{"DryRun":true,"Applied":false,"RolledBack":true,"Operations":[{"Data":{"IoType":"Output","BeforeStartAddress":0,"WrittenStartAddress":132}}]}'),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $mixedModuleOperation; 'dry-run' = $false; confirm = $true }) -Output '{"DryRun":false,"Applied":true,"RolledBack":false,"Operations":[{"Data":{"IoType":"Output","BeforeStartAddress":0,"WrittenStartAddress":132}}]}'),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedModuleRelocatedMap),
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Applied DIDQ_Candidate output relocation to 132 and verified it by fresh readback; its input remained unchanged at byte 0.' } }
+    )
+    $wrongMixedModuleOperation = [ordered]@{ operations = @([ordered]@{
+                op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DIDQ_Candidate', 'DIDQ_Candidate') }
+                addressIndex = 0; startAddress = 132; expectedStartAddress = 0
+            }) }
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-12' -ExpectedPassed $false -ExpectedFailedAssertion 'no-index-zero-mutation' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output 'DIDQ_Candidate'),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedModuleBaselineMap),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $wrongMixedModuleOperation; 'dry-run' = $true }) -Output '{"DryRun":true,"Applied":false,"RolledBack":true,"Operations":[{"Data":{"IoType":"Input","BeforeStartAddress":0,"WrittenStartAddress":132}}]}'),
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Incorrectly selected input index 0.' } }
+    )
+
     Write-Host 'Hardware I/O case assertion tests passed.'
 }
 finally {
