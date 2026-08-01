@@ -101,7 +101,8 @@ is in `reports/hardware-skill-io-address-ab-20260801.md`.
 qualification bar with three trials each of the original collision case, a
 successful guarded relocation with fresh readback, and a reversed collision
 with a different target, owner, and Siemens next-free response. The candidate
-skill remains unchanged for this campaign.
+skill remains unchanged for this campaign. Results are in
+`reports/hardware-skill-io-address-transfer-20260801.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
