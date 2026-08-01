@@ -95,6 +95,9 @@ else {
 }
 
 $paidModels = @($selectedModelEntries | Where-Object { [string]$_.costClass -eq 'paid' })
+$credentialedModels = @($selectedModelEntries | Where-Object {
+        [string]$_.costClass -in @('paid', 'subscription')
+    })
 if ($paidModels.Count -gt 0 -and
     (-not [bool]$campaign.allowPaidModels -or -not $AllowPaidModels)) {
     throw "Campaign '$($campaign.id)' contains paid models. Both allowPaidModels=true in the manifest and -AllowPaidModels at runtime are required."
@@ -104,16 +107,20 @@ if (-not $PreflightOnly -and [string]::IsNullOrWhiteSpace($FixtureArchivePath)) 
 }
 
 $resolvedUserAuthPath = $null
+$providerCredentialTypes = @{}
 if ($UseUserOpenCodeAuth) {
     $resolvedUserAuthPath = Resolve-OpenCodeUserAuthPath -ExplicitPath $UserAuthPath
     foreach ($provider in @($selectedModelEntries |
             ForEach-Object { Get-OpenCodeModelProvider -Model ([string]$_.model) } |
             Sort-Object -Unique)) {
-        [void](Get-OpenCodeProviderCredential -AuthPath $resolvedUserAuthPath -Provider $provider)
+        $credential = Get-OpenCodeProviderCredential `
+            -AuthPath $resolvedUserAuthPath `
+            -Provider $provider
+        $providerCredentialTypes[$provider] = [string]$credential.type
     }
 }
-elseif ($paidModels.Count -gt 0) {
-    throw 'Paid campaign execution requires -UseUserOpenCodeAuth.'
+elseif ($credentialedModels.Count -gt 0) {
+    throw 'Paid and subscription campaign execution requires -UseUserOpenCodeAuth.'
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
@@ -156,10 +163,12 @@ foreach ($modelEntry in $selectedModelEntries) {
 
     $inputCost = [double]$modelMetadata.cost.input
     $outputCost = [double]$modelMetadata.cost.output
-    if ([string]$modelEntry.costClass -eq 'free' -and
+    if ([string]$modelEntry.costClass -in @('free', 'subscription') -and
         ($inputCost -ne 0.0 -or $outputCost -ne 0.0)) {
-        throw "Model '$modelId' is declared free but the refreshed catalog reports input/output cost $inputCost/$outputCost USD per million tokens."
+        throw "Model '$modelId' is declared $($modelEntry.costClass) but the refreshed catalog reports input/output cost $inputCost/$outputCost USD per million tokens."
     }
+
+    $providerId = Get-OpenCodeModelProvider -Model $modelId
 
     $catalogEntries.Add([pscustomobject][ordered]@{
             model        = $modelId
@@ -167,7 +176,13 @@ foreach ($modelEntry in $selectedModelEntries) {
             variant      = $variant
             availableVariants = $availableVariants
             costClass    = [string]$modelEntry.costClass
-            provider     = Get-OpenCodeModelProvider -Model $modelId
+            provider     = $providerId
+            authCredentialType = if ($providerCredentialTypes.ContainsKey($providerId)) {
+                [string]$providerCredentialTypes[$providerId]
+            }
+            else {
+                $null
+            }
             providerId   = [string]$modelMetadata.providerID
             catalogId    = [string]$modelMetadata.id
             name         = [string]$modelMetadata.name

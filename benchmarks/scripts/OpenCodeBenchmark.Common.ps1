@@ -54,10 +54,31 @@ function Get-OpenCodeProviderCredential {
 
     $credential = $credentialProperty.Value
     $typeProperty = $credential.PSObject.Properties['type']
-    $keyProperty = $credential.PSObject.Properties['key']
-    if ($null -eq $typeProperty -or [string]$typeProperty.Value -ne 'api' -or
-        $null -eq $keyProperty -or [string]::IsNullOrWhiteSpace([string]$keyProperty.Value)) {
-        throw "OpenCode credential for provider '$Provider' is not a supported API-key credential."
+    if ($null -eq $typeProperty) {
+        throw "OpenCode credential for provider '$Provider' has no type."
+    }
+
+    switch ([string]$typeProperty.Value) {
+        'api' {
+            $keyProperty = $credential.PSObject.Properties['key']
+            if ($null -eq $keyProperty -or
+                [string]::IsNullOrWhiteSpace([string]$keyProperty.Value)) {
+                throw "OpenCode API credential for provider '$Provider' has no key."
+            }
+        }
+        'oauth' {
+            foreach ($propertyName in @('refresh', 'access', 'expires')) {
+                $property = $credential.PSObject.Properties[$propertyName]
+                if ($null -eq $property -or $null -eq $property.Value -or
+                    ($property.Value -is [string] -and
+                        [string]::IsNullOrWhiteSpace([string]$property.Value))) {
+                    throw "OpenCode OAuth credential for provider '$Provider' has no '$propertyName' value."
+                }
+            }
+        }
+        default {
+            throw "OpenCode credential for provider '$Provider' has unsupported type '$($typeProperty.Value)'."
+        }
     }
 
     return $credential

@@ -78,6 +78,10 @@ Run all single-user cases:
 
 `campaigns/initial-model-qualification.json` is the first versioned model cohort. It qualifies three inexpensive paid models and one free control on `ott-01`, `ott-03`, and `ott-14` before any full-suite comparison.
 
+`campaigns/sol-ceiling-qualification.json` runs the subscription-backed
+`openai/gpt-5.6-sol` ceiling baseline on the same cases at reasoning effort
+`max`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -91,9 +95,17 @@ the refreshed OpenCode catalog; DeepSeek V4 Flash Free currently declares
 `reasoningEffort: "max"` with `variant: "max"`. Preflight rejects an explicit
 variant that the selected model does not advertise.
 
-The campaign preflight refreshes OpenCode's model catalog and records each model's status, advertised tool-call capability, context limits, and input/output pricing. A model declared `free` is rejected if the refreshed catalog reports a non-zero base input or output price.
+The campaign preflight refreshes OpenCode's model catalog and records each model's status, advertised tool-call capability, context limits, input/output pricing, and provider credential type. A model declared `free` or `subscription` is rejected if the refreshed catalog reports a non-zero base input or output price.
 
 OpenCode Desktop and the CLI share the user auth file. Pass `-UseUserOpenCodeAuth` to project only the selected model provider into an isolated per-run auth file. The temporary auth file contains no unrelated provider credentials and is overwritten and deleted after OpenCode exits. Credential values and the source auth path are not written to benchmark artifacts.
+
+The `subscription` cost class means OpenCode reports zero monetary request
+cost while the provider consumes an external plan allowance. It is distinct
+from `free`: cost-per-pass remains zero in the JSON aggregates, but it is not
+an economic price and the provider's remaining plan quota is not available to
+the harness. Subscription and paid campaigns require
+`-UseUserOpenCodeAuth`; only paid campaigns additionally require
+`-AllowPaidModels`.
 
 Run catalog and credential preflight without touching TIA:
 

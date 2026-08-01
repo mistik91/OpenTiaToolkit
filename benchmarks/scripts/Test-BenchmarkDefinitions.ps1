@@ -173,7 +173,7 @@ foreach ($campaignFile in $campaignFiles) {
         if (-not $modelIds.Add([string]$model.model)) {
             $errors.Add("$($campaignFile.FullName): duplicate model '$($model.model)'.")
         }
-        if ([string]$model.costClass -notin @('free', 'paid')) {
+        if ([string]$model.costClass -notin @('free', 'paid', 'subscription')) {
             $errors.Add("$($campaignFile.FullName): model '$($model.model)' has invalid costClass '$($model.costClass)'.")
         }
         $reasoningEffortProperty = $model.PSObject.Properties['reasoningEffort']

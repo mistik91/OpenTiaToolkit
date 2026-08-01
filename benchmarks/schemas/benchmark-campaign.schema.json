@@ -75,7 +75,8 @@
           "costClass": {
             "enum": [
               "free",
-              "paid"
+              "paid",
+              "subscription"
             ]
           }
         },

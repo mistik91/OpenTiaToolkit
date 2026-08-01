@@ -1,0 +1,22 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "sol-ceiling-qualification",
+  "title": "GPT-5.6 Sol subscription ceiling qualification",
+  "caseIds": [
+    "ott-01",
+    "ott-03",
+    "ott-14"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "openai/gpt-5.6-sol",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "subscription"
+    }
+  ]
+}

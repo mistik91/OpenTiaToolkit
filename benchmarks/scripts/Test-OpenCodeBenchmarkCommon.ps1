@@ -67,6 +67,10 @@ try {
     [ordered]@{
         openrouter = [ordered]@{ type = 'api'; key = 'test-openrouter-key' }
         opencode   = [ordered]@{ type = 'api'; key = 'test-opencode-key' }
+        openai     = [ordered]@{
+            type = 'oauth'; refresh = 'test-refresh-token'; access = 'test-access-token'
+            expires = 4102444800000; accountId = 'test-account-id'
+        }
     } |
         ConvertTo-Json -Depth 10 |
         Set-Content -LiteralPath $sourceAuthPath -Encoding UTF8
@@ -82,9 +86,27 @@ try {
         throw 'Provider-scoped auth contained the wrong credentials.'
     }
 
+    $scopedOauthPath = Join-Path $testRoot 'isolated-oauth-data\opencode\auth.json'
+    [void](New-ProviderScopedOpenCodeAuthFile `
+            -SourceAuthPath $sourceAuthPath `
+            -Provider 'openai' `
+            -DestinationPath $scopedOauthPath)
+    $scopedOauth = Get-Content -LiteralPath $scopedOauthPath -Raw | ConvertFrom-Json
+    if (@($scopedOauth.PSObject.Properties).Count -ne 1 -or
+        $null -eq $scopedOauth.PSObject.Properties['openai'] -or
+        [string]$scopedOauth.openai.type -cne 'oauth' -or
+        [string]$scopedOauth.openai.access -cne 'test-access-token' -or
+        $null -ne $scopedOauth.PSObject.Properties['openrouter']) {
+        throw 'Provider-scoped OAuth contained the wrong credentials.'
+    }
+
     Remove-BenchmarkSecretFile -Path $scopedAuthPath
     if (Test-Path -LiteralPath $scopedAuthPath) {
         throw 'Provider-scoped auth was not removed.'
+    }
+    Remove-BenchmarkSecretFile -Path $scopedOauthPath
+    if (Test-Path -LiteralPath $scopedOauthPath) {
+        throw 'Provider-scoped OAuth was not removed.'
     }
 
     Write-Host 'OpenCode benchmark common helper tests passed.'
