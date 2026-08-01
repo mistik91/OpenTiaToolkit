@@ -86,6 +86,22 @@
       ]
     },
     {
+      "id": "tia-v21-topology-6",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Topology_20260801.zap21",
+      "sha256": "33193A83BE565BBD63486D66FFDE39404C76D9F8F01178DF28D435DBE3CC5732",
+      "sizeBytes": 5535646,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-cross-domain-transfer-5 with Ethernet subnet CellPN and controller IO system CellIO on PLC_Main.",
+        "Contains no RemoteCell station; it is the reversible baseline for catalog-driven ET 200SP topology provisioning.",
+        "The archive passed strict-placement rollback, successful station creation and wiring, exact delete inverse, forced mid-transaction rollback, and fresh-process zero-error/zero-warning compilation."
+      ]
+    },
+    {
       "id": "tia-v21-multiuser-1",
       "kind": "preprovisioned-multiuser-session",
       "tiaVersion": "V21 Update 2",

@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-22",
+  "title": "Held-out ET 200SP topology provisioning",
+  "description": "Tests catalog-driven station creation, displaced module placement recovery, result-reference chaining, PROFINET wiring and identity, transactional preview/apply, and fresh topology verification.",
+  "fixtureId": "tia-v21-topology-6",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 900,
+  "passScore": 85,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "focused-catalog-discovery",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "find_hardware_catalog_items$",
+      "minCount": 3,
+      "outputPatterns": [
+        "OrderNumber:6ES7 155-6AU02-0BN0/V6\\.4",
+        "OrderNumber:6ES7 131-6BF01-0BA0/V0\\.0",
+        "OrderNumber:6ES7 132-6BF01-0BA0/V0\\.0"
+      ]
+    },
+    {
+      "id": "tree-discovery-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 2,
+      "outputPatterns": [
+        "PLC_Main",
+        "RemoteCell",
+        "GuardInputs",
+        "ValveOutputs"
+      ]
+    },
+    {
+      "id": "network-discovery-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_networks$",
+      "minCount": 2,
+      "outputPatterns": [
+        "CellPN",
+        "CellIO",
+        "RemoteCell"
+      ]
+    },
+    {
+      "id": "strict-placement-probe",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": true},
+      "minCount": 3,
+      "outputPatterns": [
+        "(?is)GuardInputs.*?placed at.*?RemoteCell/GuardInputs.*?instead of requested.*?RemoteCell/Rack_0/GuardInputs",
+        "(?is)ValveOutputs.*?placed at.*?RemoteCell/ValveOutputs.*?instead of requested.*?RemoteCell/Rack_0/ValveOutputs",
+        "Set allowDisplacedPlacement=true",
+        "\\\"RolledBack\\\"\\s*:\\s*true"
+      ]
+    },
+    {
+      "id": "exact-corrected-operation-set",
+      "type": "toolOperationSet",
+      "points": 15,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "operationPath": "operations",
+      "expectedOperations": [
+        {
+          "op": "create-device-with-item",
+          "typeIdentifier": "OrderNumber:6ES7 155-6AU02-0BN0/V6.4",
+          "deviceName": "RemoteCell",
+          "itemName": "RemoteCell"
+        },
+        {
+          "op": "plug-item",
+          "target": {"itemPath": ["Rack_0"]},
+          "typeIdentifier": "OrderNumber:6ES7 131-6BF01-0BA0/V0.0",
+          "itemName": "GuardInputs",
+          "positionNumber": 1,
+          "allowDisplacedPlacement": true
+        },
+        {
+          "op": "plug-item",
+          "target": {"itemPath": ["Rack_0"]},
+          "typeIdentifier": "OrderNumber:6ES7 132-6BF01-0BA0/V0.0",
+          "itemName": "ValveOutputs",
+          "positionNumber": 2,
+          "allowDisplacedPlacement": true
+        },
+        {
+          "op": "connect-node-to-subnet",
+          "target": {"itemPath": ["RemoteCell", "PROFINET interface"]},
+          "nodeIndex": 0,
+          "subnetName": "CellPN"
+        },
+        {
+          "op": "connect-io-connector",
+          "target": {"itemPath": ["RemoteCell", "PROFINET interface"]},
+          "connectorIndex": 0,
+          "ioSystemName": "CellIO"
+        },
+        {
+          "op": "configure-profinet-device",
+          "target": {"itemPath": ["RemoteCell", "PROFINET interface"]},
+          "ipAddress": "192.168.0.37",
+          "pnDeviceName": "remote-cell",
+          "pnDeviceNumber": 37
+        }
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "preview-before-apply-sequence",
+      "type": "traceRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*placed at.*?RemoteCell/GuardInputs)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*placed at.*?RemoteCell/ValveOutputs)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*allowDisplacedPlacement\\\"?\\s*:\\s*true)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*false)"
+    },
+    {
+      "id": "corrected-preview-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": true},
+      "minCount": 3,
+      "outputPatterns": [
+        "Hardware patch preflighted and rolled back",
+        "\\\"SafetyBlocked\\\"\\s*:\\s*false",
+        "Connected node to subnet: CellPN",
+        "Connected IO connector to IO system: CellIO",
+        "Configured PROFINET device identity and addressing"
+      ]
+    },
+    {
+      "id": "corrected-apply-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Hardware patch applied",
+        "\\\"Applied\\\"\\s*:\\s*true",
+        "\\\"RolledBack\\\"\\s*:\\s*false",
+        "192\\.168\\.0\\.37",
+        "remote-cell",
+        "PnDeviceNumber"
+      ]
+    },
+    {
+      "id": "station-tree-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 2,
+      "outputPatterns": [
+        "System:Device\\.ET200SP",
+        "OrderNumber:6ES7 155-6AU02-0BN0/V6\\.4",
+        "GuardInputs",
+        "OrderNumber:6ES7 131-6BF01-0BA0/V0\\.0",
+        "ValveOutputs",
+        "OrderNumber:6ES7 132-6BF01-0BA0/V0\\.0",
+        "positionNumber\\\"?\\s*:\\s*1",
+        "positionNumber\\\"?\\s*:\\s*2"
+      ]
+    },
+    {
+      "id": "network-identity-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_networks$",
+      "minCount": 2,
+      "outputPatterns": [
+        "RemoteCell",
+        "connectedSubnet\\\"?\\s*:\\s*\\\"CellPN\\\"",
+        "connectedIoSystemName\\\"?\\s*:\\s*\\\"CellIO\\\"",
+        "192\\.168\\.0\\.37",
+        "remote-cell",
+        "PnDeviceNumber",
+        "\\\"37\\\""
+      ]
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount|Errors)[^0-9]*0",
+        "(?i)(warning count|WarningCount|Warnings)[^0-9]*0"
+      ]
+    }
+  ]
+}

@@ -84,9 +84,12 @@ function Test-ValueSubset {
             return $false
         }
         foreach ($property in $Expected.PSObject.Properties) {
-            $found = $false
-            $actualValue = Get-PropertyValue -Object $Actual -Name $property.Name -Found ([ref]$found)
-            if (-not $found -or -not (Test-ValueSubset -Actual $actualValue -Expected $property.Value)) {
+            # Read the property value directly here. Returning it through a helper
+            # lets Windows PowerShell enumerate a one-element nested array into a
+            # scalar, which makes otherwise identical JSON arrays compare unequal.
+            $actualProperty = $Actual.PSObject.Properties[$property.Name]
+            if ($null -eq $actualProperty -or
+                -not (Test-ValueSubset -Actual $actualProperty.Value -Expected $property.Value)) {
                 return $false
             }
         }

@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: fourteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: fifteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven hardware topology provisioning, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -154,6 +154,16 @@ generic scorer correction normalized the MCP's direct and wrapped operation
 array forms; the qualification audit is in
 `reports/hardware-plc-cross-domain-transfer-20260801.md`.
 
+`campaigns/hardware-topology-provisioning-20260801.json` moves into a distinct
+hardware domain. `ott-22` must discover installed ET 200SP catalog versions,
+create and populate a remote station, recover from TIA's reported displaced
+module placement, chain newly created objects by result reference, wire the
+station to an existing subnet and controller IO system, configure PROFINET
+identity, and verify the new topology from fresh reads. Its immutable fixture
+and Tier 4 forward/inverse/rollback proof are in
+`reports/ott-22-gold-audit-20260801.md`. The skills remain unchanged for the
+qualification campaign.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -275,6 +285,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-19` | Computed dual-space compaction | Derive four contiguous starts across Input and Output spaces and apply them in one guarded transaction |
 | `ott-20` | Cross-domain remap | Coordinate computed hardware moves with guarded PLC-tag address remapping and compilation |
 | `ott-21` | Held-out cross-domain transfer | Transfer coordinated remapping to unrelated identities, descending hardware order, different ranges, and nonzero bit offsets |
+| `ott-22` | ET 200SP topology provisioning | Discover catalog identifiers, create and populate a remote station, recover from displaced placement, wire PROFINET, and verify the final topology |
 
 ## Adding a case
 
