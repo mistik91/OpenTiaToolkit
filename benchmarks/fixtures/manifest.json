@@ -19,6 +19,23 @@
       ]
     },
     {
+      "id": "tia-v21-io-2",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_IO_20260801.zap21",
+      "sha256": "8AE143CA447564B494C51B5560A76D7FB32C72E5FFA5458672FD5702ACF8409E",
+      "sizeBytes": 5532287,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with two DQ 16x24VDC/0.5A BA V1.1 modules.",
+        "DI_Occupied inputs use bytes 64-65; DI_Candidate inputs use bytes 2-3.",
+        "DQ_Occupied outputs use bytes 128-129; DQ_Candidate outputs use bytes 2-3.",
+        "The archive compiled with zero errors and warnings and was independently restored before its identity was recorded."
+      ]
+    },
+    {
       "id": "tia-v21-multiuser-1",
       "kind": "preprovisioned-multiuser-session",
       "tiaVersion": "V21 Update 2",

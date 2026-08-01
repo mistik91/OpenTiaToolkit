@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-17",
+  "title": "Mixed I/O atomic rollback",
+  "description": "Tests that a valid input relocation is rolled back when a later output relocation collides in the same transaction.",
+  "fixtureId": "tia-v21-io-2",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 420,
+  "passScore": 85,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hardware-tree",
+      "type": "tool",
+      "points": 10,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 1,
+      "outputPatterns": [
+        "DI_Candidate",
+        "DQ_Candidate",
+        "DQ_Occupied"
+      ]
+    },
+    {
+      "id": "baseline-and-rollback-readback",
+      "type": "tool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "DI_Candidate",
+        "DQ_Candidate",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"2\""
+      ]
+    },
+    {
+      "id": "one-guarded-mixed-patch",
+      "type": "traceRegex",
+      "points": 15,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch.*?set-io-address-start.*?DI_Candidate.*?addressIndex\"?\\s*:\\s*0.*?startAddress\"?\\s*:\\s*66.*?expectedStartAddress\"?\\s*:\\s*2.*?set-io-address-start.*?DQ_Candidate.*?addressIndex\"?\\s*:\\s*0.*?startAddress\"?\\s*:\\s*128.*?expectedStartAddress\"?\\s*:\\s*2"
+    },
+    {
+      "id": "collision-preview",
+      "type": "tool",
+      "points": 25,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "minCount": 1,
+      "maxCount": 1,
+      "inputEquals": {
+        "dry-run": true
+      },
+      "outputPatterns": [
+        "(?i)already being used",
+        "(?i)next free address[^0-9]*130"
+      ]
+    },
+    {
+      "id": "no-hardware-apply",
+      "type": "forbiddenTool",
+      "points": 15,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {
+        "dry-run": false
+      }
+    },
+    {
+      "id": "honest-rollback-final",
+      "type": "finalRegex",
+      "points": 10,
+      "pattern": "(?is)(?=.*(collision|already being used|occupied))(?=.*DQ_Occupied)(?=.*130)(?=.*DI_Candidate)(?=.*DQ_Candidate)(?=.*(roll(?:ed)? back|both.{0,80}unchanged|unchanged.{0,80}both|neither.{0,80}changed|no (?:mutation|change)(?: was)? applied))"
+    }
+  ]
+}
