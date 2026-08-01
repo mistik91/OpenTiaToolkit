@@ -234,8 +234,16 @@ try {
     )
     $crossDomainTagPreview = '{"DryRun":true,"Summary":{"Total":4,"Planned":4,"Applied":0,"Failed":0},"Operations":[{"Status":"Planned","Before":{"Name":"DI_Candidate_Channel0","LogicalAddress":"%I2.0"},"After":{"Name":"DI_Candidate_Channel0","LogicalAddress":"%I66.0"}},{"Status":"Planned","Before":{"Name":"DIDQ_Candidate_Input0","LogicalAddress":"%I0.0"},"After":{"Name":"DIDQ_Candidate_Input0","LogicalAddress":"%I68.0"}},{"Status":"Planned","Before":{"Name":"DQ_Candidate_Channel0","LogicalAddress":"%Q2.0"},"After":{"Name":"DQ_Candidate_Channel0","LogicalAddress":"%Q130.0"}},{"Status":"Planned","Before":{"Name":"DIDQ_Candidate_Output0","LogicalAddress":"%Q0.0"},"After":{"Name":"DIDQ_Candidate_Output0","LogicalAddress":"%Q132.0"}}]}'
     $crossDomainTagApply = '{"DryRun":false,"Summary":{"Total":4,"Planned":0,"Applied":4,"Failed":0},"Operations":[{"Status":"Applied","Before":{"Name":"DI_Candidate_Channel0","LogicalAddress":"%I2.0"},"After":{"Name":"DI_Candidate_Channel0","LogicalAddress":"%I66.0"}},{"Status":"Applied","Before":{"Name":"DIDQ_Candidate_Input0","LogicalAddress":"%I0.0"},"After":{"Name":"DIDQ_Candidate_Input0","LogicalAddress":"%I68.0"}},{"Status":"Applied","Before":{"Name":"DQ_Candidate_Channel0","LogicalAddress":"%Q2.0"},"After":{"Name":"DQ_Candidate_Channel0","LogicalAddress":"%Q130.0"}},{"Status":"Applied","Before":{"Name":"DIDQ_Candidate_Output0","LogicalAddress":"%Q0.0"},"After":{"Name":"DIDQ_Candidate_Output0","LogicalAddress":"%Q132.0"}}]}'
-    $hardwarePreviewInput = [ordered]@{ operations = $dualSpaceOperations; 'dry-run' = $true }
-    $hardwareApplyInput = [ordered]@{ operations = $dualSpaceOperations; 'dry-run' = $false; confirm = $true }
+    # Use a semantically equivalent interleaved operation order to ensure the
+    # cross-domain scorer checks set membership rather than array order.
+    $crossDomainHardwareOperations = [ordered]@{ operations = @(
+            $dualSpaceOperations.operations[0],
+            $dualSpaceOperations.operations[2],
+            $dualSpaceOperations.operations[1],
+            $dualSpaceOperations.operations[3]
+        ) }
+    $hardwarePreviewInput = [ordered]@{ operations = $crossDomainHardwareOperations; 'dry-run' = $true }
+    $hardwareApplyInput = [ordered]@{ operations = $crossDomainHardwareOperations; 'dry-run' = $false; confirm = $true }
     $tagPreviewInput = [ordered]@{ 'plc-name' = 'PLC_Main'; operations = $crossDomainTagOperations; 'dry-run' = $true }
     $tagApplyInput = [ordered]@{ 'plc-name' = 'PLC_Main'; operations = $crossDomainTagOperations; 'dry-run' = $false; confirm = $true }
     Invoke-HardwareCaseAssertionTest -CaseId 'ott-20' -Events @(
@@ -265,6 +273,21 @@ try {
         (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $hardwarePreviewInput -Output $dualSpacePreview),
         (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject ([ordered]@{ 'plc-name' = 'PLC_Main'; operations = $unguardedTagOperations; 'dry-run' = $true }) -Output $crossDomainTagPreview),
         [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Tag address guards were omitted.' } }
+    )
+
+    $aliasTagOperations = @(
+        [ordered]@{ action = 'update'; match = [ordered]@{ table = 'Default tag table'; name = 'DI_Candidate_Channel0'; logicalAddress = '%I2.0' }; set = [ordered]@{ logicalAddress = '%I66.0' } },
+        [ordered]@{ action = 'update'; match = [ordered]@{ table = 'Default tag table'; name = 'DIDQ_Candidate_Input0'; logicalAddress = '%I0.0' }; set = [ordered]@{ logicalAddress = '%I68.0' } },
+        [ordered]@{ action = 'update'; match = [ordered]@{ table = 'Default tag table'; name = 'DQ_Candidate_Channel0'; logicalAddress = '%Q2.0' }; set = [ordered]@{ logicalAddress = '%Q130.0' } },
+        [ordered]@{ action = 'update'; match = [ordered]@{ table = 'Default tag table'; name = 'DIDQ_Candidate_Output0'; logicalAddress = '%Q0.0' }; set = [ordered]@{ logicalAddress = '%Q132.0' } }
+    )
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-20' -ExpectedPassed $false -ExpectedFailedAssertion 'one-four-operation-tag-plan' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output $dualSpaceTree),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $dualSpaceBaselineMap),
+        (New-ToolEvent -Tool 'opentia_export-tags' -InputObject @{} -Output $crossDomainBaselineTags),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject $hardwarePreviewInput -Output $dualSpacePreview),
+        (New-ToolEvent -Tool 'opentia_modify-tags' -InputObject ([ordered]@{ 'plc-name' = 'PLC_Main'; operations = $aliasTagOperations; 'dry-run' = $true }) -Output $crossDomainTagPreview),
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Used unsupported table aliases in tag match guards.' } }
     )
 
     Invoke-HardwareCaseAssertionTest -CaseId 'ott-20' -ExpectedPassed $false -ExpectedFailedAssertion 'both-previews-before-apply' -Events @(
