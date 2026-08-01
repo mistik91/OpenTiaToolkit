@@ -151,8 +151,10 @@ try {
         [ordered]@{ type = 'text'; part = [ordered]@{ text = 'The collision rolled back both DI_Candidate and DQ_Candidate. DQ_Occupied covers output bytes 128-143, so the next free output byte is 144; Siemens also reported next free address 130.' } }
     )
 
-    $mixedModuleBaselineMap = '[{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":0,"Attributes":[{"Name":"IoType","Value":"Input"},{"Name":"StartAddress","Value":"0"}]},{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":1,"Attributes":[{"Name":"IoType","Value":"Output"},{"Name":"StartAddress","Value":"0"}]}]'
-    $mixedModuleRelocatedMap = '[{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":0,"Attributes":[{"Name":"IoType","Value":"Input"},{"Name":"StartAddress","Value":"0"}]},{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":1,"Attributes":[{"Name":"IoType","Value":"Output"},{"Name":"StartAddress","Value":"132"}]}]'
+    # Keep StartAddress before IoType to cover the attribute ordering that exposed
+    # the original scorer bug in live trial 2. Assertions must be order-independent.
+    $mixedModuleBaselineMap = '[{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"0"},{"Name":"IoType","Value":"Input"}]},{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":1,"Attributes":[{"Name":"StartAddress","Value":"0"},{"Name":"IoType","Value":"Output"}]}]'
+    $mixedModuleRelocatedMap = '[{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":0,"Attributes":[{"Name":"StartAddress","Value":"0"},{"Name":"IoType","Value":"Input"}]},{"Target":{"DeviceName":"PLC_Main","ItemPath":["DIDQ_Candidate","DIDQ_Candidate"]},"Index":1,"Attributes":[{"Name":"StartAddress","Value":"132"},{"Name":"IoType","Value":"Output"}]}]'
     $mixedModuleOperation = [ordered]@{ operations = @([ordered]@{
                 op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DIDQ_Candidate', 'DIDQ_Candidate') }
                 addressIndex = 1; startAddress = 132; expectedStartAddress = 0

@@ -1,6 +1,6 @@
 # OTT-12 Siemens gold audit
 
-Date: 2026-08-01  
+Date: 2026-08-01
 TIA Portal: V21 Update 2
 
 ## Fixture construction

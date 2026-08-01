@@ -31,16 +31,10 @@
     },
     {
       "id": "baseline-and-readback",
-      "type": "tool",
+      "type": "traceRegex",
       "points": 10,
       "critical": true,
-      "namePattern": "get_hardware_io_addresses$",
-      "minCount": 2,
-      "outputPatterns": [
-        "DIDQ_Candidate",
-        "\"Index\"\\s*:\\s*0[\\s\\S]*?\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"[\\s\\S]*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"0\"",
-        "\"Index\"\\s*:\\s*1[\\s\\S]*?\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\""
-      ]
+      "pattern": "(?is)opentia_get-hardware-io-addresses(?:(?!opentia_apply-hardware-patch).)*DIDQ_Candidate(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*0(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\")(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"0\")(?:(?!\"Index\"\\s*:).)*DIDQ_Candidate(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*1(?=(?:(?!opentia_apply-hardware-patch).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\")(?=(?:(?!opentia_apply-hardware-patch).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"0\")(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch"
     },
     {
       "id": "nonzero-index-operation",
@@ -99,7 +93,7 @@
       "type": "traceRegex",
       "points": 20,
       "critical": true,
-      "pattern": "(?is)opentia_apply-hardware-patch(?:(?!opentia_get-hardware-io-addresses).)*\"DryRun\"\\s*:\\s*false(?:(?!opentia_get-hardware-io-addresses).)*\"Applied\"\\s*:\\s*true.*?opentia_get-hardware-io-addresses.*?DIDQ_Candidate.*?\"Index\"\\s*:\\s*0.*?\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\".*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"0\".*?DIDQ_Candidate.*?\"Index\"\\s*:\\s*1.*?\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\".*?\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"132\""
+      "pattern": "(?is)opentia_apply-hardware-patch(?:(?!opentia_get-hardware-io-addresses).)*\"DryRun\"\\s*:\\s*false(?:(?!opentia_get-hardware-io-addresses).)*\"Applied\"\\s*:\\s*true.*?opentia_get-hardware-io-addresses.*?DIDQ_Candidate(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*0(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\")(?=(?:(?!\"Index\"\\s*:).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"0\")(?:(?!\"Index\"\\s*:).)*DIDQ_Candidate(?:(?!\"Index\"\\s*:).)*\"Index\"\\s*:\\s*1(?=(?:(?!opentia_apply-hardware-patch).)*\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\")(?=(?:(?!opentia_apply-hardware-patch).)*\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"132\")"
     },
     {
       "id": "accurate-final",
