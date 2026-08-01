@@ -167,7 +167,12 @@ with a mean score of 26.67: one trace reached the correct final state through
 a non-atomic 50-call exploration, one stalled after catalog discovery, and
 one produced no runtime events before timeout. The qualification analysis is
 in `reports/hardware-topology-provisioning-20260801.md`; the benchmark remains
-unchanged for a surgical skill A/B.
+unchanged for a surgical skill A/B. Three paid DeepSeek V4 Flash skill
+candidates then improved mean score from 60.00 to 78.33 and 81.67, but all
+remained 0/3 under the strict atomicity checks. The final skill is retained
+because its exact field and target-binding guidance is generic; further
+`ott-22` tuning stops at the anti-overfitting boundary. The full progression is
+in `reports/hardware-topology-provisioning-skill-ab-20260801.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
