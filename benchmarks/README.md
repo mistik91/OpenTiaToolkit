@@ -119,7 +119,9 @@ address-object shortcut. `ott-12` uses a real mixed DI/DQ module whose input is
 address index 0 and output is address index 1, then requires the output move to
 byte 132 while proving that the input remains at byte 0. Its independently
 restored fixture and Siemens gold audit are recorded in
-`reports/ott-12-gold-audit-20260801.md`.
+`reports/ott-12-gold-audit-20260801.md`. The existing skill qualified 3/3 at
+100 after an attribute-order-dependent scorer bug was corrected; the audit is
+in `reports/hardware-skill-io-address-index-20260801.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
