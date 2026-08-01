@@ -287,6 +287,20 @@ function Get-BenchmarkTrialStatistics {
     }
 }
 
+function Get-BenchmarkExpectedTrialCount {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$CaseIds,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateRange(1, 10)]
+        [int]$TrialCount
+    )
+
+    return @($CaseIds).Count * $TrialCount
+}
+
 function Get-BenchmarkCaseAggregates {
     param(
         [Parameter(Mandatory = $true)]

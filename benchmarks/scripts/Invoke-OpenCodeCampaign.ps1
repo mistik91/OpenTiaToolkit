@@ -325,7 +325,9 @@ try {
 
             if ([string]$modelRecord.status -eq 'running') {
                 $trials = @($modelRecord.cases)
-                $expectedTrialCount = $selectedCaseIds.Count * [int]$campaign.trialCount
+                $expectedTrialCount = Get-BenchmarkExpectedTrialCount `
+                    -CaseIds @($selectedCaseIds) `
+                    -TrialCount ([int]$campaign.trialCount)
                 $hasRuntimeFailure = @($trials | Where-Object {
                         [bool]$_.timedOut -or [int]$_.exitCode -ne 0
                     }).Count -gt 0

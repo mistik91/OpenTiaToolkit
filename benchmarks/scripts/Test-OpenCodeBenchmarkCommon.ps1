@@ -62,6 +62,11 @@ try {
         throw 'Trial aggregation returned unexpected statistics.'
     }
 
+    if ((Get-BenchmarkExpectedTrialCount -CaseIds 'ott-14' -TrialCount 3) -ne 3 -or
+        (Get-BenchmarkExpectedTrialCount -CaseIds @('ott-01', 'ott-14') -TrialCount 3) -ne 6) {
+        throw 'Expected trial count did not preserve scalar and multi-case campaign selections.'
+    }
+
     $sourceAuthPath = Join-Path $testRoot 'source-auth.json'
     $scopedAuthPath = Join-Path $testRoot 'isolated-data\opencode\auth.json'
     [ordered]@{
