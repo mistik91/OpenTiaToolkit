@@ -16,7 +16,7 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
 1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven. For greenfield work, create the project first with `create-project --project-path`.
 2. Discover the current hardware shape with `get-hardware-tree`, scoped by `device-name` when possible. For PROFINET work, also inspect `get-hardware-networks`; project IO-system `connectedIoDevices` can contain GSD/GSDML IO devices that are not visible as top-level `Project.Devices`.
 3. Discover catalog and type identifiers with `find-hardware-catalog-items` or `find-hardware-module-types`.
-4. For standalone device creation in a greenfield project, call `add-device` only after catalog lookup confirms the exact order number/type identifier and version. When creation is part of a coordinated topology change, keep it inside `apply-hardware-patch`: start with `create-device` or `create-device-with-item`, assign a `resultId`, and use `targetRef` for every dependent operation. Do not pre-create the station with `add-device`, because that leaves the reviewed transaction incomplete. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
+4. Decide whether creation is standalone or transactional before any create call. If the request also plugs modules, connects networks, sets identity, assigns addresses, or performs other follow-up configuration on the new station, never call `add-device`, even as a probe. Start `apply-hardware-patch` with `create-device` or `create-device-with-item`, assign a `resultId`, and use `targetRef` for every dependent operation. Reserve `add-device` for a request whose intended result ends after standalone device creation. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
 5. Inspect feature services with `get-hardware-item-capabilities` before writing attributes.
 6. Read current network, IO, telegram, or GSD state using the narrowest command:
    - `get-hardware-networks`
@@ -46,12 +46,24 @@ operation schema is unclear, inspect `describe-api` once; do not use repeated
 dry-runs to guess operation names or substitute generic attribute setters for
 a dedicated operation.
 
+Use exact hardware-patch JSON field names; unknown members can be ignored by
+deserialization and silently weaken an operation. Use `op`, never `operation`.
+`create-device-with-item` requires `typeIdentifier`, `deviceName`, and
+`itemName`; do not substitute `name`. Put `targetRef` beside `op`, not inside
+`target`; use `target.itemPath` only for a relative child path. For
+`configure-profinet-device`, use the exact optional fields `ipAddress`,
+`subnetMask`, `pnDeviceName`, and `pnDeviceNumber`; `address`, `stationName`,
+and `deviceNumber` are not aliases.
+
 Keep the complete candidate batch intact while learning TIA placement. Start
 each `plug-item` without `allowDisplacedPlacement`. When a dry-run reports a
 different actual path, validate that path, enable displaced placement only for
 that plug, and dry-run the complete batch again so execution can reach the next
-strict plug. Each retry must advance past one newly observed displacement or
-correct one concrete validation error; otherwise stop and report the blocker.
+strict plug. Never infer that a sibling plug will be displaced in the same way:
+set `allowDisplacedPlacement=true` only after that exact plug has failed and
+reported its own actual path. Each retry must advance past one newly observed
+displacement or correct one concrete validation error; otherwise stop and
+report the blocker.
 After the first full successful preview, issue exactly one apply with the same
 operations and values, changing only `dry-run` and required confirmation
 fields. Do not recreate, split, or reinterpret the topology between preview
@@ -86,10 +98,10 @@ For GSD/GSDML submodules, TIA may legally place the created item somewhere other
 PROFINET station name is not the same as the TIA display `Name`. Use
 `configure-profinet-device` for the requested IP address, subnet mask, station
 name, and device number, and use guarded attribute writes only for display
-names or attributes without a dedicated operation. Omit optional identity
-fields the task does not require; if TIA rejects an optional setter, treat it
-as unsupported for that interface rather than probing alternative operation
-names.
+names or attributes without a dedicated operation. Omit `subnetMask` and other
+optional identity fields when the task does not require them; if TIA rejects an
+optional setter, treat it as unsupported for that interface rather than
+probing alternative operation names.
 
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
