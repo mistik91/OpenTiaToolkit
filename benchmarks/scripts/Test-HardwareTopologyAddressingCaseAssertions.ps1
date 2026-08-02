@@ -93,7 +93,8 @@ function New-TransferEvents {
     param(
         [Parameter(Mandatory = $true)][object[]]$CorrectedOperations,
         [switch]$ApplyBeforePreview,
-        [switch]$ExtraCorrectedPreview
+        [switch]$ExtraCorrectedPreview,
+        [switch]$ExtraPreflightProbe
     )
 
     $firstStrictOperations = @($CorrectedOperations | ForEach-Object {
@@ -136,13 +137,27 @@ function New-TransferEvents {
         @($preview, $apply)
     }
 
+    $preflightEvents = if ($ExtraPreflightProbe) {
+        @(
+            (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{
+                        operations = @($CorrectedOperations[0])
+                        'dry-run' = $true
+                        confirm = $true
+                    }) -Output '{"message":"Hardware patch preflighted and rolled back","DryRun":true,"Applied":false,"RolledBack":true,"SafetyBlocked":false}')
+        )
+    }
+    else {
+        @()
+    }
+
     return @(
         (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output '{"deviceName":"PLC_Main","typeIdentifier":"System:Device.S71500"}'),
         (New-ToolEvent -Tool 'opentia_get-hardware-networks' -InputObject @{} -Output '{"target":{"deviceName":"PLC_Main"},"connectedSubnet":"CellPN","ioSystemName":"CellIO"}'),
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output '{"Target":{"DeviceName":"PLC_Main"},"Attributes":[{"Name":"StartAddress","Value":"40"},{"Name":"IoType","Value":"Input"},{"Name":"Length","Value":"16"}]}'),
         (New-ToolEvent -Tool 'opentia_find-hardware-catalog-items' -InputObject @{'search-text' = '6ES7 155-6AU02-0BN0'} -Output 'OrderNumber:6ES7 155-6AU02-0BN0/V6.4'),
         (New-ToolEvent -Tool 'opentia_find-hardware-catalog-items' -InputObject @{'search-text' = '6ES7 131-6BH01-0BA0'} -Output 'OrderNumber:6ES7 131-6BH01-0BA0/V0.0'),
-        (New-ToolEvent -Tool 'opentia_find-hardware-catalog-items' -InputObject @{'search-text' = '6ES7 132-6BH01-0BA0'} -Output 'OrderNumber:6ES7 132-6BH01-0BA0/V0.0'),
+        (New-ToolEvent -Tool 'opentia_find-hardware-catalog-items' -InputObject @{'search-text' = '6ES7 132-6BH01-0BA0'} -Output 'OrderNumber:6ES7 132-6BH01-0BA0/V0.0')
+    ) + $preflightEvents + @(
         (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{
                 operations = $firstStrictOperations
                 'dry-run' = $true
@@ -279,6 +294,11 @@ try {
         -Events (New-TransferEvents -CorrectedOperations $correctedOperations -ExtraCorrectedPreview) `
         -ExpectedPassed $false `
         -ExpectedFailedAssertion 'exact-corrected-operation-set'
+
+    Invoke-TransferAssertionTest -Label 'extra-preflight-probe' `
+        -Events (New-TransferEvents -CorrectedOperations $correctedOperations -ExtraPreflightProbe) `
+        -ExpectedPassed $false `
+        -ExpectedFailedAssertion 'strict-placement-probes'
 
     Write-Host 'Hardware topology-addressing case assertion tests passed.'
 }

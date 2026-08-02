@@ -91,6 +91,7 @@
       "namePattern": "apply_hardware_patch$",
       "inputEquals": {"dry-run": true},
       "minCount": 3,
+      "maxCount": 3,
       "outputPatterns": [
         "(?is)Photoeyes.*?placed at.*?PackagingBay/Photoeyes.*?instead of requested.*?PackagingBay/Rack_0/Photoeyes",
         "(?is)Pneumatics.*?placed at.*?PackagingBay/Pneumatics.*?instead of requested.*?PackagingBay/Rack_0/Pneumatics",
