@@ -174,18 +174,28 @@ because its exact field and target-binding guidance is generic; further
 `ott-22` tuning stops at the anti-overfitting boundary. The full progression is
 in `reports/hardware-topology-provisioning-skill-ab-20260801.md`.
 
+A frozen maximum-effort escalation then held that final skill and all benchmark
+inputs unchanged. DeepSeek V4 Flash at its catalog ceiling of `xhigh` remained
+0/3 with an 85.00 mean because of critical retry-sequence failures. GPT-5.6
+Luna at `max` timed out in all three trials. GPT-5.6 Sol at `max` passed 3/3
+with three scores of 100, establishing that the task and generic skill are
+solvable without case-shaped tuning. The comparison, exact effort identities,
+costs, and raw artifact paths are in
+`reports/hardware-topology-maximum-effort-escalation-20260802.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
 every expected trial passes. The aggregates remain available when a model does
 not qualify so variance and failure rates can still be compared.
 
-Reasoning policy is explicit per model. Paid models currently use
-`reasoningEffort: "provider-default"` with `variant: null`, preserving their
-out-of-box behavior. The free control uses the highest variant advertised by
-the refreshed OpenCode catalog; DeepSeek V4 Flash Free currently declares
-`reasoningEffort: "max"` with `variant: "max"`. Preflight rejects an explicit
-variant that the selected model does not advertise.
+Reasoning policy is explicit per model. The initial paid cohort uses
+`reasoningEffort: "provider-default"` with `variant: null`, preserving its
+out-of-box behavior. Free controls and ceiling campaigns pin the highest
+variant advertised by the refreshed OpenCode catalog. A ceiling label is not
+assumed: DeepSeek V4 Flash currently tops out at `xhigh`, while Luna, Sol, and
+DeepSeek V4 Flash Free advertise `max`. Preflight rejects an explicit variant
+that the selected model does not advertise.
 
 The campaign preflight refreshes OpenCode's model catalog and records each model's status, advertised tool-call capability, context limits, input/output pricing, and provider credential type. A model declared `free` or `subscription` is rejected if the refreshed catalog reports a non-zero base input or output price.
 
