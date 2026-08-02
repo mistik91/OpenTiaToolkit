@@ -183,6 +183,15 @@ solvable without case-shaped tuning. The comparison, exact effort identities,
 costs, and raw artifact paths are in
 `reports/hardware-topology-maximum-effort-escalation-20260802.md`.
 
+`campaigns/hardware-topology-addressing-transfer-free-20260802.json` raises the
+held-out topology bar without changing the skill. `ott-23` uses different
+station and module identities, nonadjacent slots, new process-image ranges, and
+an eight-operation transaction that must assign both IO starts through named
+plug results plus their generated relative children. The unchanged read-only
+topology fixture passed strict-placement, positive, exact inverse, real late
+rollback, and fresh-process proof in
+`reports/ott-23-gold-audit-20260802.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -306,6 +315,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-20` | Cross-domain remap | Coordinate computed hardware moves with guarded PLC-tag address remapping and compilation |
 | `ott-21` | Held-out cross-domain transfer | Transfer coordinated remapping to unrelated identities, descending hardware order, different ranges, and nonzero bit offsets |
 | `ott-22` | ET 200SP topology provisioning | Discover catalog identifiers, create and populate a remote station, recover from displaced placement, wire PROFINET, and verify the final topology |
+| `ott-23` | Held-out ET 200SP topology and addressing | Transfer atomic topology construction to different modules and nonadjacent positions while assigning IO starts through generated result-referenced children |
 
 ## Adding a case
 

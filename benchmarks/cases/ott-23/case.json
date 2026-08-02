@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-23",
+  "title": "Held-out ET 200SP topology and addressing transfer",
+  "description": "Tests transfer of atomic station provisioning to different modules, nonadjacent positions, result-referenced generated IO children, process-image assignment, PROFINET wiring, and strict retry discipline.",
+  "fixtureId": "tia-v21-topology-6",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 900,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "focused-catalog-discovery",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "find_hardware_catalog_items$",
+      "minCount": 3,
+      "outputPatterns": [
+        "OrderNumber:6ES7 155-6AU02-0BN0/V6\\.4",
+        "OrderNumber:6ES7 131-6BH01-0BA0/V0\\.0",
+        "OrderNumber:6ES7 132-6BH01-0BA0/V0\\.0"
+      ]
+    },
+    {
+      "id": "tree-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 2,
+      "outputPatterns": [
+        "PLC_Main",
+        "PackagingBay",
+        "System:Device\\.ET200SP",
+        "Photoeyes",
+        "Pneumatics",
+        "positionNumber\"?\\s*:\\s*3",
+        "positionNumber\"?\\s*:\\s*5"
+      ]
+    },
+    {
+      "id": "network-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_networks$",
+      "minCount": 2,
+      "outputPatterns": [
+        "CellPN",
+        "CellIO",
+        "PackagingBay",
+        "192\\.168\\.0\\.48",
+        "packaging-bay",
+        "PnDeviceNumber",
+        "\"48\""
+      ]
+    },
+    {
+      "id": "io-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "Photoeyes",
+        "Pneumatics",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"72\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"140\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"16\""
+      ]
+    },
+    {
+      "id": "strict-placement-probes",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": true},
+      "minCount": 3,
+      "outputPatterns": [
+        "(?is)Photoeyes.*?placed at.*?PackagingBay/Photoeyes.*?instead of requested.*?PackagingBay/Rack_0/Photoeyes",
+        "(?is)Pneumatics.*?placed at.*?PackagingBay/Pneumatics.*?instead of requested.*?PackagingBay/Rack_0/Pneumatics",
+        "Set allowDisplacedPlacement=true",
+        "\"RolledBack\"\\s*:\\s*true"
+      ]
+    },
+    {
+      "id": "exact-corrected-operation-set",
+      "type": "toolOperationSet",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "operationPath": "operations",
+      "expectedOperations": [
+        {
+          "op": "create-device-with-item",
+          "resultId": "packaging-station",
+          "typeIdentifier": "OrderNumber:6ES7 155-6AU02-0BN0/V6.4",
+          "deviceName": "PackagingBay",
+          "itemName": "PackagingBay"
+        },
+        {
+          "op": "plug-item",
+          "resultId": "photoeyes",
+          "targetRef": "packaging-station",
+          "target": {"itemPath": ["Rack_0"]},
+          "typeIdentifier": "OrderNumber:6ES7 131-6BH01-0BA0/V0.0",
+          "itemName": "Photoeyes",
+          "positionNumber": 3,
+          "allowDisplacedPlacement": true
+        },
+        {
+          "op": "set-io-address-start",
+          "targetRef": "photoeyes",
+          "target": {"itemPath": ["Photoeyes"]},
+          "addressIndex": 0,
+          "startAddress": 72
+        },
+        {
+          "op": "plug-item",
+          "resultId": "pneumatics",
+          "targetRef": "packaging-station",
+          "target": {"itemPath": ["Rack_0"]},
+          "typeIdentifier": "OrderNumber:6ES7 132-6BH01-0BA0/V0.0",
+          "itemName": "Pneumatics",
+          "positionNumber": 5,
+          "allowDisplacedPlacement": true
+        },
+        {
+          "op": "set-io-address-start",
+          "targetRef": "pneumatics",
+          "target": {"itemPath": ["Pneumatics"]},
+          "addressIndex": 0,
+          "startAddress": 140
+        },
+        {
+          "op": "connect-node-to-subnet",
+          "targetRef": "packaging-station",
+          "target": {"itemPath": ["PackagingBay", "PROFINET interface"]},
+          "nodeIndex": 0,
+          "subnetName": "CellPN"
+        },
+        {
+          "op": "connect-io-connector",
+          "targetRef": "packaging-station",
+          "target": {"itemPath": ["PackagingBay", "PROFINET interface"]},
+          "connectorIndex": 0,
+          "ioSystemName": "CellIO"
+        },
+        {
+          "op": "configure-profinet-device",
+          "targetRef": "packaging-station",
+          "target": {"itemPath": ["PackagingBay", "PROFINET interface"]},
+          "ipAddress": "192.168.0.48",
+          "pnDeviceName": "packaging-bay",
+          "pnDeviceNumber": 48
+        }
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "preview-before-apply-sequence",
+      "type": "traceRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*placed at.*?PackagingBay/Photoeyes)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*placed at.*?PackagingBay/Pneumatics)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*WrittenStartAddress\\\"?\\s*:\\s*72)(?=(?:(?!opentia_apply-hardware-patch).)*WrittenStartAddress\\\"?\\s*:\\s*140)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*false)"
+    },
+    {
+      "id": "corrected-preview-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": true},
+      "minCount": 3,
+      "outputPatterns": [
+        "Hardware patch preflighted and rolled back",
+        "\"SafetyBlocked\"\\s*:\\s*false",
+        "\"WrittenStartAddress\"\\s*:\\s*72",
+        "\"WrittenStartAddress\"\\s*:\\s*140",
+        "Connected node to subnet: CellPN",
+        "Connected IO connector to IO system: CellIO",
+        "Configured PROFINET device identity and addressing"
+      ]
+    },
+    {
+      "id": "corrected-apply-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Hardware patch applied",
+        "\"Applied\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*false",
+        "\"WrittenStartAddress\"\\s*:\\s*72",
+        "\"WrittenStartAddress\"\\s*:\\s*140",
+        "192\\.168\\.0\\.48",
+        "packaging-bay",
+        "PnDeviceNumber"
+      ]
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount|Errors)[^0-9]*0",
+        "(?i)(warning count|WarningCount|Warnings)[^0-9]*0"
+      ]
+    }
+  ]
+}
