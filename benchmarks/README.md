@@ -220,6 +220,15 @@ positive, inverse, late-failure rollback, and fresh-process campaigns documented
 in `reports/ott-24-gold-audit-20260802.md`. Maximum-effort V4 Free and Sol
 campaign definitions are frozen for the first model comparison.
 
+That frozen comparison produced a clean capability split. Sol qualified 3/3
+with three scores of 100 and the exact four-call hardware sequence. V4 Free
+reached and verified the requested project in every run but remained 0/3 at
+60/60/75 because it added root-target or unsupported optional-field retries.
+Those failure modes are already covered explicitly by the generic skill, so no
+further skill edit is retained. The trace audit, effort identities, durations,
+and zero-cost accounting are in
+`reports/hardware-family-transfer-sol-v4-20260802.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
