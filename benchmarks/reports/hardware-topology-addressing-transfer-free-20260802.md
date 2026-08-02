@@ -152,3 +152,12 @@ but it is not qualified for strict autonomous topology provisioning on
 repeat generic guidance already present in the frozen skill. The next useful
 comparison is a stronger model on this same held-out case, not another
 case-shaped skill edit.
+
+## Later scorer audit
+
+The subsequent Sol comparison found that the placement assertion did not cap
+the total number of hardware dry-runs. It now requires exactly the three calls
+specified by the prompt. Rescoring these immutable V4 traces under the current
+assertion produces 65/65/65 rather than 75/75/75; qualification remains 0/3.
+See `hardware-topology-addressing-sol-skill-ab-20260802.md` for the audit and
+the controlled Sol skill comparison.

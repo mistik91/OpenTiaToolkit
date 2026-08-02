@@ -194,14 +194,22 @@ rollback, and fresh-process proof in
 
 DeepSeek V4 Flash Free at its advertised `max` variant then completed three
 live `ott-23` trials at zero recorded cost. Every trial reached and verified
-the correct final state and compiled cleanly, but every trial scored 75 and
-failed critical complete-batch retry discipline, leaving the model 0/3 and
-not qualified. A scorer correction made result-reference names
-alpha-equivalent while preserving their binding graph; rescoring did not
-change any score because the rejected traces contained extra semantic
-candidate retries or a wrong requested item name. The frozen skill remained
-unchanged. Full evidence is in
+the correct final state and compiled cleanly, but the model remained 0/3. An
+initial scorer correction made result-reference names alpha-equivalent while
+preserving their binding graph. A later Sol trace audit also made the required
+placement-probe count exact; under the current scorer the V4 trials are
+65/65/65 because every trace contains extra hardware retries. The frozen-skill
+V4 evidence is in
 `reports/hardware-topology-addressing-transfer-free-20260802.md`.
+
+Sol at `max` was then evaluated on the same held-out case. Its corrected frozen
+control scored 90/65/90, still 0/3. One generic skill clarification stopped
+agents from guessing expected address guards for IO children created inside
+the same transaction; the clean candidate improved to a stable 90/90/90 but
+remained 0/3 because every trial first probed the device root instead of the
+discovered rack. That remaining rule was already explicit, so tuning stopped.
+The scorer audit, controlled skill change, costs, and anti-overfitting decision
+are in `reports/hardware-topology-addressing-sol-skill-ab-20260802.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
