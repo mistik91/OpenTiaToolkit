@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-24",
+  "title": "Held-out ET 200MP family topology and addressing transfer",
+  "description": "Tests transfer of atomic remote-I/O provisioning, generated-child address binding, exact preview discipline, and PROFINET wiring to the ET 200MP hardware family.",
+  "fixtureId": "tia-v21-topology-6",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 900,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "focused-catalog-discovery",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "find_hardware_catalog_items$",
+      "minCount": 3,
+      "outputPatterns": [
+        "OrderNumber:6ES7 155-5AA01-0AB0/V4\\.1",
+        "OrderNumber:6ES7 521-1BH00-0AB0/V2\\.2",
+        "OrderNumber:6ES7 522-1BH01-0AB0/V1\\.1"
+      ]
+    },
+    {
+      "id": "tree-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 2,
+      "outputPatterns": [
+        "PLC_Main",
+        "QualityCell",
+        "OrderNumber:6ES7 155-5AA01-0AB0/V4\\.1",
+        "InspectionInputs",
+        "RejectOutputs",
+        "positionNumber\"?\\s*:\\s*2",
+        "positionNumber\"?\\s*:\\s*4"
+      ]
+    },
+    {
+      "id": "network-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_networks$",
+      "minCount": 2,
+      "outputPatterns": [
+        "CellPN",
+        "CellIO",
+        "QualityCell",
+        "192\\.168\\.0\\.56",
+        "quality-cell",
+        "PnDeviceNumber",
+        "\"56\""
+      ]
+    },
+    {
+      "id": "io-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "InspectionInputs",
+        "RejectOutputs",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"96\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"152\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"16\""
+      ]
+    },
+    {
+      "id": "strict-placement-probes",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": true},
+      "minCount": 3,
+      "maxCount": 3,
+      "outputPatterns": [
+        "(?is)InspectionInputs.*?placed at.*?QualityCell/InspectionInputs.*?instead of requested.*?QualityCell/Rail_0/InspectionInputs",
+        "(?is)RejectOutputs.*?placed at.*?QualityCell/RejectOutputs.*?instead of requested.*?QualityCell/Rail_0/RejectOutputs",
+        "Set allowDisplacedPlacement=true",
+        "\"RolledBack\"\\s*:\\s*true"
+      ]
+    },
+    {
+      "id": "exact-corrected-operation-set",
+      "type": "toolOperationSet",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "operationPath": "operations",
+      "normalizeResultReferences": true,
+      "expectedOperations": [
+        {
+          "op": "create-device-with-item",
+          "resultId": "quality-station",
+          "typeIdentifier": "OrderNumber:6ES7 155-5AA01-0AB0/V4.1",
+          "deviceName": "QualityCell",
+          "itemName": "QualityCell"
+        },
+        {
+          "op": "plug-item",
+          "resultId": "inspection-inputs",
+          "targetRef": "quality-station",
+          "target": {"itemPath": ["Rail_0"]},
+          "typeIdentifier": "OrderNumber:6ES7 521-1BH00-0AB0/V2.2",
+          "itemName": "InspectionInputs",
+          "positionNumber": 2,
+          "allowDisplacedPlacement": true
+        },
+        {
+          "op": "set-io-address-start",
+          "targetRef": "inspection-inputs",
+          "target": {"itemPath": ["InspectionInputs"]},
+          "addressIndex": 0,
+          "startAddress": 96
+        },
+        {
+          "op": "plug-item",
+          "resultId": "reject-outputs",
+          "targetRef": "quality-station",
+          "target": {"itemPath": ["Rail_0"]},
+          "typeIdentifier": "OrderNumber:6ES7 522-1BH01-0AB0/V1.1",
+          "itemName": "RejectOutputs",
+          "positionNumber": 4,
+          "allowDisplacedPlacement": true
+        },
+        {
+          "op": "set-io-address-start",
+          "targetRef": "reject-outputs",
+          "target": {"itemPath": ["RejectOutputs"]},
+          "addressIndex": 0,
+          "startAddress": 152
+        },
+        {
+          "op": "connect-node-to-subnet",
+          "targetRef": "quality-station",
+          "target": {"itemPath": ["QualityCell", "PROFINET interface"]},
+          "nodeIndex": 0,
+          "subnetName": "CellPN"
+        },
+        {
+          "op": "connect-io-connector",
+          "targetRef": "quality-station",
+          "target": {"itemPath": ["QualityCell", "PROFINET interface"]},
+          "connectorIndex": 0,
+          "ioSystemName": "CellIO"
+        },
+        {
+          "op": "configure-profinet-device",
+          "targetRef": "quality-station",
+          "target": {"itemPath": ["QualityCell", "PROFINET interface"]},
+          "ipAddress": "192.168.0.56",
+          "pnDeviceName": "quality-cell",
+          "pnDeviceNumber": 56
+        }
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "preview-before-apply-without-guessed-guards",
+      "type": "traceRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*placed at.*?QualityCell/InspectionInputs)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*placed at.*?QualityCell/RejectOutputs)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?!(?:(?!opentia_apply-hardware-patch).)*expectedStartAddress)(?=(?:(?!opentia_apply-hardware-patch).)*WrittenStartAddress\\\"?\\s*:\\s*96)(?=(?:(?!opentia_apply-hardware-patch).)*WrittenStartAddress\\\"?\\s*:\\s*152)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_get-hardware-tree).)*\\\"dry-run\\\"\\s*:\\s*false)(?!(?:(?!opentia_get-hardware-tree).)*expectedStartAddress)(?:(?!opentia_get-hardware-tree).)*opentia_get-hardware-tree"
+    },
+    {
+      "id": "corrected-preview-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": true},
+      "minCount": 3,
+      "maxCount": 3,
+      "outputPatterns": [
+        "Hardware patch preflighted and rolled back",
+        "\"SafetyBlocked\"\\s*:\\s*false",
+        "\"WrittenStartAddress\"\\s*:\\s*96",
+        "\"WrittenStartAddress\"\\s*:\\s*152",
+        "Connected node to subnet: CellPN",
+        "Connected IO connector to IO system: CellIO",
+        "Configured PROFINET device identity and addressing"
+      ]
+    },
+    {
+      "id": "corrected-apply-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Hardware patch applied",
+        "\"Applied\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*false",
+        "\"WrittenStartAddress\"\\s*:\\s*96",
+        "\"WrittenStartAddress\"\\s*:\\s*152",
+        "192\\.168\\.0\\.56",
+        "quality-cell",
+        "PnDeviceNumber"
+      ]
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount|Errors)[^0-9]*0",
+        "(?i)(warning count|WarningCount|Warnings)[^0-9]*0"
+      ]
+    }
+  ]
+}

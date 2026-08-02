@@ -211,6 +211,15 @@ discovered rack. That remaining rule was already explicit, so tuning stopped.
 The scorer audit, controlled skill change, costs, and anti-overfitting decision
 are in `reports/hardware-topology-addressing-sol-skill-ab-20260802.md`.
 
+`ott-24` then moves the held-out transfer to the ET 200MP family without any
+further skill change. It uses unrelated interface and HF I/O modules, a rail
+topology, new identities and address ranges, and explicitly scores the absence
+of guessed expected-state guards on address children created inside the same
+transaction. The immutable fixture passed the exact two-stage placement retry,
+positive, inverse, late-failure rollback, and fresh-process campaigns documented
+in `reports/ott-24-gold-audit-20260802.md`. Maximum-effort V4 Free and Sol
+campaign definitions are frozen for the first model comparison.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -335,6 +344,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-21` | Held-out cross-domain transfer | Transfer coordinated remapping to unrelated identities, descending hardware order, different ranges, and nonzero bit offsets |
 | `ott-22` | ET 200SP topology provisioning | Discover catalog identifiers, create and populate a remote station, recover from displaced placement, wire PROFINET, and verify the final topology |
 | `ott-23` | Held-out ET 200SP topology and addressing | Transfer atomic topology construction to different modules and nonadjacent positions while assigning IO starts through generated result-referenced children |
+| `ott-24` | Held-out ET 200MP family transfer | Transfer the complete topology-and-addressing workflow to a different hardware family without guessing generated-child state |
 
 ## Adding a case
 
