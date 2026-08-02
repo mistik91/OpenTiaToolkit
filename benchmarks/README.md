@@ -192,6 +192,17 @@ topology fixture passed strict-placement, positive, exact inverse, real late
 rollback, and fresh-process proof in
 `reports/ott-23-gold-audit-20260802.md`.
 
+DeepSeek V4 Flash Free at its advertised `max` variant then completed three
+live `ott-23` trials at zero recorded cost. Every trial reached and verified
+the correct final state and compiled cleanly, but every trial scored 75 and
+failed critical complete-batch retry discipline, leaving the model 0/3 and
+not qualified. A scorer correction made result-reference names
+alpha-equivalent while preserving their binding graph; rescoring did not
+change any score because the rejected traces contained extra semantic
+candidate retries or a wrong requested item name. The frozen skill remained
+unchanged. Full evidence is in
+`reports/hardware-topology-addressing-transfer-free-20260802.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -320,3 +331,8 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 ## Adding a case
 
 Copy an existing `cases/ott-*` directory, keep the prompt separate from `case.json`, and run the definition test. Prefer assertions against tool names, structured inputs, and tool outputs over stylistic final-answer checks. Give irreversible or unsafe conditions a critical assertion.
+
+`toolOperationSet` compares operation arrays without imposing array or object
+property order. Set `normalizeResultReferences: true` when `resultId` values
+are agent-chosen local names: the evaluator then accepts consistent bijective
+renaming across `resultId`/`targetRef` while still rejecting broken bindings.

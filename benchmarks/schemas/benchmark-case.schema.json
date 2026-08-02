@@ -125,6 +125,9 @@
             "type": "object"
           }
         },
+        "normalizeResultReferences": {
+          "type": "boolean"
+        },
         "outputPatterns": {
           "type": "array",
           "items": {

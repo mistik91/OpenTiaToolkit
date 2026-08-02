@@ -231,6 +231,27 @@ try {
     Invoke-TransferAssertionTest -Label 'representative' `
         -Events (New-TransferEvents -CorrectedOperations $correctedOperations)
 
+    $renamedReferences = @($correctedOperations | ForEach-Object {
+            $_ | ConvertTo-Json -Depth 30 | ConvertFrom-Json
+        })
+    $referenceAliases = @{
+        'packaging-station' = 'station'
+        'photoeyes' = 'input-module'
+        'pneumatics' = 'output-module'
+    }
+    foreach ($operation in $renamedReferences) {
+        if ($null -ne $operation.PSObject.Properties['resultId'] -and
+            $referenceAliases.ContainsKey([string]$operation.resultId)) {
+            $operation.resultId = $referenceAliases[[string]$operation.resultId]
+        }
+        if ($null -ne $operation.PSObject.Properties['targetRef'] -and
+            $referenceAliases.ContainsKey([string]$operation.targetRef)) {
+            $operation.targetRef = $referenceAliases[[string]$operation.targetRef]
+        }
+    }
+    Invoke-TransferAssertionTest -Label 'renamed-result-references' `
+        -Events (New-TransferEvents -CorrectedOperations $renamedReferences)
+
     $wrongChild = @($correctedOperations | ForEach-Object {
             $_ | ConvertTo-Json -Depth 30 | ConvertFrom-Json
         })

@@ -105,6 +105,7 @@
       "critical": true,
       "namePattern": "apply_hardware_patch$",
       "operationPath": "operations",
+      "normalizeResultReferences": true,
       "expectedOperations": [
         {
           "op": "create-device-with-item",

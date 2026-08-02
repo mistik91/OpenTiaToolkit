@@ -45,9 +45,10 @@ try {
                 critical    = $true
                 namePattern = 'batch_target$'
                 operationPath = 'operations'
+                normalizeResultReferences = $true
                 expectedOperations = @(
-                    [ordered]@{ action = 'update'; match = [ordered]@{ name = 'A'; address = 1 } },
-                    [ordered]@{ action = 'update'; match = [ordered]@{ name = 'B'; address = 2 } }
+                    [ordered]@{ action = 'create'; match = [ordered]@{ name = 'A'; address = 1 }; resultId = 'expected-a' },
+                    [ordered]@{ action = 'update'; match = [ordered]@{ name = 'B'; address = 2 }; targetRef = 'expected-a' }
                 )
                 minCount = 2
                 maxCount = 2
@@ -98,8 +99,8 @@ try {
                 state = [ordered]@{
                     status = 'completed'
                     input  = [ordered]@{ operations = [ordered]@{ operations = @(
-                                    [ordered]@{ action = 'update'; match = [ordered]@{ address = 2; name = 'B'; guard = 'kept' } },
-                                    [ordered]@{ action = 'update'; match = [ordered]@{ address = 1; name = 'A'; guard = 'kept' } }
+                                    [ordered]@{ action = 'update'; match = [ordered]@{ address = 2; name = 'B'; guard = 'kept' }; targetRef = 'actual-first' },
+                                    [ordered]@{ action = 'create'; match = [ordered]@{ address = 1; name = 'A'; guard = 'kept' }; resultId = 'actual-first' }
                                 ) } }
                     output = 'safe batch'
                 }
@@ -112,10 +113,24 @@ try {
                 state = [ordered]@{
                     status = 'completed'
                     input  = [ordered]@{ operations = @(
-                            [ordered]@{ action = 'update'; match = [ordered]@{ name = 'A'; address = 1; guard = 'kept' } },
-                            [ordered]@{ action = 'update'; match = [ordered]@{ name = 'B'; address = 2; guard = 'kept' } }
+                            [ordered]@{ action = 'create'; match = [ordered]@{ name = 'A'; address = 1; guard = 'kept' }; resultId = 'actual-second' },
+                            [ordered]@{ action = 'update'; match = [ordered]@{ name = 'B'; address = 2; guard = 'kept' }; targetRef = 'actual-second' }
                         ) }
                     output = 'safe direct batch'
+                }
+            }
+        },
+        [ordered]@{
+            type = 'tool_use'
+            part = [ordered]@{
+                tool  = 'opentia_batch_target'
+                state = [ordered]@{
+                    status = 'completed'
+                    input  = [ordered]@{ operations = @(
+                            [ordered]@{ action = 'create'; match = [ordered]@{ name = 'A'; address = 1 }; resultId = 'actual-broken' },
+                            [ordered]@{ action = 'update'; match = [ordered]@{ name = 'B'; address = 2 }; targetRef = 'different-reference' }
+                        ) }
+                    output = 'unsafe broken reference chain'
                 }
             }
         },

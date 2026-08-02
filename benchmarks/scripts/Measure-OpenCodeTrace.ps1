@@ -140,7 +140,8 @@ function Get-PropertyPathValue {
 function Test-OperationSet {
     param(
         [AllowNull()][object]$ActualOperations,
-        [AllowNull()][object]$ExpectedOperations
+        [AllowNull()][object]$ExpectedOperations,
+        [bool]$NormalizeResultReferences = $false
     )
 
     $nestedOperationsFound = $false
@@ -156,6 +157,16 @@ function Test-OperationSet {
     $expected = @($ExpectedOperations)
     if ($actual.Count -ne $expected.Count) {
         return $false
+    }
+
+    if ($NormalizeResultReferences) {
+        return Test-OperationSetWithNormalizedResultReferences `
+            -ActualOperations $actual `
+            -ExpectedOperations $expected `
+            -ExpectedIndex 0 `
+            -Used ([bool[]]::new($actual.Count)) `
+            -ExpectedToActual @{} `
+            -ActualToExpected @{}
     }
 
     $used = [bool[]]::new($actual.Count)
@@ -174,6 +185,138 @@ function Test-OperationSet {
         }
     }
     return $true
+}
+
+function Test-ValueSubsetWithNormalizedResultReferences {
+    param(
+        [AllowNull()][object]$Actual,
+        [AllowNull()][object]$Expected,
+        [Parameter(Mandatory = $true)][hashtable]$ExpectedToActual,
+        [Parameter(Mandatory = $true)][hashtable]$ActualToExpected
+    )
+
+    if ($null -eq $Expected) {
+        return $null -eq $Actual
+    }
+
+    if ($Expected -is [System.Management.Automation.PSCustomObject] -or
+        $Expected -is [System.Collections.IDictionary]) {
+        if ($null -eq $Actual) {
+            return $false
+        }
+        foreach ($property in $Expected.PSObject.Properties) {
+            $actualProperty = $Actual.PSObject.Properties[$property.Name]
+            if ($null -eq $actualProperty) {
+                return $false
+            }
+
+            if ($property.Name -in @('resultId', 'targetRef') -and
+                $property.Value -is [string]) {
+                if ($actualProperty.Value -isnot [string]) {
+                    return $false
+                }
+
+                $expectedReference = [string]$property.Value
+                $actualReference = [string]$actualProperty.Value
+                if ($ExpectedToActual.ContainsKey($expectedReference)) {
+                    if ([string]$ExpectedToActual[$expectedReference] -cne $actualReference) {
+                        return $false
+                    }
+                }
+                elseif ($ActualToExpected.ContainsKey($actualReference)) {
+                    return $false
+                }
+                else {
+                    $ExpectedToActual[$expectedReference] = $actualReference
+                    $ActualToExpected[$actualReference] = $expectedReference
+                }
+            }
+            elseif (-not (Test-ValueSubsetWithNormalizedResultReferences `
+                        -Actual $actualProperty.Value `
+                        -Expected $property.Value `
+                        -ExpectedToActual $ExpectedToActual `
+                        -ActualToExpected $ActualToExpected)) {
+                return $false
+            }
+        }
+        return $true
+    }
+
+    if ($Expected -is [System.Collections.IEnumerable] -and $Expected -isnot [string]) {
+        if ($null -eq $Actual -or $Actual -is [string]) {
+            return $false
+        }
+        $expectedItems = @($Expected)
+        $actualItems = @($Actual)
+        if ($expectedItems.Count -ne $actualItems.Count) {
+            return $false
+        }
+        for ($index = 0; $index -lt $expectedItems.Count; $index++) {
+            if (-not (Test-ValueSubsetWithNormalizedResultReferences `
+                        -Actual $actualItems[$index] `
+                        -Expected $expectedItems[$index] `
+                        -ExpectedToActual $ExpectedToActual `
+                        -ActualToExpected $ActualToExpected)) {
+                return $false
+            }
+        }
+        return $true
+    }
+
+    return (($Actual | ConvertTo-Json -Depth 100 -Compress) -ceq
+        ($Expected | ConvertTo-Json -Depth 100 -Compress))
+}
+
+function Test-OperationSetWithNormalizedResultReferences {
+    param(
+        [Parameter(Mandatory = $true)][object[]]$ActualOperations,
+        [Parameter(Mandatory = $true)][object[]]$ExpectedOperations,
+        [Parameter(Mandatory = $true)][int]$ExpectedIndex,
+        [Parameter(Mandatory = $true)][bool[]]$Used,
+        [Parameter(Mandatory = $true)][hashtable]$ExpectedToActual,
+        [Parameter(Mandatory = $true)][hashtable]$ActualToExpected
+    )
+
+    if ($ExpectedIndex -ge $ExpectedOperations.Count) {
+        return $true
+    }
+
+    for ($actualIndex = 0; $actualIndex -lt $ActualOperations.Count; $actualIndex++) {
+        if ($Used[$actualIndex]) {
+            continue
+        }
+
+        $nextUsed = [bool[]]$Used.Clone()
+        $nextExpectedToActual = @{}
+        foreach ($entry in $ExpectedToActual.GetEnumerator()) {
+            $nextExpectedToActual[$entry.Key] = $entry.Value
+        }
+        $nextActualToExpected = @{}
+        foreach ($entry in $ActualToExpected.GetEnumerator()) {
+            $nextActualToExpected[$entry.Key] = $entry.Value
+        }
+
+        if (-not (Test-ValueSubsetWithNormalizedResultReferences `
+                    -Actual $ActualOperations[$actualIndex] `
+                    -Expected $ExpectedOperations[$ExpectedIndex] `
+                    -ExpectedToActual $nextExpectedToActual `
+                    -ActualToExpected $nextActualToExpected)) {
+            continue
+        }
+
+        $nextUsed[$actualIndex] = $true
+        if (Test-OperationSetWithNormalizedResultReferences `
+                -ActualOperations $ActualOperations `
+                -ExpectedOperations $ExpectedOperations `
+                -ExpectedIndex ($ExpectedIndex + 1) `
+                -Used $nextUsed `
+                -ExpectedToActual $nextExpectedToActual `
+                -ActualToExpected $nextActualToExpected) {
+            return $true
+        }
+    }
+
+    return $false
 }
 
 function Convert-ValueToText {
@@ -314,6 +457,8 @@ foreach ($assertion in $case.assertions) {
         'toolOperationSet' {
             $namePattern = [string]$assertion.namePattern
             $operationPath = [string]$assertion.operationPath
+            $normalizeResultReferences = $null -ne $assertion.PSObject.Properties['normalizeResultReferences'] -and
+                [bool]$assertion.normalizeResultReferences
             $matchingTools = @($toolEvents | Where-Object {
                     if ((([string]$_.part.tool -replace '-', '_') -notmatch $namePattern) -or
                         -not (Test-InputEquals -InputObject $_.part.state.input -Expected $expectedInput)) {
@@ -325,7 +470,10 @@ foreach ($assertion in $case.assertions) {
                         -Path $operationPath `
                         -Found ([ref]$foundOperations)
                     return $foundOperations -and
-                        (Test-OperationSet -ActualOperations $actualOperations -ExpectedOperations $assertion.expectedOperations)
+                        (Test-OperationSet `
+                            -ActualOperations $actualOperations `
+                            -ExpectedOperations $assertion.expectedOperations `
+                            -NormalizeResultReferences $normalizeResultReferences)
                 })
             $minimum = if ($null -ne $assertion.PSObject.Properties['minCount']) {
                 [int]$assertion.minCount
