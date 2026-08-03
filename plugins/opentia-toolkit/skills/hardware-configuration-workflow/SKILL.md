@@ -16,7 +16,7 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
 1. Establish TIA context with `basic-tia-interaction` when the instance/project is not already proven. For greenfield work, create the project first with `create-project --project-path`.
 2. Discover the current hardware shape with `get-hardware-tree`, scoped by `device-name` when possible. For PROFINET work, also inspect `get-hardware-networks`; project IO-system `connectedIoDevices` can contain GSD/GSDML IO devices that are not visible as top-level `Project.Devices`.
 3. Discover catalog and type identifiers with `find-hardware-catalog-items` or `find-hardware-module-types`.
-4. Decide whether creation is standalone or transactional before any create call. If the request also plugs modules, connects networks, sets identity, assigns addresses, or performs other follow-up configuration on the new station, never call `add-device`, even as a probe. Start `apply-hardware-patch` with `create-device` or `create-device-with-item`, assign a `resultId`, and use `targetRef` for every dependent operation. Reserve `add-device` for a request whose intended result ends after standalone device creation. For a proposed plug, call `can-plug-hardware-item` before creating a patch.
+4. Decide whether creation is standalone or transactional before any create call. If the request also plugs modules, connects networks, sets identity, assigns addresses, or performs other follow-up configuration on the new station, never call `add-device`, even as a probe. Start `apply-hardware-patch` with `create-device` or `create-device-with-item`, assign a `resultId`, and use `targetRef` for every dependent operation. Reserve `add-device` for a request whose intended result ends after standalone device creation. For a proposed plug into a parent that already exists in the project, call `can-plug-hardware-item` before creating a patch. Do not call it for a parent that will be created or generated inside the same patch: the read-only command cannot resolve a future object or `resultId`. Validate that plug through the complete transactional dry-run instead, and never create or apply a temporary device solely to make the precheck possible.
 5. Inspect feature services with `get-hardware-item-capabilities` before writing attributes.
 6. Read current network, IO, telegram, or GSD state using the narrowest command:
    - `get-hardware-networks`
@@ -69,6 +69,12 @@ Before the first topology preview, check every dependent target explicitly:
 - Set `nodeIndex` on `connect-node-to-subnet` and `connectorIndex` on
   `connect-io-connector`, even when the discovered index is zero. Do not use
   `ioConnectorIndex` as an alias.
+
+Treat the complete dry-run as the capability preflight for every parent or
+child created by that batch. `can-plug-hardware-item` accepts only a target
+that already exists in the open project; it cannot inspect a transaction
+result reference. Do not split an atomic topology or apply a disposable
+partial station merely to run that read-only check.
 
 Keep the complete candidate batch intact while learning TIA placement. Start
 each `plug-item` without `allowDisplacedPlacement`. When a dry-run reports a

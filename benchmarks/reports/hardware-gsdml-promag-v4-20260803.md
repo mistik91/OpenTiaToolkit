@@ -1,13 +1,14 @@
-# Third-party Promag GSDML: gold proof and paid V4 qualification
+# INVALID - third-party Promag GSDML paid V4 pilot
 
 Date: 2026-08-03
 
 ## Outcome
 
-`ott-26` is valid, live-solvable, and not saturated. It extends the hardware
-benchmark beyond Siemens catalog devices into an installed third-party
-Endress+Hauser GSDML package. Paid DeepSeek V4 Flash at its advertised maximum
-effort did not qualify:
+This campaign is retained as diagnostic evidence but withdrawn from model
+qualification. The frozen case required `can-plug-hardware-item` calls against
+`FT_101/Totalizer_1` before the atomic patch created `FT_101`. The public
+command can resolve only objects already present in the project, making that
+critical assertion impossible. Paid DeepSeek V4 Flash produced:
 
 | Trial | Canonical score | Qualified | Duration | Reasoning tokens | Cost |
 | ---: | ---: | :---: | ---: | ---: | ---: |
@@ -16,10 +17,10 @@ effort did not qualify:
 | 3 | 70 | no | 712.394 s | 13,811 | $0.189174412 |
 | **Aggregate** | **41.67 mean** | **0/3** | **658.255 s mean** | **20,233.67 mean** | **$0.564401660** |
 
-All three trials are valid for model comparison. Trial 2 is a valid model
-runtime failure rather than an endpoint failure. Cost per passed trial is
-undefined because no trial qualified. The campaign remained below its $1.00
-ceiling.
+The original `validForModelComparison` fields establish endpoint/runtime
+health only; they do not override the subsequently discovered case-contract
+defect. Do not compare these scores with corrected `ott-26` campaigns or use
+them to qualify V4. The recorded $0.564401660 remains real OpenRouter spend.
 
 ## Frozen boundary
 
@@ -115,15 +116,14 @@ retains the original `result.json` and adds
 This correction does not make the benchmark easier: it removes a textual
 false negative while preserving every transaction-history failure.
 
-## Decision and boundary
+## Corrected decision and boundary
 
-Keep `ott-26` and the generic hardware skill unchanged. The skill already
-states the rules V4 violated: probe placements separately, preserve a complete
-batch through recovery, use exact result-reference chaining, guard an existing
-GSD value, preview before apply, and independently verify the result. The gold
-run proves those instructions and toolkit operations are sufficient. Adding
-Promag paths, record bytes, or this retry history to the generic skill would be
-case-shaped overfitting.
+Withdraw this campaign and rerun models only against the corrected case. The
+generic hardware skill now distinguishes an existing plug parent, where
+`can-plug-hardware-item` is valid, from a parent generated inside the same
+patch, where the complete transactional dry-run is the only valid capability
+preflight. This is a reusable command-lifecycle rule, not Promag-specific
+tuning.
 
 This case proves work with a third-party GSDML package already installed in
 TIA. It deliberately does not claim coverage of importing a vendor package,

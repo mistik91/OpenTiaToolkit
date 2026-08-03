@@ -95,7 +95,8 @@ function New-GsdmlEvents {
         [Parameter(Mandatory = $true)][object[]]$CorrectedOperations,
         [switch]$ApplyBeforePreview,
         [switch]$PrematureBothDisplaced,
-        [switch]$OmitGsdReadback
+        [switch]$OmitGsdReadback,
+        [switch]$ImpossibleCapabilityProbe
     )
 
     $strictOperations = Copy-Operations -Operations $CorrectedOperations
@@ -131,6 +132,18 @@ function New-GsdmlEvents {
 
     $placementEvents = if ($PrematureBothDisplaced) { @($controlFailure) } else { @($controlFailure, $modeFailure) }
     $mutationEvents = if ($ApplyBeforePreview) { @($apply, $preview) } else { @($preview, $apply) }
+    $capabilityEvents = if ($ImpossibleCapabilityProbe) {
+        @(
+            (New-ToolEvent -Tool 'opentia_can-plug-hardware-item' -InputObject @{
+                    'device-name' = 'FT_101'; 'item-path' = 'Totalizer_1';
+                    'type-identifier' = 'GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/SM/51';
+                    'item-name' = 'TotalizerControl'; 'position-number' = 1
+                } -Output '{"message":"Device not found: FT_101"}' -ErrorOutput)
+        )
+    }
+    else {
+        @()
+    }
     $readbackEvents = @(
         (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{'device-name' = 'FT_101'} -Output '{"deviceName":"FT_101","typeIdentifier":"GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/DAP/DAP 1","items":[{"name":"Volume flow_1","positionNumber":1},{"name":"Totalizer_1","positionNumber":11},{"name":"TotalizerControl","positionNumber":1},{"name":"TotalizerMode","positionNumber":2}]}'),
         (New-ToolEvent -Tool 'opentia_get-hardware-networks' -InputObject @{'device-name' = 'FT_101'} -Output '{"deviceName":"FT_101","connectedSubnet":"CellPN","connectedIoSystemName":"CellIO","Address":"192.168.0.61","PnDeviceName":"feed-flow-101","PnDeviceNumber":"61"}'),
@@ -147,10 +160,8 @@ function New-GsdmlEvents {
         (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output '{"deviceName":"PLC_Main"}'),
         (New-ToolEvent -Tool 'opentia_get-hardware-networks' -InputObject @{} -Output '{"deviceName":"PLC_Main","subnet":"CellPN","ioSystem":"CellIO"}'),
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output '[]'),
-        (New-ToolEvent -Tool 'opentia_find-hardware-catalog-items' -InputObject @{'search-text' = 'Promag 100'} -Output 'GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/DAP/DAP 1 GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/M/50 GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/SM/51 GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/SM/58'),
-        (New-ToolEvent -Tool 'opentia_can-plug-hardware-item' -InputObject @{ 'item-name' = 'TotalizerControl'; 'position-number' = 1 } -Output '{"ItemName":"TotalizerControl","PositionNumber":1,"CanPlug":true}'),
-        (New-ToolEvent -Tool 'opentia_can-plug-hardware-item' -InputObject @{ 'item-name' = 'TotalizerMode'; 'position-number' = 2 } -Output '{"ItemName":"TotalizerMode","PositionNumber":2,"CanPlug":true}')
-    ) + $placementEvents + $mutationEvents + $readbackEvents
+        (New-ToolEvent -Tool 'opentia_find-hardware-catalog-items' -InputObject @{'search-text' = 'Promag 100'} -Output 'GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/DAP/DAP 1 GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/M/50 GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/SM/51 GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/SM/58')
+    ) + $capabilityEvents + $placementEvents + $mutationEvents + $readbackEvents
 }
 
 try {
@@ -168,6 +179,11 @@ try {
     )
 
     Invoke-GsdmlAssertionTest -Label 'representative' -Events (New-GsdmlEvents -CorrectedOperations $operations)
+
+    Invoke-GsdmlAssertionTest -Label 'impossible-generated-parent-capability-probe' `
+        -Events (New-GsdmlEvents -CorrectedOperations $operations -ImpossibleCapabilityProbe) `
+        -ExpectedPassed $false `
+        -ExpectedFailedAssertion 'no-generated-parent-capability-probe'
 
     $equivalentHex = Copy-Operations -Operations $operations
     $equivalentHexOperation = @($equivalentHex | Where-Object op -eq 'set-gsd-parameter-data')[0]

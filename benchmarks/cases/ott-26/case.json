@@ -72,20 +72,11 @@
       ]
     },
     {
-      "id": "submodule-plug-capabilities",
-      "type": "tool",
+      "id": "no-generated-parent-capability-probe",
+      "type": "forbiddenTool",
       "points": 5,
       "critical": true,
-      "namePattern": "can_plug_hardware_item$",
-      "minCount": 2,
-      "maxCount": 2,
-      "outputPatterns": [
-        "TotalizerControl",
-        "PositionNumber\"?\\s*:\\s*1",
-        "TotalizerMode",
-        "PositionNumber\"?\\s*:\\s*2",
-        "CanPlug\"?\\s*:\\s*true"
-      ]
+      "namePattern": "can_plug_hardware_item$"
     },
     {
       "id": "io-baseline-and-readback",

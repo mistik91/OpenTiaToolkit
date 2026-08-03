@@ -67,9 +67,13 @@ with zero errors and zero warnings.
 
 ## Strict placement and positive proof
 
-`can-plug-hardware-item` proved `TotalizerControl` at toolkit position 1 and
-`TotalizerMode` at toolkit position 2 against the generated `Totalizer_1`
-parent.
+An earlier version of this audit described `can-plug-hardware-item` against
+the generated `Totalizer_1` parent as a pre-transaction proof. That was
+incorrect: the public read-only command resolves only targets that already
+exist in the open project, while `Totalizer_1` is created by the DAP inside
+the atomic patch. The corrected contract does not create or apply a temporary
+station for that check. The complete transactional dry-runs below are the
+capability and placement proof for both generated-parent plugs.
 
 The first complete strict dry-run created the DAP and reached the control
 plug. TIA placed that item at `FT_101/TotalizerControl`, not the requested
@@ -122,6 +126,7 @@ zero errors and zero warnings.
 The mechanical scorer regression suite gives the representative trace 100 and
 independently rejects:
 
+- any impossible `can-plug-hardware-item` probe against the future station;
 - a GSD write without `expectedDataHex`;
 - apply before the complete corrected preview;
 - pre-enabling the unprobed sibling displacement; and
