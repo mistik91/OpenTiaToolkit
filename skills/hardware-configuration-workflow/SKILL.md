@@ -112,6 +112,11 @@ Treat these as destructive and require explicit user confirmation before apply:
 
 For GSD/GSDML parameters, read current bytes first and record the dataset number, byte offset, length, and expected old value. Do not infer vendor-specific byte meanings from the generic toolkit.
 
+For `set-gsd-parameter-data`, use the exact fields `dataHex` for the new bytes
+and `expectedDataHex` for the observed old bytes. `data`, `expectedData`, and
+other guessed aliases do not bind those values and can silently remove the
+intended guard.
+
 For GSD/GSDML submodules, TIA may legally place the created item somewhere other than the requested parent path. The generic workaround is to dry-run first without `allowDisplacedPlacement`, inspect the actual path reported by the failure, and only opt in with `allowDisplacedPlacement=true` when that actual layout is acceptable. Put a `resultId` on that `plug-item` and use the `resultId` for subsequent IO address, parameter, delete, or attribute operations. Keep the command surface generic; do not introduce a new command when the workflow can be expressed through actual-path reporting and `resultId`.
 
 ## PROFINET And IO Notes
