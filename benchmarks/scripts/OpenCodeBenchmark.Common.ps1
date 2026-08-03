@@ -228,6 +228,20 @@ function Get-BenchmarkTrialExecutionFailureKind {
     return $null
 }
 
+function Test-BenchmarkTrialRuntimeFailure {
+    param([Parameter(Mandatory = $true)][object]$Trial)
+
+    if (-not (Test-BenchmarkTrialValidForModelComparison -Trial $Trial)) {
+        return $true
+    }
+    $timedOutProperty = $Trial.PSObject.Properties['timedOut']
+    if ($null -ne $timedOutProperty -and [bool]$timedOutProperty.Value) {
+        return $true
+    }
+    $exitCodeProperty = $Trial.PSObject.Properties['exitCode']
+    return $null -ne $exitCodeProperty -and [int]$exitCodeProperty.Value -ne 0
+}
+
 function Get-BenchmarkModelStatus {
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Trials,
@@ -241,8 +255,8 @@ function Get-BenchmarkModelStatus {
     $hasEndpointInvalid = @($invalidItems | Where-Object {
             (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -eq 'provider-error'
         }).Count -gt 0
-    $hasRuntimeFailure = $invalidItems.Count -gt 0 -or @($items | Where-Object {
-            [bool]$_.timedOut -or [int]$_.exitCode -ne 0
+    $hasRuntimeFailure = @($items | Where-Object {
+            Test-BenchmarkTrialRuntimeFailure -Trial $_
         }).Count -gt 0
     $hasCriticalFailure = @($items | Where-Object {
             (Test-BenchmarkTrialValidForModelComparison -Trial $_) -and [bool]$_.criticalFailure
@@ -312,8 +326,7 @@ function Get-BenchmarkTrialStatistics {
     $passedCount = @($validItems | Where-Object { [bool]$_.passed }).Count
     $criticalFailureCount = @($validItems | Where-Object { [bool]$_.criticalFailure }).Count
     $runtimeFailureCount = @($items | Where-Object {
-            -not (Test-BenchmarkTrialValidForModelComparison -Trial $_) -or
-            [bool]$_.timedOut -or [int]$_.exitCode -ne 0
+            Test-BenchmarkTrialRuntimeFailure -Trial $_
         }).Count
     $scores = @($validItems | ForEach-Object { [double]$_.score })
     $rawScores = @($items | ForEach-Object { [double]$_.score })

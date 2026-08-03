@@ -646,6 +646,7 @@ foreach ($requestedCaseId in $CaseId) {
         passed          = [bool]$result.passed
         durationSeconds = [double]$result.durationSeconds
         timedOut        = [bool]$result.timedOut
+        exitCode        = [int]$result.exitCode
         validForModelComparison = [bool]$result.validForModelComparison
         executionFailureKind = $executionFailureKind
         criticalFailure = @($result.assertions |

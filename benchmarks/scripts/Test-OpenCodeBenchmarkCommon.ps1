@@ -79,6 +79,20 @@ try {
         throw 'Endpoint-invalid model status was not preserved.'
     }
 
+    $legacyCompactStatistics = Get-BenchmarkTrialStatistics -Trials @(
+        [pscustomobject]@{
+            caseId = 'ott-01'; score = 100; passed = $true; criticalFailure = $false
+            cost = 0; durationSeconds = 1
+        }
+    )
+    if ([int]$legacyCompactStatistics.runtimeFailureCount -ne 0 -or
+        (Get-BenchmarkModelStatus -Trials @(
+                [pscustomobject]@{
+                    passed = $true; criticalFailure = $false
+                }) -ExpectedTrialCount 1) -ne 'qualified') {
+        throw 'Legacy compact trial records without runtime fields were not treated as successful defaults.'
+    }
+
     if ((Get-BenchmarkExpectedTrialCount -CaseIds 'ott-14' -TrialCount 3) -ne 3 -or
         (Get-BenchmarkExpectedTrialCount -CaseIds @('ott-01', 'ott-14') -TrialCount 3) -ne 6) {
         throw 'Expected trial count did not preserve scalar and multi-case campaign selections.'
