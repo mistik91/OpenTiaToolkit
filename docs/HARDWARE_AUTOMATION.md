@@ -70,9 +70,11 @@ get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="D
 
 - A dry run performs validation and mutations in TIA, then disposes the transaction without committing it.
 - Before opening a Siemens transaction, structural validation rejects invalid
+  operation names, missing operation targets and required fields, invalid
   patch-local result references, root-bound children of `create-device-with-item`,
   missing network indexes, generated IO children bound to the wrong result, and
-  expected-address guards on children that do not exist before the patch.
+  expected-address guards on children that do not exist before the patch. All
+  statically detectable issues are aggregated in one response.
   Blocked results set `ValidationBlocked=true`, keep `RolledBack=false`, and
   return indexed `ValidationIssues` with stable codes so callers can correct
   the operation array without touching TIA.

@@ -39,6 +39,8 @@ namespace OpenTiaToolkit.Core.Services.Hardware
                     continue;
                 }
 
+                foreach (var issue in HardwarePatchOperationContractValidator.Validate(operation, op, index))
+                    issues.Add(issue);
                 var producer = ResolveTargetReference(operation, index, definitions, issues);
                 ValidateExplicitIndex(operation, op, index, issues);
                 ValidateCreatedChildBinding(operation, op, index, producer, issues);

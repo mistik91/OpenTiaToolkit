@@ -247,6 +247,33 @@ namespace OpenTiaToolkit.Tests.Commands
         }
 
         [TestMethod]
+        public async Task ApplyHardwarePatch_AggregatesRequiredFieldsBeforeCallingService()
+        {
+            var service = new Mock<IHardwareService>();
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"create-device-with-item\",\"resultId\":\"station\",\"typeIdentifier\":\"OrderNumber:IM\",\"deviceName\":\"Station\",\"itemName\":\"Station\"},{\"op\":\"connect-node-to-subnet\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Station\",\"PROFINET interface\"]},\"nodeIndex\":0},{\"op\":\"connect-io-connector\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Station\",\"PROFINET interface\"]},\"connectorIndex\":0},{\"op\":\"configure-profinet-device\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Station\",\"PROFINET interface\"]}},{\"op\":\"set-io-address-start\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Inputs\"]}}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            var blocked = result.Data as HardwarePatchResult;
+            Assert.IsNotNull(blocked);
+            Assert.IsTrue(blocked!.ValidationBlocked);
+            Assert.IsFalse(blocked.RolledBack);
+            Assert.AreEqual(5, blocked.ValidationIssues.Count);
+            Assert.AreEqual(4, blocked.ValidationIssues.Count(issue => issue.Code == "missing-required-field"));
+            CollectionAssert.Contains(blocked.ValidationIssues.Select(issue => issue.Code).ToArray(), "missing-required-choice");
+            Assert.IsTrue(blocked.ValidationIssues.Any(issue => issue.Message.Contains("subnetName")));
+            Assert.IsTrue(blocked.ValidationIssues.Any(issue => issue.Message.Contains("ioSystemName")));
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>()), Times.Never);
+        }
+
+        [TestMethod]
         public async Task ApplyHardwarePatch_LogsIntoSafetyProgramWhenPasswordProvided()
         {
             const string variableName = "OPENTIA_TEST_SAFETY_PASSWORD";
