@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenTiaToolkit.Application.Execution;
 using OpenTiaToolkit.Contracts.Commands;
+using OpenTiaToolkit.Contracts.Outcomes;
 using System.Text.Json;
 
 namespace OpenTiaToolkit.Tests.Integration
@@ -114,6 +115,36 @@ namespace OpenTiaToolkit.Tests.Integration
                 var diff = await transport.ExecuteAsync(new CommandInvocation { CommandName = "diff-api-profile" }, CancellationToken.None);
                 Assert.IsTrue(diff.Success, diff.Message);
                 Assert.IsTrue(diff.Data!.Value.GetProperty("Compatible").GetBoolean());
+            }
+        }
+
+        [TestMethod]
+        public async Task Worker_HardwareStructuralValidation_BlocksBeforeTiaWithValidationOutcome()
+        {
+            var operations = new object[]
+            {
+                new { op = "create-device-with-item", resultId = "station", typeIdentifier = "OrderNumber:IM", deviceName = "Station", itemName = "Station" },
+                new { op = "plug-item", resultId = "inputs", targetRef = "station", typeIdentifier = "OrderNumber:DI", itemName = "Inputs", positionNumber = 2 },
+                new { op = "set-io-address-start", targetRef = "station", target = new { itemPath = new[] { "Inputs", "Inputs" } }, addressIndex = 0, startAddress = 96 },
+                new { op = "connect-node-to-subnet", targetRef = "station", target = new { itemPath = new[] { "Station", "PROFINET interface" } }, subnetName = "PN" }
+            };
+            using (WorkerProcessTransport transport = await WorkerProcessTransport.StartAsync(
+                ResolveWorkerPath(), TimeSpan.FromSeconds(20), CancellationToken.None))
+            {
+                var outcome = await transport.ExecuteAsync(new CommandInvocation
+                {
+                    CommandName = "apply-hardware-patch",
+                    Arguments = new Dictionary<string, JsonElement>
+                    {
+                        ["operations"] = JsonSerializer.SerializeToElement(operations)
+                    }
+                }, CancellationToken.None);
+
+                Assert.IsFalse(outcome.Success);
+                Assert.AreEqual(ErrorCode.ValidationFailed, outcome.Error!.Code);
+                Assert.IsTrue(outcome.Data!.Value.GetProperty("ValidationBlocked").GetBoolean());
+                Assert.IsFalse(outcome.Data.Value.GetProperty("RolledBack").GetBoolean());
+                Assert.AreEqual(3, outcome.Data.Value.GetProperty("ValidationIssues").GetArrayLength());
             }
         }
 

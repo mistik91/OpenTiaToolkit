@@ -144,7 +144,7 @@ namespace OpenTiaToolkit.Tests.Commands
                 .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
             var command = new ApplyHardwarePatchCommand(service.Object);
             var operations = JsonDocument.Parse(
-                "[{\"op\":\"configure-drive-telegram\",\"targetRef\":\"drive\",\"driveObjectIndex\":0,\"telegramType\":\"MainTelegram\",\"telegramNumber\":352,\"expectedTelegramNumber\":1,\"inputStartAddress\":1040,\"expectedInputStartAddress\":1000,\"outputStartAddress\":1040,\"expectedOutputStartAddress\":1000}]").RootElement.Clone();
+                "[{\"op\":\"configure-drive-telegram\",\"target\":{\"deviceName\":\"G_1\",\"itemPath\":[\"CU\"]},\"driveObjectIndex\":0,\"telegramType\":\"MainTelegram\",\"telegramNumber\":352,\"expectedTelegramNumber\":1,\"inputStartAddress\":1040,\"expectedInputStartAddress\":1000,\"outputStartAddress\":1040,\"expectedOutputStartAddress\":1000}]").RootElement.Clone();
 
             var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
 
@@ -177,16 +177,17 @@ namespace OpenTiaToolkit.Tests.Commands
                 .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
             var command = new ApplyHardwarePatchCommand(service.Object);
             var operations = JsonDocument.Parse(
-                "[{\"op\":\"connect-node-to-subnet\",\"targetRef\":\"drive\",\"target\":{\"itemPath\":[\"PROFINET interface\"]},\"subnetName\":\"PN/IE_1\"}]").RootElement.Clone();
+                "[{\"op\":\"create-device\",\"resultId\":\"drive\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_1\"},{\"op\":\"connect-node-to-subnet\",\"targetRef\":\"drive\",\"target\":{\"itemPath\":[\"PROFINET interface\"]},\"nodeIndex\":0,\"subnetName\":\"PN/IE_1\"}]").RootElement.Clone();
 
             var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
 
             Assert.IsTrue(result.Success);
             service.Verify(candidate => candidate.ApplyPatchAsync(
                 It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
-                    values.Count == 1 &&
-                    values[0].TargetRef == "drive" &&
-                    HasSingleItemPath(values[0], "PROFINET interface")),
+                    values.Count == 2 &&
+                    values[1].TargetRef == "drive" &&
+                    values[1].NodeIndex == 0 &&
+                    HasSingleItemPath(values[1], "PROFINET interface")),
                 true,
                 false,
                 null), Times.Once);
@@ -204,19 +205,45 @@ namespace OpenTiaToolkit.Tests.Commands
                 .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
             var command = new ApplyHardwarePatchCommand(service.Object);
             var operations = JsonDocument.Parse(
-                "[{\"op\":\"plug-item\",\"targetRef\":\"device\",\"target\":{\"itemPath\":[\"Totalizer_1\"]},\"typeIdentifier\":\"GSD:.../SM/51\",\"itemName\":\"TotalizerControl\",\"positionNumber\":1,\"allowDisplacedPlacement\":true}]").RootElement.Clone();
+                "[{\"op\":\"create-device\",\"resultId\":\"device\",\"typeIdentifier\":\"GSD:...\",\"deviceName\":\"Device_1\"},{\"op\":\"plug-item\",\"targetRef\":\"device\",\"target\":{\"itemPath\":[\"Totalizer_1\"]},\"typeIdentifier\":\"GSD:.../SM/51\",\"itemName\":\"TotalizerControl\",\"positionNumber\":1,\"allowDisplacedPlacement\":true}]").RootElement.Clone();
 
             var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
 
             Assert.IsTrue(result.Success);
             service.Verify(candidate => candidate.ApplyPatchAsync(
                 It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
-                    values.Count == 1 &&
-                    values[0].Op == "plug-item" &&
-                    values[0].AllowDisplacedPlacement),
+                    values.Count == 2 &&
+                    values[1].Op == "plug-item" &&
+                    values[1].AllowDisplacedPlacement),
                 true,
                 false,
                 null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_BlocksStructuralIssuesBeforeCallingService()
+        {
+            var service = new Mock<IHardwareService>();
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"create-device-with-item\",\"resultId\":\"station\",\"typeIdentifier\":\"OrderNumber:IM\",\"deviceName\":\"Station\",\"itemName\":\"Station\"},{\"op\":\"plug-item\",\"resultId\":\"inputs\",\"targetRef\":\"station\",\"typeIdentifier\":\"OrderNumber:DI\",\"itemName\":\"Inputs\",\"positionNumber\":2},{\"op\":\"set-io-address-start\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Inputs\",\"Inputs\"]},\"addressIndex\":0,\"startAddress\":96},{\"op\":\"connect-node-to-subnet\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Station\",\"PROFINET interface\"]},\"subnetName\":\"PN\"}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            var blocked = result.Data as HardwarePatchResult;
+            Assert.IsNotNull(blocked);
+            Assert.IsTrue(blocked!.SafetyBlocked);
+            Assert.IsTrue(blocked.ValidationBlocked);
+            Assert.IsFalse(blocked.RolledBack, "Structural validation runs before a Siemens transaction exists.");
+            CollectionAssert.AreEquivalent(
+                new[] { "missing-relative-item-path", "generated-child-reference-mismatch", "missing-node-index" },
+                blocked.ValidationIssues.Select(issue => issue.Code).ToArray());
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>()), Times.Never);
         }
 
         [TestMethod]

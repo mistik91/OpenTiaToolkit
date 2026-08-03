@@ -919,6 +919,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
             {
                 context.StartCommand(Name, "Validating hardware patch inputs.");
                 var dryRun = !args.Has("dry-run") || args.GetBool("dry-run", true);
+                if (!HardwarePatchCommandValidation.TryValidate(args, dryRun, out var operations, out var validationFailure))
+                    return validationFailure!;
                 if (args.Has("safety-password"))
                 {
                     return CommandResult.CreateFailure(
@@ -973,7 +975,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                     55,
                     dryRun ? "dry-run-hardware-patch" : "apply-hardware-patch");
                 var result = await _service.ApplyPatchAsync(
-                    HardwareCommandSupport.RequireOperations(args),
+                    operations,
                     dryRun,
                     args.Has("confirm-destructive") && args.GetBool("confirm-destructive"),
                     args.Has("transaction-description") ? args.GetString("transaction-description") : null);

@@ -339,9 +339,18 @@ namespace OpenTiaToolkit.Core.Models
         public bool Applied { get; set; }
         public bool RolledBack { get; set; }
         public bool SafetyBlocked { get; set; }
+        public bool ValidationBlocked { get; set; }
         public string? SafetyMessage { get; set; }
         public string? TransactionDescription { get; set; }
+        public List<HardwarePatchValidationIssue> ValidationIssues { get; set; } = new List<HardwarePatchValidationIssue>();
         public List<HardwareOperationResult> Operations { get; set; } = new List<HardwareOperationResult>();
+    }
+
+    public sealed class HardwarePatchValidationIssue
+    {
+        public int OperationIndex { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
     }
 
     public sealed class HardwareOperationResult
