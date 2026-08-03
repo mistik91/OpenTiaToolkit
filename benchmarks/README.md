@@ -238,6 +238,15 @@ controlled traces, per-trial costs, free-endpoint 503 exclusion, and
 anti-overfitting decision are in
 `reports/hardware-skill-precall-invariants-ab-20260803.md`.
 
+The next experiment moved the repeated operation-graph invariants into a
+generic pre-transaction runtime validator while leaving the skill unchanged.
+Paid V4 `xhigh` remained 0/3 at 55/55/75, but each trial received an indexed
+`ValidationFailed` response for a malformed root-bound batch before Siemens was
+touched and then corrected that defect. The implementation gates, live TIA
+proof, costs, historical-control comparison, trace audit, and boundary between
+structural validation and prompt-dependent retry policy are in
+`reports/hardware-structural-validation-v4-20260803.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
