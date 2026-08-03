@@ -102,6 +102,23 @@
       ]
     },
     {
+      "id": "tia-v21-brownfield-7",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Brownfield_20260803.zap21",
+      "sha256": "256BED153DF00421DBA65B1F9FFB2625CE09E8715C430A5038CE074F46889073",
+      "sizeBytes": 5541335,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_Main",
+      "notes": [
+        "Extends tia-v21-topology-6 with an existing ET 200MP station named LegacyCell on CellPN and CellIO.",
+        "LegacyInputs is an HF input module at position 2 and input bytes 72-73; LegacyOutputs is a BA output module at position 4 and output bytes 140-141.",
+        "LegacyCell starts at 192.168.0.57 with PROFINET name legacy-cell and device number 57.",
+        "The read-only archive passed strict replacement placement, positive modernization, exact inverse, live late-collision rollback, fresh reattachment readback, and zero-error/zero-warning compilation."
+      ]
+    },
+    {
       "id": "tia-v21-multiuser-1",
       "kind": "preprovisioned-multiuser-session",
       "tiaVersion": "V21 Update 2",

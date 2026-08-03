@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: fifteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven hardware topology provisioning, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: eighteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven hardware topology provisioning and brownfield modernization, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -283,6 +283,17 @@ applied, independently verified, and compiled the requested final state. The
 controlled comparison and anti-overfitting decision are in
 `reports/hardware-contract-validation-v4-paid-20260803.md`.
 
+`ott-25` moves beyond greenfield topology work into an existing ET 200MP
+station. It requires one destructive transaction to replace a configured
+output module, guard and move a retained input, guard and change PROFINET
+identity, bind the replacement's generated address child, recover from one
+observed Siemens placement displacement, and independently verify the result.
+The skill remained frozen. Its new read-only fixture passed positive, exact
+inverse, live late-collision rollback, reattachment readback, and clean-compile
+proof in `reports/ott-25-gold-audit-20260803.md`. Separate versioned manifests
+define a one-trial V4 Free endpoint smoke, full three-trial V4 Free and paid V4
+campaigns, and a three-trial Sol maximum-effort ceiling.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -408,6 +419,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-22` | ET 200SP topology provisioning | Discover catalog identifiers, create and populate a remote station, recover from displaced placement, wire PROFINET, and verify the final topology |
 | `ott-23` | Held-out ET 200SP topology and addressing | Transfer atomic topology construction to different modules and nonadjacent positions while assigning IO starts through generated result-referenced children |
 | `ott-24` | Held-out ET 200MP family transfer | Transfer the complete topology-and-addressing workflow to a different hardware family without guessing generated-child state |
+| `ott-25` | Brownfield ET 200MP modernization | Atomically replace an existing output module, guard retained state and PROFINET identity, recover from displaced placement, and verify the modernized station |
 
 ## Adding a case
 

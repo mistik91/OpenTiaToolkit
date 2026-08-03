@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-brownfield-modernization-deepseek-v4-flash-paid-xhigh-20260803",
+  "title": "Paid DeepSeek V4 Flash xhigh brownfield modernization qualification",
+  "caseIds": [
+    "ott-25"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 1.0,
+  "allowPaidModels": true,
+  "models": [
+    {
+      "model": "openrouter/deepseek/deepseek-v4-flash",
+      "reasoningEffort": "xhigh",
+      "variant": "xhigh",
+      "costClass": "paid"
+    }
+  ]
+}
