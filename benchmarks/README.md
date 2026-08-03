@@ -324,6 +324,13 @@ probe and uses the complete dry-run as the generated-parent capability check;
 the generic hardware skill now documents the same lifecycle boundary. The
 historical campaign and correction audit is in
 `reports/hardware-gsdml-promag-v4-20260803.md`.
+The corrected GPT-5.6 Sol `max` control scored 80, 75, and 80. A frozen
+five-line generic skill clarification naming the exact guarded GSD fields
+improved the A/B candidate to 80, 100, and 80, removed all structural-validator
+interventions, and reduced mean duration and reasoning use. Sol remains
+disqualified overall because only 1/3 candidate trials qualified. The invalid
+pilot, contract repair, valid A/B campaigns, trace audit, and cleanup are in
+`reports/hardware-gsdml-promag-sol-max-20260803.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
