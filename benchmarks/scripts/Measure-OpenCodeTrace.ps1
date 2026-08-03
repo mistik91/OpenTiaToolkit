@@ -39,6 +39,37 @@ function Get-PropertyValue {
     return $property.Value
 }
 
+function Test-HardwareHexTextEquals {
+    param(
+        [AllowNull()][object]$Actual,
+        [AllowNull()][object]$Expected
+    )
+
+    if ($Actual -isnot [string] -or $Expected -isnot [string]) {
+        return $false
+    }
+
+    $actualCompact = ([string]$Actual) -replace '[\s\-,]', ''
+    $expectedCompact = ([string]$Expected) -replace '[\s\-,]', ''
+    if ($actualCompact.StartsWith('0x', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $actualCompact = $actualCompact.Substring(2)
+    }
+    if ($expectedCompact.StartsWith('0x', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $expectedCompact = $expectedCompact.Substring(2)
+    }
+
+    if ($actualCompact.Length -eq 0 -or
+        $actualCompact.Length % 2 -ne 0 -or
+        $expectedCompact.Length -eq 0 -or
+        $expectedCompact.Length % 2 -ne 0 -or
+        $actualCompact -notmatch '^[0-9A-Fa-f]+$' -or
+        $expectedCompact -notmatch '^[0-9A-Fa-f]+$') {
+        return $false
+    }
+
+    return $actualCompact.Equals($expectedCompact, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Test-InputEquals {
     param(
         [AllowNull()]
@@ -88,8 +119,18 @@ function Test-ValueSubset {
             # lets Windows PowerShell enumerate a one-element nested array into a
             # scalar, which makes otherwise identical JSON arrays compare unequal.
             $actualProperty = $Actual.PSObject.Properties[$property.Name]
-            if ($null -eq $actualProperty -or
-                -not (Test-ValueSubset -Actual $actualProperty.Value -Expected $property.Value)) {
+            if ($null -eq $actualProperty) {
+                return $false
+            }
+            if ($property.Name -in @('dataHex', 'expectedDataHex')) {
+                if (-not (Test-HardwareHexTextEquals `
+                            -Actual $actualProperty.Value `
+                            -Expected $property.Value)) {
+                    return $false
+                }
+                continue
+            }
+            if (-not (Test-ValueSubset -Actual $actualProperty.Value -Expected $property.Value)) {
                 return $false
             }
         }
@@ -208,6 +249,15 @@ function Test-ValueSubsetWithNormalizedResultReferences {
             $actualProperty = $Actual.PSObject.Properties[$property.Name]
             if ($null -eq $actualProperty) {
                 return $false
+            }
+
+            if ($property.Name -in @('dataHex', 'expectedDataHex')) {
+                if (-not (Test-HardwareHexTextEquals `
+                            -Actual $actualProperty.Value `
+                            -Expected $property.Value)) {
+                    return $false
+                }
+                continue
             }
 
             if ($property.Name -in @('resultId', 'targetRef') -and

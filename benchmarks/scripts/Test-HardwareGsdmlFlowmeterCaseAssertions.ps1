@@ -169,6 +169,13 @@ try {
 
     Invoke-GsdmlAssertionTest -Label 'representative' -Events (New-GsdmlEvents -CorrectedOperations $operations)
 
+    $equivalentHex = Copy-Operations -Operations $operations
+    $equivalentHexOperation = @($equivalentHex | Where-Object op -eq 'set-gsd-parameter-data')[0]
+    $equivalentHexOperation.dataHex = '0x80af'
+    $equivalentHexOperation.expectedDataHex = '80-df'
+    Invoke-GsdmlAssertionTest -Label 'equivalent-hex-formatting' `
+        -Events (New-GsdmlEvents -CorrectedOperations $equivalentHex)
+
     $unguarded = Copy-Operations -Operations $operations
     @($unguarded | Where-Object op -eq 'set-gsd-parameter-data')[0].PSObject.Properties.Remove('expectedDataHex')
     Invoke-GsdmlAssertionTest -Label 'unguarded-gsd-write' `

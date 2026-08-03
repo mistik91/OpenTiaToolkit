@@ -316,6 +316,13 @@ positive apply, exact delete inverse, and zero-error/zero-warning compile;
 the versioned audit is in `reports/ott-26-gold-audit-20260803.md`.
 The first frozen model campaign is
 `campaigns/hardware-gsdml-promag-deepseek-v4-flash-paid-xhigh-20260803.json`.
+Paid DeepSeek V4 Flash at `xhigh` scored a canonical 45, 10, and 70 (0/3,
+41.67 mean) for $0.564401660 total. Two trials reached the correct final state
+but violated the bounded atomic preview/apply protocol; one timed out before
+submitting a hardware patch. The campaign also exposed and fixed a generic
+hex-format scorer false negative without changing the case or skill. The
+gold/model/scorer audit is in
+`reports/hardware-gsdml-promag-v4-20260803.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
