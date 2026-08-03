@@ -247,6 +247,17 @@ proof, costs, historical-control comparison, trace audit, and boundary between
 structural validation and prompt-dependent retry policy are in
 `reports/hardware-structural-validation-v4-20260803.md`.
 
+The validator was then extended generically to aggregate deterministic
+required-field and target-contract failures across all 27 registered hardware
+patch operations. Its implementation passed the full non-integration,
+architecture, reference, MCP, CLI-boundary, and disposable live-TIA gates. A
+maximum-effort V4 Free campaign was attempted on the unchanged `ott-24`, but
+all three trials ended with the provider's `503 request queue is full` before a
+final response. Its 0/10/10 raw scores are therefore endpoint-invalid and are
+excluded from model-quality comparisons. The implementation proof, exact
+catalog identity, trace audit, and cleanup record are in
+`reports/hardware-contract-validation-v4-free-20260803.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
