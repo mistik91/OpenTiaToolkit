@@ -258,6 +258,16 @@ excluded from model-quality comparisons. The implementation proof, exact
 catalog identity, trace audit, and cleanup record are in
 `reports/hardware-contract-validation-v4-free-20260803.md`.
 
+The paid V4 `xhigh` follow-up completed normally at 55/55/75, exactly matching
+the first structural-validator campaign's scores and 61.67 mean. It cost
+$0.36456862 and qualified 0/3. The incremental required-field validator fired
+zero times: all four validation-blocked calls used the earlier graph checks,
+while the remaining failures were extra or partial previews that a stateless
+field contract cannot identify from one submitted batch. All trials still
+applied, independently verified, and compiled the requested final state. The
+controlled comparison and anti-overfitting decision are in
+`reports/hardware-contract-validation-v4-paid-20260803.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when

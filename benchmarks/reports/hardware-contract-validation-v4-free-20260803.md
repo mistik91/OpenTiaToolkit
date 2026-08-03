@@ -111,11 +111,10 @@ TIA process tree was stopped after its ownership and children were verified.
 No campaign OpenCode or TIA process remains. Raw traces, catalog identity, and
 result JSON remain in the ignored artifact directory.
 
-## Next step
+## Paid follow-up
 
-The free alias is currently reachable and correctly cataloged, but not reliable
-enough for this 8-14 minute live task. The next comparable measurement is the
-same frozen campaign on paid DeepSeek V4 Flash `xhigh`; it should be run only
-with an explicit paid opt-in. Further runtime or skill tuning should wait for a
-completed three-trial model trace that can actually expose the remaining
-failure modes.
+The free alias was reachable and correctly cataloged, but not reliable enough
+for this 8-14 minute live task. The same frozen evaluation was subsequently
+completed on paid DeepSeek V4 Flash `xhigh`. It scored 55/55/75 and qualified
+0/3; none of the new required-field contracts fired. The completed comparison
+is in `hardware-contract-validation-v4-paid-20260803.md`.
