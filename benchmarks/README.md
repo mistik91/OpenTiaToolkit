@@ -229,6 +229,15 @@ further skill edit is retained. The trace audit, effort identities, durations,
 and zero-cost accounting are in
 `reports/hardware-family-transfer-sol-v4-20260802.md`.
 
+A subsequent paid V4 `xhigh` A/B tested whether consolidating those existing
+rules into a mandatory pre-call checklist changed behavior. The candidate mean
+rose from 56.67 to 61.67, but both arms remained 0/3 and the candidate still
+used root-bound plugs, premature sibling displacement, partial batches, or
+broken result-reference chains. The rewrite was therefore reverted; the
+controlled traces, per-trial costs, free-endpoint 503 exclusion, and
+anti-overfitting decision are in
+`reports/hardware-skill-precall-invariants-ab-20260803.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
