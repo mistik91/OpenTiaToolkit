@@ -50,10 +50,24 @@ try {
             durationSeconds = 10
             exitCode        = 0
             timedOut        = $false
-            score           = 100
-            passed          = $true
+            validForModelComparison = $trialIndex -eq 1
+            executionFailure = if ($trialIndex -eq 1) {
+                $null
+            }
+            else {
+                [ordered]@{
+                    kind = 'provider-error'; statusCode = 503
+                    message = 'Streaming response failed: [503] queue full.'
+                }
+            }
+            validatorInterventions = [ordered]@{
+                blockedCallCount = 0; rejectedBeforeTiaCount = 0
+                correctedOnNextPatchCount = 0; issueCount = 0; codes = @(); calls = @()
+            }
+            score           = if ($trialIndex -eq 1) { 100 } else { 0 }
+            passed          = $trialIndex -eq 1
             assertions      = @(
-                [ordered]@{ id = 'run'; critical = $true; passed = $true }
+                [ordered]@{ id = 'run'; critical = $true; passed = ($trialIndex -eq 1) }
             )
             usage            = [ordered]@{
                 tokens = [ordered]@{ total = 100; input = 80; output = 10; reasoning = 10 }
@@ -70,8 +84,11 @@ try {
     if ([string]$recovered.status -ne 'completed-recovered' -or
         [int]$recovered.sourceResultCount -ne 2 -or
         [double]$recovered.totalCostUsd -ne 0.02 -or
-        [string]$recovered.models[0].status -ne 'qualified' -or
-        [double]$recovered.models[0].aggregate.passRate -ne 1) {
+        [string]$recovered.models[0].status -ne 'endpoint-invalid' -or
+        [int]$recovered.models[0].aggregate.validTrialCount -ne 1 -or
+        [int]$recovered.models[0].aggregate.endpointInvalidCount -ne 1 -or
+        [double]$recovered.models[0].aggregate.meanScore -ne 100 -or
+        [double]$recovered.models[0].aggregate.rawMeanScore -ne 50) {
         throw 'Recovered campaign summary contained unexpected values.'
     }
 

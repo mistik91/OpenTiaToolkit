@@ -638,6 +638,7 @@ foreach ($requestedCaseId in $CaseId) {
         -MetadataPath $metadataPath `
         -OutputPath $resultPath
     $results += $result
+    $executionFailureKind = Get-BenchmarkTrialExecutionFailureKind -Trial $result
     $suiteResults += [pscustomobject][ordered]@{
         caseId          = [string]$result.caseId
         trialIndex      = [int]$result.trialIndex
@@ -645,18 +646,26 @@ foreach ($requestedCaseId in $CaseId) {
         passed          = [bool]$result.passed
         durationSeconds = [double]$result.durationSeconds
         timedOut        = [bool]$result.timedOut
+        validForModelComparison = [bool]$result.validForModelComparison
+        executionFailureKind = $executionFailureKind
+        criticalFailure = @($result.assertions |
+                Where-Object { [bool]$_.critical -and -not [bool]$_.passed }).Count -gt 0
         cost            = [double]$result.usage.cost
+        reasoningTokens = [long]$result.usage.tokens.reasoning
+        validatorBlockedCallCount = [int]$result.validatorInterventions.blockedCallCount
+        validatorIssueCount = [int]$result.validatorInterventions.issueCount
         resultPath      = $resultPath
     }
 
-    Write-Host ("{0} trial {1}: score={2} passed={3} artifacts={4}" -f
-        $result.caseId, $result.trialIndex, $result.score, $result.passed, $runDirectory)
+    Write-Host ("{0} trial {1}: score={2} passed={3} validForComparison={4} artifacts={5}" -f
+        $result.caseId, $result.trialIndex, $result.score, $result.passed,
+        $result.validForModelComparison, $runDirectory)
 }
 
 $results
 if ($suiteResults.Count -gt 0) {
     $suiteFinished = [DateTime]::UtcNow
-    $meanScore = [Math]::Round([double](($suiteResults | Measure-Object -Property score -Average).Average), 2)
+    $statistics = Get-BenchmarkTrialStatistics -Trials @($suiteResults)
     $totalCost = [double](($suiteResults | Measure-Object -Property cost -Sum).Sum)
     $suiteSummary = [ordered]@{
         schemaVersion   = 2
@@ -675,8 +684,12 @@ if ($suiteResults.Count -gt 0) {
         finishedAtUtc   = $suiteFinished.ToString('o')
         durationSeconds = [Math]::Round(($suiteFinished - $suiteStarted).TotalSeconds, 3)
         caseCount       = $suiteResults.Count
+        validCaseCount  = [int]$statistics.validTrialCount
+        invalidCaseCount = [int]$statistics.invalidTrialCount
+        endpointInvalidCount = [int]$statistics.endpointInvalidCount
         passedCount     = @($suiteResults | Where-Object { $_.passed }).Count
-        meanScore       = $meanScore
+        meanScore       = $statistics.meanScore
+        rawMeanScore    = [double]$statistics.rawMeanScore
         totalCost       = $totalCost
         results         = $suiteResults
     }

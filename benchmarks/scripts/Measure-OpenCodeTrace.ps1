@@ -331,6 +331,189 @@ function Convert-ValueToText {
     return ($Value | ConvertTo-Json -Depth 100 -Compress)
 }
 
+function ConvertFrom-ToolStatePayload {
+    param([AllowNull()][object]$State)
+
+    if ($null -eq $State) {
+        return $null
+    }
+
+    $found = $false
+    $payload = Get-PropertyValue -Object $State -Name 'output' -Found ([ref]$found)
+    if (-not $found) {
+        $payload = Get-PropertyValue -Object $State -Name 'error' -Found ([ref]$found)
+    }
+    if (-not $found -or $null -eq $payload) {
+        return $null
+    }
+    if ($payload -isnot [string]) {
+        return $payload
+    }
+
+    try {
+        return ([string]$payload | ConvertFrom-Json)
+    }
+    catch {
+        return $null
+    }
+}
+
+function Get-HardwarePatchOperations {
+    param([AllowNull()][object]$InputObject)
+
+    $foundOperations = $false
+    $operations = Get-PropertyPathValue `
+        -Object $InputObject `
+        -Path 'operations.operations' `
+        -Found ([ref]$foundOperations)
+    if (-not $foundOperations) {
+        $operations = Get-PropertyPathValue `
+            -Object $InputObject `
+            -Path 'operations' `
+            -Found ([ref]$foundOperations)
+    }
+    if (-not $foundOperations -or $null -eq $operations) {
+        return @()
+    }
+    return @($operations)
+}
+
+function Get-ValidatorInterventions {
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$ToolEvents)
+
+    $patchEvents = @($ToolEvents | Where-Object {
+            (([string]$_.part.tool -replace '-', '_') -match '(^|_)apply_hardware_patch$')
+        })
+    $calls = [System.Collections.Generic.List[object]]::new()
+    $allIssues = [System.Collections.Generic.List[object]]::new()
+
+    for ($patchIndex = 0; $patchIndex -lt $patchEvents.Count; $patchIndex++) {
+        $event = $patchEvents[$patchIndex]
+        $payload = ConvertFrom-ToolStatePayload -State $event.part.state
+        $dataFound = $false
+        $data = Get-PropertyValue -Object $payload -Name 'data' -Found ([ref]$dataFound)
+        $validationBlockedFound = $false
+        $validationBlocked = Get-PropertyValue `
+            -Object $data `
+            -Name 'ValidationBlocked' `
+            -Found ([ref]$validationBlockedFound)
+        if (-not $dataFound -or $null -eq $data -or -not $validationBlockedFound -or
+            -not [bool]$validationBlocked) {
+            continue
+        }
+
+        $issuesFound = $false
+        $issuesValue = Get-PropertyValue -Object $data -Name 'ValidationIssues' -Found ([ref]$issuesFound)
+        $issues = @()
+        if ($issuesFound) {
+            $issues = @($issuesValue)
+        }
+        foreach ($issue in $issues) {
+            $allIssues.Add($issue)
+        }
+
+        $nextPayload = $null
+        $nextIssues = @()
+        $nextValidationBlocked = $null
+        if ($patchIndex + 1 -lt $patchEvents.Count) {
+            $nextPayload = ConvertFrom-ToolStatePayload -State $patchEvents[$patchIndex + 1].part.state
+            $nextDataFound = $false
+            $nextData = Get-PropertyValue -Object $nextPayload -Name 'data' -Found ([ref]$nextDataFound)
+            if ($nextDataFound -and $null -ne $nextData) {
+                $nextBlockedFound = $false
+                $nextBlocked = Get-PropertyValue `
+                    -Object $nextData `
+                    -Name 'ValidationBlocked' `
+                    -Found ([ref]$nextBlockedFound)
+                if ($nextBlockedFound) {
+                    $nextValidationBlocked = [bool]$nextBlocked
+                }
+                $nextIssuesFound = $false
+                $nextIssuesValue = Get-PropertyValue `
+                    -Object $nextData `
+                    -Name 'ValidationIssues' `
+                    -Found ([ref]$nextIssuesFound)
+                if ($nextIssuesFound) {
+                    $nextIssues = @($nextIssuesValue)
+                }
+            }
+        }
+
+        $issueRecords = @($issues | ForEach-Object {
+                $indexProperty = $_.PSObject.Properties['OperationIndex']
+                if ($null -eq $indexProperty) {
+                    $indexProperty = $_.PSObject.Properties['Index']
+                }
+                [ordered]@{
+                    operationIndex = if ($null -ne $indexProperty) { [int]$indexProperty.Value } else { -1 }
+                    code           = [string]$_.Code
+                    field          = if ($null -ne $_.PSObject.Properties['Field']) {
+                        [string]$_.Field
+                    }
+                    else {
+                        $null
+                    }
+                }
+            })
+        $remainingKeys = [System.Collections.Generic.HashSet[string]]::new(
+            [System.StringComparer]::Ordinal)
+        foreach ($nextIssue in $nextIssues) {
+            $nextIndexProperty = $nextIssue.PSObject.Properties['OperationIndex']
+            if ($null -eq $nextIndexProperty) {
+                $nextIndexProperty = $nextIssue.PSObject.Properties['Index']
+            }
+            $nextIndex = if ($null -ne $nextIndexProperty) { [int]$nextIndexProperty.Value } else { -1 }
+            [void]$remainingKeys.Add("${nextIndex}:$([string]$nextIssue.Code)")
+        }
+        $correctedOnNextPatch = if ($patchIndex + 1 -ge $patchEvents.Count) {
+            $null
+        }
+        else {
+            @($issueRecords | Where-Object {
+                    $remainingKeys.Contains("$($_.operationIndex):$($_.code)")
+                }).Count -eq 0
+        }
+        $operationResultsFound = $false
+        $operationResultsValue = Get-PropertyValue `
+            -Object $data `
+            -Name 'Operations' `
+            -Found ([ref]$operationResultsFound)
+        $operationResults = @()
+        if ($operationResultsFound) {
+            $operationResults = @($operationResultsValue)
+        }
+        $rolledBackFound = $false
+        $rolledBack = Get-PropertyValue -Object $data -Name 'RolledBack' -Found ([ref]$rolledBackFound)
+        $rejectedBeforeTia = $rolledBackFound -and -not [bool]$rolledBack -and
+            $operationResults.Count -eq 0
+
+        $calls.Add([pscustomobject][ordered]@{
+                patchCallIndex              = $patchIndex + 1
+                operationCount              = @(Get-HardwarePatchOperations -InputObject $event.part.state.input).Count
+                issueCount                  = $issues.Count
+                issues                      = $issueRecords
+                rejectedBeforeTia           = $rejectedBeforeTia
+                correctedOnNextPatch        = $correctedOnNextPatch
+                nextPatchValidationBlocked  = $nextValidationBlocked
+            })
+    }
+
+    $codeCounts = @($allIssues |
+            Group-Object -Property { [string]$_.Code } |
+            Sort-Object Name |
+            ForEach-Object {
+                [ordered]@{ code = [string]$_.Name; count = [int]$_.Count }
+            })
+    return [pscustomobject][ordered]@{
+        blockedCallCount           = $calls.Count
+        rejectedBeforeTiaCount     = @($calls | Where-Object { [bool]$_.rejectedBeforeTia }).Count
+        correctedOnNextPatchCount  = @($calls | Where-Object { $_.correctedOnNextPatch -eq $true }).Count
+        issueCount                 = $allIssues.Count
+        codes                      = $codeCounts
+        calls                      = @($calls)
+    }
+}
+
 $case = Get-Content -LiteralPath $CasePath -Raw | ConvertFrom-Json
 $metadata = Get-Content -LiteralPath $MetadataPath -Raw | ConvertFrom-Json
 $rawTrace = if (Test-Path -LiteralPath $TracePath) {
@@ -358,6 +541,50 @@ if (-not [string]::IsNullOrWhiteSpace($rawTrace)) {
 }
 
 $toolEvents = @($events | Where-Object { $_.type -eq 'tool_use' -and $null -ne $_.part })
+$hasStop = @($events | Where-Object {
+        $_.type -eq 'step_finish' -and $_.part.reason -eq 'stop'
+    }).Count -gt 0
+$terminalError = @($events | Where-Object { $_.type -eq 'error' } | Select-Object -Last 1)
+$executionFailure = $null
+if (-not $hasStop -and $terminalError.Count -gt 0) {
+    $errorData = $terminalError[0].error.data
+    $message = if ($null -ne $errorData -and
+        $null -ne $errorData.PSObject.Properties['message']) {
+        ([string]$errorData.message).Trim('"')
+    }
+    else {
+        [string]$terminalError[0].error.name
+    }
+    $statusCode = $null
+    if ($message -match '\[(?<status>[45][0-9]{2})\]') {
+        $statusCode = [int]$Matches.status
+    }
+    $isProviderError = $message -match '(?i)streaming response failed|provider|request queue|rate limit' -or
+        $null -ne $statusCode
+    $executionFailure = [pscustomobject][ordered]@{
+        kind       = if ($isProviderError) { 'provider-error' } else { 'runtime-error' }
+        statusCode = $statusCode
+        message    = $message
+    }
+}
+elseif (-not [bool]$metadata.timedOut -and -not $hasStop) {
+    if ([int]$metadata.exitCode -ne 0) {
+        $executionFailure = [pscustomobject][ordered]@{
+            kind       = 'process-error'
+            statusCode = $null
+            message    = "OpenCode exited with code $([int]$metadata.exitCode) without a final stop."
+        }
+    }
+    else {
+        $executionFailure = [pscustomobject][ordered]@{
+            kind       = 'incomplete-trace'
+            statusCode = $null
+            message    = 'OpenCode exited without a final stop or terminal error event.'
+        }
+    }
+}
+$validForModelComparison = $null -eq $executionFailure
+$validatorInterventions = Get-ValidatorInterventions -ToolEvents $toolEvents
 $finalText = (($events |
             Where-Object { $_.type -eq 'text' -and $null -ne $_.part.text } |
             ForEach-Object { [string]$_.part.text }) -join "`n")
@@ -405,9 +632,6 @@ foreach ($assertion in $case.assertions) {
 
     switch ([string]$assertion.type) {
         'run' {
-            $hasStop = @($events | Where-Object {
-                    $_.type -eq 'step_finish' -and $_.part.reason -eq 'stop'
-                }).Count -gt 0
             $passed = (-not [bool]$metadata.timedOut) -and ([int]$metadata.exitCode -eq 0) -and $hasStop
             $details = "exitCode=$($metadata.exitCode); timedOut=$($metadata.timedOut); finalStop=$hasStop"
         }
@@ -618,8 +842,12 @@ $result = [ordered]@{
     durationSeconds = [double]$metadata.durationSeconds
     exitCode        = [int]$metadata.exitCode
     timedOut        = [bool]$metadata.timedOut
+    validForModelComparison = $validForModelComparison
+    executionFailure = $executionFailure
+    validatorInterventions = $validatorInterventions
     score           = $score
-    passed          = (-not $criticalFailure) -and ($score -ge [double]$case.passScore)
+    passed          = $validForModelComparison -and (-not $criticalFailure) -and
+        ($score -ge [double]$case.passScore)
     passScore       = [double]$case.passScore
     assertions      = $assertionResults
     usage           = $usage

@@ -75,9 +75,29 @@
       "minimum": 0
     },
     "meanScore": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "rawMeanScore": {
       "type": "number",
       "minimum": 0,
       "maximum": 100
+    },
+    "validCaseCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invalidCaseCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endpointInvalidCount": {
+      "type": "integer",
+      "minimum": 0
     },
     "durationSeconds": {
       "type": "number",

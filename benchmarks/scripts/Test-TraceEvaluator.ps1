@@ -80,6 +80,55 @@ try {
         [ordered]@{
             type = 'tool_use'
             part = [ordered]@{
+                tool  = 'opentia_apply-hardware-patch'
+                state = [ordered]@{
+                    status = 'error'
+                    input  = [ordered]@{ operations = [ordered]@{ operations = @(
+                                [ordered]@{ op = 'connect-node-to-subnet' },
+                                [ordered]@{ op = 'connect-io-connector' }
+                            ) } }
+                    error = ([ordered]@{
+                            success = $false
+                            message = 'Hardware patch structural validation failed with 2 issue(s).'
+                            data = [ordered]@{
+                                ValidationBlocked = $true
+                                RolledBack = $false
+                                Operations = @()
+                                ValidationIssues = @(
+                                    [ordered]@{ OperationIndex = 0; Code = 'missing-required-field'; Field = 'subnetName' },
+                                    [ordered]@{ OperationIndex = 1; Code = 'missing-required-field'; Field = 'ioSystemName' }
+                                )
+                            }
+                        } | ConvertTo-Json -Depth 20 -Compress)
+                }
+            }
+        },
+        [ordered]@{
+            type = 'tool_use'
+            part = [ordered]@{
+                tool  = 'opentia_apply-hardware-patch'
+                state = [ordered]@{
+                    status = 'error'
+                    input  = [ordered]@{ operations = [ordered]@{ operations = @(
+                                [ordered]@{ op = 'connect-node-to-subnet'; subnetName = 'CellPN' },
+                                [ordered]@{ op = 'connect-io-connector'; ioSystemName = 'CellIO' }
+                            ) } }
+                    error = ([ordered]@{
+                            success = $false
+                            message = 'TIA placement probe rolled back.'
+                            data = [ordered]@{
+                                ValidationBlocked = $false
+                                RolledBack = $true
+                                Operations = @([ordered]@{ Index = 0; Success = $true })
+                                ValidationIssues = @()
+                            }
+                        } | ConvertTo-Json -Depth 20 -Compress)
+                }
+            }
+        },
+        [ordered]@{
+            type = 'tool_use'
+            part = [ordered]@{
                 tool  = 'opentia_inspect_target'
                 state = [ordered]@{
                     status = 'completed'
@@ -185,6 +234,54 @@ try {
     }
     if ([int]$result.trialIndex -ne 2) {
         throw "Expected trialIndex 2, got $($result.trialIndex)."
+    }
+    if (-not [bool]$result.validForModelComparison -or $null -ne $result.executionFailure) {
+        throw 'A completed trace was incorrectly marked invalid for model comparison.'
+    }
+    if ([int]$result.validatorInterventions.blockedCallCount -ne 1 -or
+        [int]$result.validatorInterventions.rejectedBeforeTiaCount -ne 1 -or
+        [int]$result.validatorInterventions.correctedOnNextPatchCount -ne 1 -or
+        [int]$result.validatorInterventions.issueCount -ne 2 -or
+        [string]$result.validatorInterventions.codes[0].code -ne 'missing-required-field' -or
+        [int]$result.validatorInterventions.codes[0].count -ne 2 -or
+        -not [bool]$result.validatorInterventions.calls[0].correctedOnNextPatch) {
+        throw 'Validator-intervention telemetry did not summarize the synthetic blocked/corrected patch.'
+    }
+
+    [ordered]@{
+        type = 'error'
+        error = [ordered]@{
+            name = 'UnknownError'
+            data = [ordered]@{ message = '"Streaming response failed: [503] The request queue is full."' }
+        }
+    } | ConvertTo-Json -Depth 20 -Compress |
+        Set-Content -LiteralPath $tracePath -Encoding UTF8
+    $providerResultPath = Join-Path $testRoot 'provider-error-result.json'
+    $providerResult = & (Join-Path $PSScriptRoot 'Measure-OpenCodeTrace.ps1') `
+        -CasePath $casePath `
+        -TracePath $tracePath `
+        -MetadataPath $metadataPath `
+        -OutputPath $providerResultPath
+    if ([bool]$providerResult.validForModelComparison -or [bool]$providerResult.passed -or
+        [string]$providerResult.executionFailure.kind -ne 'provider-error' -or
+        [int]$providerResult.executionFailure.statusCode -ne 503) {
+        throw 'A terminal provider 503 was not classified as endpoint-invalid.'
+    }
+
+    $metadata.timedOut = $true
+    $metadata.finishedAtUtc = '2026-01-01T00:01:00.0000000Z'
+    $metadata.durationSeconds = 60
+    $metadata | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
+    Set-Content -LiteralPath $tracePath -Value '' -Encoding UTF8
+    $timeoutResultPath = Join-Path $testRoot 'timeout-result.json'
+    $timeoutResult = & (Join-Path $PSScriptRoot 'Measure-OpenCodeTrace.ps1') `
+        -CasePath $casePath `
+        -TracePath $tracePath `
+        -MetadataPath $metadataPath `
+        -OutputPath $timeoutResultPath
+    if (-not [bool]$timeoutResult.validForModelComparison -or [bool]$timeoutResult.passed -or
+        $null -ne $timeoutResult.executionFailure) {
+        throw 'A case timeout should remain a valid negative model outcome, not an endpoint-invalid trial.'
     }
 
     Write-Host 'Trace evaluator synthetic test passed.'

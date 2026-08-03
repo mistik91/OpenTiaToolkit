@@ -304,6 +304,7 @@ try {
                     $totalCost += $caseCost
                     $criticalFailures = @($result.assertions |
                             Where-Object { [bool]$_.critical -and -not [bool]$_.passed })
+                    $executionFailureKind = Get-BenchmarkTrialExecutionFailureKind -Trial $result
                     $modelRecord.cases.Add([pscustomobject][ordered]@{
                             caseId          = [string]$result.caseId
                             trialIndex      = [int]$result.trialIndex
@@ -312,9 +313,13 @@ try {
                             criticalFailure = $criticalFailures.Count -gt 0
                             timedOut        = [bool]$result.timedOut
                             exitCode        = [int]$result.exitCode
+                            validForModelComparison = [bool]$result.validForModelComparison
+                            executionFailureKind = $executionFailureKind
                             durationSeconds = [double]$result.durationSeconds
                             cost            = $caseCost
                             reasoningTokens = [long]$result.usage.tokens.reasoning
+                            validatorBlockedCallCount = [int]$result.validatorInterventions.blockedCallCount
+                            validatorIssueCount = [int]$result.validatorInterventions.issueCount
                             resultPath      = $resultPath
                         })
                 }
@@ -328,27 +333,9 @@ try {
                 $expectedTrialCount = Get-BenchmarkExpectedTrialCount `
                     -CaseIds @($selectedCaseIds) `
                     -TrialCount ([int]$campaign.trialCount)
-                $hasRuntimeFailure = @($trials | Where-Object {
-                        [bool]$_.timedOut -or [int]$_.exitCode -ne 0
-                    }).Count -gt 0
-                $hasCriticalFailure = @($trials | Where-Object { [bool]$_.criticalFailure }).Count -gt 0
-                $allPassed = $trials.Count -eq $expectedTrialCount -and
-                    @($trials | Where-Object { -not [bool]$_.passed }).Count -eq 0
-                $modelRecord.status = if ($hasRuntimeFailure) {
-                    'runtime-failure'
-                }
-                elseif ($hasCriticalFailure) {
-                    'disqualified-critical-failure'
-                }
-                elseif ($allPassed) {
-                    'qualified'
-                }
-                elseif ($trials.Count -eq $expectedTrialCount) {
-                    'not-qualified'
-                }
-                else {
-                    'incomplete'
-                }
+                $modelRecord.status = Get-BenchmarkModelStatus `
+                    -Trials $trials `
+                    -ExpectedTrialCount $expectedTrialCount
             }
             $modelRecord | Add-Member -NotePropertyName aggregate `
                 -NotePropertyValue (Get-BenchmarkTrialStatistics -Trials @($modelRecord.cases))

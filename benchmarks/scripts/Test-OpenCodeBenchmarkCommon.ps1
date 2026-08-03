@@ -49,17 +49,34 @@ try {
             caseId = 'ott-01'; score = 20; passed = $false; criticalFailure = $true
             timedOut = $false; exitCode = 0; cost = 0.03; durationSeconds = 90
             reasoningTokens = 300
+        },
+        [pscustomobject]@{
+            caseId = 'ott-01'; score = 0; passed = $false; criticalFailure = $true
+            timedOut = $false; exitCode = 0; cost = 0.04; durationSeconds = 120
+            reasoningTokens = 400; validForModelComparison = $false
+            executionFailureKind = 'provider-error'
         }
     )
-    if ([int]$statistics.trialCount -ne 3 -or
+    if ([int]$statistics.trialCount -ne 4 -or
+        [int]$statistics.validTrialCount -ne 3 -or
+        [int]$statistics.invalidTrialCount -ne 1 -or
+        [int]$statistics.endpointInvalidCount -ne 1 -or
         [double]$statistics.passRate -ne 0.6667 -or
         [double]$statistics.criticalFailureRate -ne 0.3333 -or
         [double]$statistics.meanScore -ne 66.67 -or
+        [double]$statistics.rawMeanScore -ne 50 -or
         [double]$statistics.p50DurationSeconds -ne 20 -or
-        [double]$statistics.totalCostUsd -ne 0.06 -or
-        [double]$statistics.costPerPassedTrialUsd -ne 0.03 -or
+        [double]$statistics.totalCostUsd -ne 0.10 -or
+        [double]$statistics.costPerPassedTrialUsd -ne 0.05 -or
         [double]$statistics.meanReasoningTokens -ne 200) {
         throw 'Trial aggregation returned unexpected statistics.'
+    }
+    if ((Get-BenchmarkModelStatus -Trials @(
+                [pscustomobject]@{
+                    passed = $false; criticalFailure = $true; timedOut = $false; exitCode = 0
+                    validForModelComparison = $false; executionFailureKind = 'provider-error'
+                }) -ExpectedTrialCount 1) -ne 'endpoint-invalid') {
+        throw 'Endpoint-invalid model status was not preserved.'
     }
 
     if ((Get-BenchmarkExpectedTrialCount -CaseIds 'ott-14' -TrialCount 3) -ne 3 -or

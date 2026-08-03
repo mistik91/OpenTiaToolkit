@@ -107,6 +107,17 @@ foreach ($modelEntry in $campaign.models) {
             $result = $match[0].result
             $criticalFailures = @($result.assertions |
                     Where-Object { [bool]$_.critical -and -not [bool]$_.passed })
+            $validForModelComparison = Test-BenchmarkTrialValidForModelComparison -Trial $result
+            $executionFailureKind = Get-BenchmarkTrialExecutionFailureKind -Trial $result
+            $validatorProperty = $result.PSObject.Properties['validatorInterventions']
+            $validatorBlockedCallCount = if ($null -ne $validatorProperty) {
+                [int]$validatorProperty.Value.blockedCallCount
+            }
+            else { 0 }
+            $validatorIssueCount = if ($null -ne $validatorProperty) {
+                [int]$validatorProperty.Value.issueCount
+            }
+            else { 0 }
             $trials.Add([pscustomobject][ordered]@{
                     caseId          = [string]$result.caseId
                     trialIndex      = [int]$result.trialIndex
@@ -115,9 +126,13 @@ foreach ($modelEntry in $campaign.models) {
                     criticalFailure = $criticalFailures.Count -gt 0
                     timedOut        = [bool]$result.timedOut
                     exitCode        = [int]$result.exitCode
+                    validForModelComparison = $validForModelComparison
+                    executionFailureKind = $executionFailureKind
                     durationSeconds = [double]$result.durationSeconds
                     cost            = [double]$result.usage.cost
                     reasoningTokens = [long]$result.usage.tokens.reasoning
+                    validatorBlockedCallCount = $validatorBlockedCallCount
+                    validatorIssueCount = $validatorIssueCount
                     resultPath      = [string]$match[0].path
                 })
         }
@@ -125,27 +140,9 @@ foreach ($modelEntry in $campaign.models) {
 
     $trialItems = @($trials)
     $expectedTrialCount = $knownCaseIds.Count * [int]$campaign.trialCount
-    $hasRuntimeFailure = @($trialItems | Where-Object {
-            [bool]$_.timedOut -or [int]$_.exitCode -ne 0
-        }).Count -gt 0
-    $hasCriticalFailure = @($trialItems | Where-Object { [bool]$_.criticalFailure }).Count -gt 0
-    $allPassed = $trialItems.Count -eq $expectedTrialCount -and
-        @($trialItems | Where-Object { -not [bool]$_.passed }).Count -eq 0
-    $status = if ($hasRuntimeFailure) {
-        'runtime-failure'
-    }
-    elseif ($hasCriticalFailure) {
-        'disqualified-critical-failure'
-    }
-    elseif ($allPassed) {
-        'qualified'
-    }
-    elseif ($trialItems.Count -eq $expectedTrialCount) {
-        'not-qualified'
-    }
-    else {
-        'incomplete'
-    }
+    $status = Get-BenchmarkModelStatus `
+        -Trials $trialItems `
+        -ExpectedTrialCount $expectedTrialCount
 
     $modelResults.Add([pscustomobject][ordered]@{
             model           = $modelId

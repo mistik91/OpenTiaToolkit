@@ -115,6 +115,18 @@ for ($segmentIndex = 0; $segmentIndex -lt $segments.Count; $segmentIndex++) {
                 throw "Duplicate result for model '$modelId', case '$caseId', and trial $trialIndex."
             }
             $case | Add-Member -NotePropertyName trialIndex -NotePropertyValue $trialIndex -Force
+            if ($null -eq $case.PSObject.Properties['validForModelComparison']) {
+                $case | Add-Member -NotePropertyName validForModelComparison -NotePropertyValue $true
+            }
+            if ($null -eq $case.PSObject.Properties['executionFailureKind']) {
+                $case | Add-Member -NotePropertyName executionFailureKind -NotePropertyValue $null
+            }
+            if ($null -eq $case.PSObject.Properties['validatorBlockedCallCount']) {
+                $case | Add-Member -NotePropertyName validatorBlockedCallCount -NotePropertyValue 0
+            }
+            if ($null -eq $case.PSObject.Properties['validatorIssueCount']) {
+                $case | Add-Member -NotePropertyName validatorIssueCount -NotePropertyValue 0
+            }
             if ($null -eq $case.PSObject.Properties['reasoningTokens']) {
                 $reasoningTokens = 0L
                 $resultPathProperty = $case.PSObject.Properties['resultPath']
@@ -135,33 +147,9 @@ $mergedModels = [System.Collections.Generic.List[object]]::new()
 foreach ($entry in $modelsById.GetEnumerator()) {
     $model = $entry.Value
     $cases = @($model.cases)
-    $hasRuntimeFailure = @($cases | Where-Object {
-            [bool]$_.timedOut -or [int]$_.exitCode -ne 0
-        }).Count -gt 0
-    $hasCriticalFailure = @($cases | Where-Object { [bool]$_.criticalFailure }).Count -gt 0
-    $hasAllCases = @($expectedCaseIds | Where-Object {
-            $caseId = $_
-            $caseTrials = @($cases | Where-Object { [string]$_.caseId -eq $caseId })
-            $caseTrials.Count -eq $trialCount -and
-                @($caseTrials.trialIndex | Sort-Object -Unique).Count -eq $trialCount
-        }).Count -eq $expectedCaseIds.Count
-    $allPassed = $hasAllCases -and @($cases | Where-Object { -not [bool]$_.passed }).Count -eq 0
-
-    $status = if ($hasRuntimeFailure) {
-        'runtime-failure'
-    }
-    elseif ($hasCriticalFailure) {
-        'disqualified-critical-failure'
-    }
-    elseif ($allPassed) {
-        'qualified'
-    }
-    elseif ($hasAllCases) {
-        'not-qualified'
-    }
-    else {
-        'incomplete'
-    }
+    $status = Get-BenchmarkModelStatus `
+        -Trials $cases `
+        -ExpectedTrialCount ($expectedCaseIds.Count * $trialCount)
 
     $statistics = Get-BenchmarkTrialStatistics -Trials $cases
     $caseAggregates = @(Get-BenchmarkCaseAggregates -Trials $cases)

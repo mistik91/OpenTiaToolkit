@@ -204,6 +204,70 @@ function Get-OpenCodeModelMetadata {
     return ConvertFrom-OpenCodeModelListing -Lines $lines -Model $Model
 }
 
+function Test-BenchmarkTrialValidForModelComparison {
+    param([Parameter(Mandatory = $true)][object]$Trial)
+
+    $property = $Trial.PSObject.Properties['validForModelComparison']
+    return $null -eq $property -or [bool]$property.Value
+}
+
+function Get-BenchmarkTrialExecutionFailureKind {
+    param([Parameter(Mandatory = $true)][object]$Trial)
+
+    $failureProperty = $Trial.PSObject.Properties['executionFailure']
+    if ($null -ne $failureProperty -and $null -ne $failureProperty.Value) {
+        $kindProperty = $failureProperty.Value.PSObject.Properties['kind']
+        if ($null -ne $kindProperty) {
+            return [string]$kindProperty.Value
+        }
+    }
+    $kindProperty = $Trial.PSObject.Properties['executionFailureKind']
+    if ($null -ne $kindProperty) {
+        return [string]$kindProperty.Value
+    }
+    return $null
+}
+
+function Get-BenchmarkModelStatus {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Trials,
+        [Parameter(Mandatory = $true)][int]$ExpectedTrialCount
+    )
+
+    $items = @($Trials)
+    $invalidItems = @($items | Where-Object {
+            -not (Test-BenchmarkTrialValidForModelComparison -Trial $_)
+        })
+    $hasEndpointInvalid = @($invalidItems | Where-Object {
+            (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -eq 'provider-error'
+        }).Count -gt 0
+    $hasRuntimeFailure = $invalidItems.Count -gt 0 -or @($items | Where-Object {
+            [bool]$_.timedOut -or [int]$_.exitCode -ne 0
+        }).Count -gt 0
+    $hasCriticalFailure = @($items | Where-Object {
+            (Test-BenchmarkTrialValidForModelComparison -Trial $_) -and [bool]$_.criticalFailure
+        }).Count -gt 0
+    $allPassed = $items.Count -eq $ExpectedTrialCount -and $invalidItems.Count -eq 0 -and
+        @($items | Where-Object { -not [bool]$_.passed }).Count -eq 0
+
+    if ($hasEndpointInvalid) {
+        return 'endpoint-invalid'
+    }
+    if ($hasRuntimeFailure) {
+        return 'runtime-failure'
+    }
+    if ($hasCriticalFailure) {
+        return 'disqualified-critical-failure'
+    }
+    if ($allPassed) {
+        return 'qualified'
+    }
+    if ($items.Count -eq $ExpectedTrialCount) {
+        return 'not-qualified'
+    }
+    return 'incomplete'
+}
+
 function Get-BenchmarkTrialStatistics {
     param(
         [Parameter(Mandatory = $true)]
@@ -215,6 +279,9 @@ function Get-BenchmarkTrialStatistics {
     if ($items.Count -eq 0) {
         return [pscustomobject][ordered]@{
             trialCount             = 0
+            validTrialCount        = 0
+            invalidTrialCount      = 0
+            endpointInvalidCount   = 0
             passedCount            = 0
             passRate               = 0.0
             criticalFailureCount   = 0
@@ -223,6 +290,7 @@ function Get-BenchmarkTrialStatistics {
             meanScore              = 0.0
             minScore               = 0.0
             maxScore               = 0.0
+            rawMeanScore           = 0.0
             totalCostUsd           = 0.0
             meanCostUsd            = 0.0
             costPerPassedTrialUsd  = $null
@@ -232,15 +300,26 @@ function Get-BenchmarkTrialStatistics {
         }
     }
 
-    $passedCount = @($items | Where-Object { [bool]$_.passed }).Count
-    $criticalFailureCount = @($items | Where-Object { [bool]$_.criticalFailure }).Count
+    $validItems = @($items | Where-Object {
+            Test-BenchmarkTrialValidForModelComparison -Trial $_
+        })
+    $invalidItems = @($items | Where-Object {
+            -not (Test-BenchmarkTrialValidForModelComparison -Trial $_)
+        })
+    $endpointInvalidCount = @($invalidItems | Where-Object {
+            (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -eq 'provider-error'
+        }).Count
+    $passedCount = @($validItems | Where-Object { [bool]$_.passed }).Count
+    $criticalFailureCount = @($validItems | Where-Object { [bool]$_.criticalFailure }).Count
     $runtimeFailureCount = @($items | Where-Object {
+            -not (Test-BenchmarkTrialValidForModelComparison -Trial $_) -or
             [bool]$_.timedOut -or [int]$_.exitCode -ne 0
         }).Count
-    $scores = @($items | ForEach-Object { [double]$_.score })
-    $durations = @($items | ForEach-Object { [double]$_.durationSeconds } | Sort-Object)
+    $scores = @($validItems | ForEach-Object { [double]$_.score })
+    $rawScores = @($items | ForEach-Object { [double]$_.score })
+    $durations = @($validItems | ForEach-Object { [double]$_.durationSeconds } | Sort-Object)
     $costs = @($items | ForEach-Object { [double]$_.cost })
-    $reasoningTokens = @($items | ForEach-Object {
+    $reasoningTokens = @($validItems | ForEach-Object {
             $property = $_.PSObject.Properties['reasoningTokens']
             if ($null -eq $property) {
                 0L
@@ -251,7 +330,10 @@ function Get-BenchmarkTrialStatistics {
         })
 
     $middle = [int][Math]::Floor($durations.Count / 2)
-    $medianDuration = if ($durations.Count % 2 -eq 1) {
+    $medianDuration = if ($durations.Count -eq 0) {
+        $null
+    }
+    elseif ($durations.Count % 2 -eq 1) {
         [double]$durations[$middle]
     }
     else {
@@ -261,14 +343,38 @@ function Get-BenchmarkTrialStatistics {
 
     return [pscustomobject][ordered]@{
         trialCount             = $items.Count
+        validTrialCount        = $validItems.Count
+        invalidTrialCount      = $invalidItems.Count
+        endpointInvalidCount   = $endpointInvalidCount
         passedCount            = $passedCount
-        passRate               = [Math]::Round($passedCount / [double]$items.Count, 4)
+        passRate               = if ($validItems.Count -gt 0) {
+            [Math]::Round($passedCount / [double]$validItems.Count, 4)
+        }
+        else {
+            $null
+        }
         criticalFailureCount   = $criticalFailureCount
-        criticalFailureRate    = [Math]::Round($criticalFailureCount / [double]$items.Count, 4)
+        criticalFailureRate    = if ($validItems.Count -gt 0) {
+            [Math]::Round($criticalFailureCount / [double]$validItems.Count, 4)
+        }
+        else {
+            $null
+        }
         runtimeFailureCount    = $runtimeFailureCount
-        meanScore              = [Math]::Round([double](($scores | Measure-Object -Average).Average), 2)
-        minScore               = [Math]::Round([double](($scores | Measure-Object -Minimum).Minimum), 2)
-        maxScore               = [Math]::Round([double](($scores | Measure-Object -Maximum).Maximum), 2)
+        meanScore              = if ($scores.Count -gt 0) {
+            [Math]::Round([double](($scores | Measure-Object -Average).Average), 2)
+        }
+        else { $null }
+        minScore               = if ($scores.Count -gt 0) {
+            [Math]::Round([double](($scores | Measure-Object -Minimum).Minimum), 2)
+        }
+        else { $null }
+        maxScore               = if ($scores.Count -gt 0) {
+            [Math]::Round([double](($scores | Measure-Object -Maximum).Maximum), 2)
+        }
+        else { $null }
+        rawMeanScore           = [Math]::Round(
+            [double](($rawScores | Measure-Object -Average).Average), 2)
         totalCostUsd           = [Math]::Round($totalCost, 8)
         meanCostUsd            = [Math]::Round($totalCost / $items.Count, 8)
         costPerPassedTrialUsd  = if ($passedCount -gt 0) {
@@ -277,13 +383,18 @@ function Get-BenchmarkTrialStatistics {
         else {
             $null
         }
-        meanDurationSeconds    = [Math]::Round(
-            [double](($durations | Measure-Object -Average).Average),
-            3)
-        p50DurationSeconds     = [Math]::Round($medianDuration, 3)
-        meanReasoningTokens    = [Math]::Round(
-            [double](($reasoningTokens | Measure-Object -Average).Average),
-            2)
+        meanDurationSeconds    = if ($durations.Count -gt 0) {
+            [Math]::Round([double](($durations | Measure-Object -Average).Average), 3)
+        }
+        else { $null }
+        p50DurationSeconds     = if ($null -ne $medianDuration) {
+            [Math]::Round($medianDuration, 3)
+        }
+        else { $null }
+        meanReasoningTokens    = if ($reasoningTokens.Count -gt 0) {
+            [Math]::Round([double](($reasoningTokens | Measure-Object -Average).Average), 2)
+        }
+        else { $null }
     }
 }
 

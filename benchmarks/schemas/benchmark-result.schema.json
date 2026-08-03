@@ -96,6 +96,76 @@
     "timedOut": {
       "type": "boolean"
     },
+    "validForModelComparison": {
+      "type": "boolean"
+    },
+    "executionFailure": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "provider-error",
+            "runtime-error",
+            "process-error",
+            "incomplete-trace"
+          ]
+        },
+        "statusCode": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "statusCode",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "validatorInterventions": {
+      "type": "object",
+      "properties": {
+        "blockedCallCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rejectedBeforeTiaCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correctedOnNextPatchCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "issueCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "codes": {
+          "type": "array"
+        },
+        "calls": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "blockedCallCount",
+        "rejectedBeforeTiaCount",
+        "correctedOnNextPatchCount",
+        "issueCount",
+        "codes",
+        "calls"
+      ],
+      "additionalProperties": false
+    },
     "score": {
       "type": "number",
       "minimum": 0,

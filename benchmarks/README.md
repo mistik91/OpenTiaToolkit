@@ -17,6 +17,11 @@ Each run records:
 - the Git commit, branch, dirty flag, and deterministic worktree-state hash under test;
 - newline-delimited OpenCode events, including MCP calls and outputs;
 - elapsed time, token usage, cost, exit status, and timeout status;
+- whether the trace is valid for model comparison, including a sanitized
+  terminal provider/runtime failure classification when it is not;
+- hardware-patch validator interventions: blocked call and issue counts,
+  stable issue codes and operation indexes, pre-TIA rejection, and immediate
+  next-patch correction;
 - the one-based trial index for repeated model/task executions;
 - deterministic trace and final-answer assertions.
 
@@ -26,6 +31,16 @@ reports retain every trial and aggregate each model/task combination with score
 range, pass rate, critical-failure rate, runtime-failure count, mean and median
 duration, mean reasoning tokens, total and mean cost, and cost per passing
 trial.
+
+Terminal provider/runtime errors and traces that exit without a final stop are
+retained with their raw score and cost but marked invalid for model comparison.
+They do not contribute to score, pass-rate, duration, or reasoning-token means;
+aggregates report valid, invalid, and provider-endpoint-invalid counts plus the
+raw mean for audit. A versioned case timeout remains a valid negative model
+outcome because completing within that budget is part of the evaluated task.
+The implementation, compatibility rules, immutable V4 trace replay, and test
+evidence are recorded in
+`reports/harness-validity-and-validator-telemetry-20260803.md`.
 
 Cases contain no hidden answers in the model workspace. The runner copies only the OpenCode plugin bundle and the selected prompt into an isolated directory outside the Git worktree. Evaluation happens after OpenCode exits.
 

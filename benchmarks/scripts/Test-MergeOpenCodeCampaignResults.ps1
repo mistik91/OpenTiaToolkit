@@ -56,6 +56,10 @@ try {
                         caseId = 'ott-01'; trialIndex = 1; score = 20; passed = $false
                         criticalFailure = $true; timedOut = $false; exitCode = 0; cost = 0
                         durationSeconds = 30; reasoningTokens = 300
+                        validForModelComparison = $false
+                        executionFailureKind = 'provider-error'
+                        validatorBlockedCallCount = 0
+                        validatorIssueCount = 0
                     }
                 )
             }
@@ -75,8 +79,11 @@ try {
         [int]$modelA[0].caseAggregates[0].trialCount -ne 2) {
         throw 'Expected model-a to merge as qualified with mean score 90 and inferred provider-default reasoning.'
     }
-    if ($modelB.Count -ne 1 -or [string]$modelB[0].status -ne 'disqualified-critical-failure') {
-        throw 'Expected model-b to merge as critically disqualified.'
+    if ($modelB.Count -ne 1 -or [string]$modelB[0].status -ne 'endpoint-invalid' -or
+        [int]$modelB[0].aggregate.validTrialCount -ne 0 -or
+        $null -ne $modelB[0].aggregate.meanScore -or
+        [double]$modelB[0].aggregate.rawMeanScore -ne 20) {
+        throw 'Expected model-b to merge as endpoint-invalid with its raw score excluded from the mean.'
     }
     if ([double]$merged.totalCostUsd -ne 0.01) {
         throw "Expected merged cost 0.01, got $($merged.totalCostUsd)."
