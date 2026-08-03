@@ -294,6 +294,16 @@ proof in `reports/ott-25-gold-audit-20260803.md`. Separate versioned manifests
 define a one-trial V4 Free endpoint smoke, full three-trial V4 Free and paid V4
 campaigns, and a three-trial Sol maximum-effort ceiling.
 
+The free smoke ended endpoint-invalid on a queue-full 503 and was excluded
+from model comparison. Paid V4 at its `xhigh` ceiling completed and verified
+all three final states but remained 0/3 at 60/60/80 because of extra retries
+and, in two trials, missing identity guards. It cost $0.26399478 in the formal
+campaign. Sol at `max` qualified 3/3 at 100/100/100 with the exact three-call
+patch sequence and zero reported subscription cost. The trace audit, exact
+efforts, per-task prices, validator telemetry, and a suite-aggregation bug
+found and fixed during execution are in
+`reports/hardware-brownfield-modernization-sol-v4-20260803.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
