@@ -53,36 +53,36 @@ Use exact hardware-patch JSON field names; unknown members can be ignored by
 deserialization and silently weaken an operation. Use `op`, never `operation`.
 `create-device-with-item` requires `typeIdentifier`, `deviceName`, and
 `itemName`; do not substitute `name`. Put `targetRef` beside `op`, not inside
-`target`; use `target.itemPath` only for a relative child path. For
-`configure-profinet-device`, use the exact optional fields `ipAddress`,
+`target`; use `target.itemPath` only for a relative child path. When required,
+the supported optional fields for `configure-profinet-device` are `ipAddress`,
 `subnetMask`, `pnDeviceName`, and `pnDeviceNumber`; `address`, `stationName`,
 and `deviceNumber` are not aliases.
 
-Before the first topology preview, check every dependent target explicitly:
+### Mandatory Pre-Call Patch Audit
 
-- Give each `plug-item` a top-level `targetRef` and the intended parent in
-  `target.itemPath`; `targetRef` alone addresses the device root and is not a
-  substitute for the rack, module, or submodule parent.
-- For a newly created interface child, give `connect-node-to-subnet`,
-  `connect-io-connector`, and `configure-profinet-device` the same top-level
-  `targetRef` plus the discovered interface `target.itemPath`.
-- Set `nodeIndex` on `connect-node-to-subnet` and `connectorIndex` on
-  `connect-io-connector`, even when the discovered index is zero. Do not use
-  `ioConnectorIndex` as an alias.
+Immediately before every `apply-hardware-patch` dry-run or apply, audit the
+entire operation array. Do not call the tool until all four invariants hold:
 
-Keep the complete candidate batch intact while learning TIA placement. Start
-each `plug-item` without `allowDisplacedPlacement`. When a dry-run reports a
-different actual path, validate that path, enable displaced placement only for
-that plug, and dry-run the complete batch again so execution can reach the next
-strict plug. Never infer that a sibling plug will be displaced in the same way:
-set `allowDisplacedPlacement=true` only after that exact plug has failed and
-reported its own actual path. Each retry must advance past one newly observed
-displacement or correct one concrete validation error; otherwise stop and
-report the blocker.
-After the first full successful preview, issue exactly one apply with the same
-operations and values, changing only `dry-run` and required confirmation
-fields. Do not recreate, split, or reinterpret the topology between preview
-and apply.
+1. **Parent binding:** Give every `plug-item` a top-level `targetRef` and the
+   non-empty intended parent `target.itemPath`. `targetRef` alone addresses the
+   device root and is never a substitute for a rack, module, or submodule
+   parent. Give operations on a newly created interface the same `targetRef`
+   plus its discovered relative interface path. Keep explicit node and
+   connector indexes, including zero.
+2. **Request-only shape:** Include optional write fields only when the task
+   requires them; never synthesize conventional defaults or copy optional
+   values from an analogous device. In particular, omit `subnetMask` from
+   `configure-profinet-device` unless the requested change includes it.
+3. **Retry delta:** Derive a retry from the previous complete batch instead of
+   rebuilding it from memory. Preserve operation count and order, result-ID
+   bindings, parent paths, and every unrelated value. Change only fields
+   justified by the latest tool result. For a reported placement displacement,
+   add `allowDisplacedPlacement=true` only to that exact plug and keep sibling
+   plugs strict. If a retry does not advance one observed error, stop.
+4. **Preview identity:** After the first full successful preview, issue exactly
+   one apply with the same operations and values. Change only `dry-run` and
+   required confirmation fields; do not recreate, split, or reinterpret the
+   topology.
 
 ## Patch Safety
 
@@ -111,12 +111,9 @@ For GSD/GSDML submodules, TIA may legally place the created item somewhere other
 ## PROFINET And IO Notes
 
 PROFINET station name is not the same as the TIA display `Name`. Use
-`configure-profinet-device` for the requested IP address, subnet mask, station
-name, and device number, and use guarded attribute writes only for display
-names or attributes without a dedicated operation. Omit `subnetMask` and other
-optional identity fields when the task does not require them; if TIA rejects an
-optional setter, treat it as unsupported for that interface rather than
-probing alternative operation names.
+`configure-profinet-device` for requested identity values, and use guarded
+attribute writes only for display names or attributes without a dedicated
+operation.
 
 Before assigning IO addresses, read existing process-image addresses and avoid collisions. After applying, verify both start address and IO type/length.
 
