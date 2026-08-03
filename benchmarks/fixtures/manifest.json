@@ -98,6 +98,7 @@
       "notes": [
         "Extends tia-v21-cross-domain-transfer-5 with Ethernet subnet CellPN and controller IO system CellIO on PLC_Main.",
         "Contains no RemoteCell station; it is the reversible baseline for catalog-driven ET 200SP topology provisioning.",
+        "ott-26 additionally requires the installation-scoped Endress+Hauser Promag 100 GSDML-V2.31 dated 20151109; vendor catalog packages are not embedded in the project archive.",
         "The archive passed strict-placement rollback, successful station creation and wiring, exact delete inverse, forced mid-transaction rollback, and fresh-process zero-error/zero-warning compilation."
       ]
     },

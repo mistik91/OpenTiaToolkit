@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-26",
+  "title": "Third-party Promag 100 GSDML provisioning",
+  "description": "Tests a non-Siemens GSDML DAP with generated modules, two independently learned submodule displacements, PROFINET wiring, result-bound addressing, a guarded vendor parameter record, and independent readback.",
+  "fixtureId": "tia-v21-topology-6",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 900,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "focused-promag-catalog-discovery",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "find_hardware_catalog_items$",
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "GSD:GSDML-V2\\.31-EH-PROMAG 100-20151109\\.XML/DAP/DAP 1",
+        "GSD:GSDML-V2\\.31-EH-PROMAG 100-20151109\\.XML/M/50",
+        "GSD:GSDML-V2\\.31-EH-PROMAG 100-20151109\\.XML/SM/51",
+        "GSD:GSDML-V2\\.31-EH-PROMAG 100-20151109\\.XML/SM/58"
+      ]
+    },
+    {
+      "id": "tree-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 2,
+      "outputPatterns": [
+        "PLC_Main",
+        "FT_101",
+        "GSD:GSDML-V2\\.31-EH-PROMAG 100-20151109\\.XML/DAP/DAP 1",
+        "Volume flow_1",
+        "Totalizer_1",
+        "positionNumber\"?\\s*:\\s*11",
+        "TotalizerControl",
+        "positionNumber\"?\\s*:\\s*1",
+        "TotalizerMode",
+        "positionNumber\"?\\s*:\\s*2"
+      ]
+    },
+    {
+      "id": "network-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_networks$",
+      "minCount": 2,
+      "outputPatterns": [
+        "CellPN",
+        "CellIO",
+        "FT_101",
+        "192\\.168\\.0\\.61",
+        "feed-flow-101",
+        "PnDeviceNumber",
+        "\"61\""
+      ]
+    },
+    {
+      "id": "submodule-plug-capabilities",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "can_plug_hardware_item$",
+      "minCount": 2,
+      "maxCount": 2,
+      "outputPatterns": [
+        "TotalizerControl",
+        "PositionNumber\"?\\s*:\\s*1",
+        "TotalizerMode",
+        "PositionNumber\"?\\s*:\\s*2",
+        "CanPlug\"?\\s*:\\s*true"
+      ]
+    },
+    {
+      "id": "io-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "Volume flow_1",
+        "TotalizerControl",
+        "TotalizerMode",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"40\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"8\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"176\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"177\""
+      ]
+    },
+    {
+      "id": "two-stage-strict-placement-recovery",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": true},
+      "minCount": 3,
+      "maxCount": 3,
+      "outputPatterns": [
+        "(?is)TotalizerControl.*?placed at.*?FT_101/TotalizerControl.*?instead of requested.*?FT_101/Totalizer_1/TotalizerControl",
+        "(?is)TotalizerMode.*?placed at.*?FT_101/TotalizerMode.*?instead of requested.*?FT_101/Totalizer_1/TotalizerMode",
+        "Set allowDisplacedPlacement=true",
+        "\"RolledBack\"\\s*:\\s*true",
+        "\"BeforeHex\"\\s*:\\s*\"80 DF\"",
+        "\"WrittenHex\"\\s*:\\s*\"80 AF\"",
+        "\"WrittenStartAddress\"\\s*:\\s*176",
+        "\"WrittenStartAddress\"\\s*:\\s*177"
+      ]
+    },
+    {
+      "id": "exact-corrected-operation-set",
+      "type": "toolOperationSet",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "operationPath": "operations",
+      "normalizeResultReferences": true,
+      "expectedOperations": [
+        {"op":"create-device-with-item","resultId":"flowmeter","typeIdentifier":"GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/DAP/DAP 1","deviceName":"FT_101","itemName":"FT_101"},
+        {"op":"plug-item","resultId":"totalizer-control","targetRef":"flowmeter","target":{"itemPath":["Totalizer_1"]},"typeIdentifier":"GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/SM/51","itemName":"TotalizerControl","positionNumber":1,"allowDisplacedPlacement":true},
+        {"op":"plug-item","resultId":"totalizer-mode","targetRef":"flowmeter","target":{"itemPath":["Totalizer_1"]},"typeIdentifier":"GSD:GSDML-V2.31-EH-PROMAG 100-20151109.XML/SM/58","itemName":"TotalizerMode","positionNumber":2,"allowDisplacedPlacement":true},
+        {"op":"connect-node-to-subnet","targetRef":"flowmeter","target":{"itemPath":["FT_101","PN-IO"]},"nodeIndex":0,"subnetName":"CellPN"},
+        {"op":"connect-io-connector","targetRef":"flowmeter","target":{"itemPath":["FT_101","PN-IO"]},"connectorIndex":0,"ioSystemName":"CellIO"},
+        {"op":"configure-profinet-device","targetRef":"flowmeter","target":{"itemPath":["FT_101","PN-IO"]},"ipAddress":"192.168.0.61","pnDeviceName":"feed-flow-101","pnDeviceNumber":61},
+        {"op":"set-gsd-parameter-data","targetRef":"flowmeter","target":{"itemPath":["FT_101","Promag 100 PNIO"]},"datasetNumber":32752,"byteOffset":45,"dataHex":"80 AF","expectedDataHex":"80 DF"},
+        {"op":"set-io-address-start","targetRef":"flowmeter","target":{"itemPath":["Volume flow_1","Volume flow"]},"addressIndex":0,"startAddress":176},
+        {"op":"set-io-address-start","targetRef":"totalizer-control","addressIndex":0,"startAddress":176},
+        {"op":"set-io-address-start","targetRef":"totalizer-mode","addressIndex":0,"startAddress":177}
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "strict-preview-apply-readback-sequence",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*TotalizerControl.*?placed at.*?FT_101/TotalizerControl)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*TotalizerMode.*?placed at.*?FT_101/TotalizerMode)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*WrittenHex\\\"?\\s*:\\s*\\\"80 AF\\\")(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_get-hardware-tree).)*\\\"dry-run\\\"\\s*:\\s*false)(?:(?!opentia_get-hardware-tree).)*opentia_get-hardware-tree.*?opentia_get-hardware-networks.*?opentia_get-hardware-io-addresses.*?opentia_get-gsd-parameter-data.*?opentia_compile-software"
+    },
+    {
+      "id": "corrected-apply-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Hardware patch applied",
+        "\"Applied\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*false",
+        "Connected node to subnet: CellPN",
+        "Connected IO connector to IO system: CellIO",
+        "192\\.168\\.0\\.61",
+        "feed-flow-101",
+        "\"BeforeHex\"\\s*:\\s*\"80 DF\"",
+        "\"WrittenHex\"\\s*:\\s*\"80 AF\"",
+        "\"WrittenStartAddress\"\\s*:\\s*176",
+        "\"WrittenStartAddress\"\\s*:\\s*177"
+      ]
+    },
+    {
+      "id": "gsd-parameter-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_gsd_parameter_data$",
+      "minCount": 1,
+      "outputPatterns": [
+        "FT_101",
+        "Promag 100 PNIO",
+        "DatasetNumber\"?\\s*:\\s*32752",
+        "ByteOffset\"?\\s*:\\s*45",
+        "Length\"?\\s*:\\s*2",
+        "DataHex\"?\\s*:\\s*\"80 AF\""
+      ]
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount|Errors)[^0-9]*0",
+        "(?i)(warning count|WarningCount|Warnings)[^0-9]*0"
+      ]
+    }
+  ]
+}

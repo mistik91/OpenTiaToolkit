@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: eighteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven hardware topology provisioning and brownfield modernization, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: nineteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -303,6 +303,19 @@ patch sequence and zero reported subscription cost. The trace audit, exact
 efforts, per-task prices, validator telemetry, and a suite-aggregation bug
 found and fixed during execution are in
 `reports/hardware-brownfield-modernization-sol-v4-20260803.md`.
+
+`ott-26` crosses the vendor boundary with an Endress+Hauser Promag 100
+PROFINET GSDML. It reuses the read-only topology fixture but requires the
+installation-scoped 2015 Promag catalog package. The task must preserve the
+DAP's generated process modules, independently learn two displaced totalizer
+submodule placements, chain their actual targets by result reference, wire the
+station to the existing subnet and IO system, assign selected input/output
+starts, and guarded-write then reread the documented installation-direction
+record. The first live gold audit proved the complete two-stage preview,
+positive apply, exact delete inverse, and zero-error/zero-warning compile;
+the versioned audit is in `reports/ott-26-gold-audit-20260803.md`.
+The first frozen model campaign is
+`campaigns/hardware-gsdml-promag-deepseek-v4-flash-paid-xhigh-20260803.json`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
