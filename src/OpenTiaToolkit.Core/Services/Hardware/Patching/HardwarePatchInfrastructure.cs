@@ -221,6 +221,12 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
                 DryRun = dryRun,
                 TransactionDescription = string.IsNullOrWhiteSpace(description) ? "OpenTiaToolkit hardware patch" : description
             };
+            var validationIssues = HardwarePatchStructuralValidator.Validate(operations);
+            if (validationIssues.Count > 0)
+            {
+                return HardwarePatchStructuralValidator.CreateBlockedResult(
+                    operations, dryRun, result.TransactionDescription, validationIssues);
+            }
             var execution = new HardwarePatchExecutionContext(
                 _engineering, _attributes, _drives, _networks, _resolver, _topology, dryRun, confirmDestructive);
             try

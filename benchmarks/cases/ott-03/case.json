@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-03",
+  "title": "Guarded PLC tag mutation",
+  "description": "Tests exact tag targeting, dry-run/apply discipline, read-back, and compile verification.",
+  "fixtureId": "tia-v21-baseline-1",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 420,
+  "passScore": 80,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "plc-block-and-tag-workflow"
+  ],
+  "allowWorkspaceEdits": true,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "opened-plc",
+      "type": "tool",
+      "points": 10,
+      "namePattern": "open_plc$",
+      "minCount": 1,
+      "inputEquals": {
+        "plc-name": "PLC_Main"
+      }
+    },
+    {
+      "id": "tag-preview",
+      "type": "tool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "modify_tags$",
+      "minCount": 1,
+      "inputEquals": {
+        "dry-run": true
+      },
+      "outputPatterns": [
+        "OccupiedBefore",
+        "Updated by benchmark OTT-03"
+      ]
+    },
+    {
+      "id": "tag-apply",
+      "type": "tool",
+      "points": 25,
+      "critical": true,
+      "namePattern": "modify_tags$",
+      "minCount": 1,
+      "inputEquals": {
+        "dry-run": false,
+        "confirm": true
+      },
+      "outputPatterns": [
+        "\"success\"\\s*:\\s*true"
+      ]
+    },
+    {
+      "id": "tag-readback",
+      "type": "traceRegex",
+      "points": 15,
+      "pattern": "(?ms)(?:^opentia_export-tags\\r?$.*?){2}(?:\"TagTableName\"\\s*:\\s*\"Default tag table\".*?\"Name\"\\s*:\\s*\"OccupiedBefore\".*?\"DataType\"\\s*:\\s*\"Bool\".*?\"LogicalAddress\"\\s*:\\s*\"%M99\\.7\".*?\"Comment\"\\s*:\\s*\"Updated by benchmark OTT-03\"|TagTableName,Name,DataType,LogicalAddress,Comment\\r?\\nDefault tag table,OccupiedBefore,Bool,%M99\\.7,Updated by benchmark OTT-03)"
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount)[^0-9]*0"
+      ]
+    },
+    {
+      "id": "final-summary",
+      "type": "finalRegex",
+      "points": 5,
+      "pattern": "(?s)(?=.*OccupiedBefore)(?=.*Updated by benchmark OTT-03)(?=.*compil)"
+    }
+  ]
+}

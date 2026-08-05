@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-topology-provisioning-deepseek-v4-flash-candidate-20260801",
+  "title": "Paid DeepSeek V4 Flash hardware topology skill candidate qualification",
+  "caseIds": [
+    "ott-22"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 1.0,
+  "allowPaidModels": true,
+  "models": [
+    {
+      "model": "openrouter/deepseek/deepseek-v4-flash",
+      "reasoningEffort": "provider-default",
+      "variant": null,
+      "costClass": "paid"
+    }
+  ]
+}

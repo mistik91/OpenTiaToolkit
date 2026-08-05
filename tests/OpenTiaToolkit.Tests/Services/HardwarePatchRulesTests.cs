@@ -82,6 +82,128 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void StructuralValidator_AcceptsCompleteGeneratedChildTopologyBatch()
+        {
+            var operations = new[]
+            {
+                new HardwarePatchOperation { Op = "create-device-with-item", ResultId = "station", TypeIdentifier = "OrderNumber:IM", DeviceName = "Station", ItemName = "Station" },
+                new HardwarePatchOperation { Op = "plug-item", ResultId = "inputs", TargetRef = "station", Target = Path("Rail_0"), TypeIdentifier = "OrderNumber:DI", ItemName = "Inputs", PositionNumber = 2 },
+                new HardwarePatchOperation { Op = "plug-item", ResultId = "outputs", TargetRef = "station", Target = Path("Rail_0"), TypeIdentifier = "OrderNumber:DQ", ItemName = "Outputs", PositionNumber = 4 },
+                new HardwarePatchOperation { Op = "set-io-address-start", TargetRef = "inputs", Target = Path("Inputs"), AddressIndex = 0, StartAddress = 96 },
+                new HardwarePatchOperation { Op = "set-io-address-start", TargetRef = "outputs", Target = Path("Outputs"), AddressIndex = 0, StartAddress = 152 },
+                new HardwarePatchOperation { Op = "connect-node-to-subnet", TargetRef = "station", Target = Path("Station", "PROFINET interface"), NodeIndex = 0, SubnetName = "PN" },
+                new HardwarePatchOperation { Op = "connect-io-connector", TargetRef = "station", Target = Path("Station", "PROFINET interface"), ConnectorIndex = 0, IoSystemName = "IO" },
+                new HardwarePatchOperation { Op = "configure-profinet-device", TargetRef = "station", Target = Path("Station", "PROFINET interface"), IpAddress = "192.168.0.10" }
+            };
+
+            Assert.AreEqual(0, HardwarePatchStructuralValidator.Validate(operations).Count);
+        }
+
+        [TestMethod]
+        public void StructuralValidator_ReturnsActionableIssuesForInvalidReferencesAndIndexes()
+        {
+            var operations = new[]
+            {
+                new HardwarePatchOperation { Op = "create-device-with-item", ResultId = "station", TypeIdentifier = "OrderNumber:IM", DeviceName = "Station", ItemName = "Station" },
+                new HardwarePatchOperation { Op = "plug-item", ResultId = "inputs", TargetRef = "station", TypeIdentifier = "OrderNumber:DI", ItemName = "Inputs", PositionNumber = 2 },
+                new HardwarePatchOperation { Op = "set-io-address-start", TargetRef = "station", Target = Path("Inputs", "Inputs"), AddressIndex = 0, StartAddress = 96 },
+                new HardwarePatchOperation { Op = "connect-node-to-subnet", TargetRef = "station", Target = Path("Station", "PROFINET interface"), SubnetName = "PN" },
+                new HardwarePatchOperation { Op = "connect-io-connector", TargetRef = "station", Target = Path("Station", "PROFINET interface"), IoSystemName = "IO" }
+            };
+
+            var issues = HardwarePatchStructuralValidator.Validate(operations);
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "missing-relative-item-path",
+                    "generated-child-reference-mismatch",
+                    "missing-node-index",
+                    "missing-connector-index"
+                },
+                issues.Select(issue => issue.Code).ToArray());
+            Assert.IsTrue(issues.All(issue => issue.OperationIndex >= 1));
+        }
+
+        [TestMethod]
+        public void StructuralValidator_RejectsForwardDuplicateAndUnobservableGeneratedGuards()
+        {
+            var operations = new[]
+            {
+                new HardwarePatchOperation { Op = "plug-item", ResultId = "module", TargetRef = "station", Target = Path("Rail"), ItemName = "Module", PositionNumber = 1 },
+                new HardwarePatchOperation { Op = "create-device-with-item", ResultId = "station", DeviceName = "Station", ItemName = "Station" },
+                new HardwarePatchOperation { Op = "plug-item", ResultId = "module", TargetRef = "station", Target = Path("Rail"), ItemName = "Other", PositionNumber = 2 },
+                new HardwarePatchOperation { Op = "set-io-address-start", TargetRef = "module", Target = Path("Module"), AddressIndex = 0, StartAddress = 10, ExpectedStartAddress = 0 }
+            };
+
+            var codes = HardwarePatchStructuralValidator.Validate(operations)
+                .Select(issue => issue.Code)
+                .ToArray();
+
+            CollectionAssert.Contains(codes, "forward-target-ref");
+            CollectionAssert.Contains(codes, "duplicate-result-id");
+            CollectionAssert.Contains(codes, "unobservable-generated-address-guard");
+        }
+
+        [TestMethod]
+        public void StructuralValidator_AggregatesRequiredFieldsBeforeExecution()
+        {
+            var operations = new[]
+            {
+                new HardwarePatchOperation { Op = "create-device-with-item", ResultId = "station" },
+                new HardwarePatchOperation { Op = "plug-item", TargetRef = "station", Target = Path("Rail_0") },
+                new HardwarePatchOperation { Op = "connect-node-to-subnet", TargetRef = "station", Target = Path("Station", "PROFINET interface"), NodeIndex = 0 },
+                new HardwarePatchOperation { Op = "connect-io-connector", TargetRef = "station", Target = Path("Station", "PROFINET interface"), ConnectorIndex = 0 },
+                new HardwarePatchOperation { Op = "configure-profinet-device", TargetRef = "station", Target = Path("Station", "PROFINET interface") },
+                new HardwarePatchOperation { Op = "set-io-address-start", TargetRef = "station", Target = Path("Inputs") },
+                new HardwarePatchOperation { Op = "unsupported-op", ResultId = "bad" }
+            };
+
+            var issues = HardwarePatchStructuralValidator.Validate(operations);
+
+            Assert.AreEqual(13, issues.Count);
+            Assert.AreEqual(10, issues.Count(issue => issue.Code == "missing-required-field"));
+            CollectionAssert.Contains(issues.Select(issue => issue.Code).ToArray(), "missing-required-choice");
+            CollectionAssert.Contains(issues.Select(issue => issue.Code).ToArray(), "unsupported-operation");
+            CollectionAssert.Contains(issues.Select(issue => issue.Code).ToArray(), "invalid-result-id-producer");
+            Assert.IsTrue(issues.Any(issue => issue.OperationIndex == 2 && issue.Message.Contains("subnetName")));
+            Assert.IsTrue(issues.Any(issue => issue.OperationIndex == 3 && issue.Message.Contains("ioSystemName")));
+        }
+
+        [TestMethod]
+        public void StructuralValidator_RejectsMissingTargetsAndInvalidPositiveFields()
+        {
+            var operations = new[]
+            {
+                new HardwarePatchOperation { Op = "set-attributes", Attributes = new Dictionary<string, object?> { ["Name"] = "Updated" } },
+                new HardwarePatchOperation { Op = "get-gsd-parameter-data", Target = Path("Module"), DatasetNumber = 1, Length = 0 }
+            };
+
+            var issues = HardwarePatchStructuralValidator.Validate(operations);
+
+            CollectionAssert.AreEquivalent(
+                new[] { "missing-operation-target", "missing-operation-target", "invalid-required-field" },
+                issues.Select(issue => issue.Code).ToArray());
+        }
+
+        [TestMethod]
+        public void StructuralValidator_RequiredFieldContractsCoverEveryRegisteredOperation()
+        {
+            var catalog = new HardwarePatchOperationCatalog(new IHardwarePatchOperationHandler[]
+            {
+                new HardwareStructurePatchHandler(),
+                new HardwareAttributePatchHandler(),
+                new HardwareDrivePatchHandler(),
+                new HardwareGsdPatchHandler(),
+                new HardwareNetworkPatchHandler()
+            });
+
+            CollectionAssert.AreEquivalent(
+                catalog.OperationNames.ToArray(),
+                HardwarePatchOperationContractValidator.OperationNames.ToArray());
+        }
+
+        [TestMethod]
         public void TargetResolutionRules_MatchNamesAndTypesCaseInsensitively()
         {
             var candidates = new[] { "Interface", "interface", "Other" };
@@ -117,5 +239,8 @@ namespace OpenTiaToolkit.Tests.Services
             public HardwareOperationResult Execute(string operation, int index, HardwarePatchOperation request, HardwarePatchExecutionContext context) =>
                 throw new NotSupportedException();
         }
+
+        private static HardwareObjectRef Path(params string[] itemPath) =>
+            new HardwareObjectRef { ItemPath = itemPath };
     }
 }

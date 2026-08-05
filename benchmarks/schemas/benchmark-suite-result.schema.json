@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opentiatoolkit.dev/schemas/benchmark-suite-result.schema.json",
+  "title": "OpenTiaToolkit OpenCode benchmark suite result",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "model",
+    "trialIndex",
+    "reasoningEffort",
+    "variant",
+    "gitCommit",
+    "gitBranch",
+    "gitDirty",
+    "gitStateSha256",
+    "caseCount",
+    "passedCount",
+    "meanScore",
+    "durationSeconds",
+    "totalCost",
+    "results"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "model": {
+      "type": "string"
+    },
+    "trialIndex": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "variant": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoningEffort": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authProvider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "authSource": {
+      "type": "string"
+    },
+    "openCodeVersion": {
+      "type": "string"
+    },
+    "gitCommit": {
+      "type": "string"
+    },
+    "gitBranch": {
+      "type": "string"
+    },
+    "gitDirty": {
+      "type": "boolean"
+    },
+    "gitStateSha256": {
+      "type": "string",
+      "pattern": "^[A-F0-9]{64}$"
+    },
+    "caseCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "passedCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "meanScore": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "rawMeanScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "validCaseCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invalidCaseCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endpointInvalidCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "durationSeconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "totalCost": {
+      "type": "number",
+      "minimum": 0
+    },
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "caseId",
+          "trialIndex",
+          "score",
+          "passed",
+          "durationSeconds",
+          "timedOut",
+          "cost",
+          "resultPath"
+        ]
+      }
+    }
+  }
+}

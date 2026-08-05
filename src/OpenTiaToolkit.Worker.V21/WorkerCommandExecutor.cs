@@ -126,6 +126,7 @@ internal sealed class WorkerCommandExecutor
         if (message.IndexOf("not connected", StringComparison.OrdinalIgnoreCase) >= 0) return ErrorCode.NotConnected;
         if (message.IndexOf("not found", StringComparison.OrdinalIgnoreCase) >= 0) return ErrorCode.NotFound;
         if (message.IndexOf("partial", StringComparison.OrdinalIgnoreCase) >= 0) return ErrorCode.PartialFailure;
+        if (message.IndexOf("validation", StringComparison.OrdinalIgnoreCase) >= 0) return ErrorCode.ValidationFailed;
         if (message.IndexOf("required", StringComparison.OrdinalIgnoreCase) >= 0) return ErrorCode.ValidationFailed;
         return ErrorCode.SiemensRejected;
     }

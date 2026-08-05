@@ -1,0 +1,167 @@
+# NOT QUALIFIED - Sol improves, generated-address guidance transfers
+
+## Outcome
+
+GPT-5.6 Sol at `max` was materially stronger than DeepSeek V4 Flash Free on
+`ott-23`, but neither the frozen Sol control nor the surgical skill candidate
+qualified under the audited scorer:
+
+| Configuration | Scores | Pass | Mean | Mean duration | Mean reasoning tokens | Recorded cost |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| V4 Free `max`, current scorer | 65, 65, 65 | 0/3 | 65.00 | 232.107 s | 12,246.00 | $0.00000000 |
+| Sol `max`, frozen skill, current scorer | 90, 65, 90 | 0/3 | 81.67 | 381.373 s | 5,704.33 | $0.00000000 |
+| Sol `max`, skill candidate | 90, 90, 90 | 0/3 | 90.00 | 372.974 s | 5,207.67 | $0.00000000 |
+
+Every Sol trial completed, reached the requested final hardware/network/IO
+state, independently read it back, and compiled `PLC_Main` with zero errors
+and zero warnings. Qualification still fails closed because every candidate
+trial made four hardware dry-runs instead of the exactly three specified by
+the bounded placement-recovery workflow.
+
+The candidate skill is retained. It eliminated guessed expected-value guards
+for generated address objects in all three trials and removed the control's
+65-point outlier. No further `ott-23`-driven skill wording is justified: the
+remaining rack-target error is already stated explicitly in the skill.
+
+## Frozen identities
+
+### Sol control
+
+- Trace-generation commit: `cd8f750`
+- Branch: `experiment/opencode-benchmark-slice`
+- Git state during all three trials: clean
+- OpenCode: `1.18.10`
+- Model: `openai/gpt-5.6-sol`
+- Authentication: OpenAI OAuth subscription
+- Reasoning effort/variant: `max` / `max`
+- Frozen hardware skill SHA-256:
+  `9A6826F13940189D83E79E740C2C8BE71A6A31760E50BE96A77722EA155E4F10`
+
+### Skill candidate
+
+- Trace-generation commit: `02e93cf`
+- Scorer-correction commit: `b5f4d45`
+- Git state during all three trials: clean
+- OpenCode/model/authentication/effort: unchanged
+- Candidate hardware skill SHA-256:
+  `1526365EA8077DF55C11F4ADB28528C068754A970895049643C091E12D5D10D2`
+
+Both campaigns used `ott-23`, the same prompt, three trials, and independent
+restores of the same read-only `tia-v21-topology-6` archive. The fixture
+SHA-256 remained:
+`33193A83BE565BBD63486D66FFDE39404C76D9F8F01178DF28D435DBE3CC5732`.
+
+The catalog preflights reported Sol active with OAuth, variants from `none`
+through `max`, a 500,000-token context limit, 128,000-token output limit, and
+zero metered request price for subscription accounting. Zero recorded cost is
+not a claim that the underlying subscription is free.
+
+## Scorer audit
+
+The initial Sol runner result was 100, 75, 100. Manual trace review found that
+both apparent 100-point trials issued an extra hardware dry-run before the
+required sequence:
+
+- trial 1 previewed station creation alone before building the complete batch;
+- trial 3 submitted a complete batch against the device root before switching
+  to the discovered `Rack_0` parent.
+
+The prompt and skill require the first hardware probe to contain the complete
+candidate and target the discovered rack. The existing trace regex could start
+at the following call and therefore ignored a preliminary patch.
+
+The critical `strict-placement-probes` assertion now requires exactly three
+dry-runs: the Photoeyes placement failure, the Pneumatics placement failure,
+and the successful corrected preview. A synthetic negative trace proves that
+an unrelated creation-only preflight is rejected. Rescoring immutable traces
+changed the Sol control to 90, 65, 90 and V4 Free to 65, 65, 65; no
+qualification conclusion was reversed.
+
+## Control trace finding
+
+The corrected Sol control had three distinct paths:
+
+- Trial 1 used one creation-only preflight, then completed the required
+  two-placement recovery, preview, apply, readback, and compile.
+- Trial 2 started with the device root, then guessed
+  `expectedStartAddress: 0` for both newly created IO children. Siemens
+  rejected the guards. The model removed and changed them across retries,
+  eventually previewed and applied successfully, but broke both the exact
+  candidate count and preview/apply identity.
+- Trial 3 started with the device root, then completed with guessed zero guards
+  that happened to be accepted under its different operation order.
+
+The contrast between trials 2 and 3 is the key skill evidence: a newly created
+IO child's Siemens-assigned initial address can depend on transaction order.
+There is no independent pre-patch value to guard, so a guessed sentinel is not
+a safe or portable expected value.
+
+## Surgical skill change
+
+The canonical skill now distinguishes existing from generated state:
+
+- use expected-value guards for pre-existing targets whose current values were
+  actually read;
+- use result references for objects created earlier in the same patch;
+- omit `expectedStartAddress` on the first complete preview for an IO child
+  generated by an earlier `plug-item`; and
+- never guess `0`, `-1`, or another sentinel.
+
+The change contains no station name, article number, slot, address, network,
+or other `ott-23` constant. Canonical, Codex, OpenCode, Claude, and the active
+installed skill copy were synchronized and share the candidate SHA-256.
+
+## Candidate result
+
+All three candidate trials:
+
+- used one eight-operation atomic candidate throughout placement recovery;
+- omitted guessed `expectedStartAddress` guards;
+- used exactly one successful corrected preview and one unchanged apply;
+- independently verified tree, network identity, input byte 72, and output
+  byte 140;
+- compiled with zero errors and warnings; and
+- made one preliminary full-batch call against the device root before the
+  three required rack-based calls.
+
+That stable 90/90/90 result raises the corrected-control mean from 81.67 to
+90.00 and removes the guard-related retry variance. It does not qualify the
+model because the extra root probe is a critical protocol failure.
+
+## Anti-overfitting boundary
+
+The skill already says that `targetRef` alone addresses the device root and is
+not a substitute for the intended rack parent, and it explicitly requires the
+complete candidate batch to remain intact. Repeating `Rack_0` or adding this
+case's failure sequence would teach the held-out answer rather than add generic
+capability.
+
+Keep the generated-address clarification because it resolves a real semantic
+ambiguity and transferred consistently. Stop tuning on `ott-23`. Further
+confidence should come from a new held-out greenfield case with different
+hardware and generated address children, not another edit against these
+traces.
+
+## Artifacts
+
+- Sol frozen control:
+  `benchmarks/artifacts/20260802T051146574Z-campaign-hardware-topology-addressing-transfer-gpt-5-6-sol-max-20260802`
+- Sol skill candidate:
+  `benchmarks/artifacts/20260802T053609653Z-campaign-hardware-topology-addressing-transfer-gpt-5-6-sol-max-skill-candidate-20260802`
+- V4 Free source traces:
+  `benchmarks/artifacts/20260802T041904791Z-campaign-hardware-topology-addressing-transfer-free-20260802`
+
+The Sol control trial directories contain `result.scorer-audit.json`; the V4
+directories contain `result.current-scorer.json`. These preserve current-score
+evidence without overwriting the original runner results.
+
+## Cleanup and integrity
+
+The final project was closed with `save=false`, then TIA Portal was closed.
+The exact remaining FileStorage child process was stopped after its parent
+exited. All six exact control/candidate roots under `C:\OTT\Bench` were sent to
+the Windows Recycle Bin. Raw traces remain in the ignored artifact directories.
+
+No campaign OpenCode or TIA process remains. The active development MCP and
+idle worker were retained and do not own a TIA process. The fixture remained
+read-only with its original size and SHA-256.

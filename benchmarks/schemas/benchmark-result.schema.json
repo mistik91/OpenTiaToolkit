@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opentiatoolkit.dev/schemas/benchmark-result.schema.json",
+  "title": "OpenTiaToolkit OpenCode benchmark result",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "caseId",
+    "model",
+    "trialIndex",
+    "reasoningEffort",
+    "variant",
+    "startedAtUtc",
+    "finishedAtUtc",
+    "durationSeconds",
+    "exitCode",
+    "timedOut",
+    "score",
+    "passed",
+    "assertions",
+    "usage"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "caseId": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "trialIndex": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "variant": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reasoningEffort": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authProvider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "authSource": {
+      "type": "string"
+    },
+    "openCodeVersion": {
+      "type": "string"
+    },
+    "gitCommit": {
+      "type": "string"
+    },
+    "gitBranch": {
+      "type": "string"
+    },
+    "gitDirty": {
+      "type": "boolean"
+    },
+    "gitStateSha256": {
+      "type": "string",
+      "pattern": "^[A-F0-9]{64}$"
+    },
+    "fixtureId": {
+      "type": "string"
+    },
+    "fixtureSha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "startedAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finishedAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "durationSeconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "exitCode": {
+      "type": "integer"
+    },
+    "timedOut": {
+      "type": "boolean"
+    },
+    "validForModelComparison": {
+      "type": "boolean"
+    },
+    "executionFailure": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "provider-error",
+            "runtime-error",
+            "process-error",
+            "incomplete-trace"
+          ]
+        },
+        "statusCode": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "statusCode",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "validatorInterventions": {
+      "type": "object",
+      "properties": {
+        "blockedCallCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rejectedBeforeTiaCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correctedOnNextPatchCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "issueCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "codes": {
+          "type": "array"
+        },
+        "calls": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "blockedCallCount",
+        "rejectedBeforeTiaCount",
+        "correctedOnNextPatchCount",
+        "issueCount",
+        "codes",
+        "calls"
+      ],
+      "additionalProperties": false
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "assertions": {
+      "type": "array"
+    },
+    "usage": {
+      "type": "object",
+      "required": [
+        "tokens",
+        "cost"
+      ],
+      "properties": {
+        "tokens": {
+          "type": "object",
+          "required": [
+            "total",
+            "input",
+            "output",
+            "reasoning"
+          ],
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "input": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "output": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reasoning": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

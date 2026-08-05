@@ -1,0 +1,22 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-skill-io-address-transfer-20260801",
+  "title": "Hardware skill I/O address transfer qualification",
+  "caseIds": [
+    "ott-14",
+    "ott-15",
+    "ott-16"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}

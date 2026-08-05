@@ -69,6 +69,15 @@ get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="D
 `apply-hardware-patch` defaults to `dry-run=true`. All operations run inside a Siemens Openness transaction:
 
 - A dry run performs validation and mutations in TIA, then disposes the transaction without committing it.
+- Before opening a Siemens transaction, structural validation rejects invalid
+  operation names, missing operation targets and required fields, invalid
+  patch-local result references, root-bound children of `create-device-with-item`,
+  missing network indexes, generated IO children bound to the wrong result, and
+  expected-address guards on children that do not exist before the patch. All
+  statically detectable issues are aggregated in one response.
+  Blocked results set `ValidationBlocked=true`, keep `RolledBack=false`, and
+  return indexed `ValidationIssues` with stable codes so callers can correct
+  the operation array without touching TIA.
 - An apply run commits only if every operation succeeds.
 - `delete-device`, `delete-item`, `disconnect-node`, `disconnect-io-connector`, and `erase-drive-telegram` require `confirm-destructive=true`.
 - Put the safety password in `OPENTIA_SAFETY_PASSWORD` (or another process environment variable) and pass its name with `safety-password-env` when `apply-hardware-patch` may touch fail-safe data. Never put a password in command arguments, JSON, logs, or shell history. Dry-runs still execute Siemens mutations inside a rolled-back transaction and may require safety authorization.

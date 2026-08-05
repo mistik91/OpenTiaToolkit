@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-brownfield-modernization-deepseek-v4-flash-free-max-smoke-20260803",
+  "title": "DeepSeek V4 Flash Free maximum-effort brownfield modernization endpoint smoke",
+  "caseIds": [
+    "ott-25"
+  ],
+  "trialCount": 1,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}

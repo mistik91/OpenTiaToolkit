@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-08",
+  "title": "Baseline-bound SimaticML modification",
+  "description": "Tests format routing and a one-leaf constrained edit to an existing LAD block.",
+  "fixtureId": "tia-v21-baseline-1",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 900,
+  "passScore": 80,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "plc-code-engineering",
+    "simaticml-plc-fallback"
+  ],
+  "allowWorkspaceEdits": true,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "capability-routing",
+      "type": "tool",
+      "points": 15,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "minCount": 1,
+      "outputPatterns": [
+        "SimaticML"
+      ]
+    },
+    {
+      "id": "transaction-created",
+      "type": "tool",
+      "points": 10,
+      "namePattern": "begin_plc_code_transaction$",
+      "minCount": 1
+    },
+    {
+      "id": "simaticml-operation",
+      "type": "tool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "add_simaticml_transaction_operation$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(changedPaths|allowed)"
+      ]
+    },
+    {
+      "id": "transaction-planned",
+      "type": "tool",
+      "points": 15,
+      "critical": true,
+      "namePattern": "plan_plc_code_transaction$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(safe|apply token|applyToken)"
+      ]
+    },
+    {
+      "id": "transaction-applied",
+      "type": "tool",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_plc_code_transaction$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(success|succeeded)"
+      ]
+    },
+    {
+      "id": "compile-proof",
+      "type": "traceRegex",
+      "points": 10,
+      "pattern": "(?i)(compile).{0,120}(0 error|error count.{0,20}0|ErrorCount.{0,20}0)"
+    },
+    {
+      "id": "final-summary",
+      "type": "finalRegex",
+      "points": 5,
+      "pattern": "(?s)(?=.*Main)(?=.*Benchmark cycle)(?=.*SimaticML)"
+    }
+  ]
+}

@@ -924,6 +924,8 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                     return CommandResult.CreateFailure(
                         "Raw safety-password input is not accepted. Put the password in an environment variable and use safety-password-env.");
                 }
+                if (!HardwarePatchCommandValidation.TryValidate(args, dryRun, out var operations, out var validationFailure))
+                    return validationFailure!;
 
                 if (!CommandSecretSupport.TryResolveOptionalEnvironmentSecret(
                     args,
@@ -973,7 +975,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                     55,
                     dryRun ? "dry-run-hardware-patch" : "apply-hardware-patch");
                 var result = await _service.ApplyPatchAsync(
-                    HardwareCommandSupport.RequireOperations(args),
+                    operations,
                     dryRun,
                     args.Has("confirm-destructive") && args.GetBool("confirm-destructive"),
                     args.Has("transaction-description") ? args.GetString("transaction-description") : null);
