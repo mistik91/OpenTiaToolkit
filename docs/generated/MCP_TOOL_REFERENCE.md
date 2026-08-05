@@ -16,6 +16,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `apply-hmi-screen-json-edit` | Unified HMI | `hmi-name`, `screen-path`, `edited-screen`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies one Unified HMI screen JSON edit with safety checks |
 | `apply-hmi-screen-json-patch` | Unified HMI | `hmi-name`, `screen-path`, `operations`, `operations-path`, `base-hash`, `dry-run`, `allow-stale-base`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `item-names`, `properties`, `working-path`, `confirm` | Dry-runs or applies compact Unified HMI screen patch operations with safety checks |
 | `apply-plc-code-transaction` | PLC | `transaction-id`, `apply-token`, `confirm` | Atomically preflights, applies, compiles, verifies, or fully rolls back a planned PLC code transaction |
+| `apply-unified-discrete-alarms` | Unified HMI | `hmi-name`, `input-path`, `dry-run`, `apply`, `confirm`, `fail-on-warning` | Atomically dry-runs or applies a versioned WinCC Unified discrete-alarm document |
 | `approve-plc-code-impact` | PLC | `transaction-id`, `impact-fingerprint`, `accept-unknown`, `confirm` | Revalidates and explicitly acknowledges a fingerprint-bound ReviewRequired or Unknown PLC code impact before issuing an apply token |
 | `archive-project` | Portal | `archive-path`, `mode`, `confirm` | Archives the current project to a .zap21 archive |
 | `audit-hardware-tag-mappings` | Hardware | `plc-name`, `tag-table-filter`, `catalog-search-text`, `max-unmatched-tags`, `output-path` | Audits PLC I/Q tag addresses against discovered hardware IO ranges and optional catalog evidence |
@@ -48,6 +49,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `delete-external-source` | PLC | `plc-name`, `source-name`, `confirm` | Deletes one PLC external source after explicit confirmation |
 | `delete-hmi-data-log` | Unified HMI | `hmi-name`, `datalog-name`, `confirm` | Deletes one Unified HMI data log archive when no logging tags still reference it |
 | `delete-hmi-data-logs` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or deletes multiple unreferenced Unified HMI data log archives |
+| `delete-unified-discrete-alarm` | Unified HMI | `hmi-name`, `alarm-name`, `expected-hash`, `dry-run`, `confirm`, `allow-referenced-delete` | Dry-runs or deletes exactly one WinCC Unified discrete alarm with hash and reference guards |
 | `delete-vci-workspace` | VCI | `workspace-name`, `confirm` | Deletes a Version Control Interface workspace definition |
 | `describe-api` | V21 |  | Self-describes the installed V21 public API surface and prioritized feature availability. |
 | `describe-plc-code-formats` | PLC |  | Describes format-specific PLC authoring support, mutation routes, verification requirements, and limitations |
@@ -107,6 +109,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `get-project-tree` | Portal | `depth` | Gets the hierarchical project structure |
 | `get-software-tree` | PLC | `plc-name`, `depth`, `output-path` | Gets the hierarchical PLC software structure |
 | `get-technology-object-details` | Insights | `max-results` | Reads PLC technology object metadata and parameters through the official V21 API. |
+| `get-unified-discrete-alarm` | Unified HMI | `hmi-name`, `alarm-name`, `include-validation` | Gets one exact canonical WinCC Unified discrete-alarm snapshot |
 | `get-unified-runtime-settings` | Insights | `max-results` | Reads scalar Unified HMI runtime settings through the official V21 API. |
 | `get-vci-block-formats` | VCI | `plc-name`, `block-name`, `block-type`, `group-path` | Gets VCI-supported workspace file formats for one PLC block |
 | `get-vci-block-status` | VCI | `workspace-name`, `plc-name`, `block-name`, `block-type`, `group-path`, `confirm` | Gets VCI comparison status for one mapped PLC block |
@@ -145,6 +148,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `list-projects` | Portal | `page-size`, `continuation-token` | Lists all open TIA Portal projects and sessions |
 | `list-technology-objects` | PLC | `plc-name`, `output-path`, `page-size`, `continuation-token` | PLC technology objects |
 | `list-unified-alarms` | Insights | `max-results`, `page-size`, `continuation-token` | Lists Unified HMI alarm classes, analog/discrete alarms, and OPC UA alarm types through the official V21 API. |
+| `list-unified-discrete-alarms` | Unified HMI | `hmi-name`, `include-validation`, `page-size`, `continuation-token` | Lists complete canonical WinCC Unified discrete-alarm snapshots |
 | `list-unified-text-lists` | Insights | `max-results`, `page-size`, `continuation-token` | Lists Unified HMI user, system, and graphic text lists through the official V21 API. |
 | `list-vci-mappings` | VCI | `workspace-name`, `output-path`, `page-size`, `continuation-token` | Lists mapped objects in a Version Control Interface workspace |
 | `list-vci-workspaces` | VCI | `page-size`, `continuation-token` | Lists Version Control Interface workspaces in the open project |

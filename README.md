@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="TIA Portal V21" src="https://img.shields.io/badge/TIA_Portal-V21_only-0078D4">
-  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.4-orange">
+  <img alt="Release preview" src="https://img.shields.io/badge/release-1.0.0--preview.5-orange">
   <img alt="Platform Windows" src="https://img.shields.io/badge/platform-Windows-0078D6">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-2ea44f">
 </p>
@@ -17,7 +17,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#what-you-can-automate">Capabilities</a> ·
   <a href="#architecture">Architecture</a> ·
-  <a href="docs/generated/COMMAND_REFERENCE.md">182 commands</a> ·
+  <a href="docs/generated/COMMAND_REFERENCE.md">186 commands</a> ·
   <a href="docs/BLUEPRINTS.md">Blueprints</a> ·
   <a href="docs/SETUP.md">Documentation</a>
 </p>
@@ -29,13 +29,13 @@ OpenTiaToolkit is an open-source Windows engineering automation platform for Sie
 The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and later require a dedicated worker package, compatibility profile, and live validation before support is claimed.
 
 > [!IMPORTANT]
-> The current public build is [`1.0.0-preview.4`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.4) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
+> The current public build is [`1.0.0-preview.5`](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.5) and is **unsigned**. Windows may show an unknown-publisher or SmartScreen warning. Verify the published SHA-256 before installation. A signed stable `1.0.0` release will follow.
 
 ## Why OpenTiaToolkit
 
 | Capability | What it provides |
 |---|---|
-| One shared surface | 182 commands implemented once and exposed consistently through CLI and MCP |
+| One shared surface | 186 commands implemented once and exposed consistently through CLI and MCP |
 | Safe mutations | Central policy, previews, explicit confirmation, typed outcomes, read-back checks, and redacted audit records |
 | Process isolation | Siemens objects stay inside a disposable V21 worker with a serialized request queue |
 | Declarative automation | State-bound blueprints turn reviewed PLC, HMI, and hardware intent into previewable plans |
@@ -48,7 +48,7 @@ The toolkit supports **TIA Portal V21 only**. V20 is not supported. V22 and late
 |---|---|
 | Projects and sessions | Discover or launch TIA, connect to instances, create/open/retrieve/archive projects, inspect project trees |
 | PLC engineering | Browse software, compile, import/export blocks and sources, manage tags, cross-references, persistent code transactions, guarded PLCSIM Advanced downloads, and deterministic disposable behavioral probes |
-| Unified HMI | Browse and edit screens, tags, trends and logging; JSON snapshot/diff/patch/import; alarms, runtime settings, text lists and faceplate probes |
+| Unified HMI | Browse and edit screens, tags, trends and logging; JSON snapshot/diff/patch/import; canonical, transactional discrete-alarm CRUD; runtime settings, text lists and faceplate probes |
 | Hardware and drives | Catalog discovery, module placement, PROFINET identity and wiring, IO addressing, Startdrive telegrams and parameters, GSD/GSDML changes |
 | VCI | Create workspaces, map S7DCL content, inspect status, and synchronize individual objects or complete PLC selections |
 | Libraries and texts | Project/global library inspection, master-copy workflows, update checks, project-language workbook import/export |
@@ -102,12 +102,12 @@ Always review previews and keep project backups before applying engineering chan
 
 ### Install the public preview
 
-1. Download `OpenTiaToolkit-1.0.0-preview.4-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.4).
+1. Download `OpenTiaToolkit-1.0.0-preview.5-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [preview release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.5).
 2. Verify the installer:
 
 ```powershell
 $expected = (Get-Content .\INSTALLER-SHA256SUMS.txt).Split()[0]
-$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.4-Setup.exe -Algorithm SHA256).Hash
+$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.5-Setup.exe -Algorithm SHA256).Hash
 $actual.ToLowerInvariant() -eq $expected.ToLowerInvariant()
 ```
 
@@ -222,19 +222,19 @@ See the [developer guide](docs/DEV_GUIDE.md) for repository architecture and con
 | [Blueprint workflow](docs/BLUEPRINTS.md) | [API compatibility and migration](docs/API_COMPATIBILITY.md) |
 | [Hardware automation](docs/HARDWARE_AUTOMATION.md) | [Production architecture and recovery](docs/PRODUCTION_ARCHITECTURE.md) |
 | [Repository examples](examples/README.md) | [Supply chain and release integrity](docs/SUPPLY_CHAIN.md) |
-| [Preview.4 release notes](docs/RELEASE_NOTES_1.0.0-preview.4.md) | [Security policy](SECURITY.md) |
+| [Preview.5 release notes](docs/RELEASE_NOTES_1.0.0-preview.5.md) | [Security policy](SECURITY.md) |
 
 ## Validation
 
-The `1.0.0-preview.4` release passed:
+The `1.0.0-preview.5` release passed:
 
 - Release build with zero warnings and errors
-- 633 fast tests, 54 architecture tests, 3 MCP registry integration tests, and 4 worker IPC integration tests
-- generated CLI and MCP reference validation for 182 shared commands plus 3 MCP infrastructure tools
+- 663 fast tests, 54 architecture tests, and 5 worker IPC integration tests
+- generated CLI and MCP reference validation for 186 shared commands plus 3 MCP infrastructure tools
 - stable MCP SDK 2.0.0 protocol, schema, structured-output, cancellation, reset, and large-result coverage
 - generated-reference, packaged-skill, formatting, locked-restore, and vulnerability checks
 - staged installer and MCPB stdio validation with exact CLI/MCP/worker binary parity
-- live V21 read-only discovery across projects, devices, PLCs, blocks, HMIs, and screens, with policy-denied and invalid-request checks
+- live V21 read-only discovery plus a disposable Unified HMI discrete-alarm transaction campaign covering dry-run, apply, idempotence, batch rollback, guarded deletion, cleanup, and reopen verification
 
 Run the vendor-free fast suite locally with:
 

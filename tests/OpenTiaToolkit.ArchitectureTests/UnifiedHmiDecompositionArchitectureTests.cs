@@ -26,7 +26,7 @@ public class UnifiedHmiDecompositionArchitectureTests
     }
 
     [TestMethod]
-    public void ImportTransaction_IsOwnedOnlyByCoordinator()
+    public void UnifiedHmiTransactions_AreOwnedOnlyByFocusedBoundaries()
     {
         string root = FindRepositoryRoot();
         string directory = Path.Combine(root, "src", "OpenTiaToolkit.Core", "Services", "UnifiedHmi");
@@ -35,7 +35,9 @@ public class UnifiedHmiDecompositionArchitectureTests
             .Select(Path.GetFileName)
             .ToList();
 
-        CollectionAssert.AreEqual(new[] { "HmiJsonImportBoundaries.cs" }, owners);
+        CollectionAssert.AreEquivalent(
+            new[] { "HmiJsonImportBoundaries.cs", "V21HmiDiscreteAlarmAccess.cs" },
+            owners);
     }
 
     [TestMethod]

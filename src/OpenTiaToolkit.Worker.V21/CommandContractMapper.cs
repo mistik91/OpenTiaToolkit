@@ -23,7 +23,8 @@ internal static class CommandContractMapper
     private static readonly HashSet<string> DestructiveCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "delete-blocks", "delete-vci-workspace", "delete-hmi-data-log", "delete-hmi-data-logs",
-        "remove-hmi-logging-tag", "remove-hmi-logging-tags", "delete-external-source", "close-project", "close-tia-portal"
+        "remove-hmi-logging-tag", "remove-hmi-logging-tags", "delete-unified-discrete-alarm",
+        "delete-external-source", "close-project", "close-tia-portal"
     };
 
     private static readonly string[] MutationPrefixes =

@@ -20,6 +20,7 @@ Register the exact MCP executable you launch with Siemens Openness. Developers w
 - `skills/basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance.
 - `skills/multiuser-collaboration-workflow`: Project Server identity, local session, conflict, save, and check-in guidance.
 - `skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance.
+- `skills/hmi-discrete-alarm-workflow`: canonical Unified discrete-alarm reads, transactional create/update dry-runs and applies, and guarded deletion guidance.
 - `skills/hardware-configuration-workflow`: generic hardware discovery, guarded patch, dry-run, and apply guidance.
 - `skills/plc-block-and-tag-workflow`: PLC blocks, types, tags, CSV updates, rename, and compile guidance.
 - `skills/library-workflow`: project/global library, master copy, library type, UDT version, and update-check guidance.

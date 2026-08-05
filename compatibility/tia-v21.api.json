@@ -54,6 +54,7 @@
   ],
   "featureProbes": {
     "unified-alarms": true,
+    "unified-discrete-alarm-write": true,
     "unified-runtime-settings": true,
     "unified-text-lists": true,
     "startdrive-telegrams": true,

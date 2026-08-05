@@ -11,6 +11,7 @@ This bundle packages OpenTiaToolkit guidance for OpenCode:
 - `.opencode/skills/basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance
 - `.opencode/skills/multiuser-collaboration-workflow`: Project Server identity, local session, conflict, save, and check-in guidance
 - `.opencode/skills/hmi-unified-agent-editing`: HMI Unified JSON export, patch, import, probe, and audit workflow guidance
+- `.opencode/skills/hmi-discrete-alarm-workflow`: canonical Unified discrete-alarm reads, transactional create/update dry-runs and applies, and guarded deletion guidance
 - `.opencode/skills/hardware-configuration-workflow`: generic hardware discovery, guarded patch, dry-run, and apply guidance
 - `.opencode/skills/plc-block-and-tag-workflow`: PLC blocks, types, tags, CSV updates, rename, and compile guidance
 - `.opencode/skills/library-workflow`: project/global library, master copy, library type, UDT version, and update-check guidance

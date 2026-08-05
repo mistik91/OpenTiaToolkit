@@ -611,6 +611,28 @@ For large Unified HMI projects, prefer a concrete leaf or subtree `--root-path`.
 
 When `--output-path` is provided, `list-hmi-tags` writes a CSV file and returns a compact artifact manifest. Without `--output-path`, tag results that would exceed the 32 KB inline response threshold are automatically written to a temporary CSV artifact instead of being streamed inline.
 
+#### Unified discrete alarms
+
+Use the dedicated commands for complete canonical WinCC Unified discrete-alarm snapshots and transactional engineering changes. The legacy `list-unified-alarms` command remains a shallow read-only insight across several alarm families.
+
+```bash
+# Read complete canonical snapshots and capture the contentHash before mutation
+OpenTiaToolkit.CLI.exe list-unified-discrete-alarms --hmi-name="HMI_1"
+OpenTiaToolkit.CLI.exe get-unified-discrete-alarm --hmi-name="HMI_1" --alarm-name="Motor_Overload" --include-validation=true
+
+# Execute the same JSON setters and Siemens validation inside a rolled-back transaction
+OpenTiaToolkit.CLI.exe apply-unified-discrete-alarms --hmi-name="HMI_1" --input-path="C:\Engineering\discrete-alarms.json" --dry-run=true
+
+# Apply only the reviewed document
+OpenTiaToolkit.CLI.exe apply-unified-discrete-alarms --hmi-name="HMI_1" --input-path="C:\Engineering\discrete-alarms.json" --dry-run=false --apply=true --confirm=true
+
+# Dry-run and then apply one hash-bound deletion
+OpenTiaToolkit.CLI.exe delete-unified-discrete-alarm --hmi-name="HMI_1" --alarm-name="Motor_Overload" --expected-hash="<contentHash>" --dry-run=true
+OpenTiaToolkit.CLI.exe delete-unified-discrete-alarm --hmi-name="HMI_1" --alarm-name="Motor_Overload" --expected-hash="<contentHash>" --dry-run=false --confirm=true
+```
+
+The input document uses `schemaVersion` `1.0`. New alarms require `name`, `id`, an existing `alarmClass`, an existing `raisedStateTag`, `raisedStateTagBitNumber`, and `triggerMode`; use `expectedState: "absent"`. Updates preserve omitted fields and should use `expectedState: "present"` with the fresh `expectedHash`. Localized cultures must already exist in the Unified HMI text items, parameter tags are limited to 10, and each trigger tag/bit combination must be unused. Successful applies change the open engineering project but do not implicitly save, compile, download, or deploy it.
+
 #### create-hmi-trend
 
 Creates or updates data logging infrastructure for a Unified HMI tag.

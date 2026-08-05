@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 182,
+  "commandCount": 186,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -675,6 +675,57 @@
           "required": true,
           "defaultValue": null,
           "description": "Confirm the complete reviewed transaction"
+        }
+      ]
+    },
+    {
+      "name": "apply-unified-discrete-alarms",
+      "description": "Atomically dry-runs or applies a versioned WinCC Unified discrete-alarm document",
+      "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": true,
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Path to the versioned discrete-alarm JSON document"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Execute setters and Siemens validation in a rolled-back transaction"
+        },
+        {
+          "name": "apply",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly request apply"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm the reviewed apply"
+        },
+        {
+          "name": "fail-on-warning",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Block commit on Siemens or toolkit warnings"
         }
       ]
     },
@@ -1983,6 +2034,57 @@
           "required": false,
           "defaultValue": false,
           "description": "Confirm deletion when dry-run is false"
+        }
+      ]
+    },
+    {
+      "name": "delete-unified-discrete-alarm",
+      "description": "Dry-runs or deletes exactly one WinCC Unified discrete alarm with hash and reference guards",
+      "category": "Unified HMI",
+      "risk": "Destructive",
+      "supportsPreview": true,
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "alarm-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The exact discrete-alarm name"
+        },
+        {
+          "name": "expected-hash",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Canonical hash returned by list/get"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Execute deletion in a rolled-back transaction"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm destructive deletion"
+        },
+        {
+          "name": "allow-referenced-delete",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Allow deletion after reviewing reported cross references"
         }
       ]
     },
@@ -3821,6 +3923,36 @@
       ]
     },
     {
+      "name": "get-unified-discrete-alarm",
+      "description": "Gets one exact canonical WinCC Unified discrete-alarm snapshot",
+      "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "alarm-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The exact discrete-alarm name"
+        },
+        {
+          "name": "include-validation",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Include Siemens Validate() diagnostics"
+        }
+      ]
+    },
+    {
       "name": "get-unified-runtime-settings",
       "description": "Reads scalar Unified HMI runtime settings through the official V21 API.",
       "category": "Insights",
@@ -5208,6 +5340,43 @@
           "required": false,
           "defaultValue": 500,
           "description": "Maximum returned rows (1-5000)"
+        },
+        {
+          "name": "page-size",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional maximum number of rows returned in this page (1-1000)."
+        },
+        {
+          "name": "continuation-token",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Opaque continuation token returned by a previous page."
+        }
+      ]
+    },
+    {
+      "name": "list-unified-discrete-alarms",
+      "description": "Lists complete canonical WinCC Unified discrete-alarm snapshots",
+      "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "The Unified HMI name"
+        },
+        {
+          "name": "include-validation",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Include Siemens Validate() diagnostics"
         },
         {
           "name": "page-size",

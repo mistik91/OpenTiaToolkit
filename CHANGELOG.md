@@ -7,6 +7,21 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-preview.5] - 2026-08-05
+
+### Added
+- Added canonical WinCC Unified discrete-alarm discovery and exact reads with deterministic hashes, multilingual texts, parameter tags, and optional Siemens validation diagnostics.
+- Added atomic versioned-JSON create/update dry-runs and applies plus hash-bound, cross-reference-aware guarded deletion for Unified discrete alarms.
+- Added a dedicated discrete-alarm workflow skill synchronized across Codex, Claude Code, and OpenCode packages, together with a toolkit-owned disposable-project live integration campaign.
+- Added the OpenCode hardware benchmark harness and expanded held-out, adversarial, cross-domain, and device-family campaign coverage.
+
+### Changed
+- Expanded the shared CLI/MCP command surface from 182 to 186 commands and advertised discrete-alarm write capability in the V21 compatibility profile.
+- Tightened hardware-patch contract validation and guidance for generated-parent targets, IO byte ranges, topology/address bindings, GSD/GSDML fields, and atomic rollback evaluation.
+
+### Fixed
+- Prevented the disposable Unified discrete-alarm integration test from attaching to an arbitrary running TIA Portal instance; it now starts a hidden toolkit-owned portal and verifies the exact disposable project path before mutation.
+
 ## [1.0.0-preview.4] - 2026-07-30
 
 ### Added

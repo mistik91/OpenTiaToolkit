@@ -69,6 +69,7 @@ internal sealed class ApiSelfDescriptionService
             pair => pair.Key,
             pair => pair.Value.Any(typeName => assemblies.Any(assembly => assembly.GetType(typeName, false, false) != null)),
             StringComparer.OrdinalIgnoreCase);
+        probes["unified-discrete-alarm-write"] = HasUnifiedDiscreteAlarmWriteSurface(assemblies);
         string aggregate = Sha256(string.Join("\n", surfaces.OrderBy(item => item.Name, StringComparer.Ordinal)
             .Select(item => item.Name + "|" + item.Version + "|" + item.PublicSurfaceSha256)));
         return new ApiSelfDescription
@@ -133,6 +134,15 @@ internal sealed class ApiSelfDescriptionService
     {
         try { return assembly.GetExportedTypes(); }
         catch (ReflectionTypeLoadException ex) { return ex.Types.Where(type => type != null && type!.IsPublic).Cast<Type>().ToArray(); }
+    }
+
+    private static bool HasUnifiedDiscreteAlarmWriteSurface(IEnumerable<Assembly> assemblies)
+    {
+        Type? composition = assemblies.Select(assembly => assembly.GetType("Siemens.Engineering.HmiUnified.HmiAlarm.HmiDiscreteAlarmComposition", false, false)).FirstOrDefault(type => type != null);
+        Type? alarm = assemblies.Select(assembly => assembly.GetType("Siemens.Engineering.HmiUnified.HmiAlarm.HmiDiscreteAlarm", false, false)).FirstOrDefault(type => type != null);
+        return composition?.GetMethod("Create", new[] { typeof(string) }) != null
+            && alarm?.GetMethod("Delete", Type.EmptyTypes) != null
+            && alarm.GetMethod("Validate", Type.EmptyTypes) != null;
     }
 
     private static string FileSha256(string path)

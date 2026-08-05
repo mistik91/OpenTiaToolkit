@@ -1,6 +1,6 @@
 ---
 name: opentia-toolkit-workflow
-description: Use as the general OpenTiaToolkit router skill for Siemens TIA Portal automation requests. Use when a task mentions OpenTiaToolkit, TIA Portal, Openness, PLCs, Unified HMI, hardware configuration, VCI synchronization, project/device discovery, trend logging, or repo development and the correct specialized workflow is not already obvious.
+description: Use as the general OpenTiaToolkit router skill for Siemens TIA Portal automation requests. Use when a task mentions OpenTiaToolkit, TIA Portal, Openness, PLCs, Unified HMI, discrete alarms, hardware configuration, VCI synchronization, project/device discovery, trend logging, or repo development and the correct specialized workflow is not already obvious.
 ---
 
 # OpenTiaToolkit Workflow
@@ -19,6 +19,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
    - Generic catalog, module/submodule, PROFINET, IO address, Startdrive telegram, GSD/GSDML parameter, or `apply-hardware-patch` work: use `hardware-configuration-workflow`.
    - PLC blocks, types, source files, compile, import/export, tags, cross-references, watch tables, technology objects, alarm text lists, CSV tag updates, or find/replace rename work: use `plc-block-and-tag-workflow`.
    - PLC code generation or modification in LAD, SCL, S7DCL/S7RES, external source, or SimaticML: use `plc-code-engineering` after target discovery.
+   - WinCC Unified discrete-alarm discovery, exact reads, create/update JSON applies, or guarded deletion: use `hmi-discrete-alarm-workflow`.
    - Unified HMI trend logging, logging tags, data logs, or bulk logging configs: use `hmi-trend-logging-workflow`.
    - Project/global library browsing, master copies, library types, UDT versions, update checks, or approved asset reuse: use `library-workflow`.
    - Version Control Interface workspace, mapping, status, export/connect/sync work: use `vci-sync-workflow`.
@@ -54,6 +55,7 @@ Use dry-runs, previews, or status reads before applying changes when the command
 - `apply-hmi-screen-json-patch` and `apply-hmi-screen-json-edit`: start with `dry-run=true` and keep `base-hash` filters stable.
 - `import-hmi-json`: dry-run, warning blocking, and clean preflight default to safe values. Apply only with `dry-run=false`, `apply=true`, and `confirm=true` after reviewing the dry-run result; backup also defaults to true on apply.
 - `create-hmi-trends`, `remove-hmi-logging-tags`, `delete-hmi-data-logs`: start with `dry-run=true`.
+- `apply-unified-discrete-alarms` and `delete-unified-discrete-alarm`: start with `dry-run=true`, retain exact names and fresh canonical hashes, and follow `hmi-discrete-alarm-workflow` before applying.
 - `import-texts`: start with the default `dry-run=true`; apply project text workbook changes only with explicit user intent and `dry-run=false`.
 - `copy-from-master-copy`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true` after confirming the master copy matches the target domain.
 - `import-source`, `generate-blocks-from-source`: start with `dry-run=true`; apply only with `dry-run=false` and `confirm=true`, then verify with `get-block-info`/`get-blocks` and `compile-software`.
@@ -87,6 +89,7 @@ After a mutation, verify through the narrowest available read:
 - Library workflows: `list-master-copies`, `list-library-types`, `get-library-type-versions`, or `check-library-updates`.
 - Project text workflows: `list-project-languages`, `get-project-info`, a targeted `export-texts`, or `import-texts` dry-run/summary.
 - HMI screen changes: fresh screen snapshot, item properties, `VerifiedScreen`, or `hmi-status`.
+- Unified discrete-alarm changes: fresh `get-unified-discrete-alarm` or `list-unified-discrete-alarms` canonical snapshots and hashes.
 - Hardware changes: `get-hardware-tree`, `get-hardware-io-addresses`, `get-hardware-networks`, `audit-hardware-tag-mappings`, or parameter reads.
 - VCI changes: `get-vci-block-status` or `list-vci-mappings`.
 

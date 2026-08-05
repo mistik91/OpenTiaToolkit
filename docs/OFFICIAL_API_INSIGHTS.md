@@ -8,7 +8,45 @@ Phase 3 adds bounded, vendor-neutral reads over prioritized Siemens V21 APIs:
 - `get-multiuser-status` and `inspect-project-security`;
 - `get-watch-table-details`, `get-technology-object-details`, and `get-plc-alarm-text-list-details`.
 
-These commands are read-only. Optional Siemens fields are fail-soft: one unavailable property is represented as missing rather than aborting the whole result. Large object families use `max-results` and report `totalCount` plus `truncated`; Startdrive is capped at 5,000 records.
+These insight commands are read-only. In particular, `list-unified-alarms` retains its legacy shallow result across alarm classes, analog alarms, discrete alarms, and OPC UA alarm types. Optional Siemens fields are fail-soft: one unavailable property is represented as missing rather than aborting the whole result. Large object families use `max-results` and report `totalCount` plus `truncated`; Startdrive is capped at 5,000 records.
+
+## Unified discrete-alarm engineering
+
+The dedicated WinCC Unified discrete-alarm workflow is separate from the read-only insight service:
+
+- `list-unified-discrete-alarms` returns complete canonical snapshots, localized `EventText`/`EventText1` through `EventText9`/`InfoText`, ordered parameter tags, Siemens validation diagnostics on request, and deterministic content hashes.
+- `get-unified-discrete-alarm` resolves one exact, case-sensitive alarm name.
+- `apply-unified-discrete-alarms` consumes a versioned JSON document and creates or patches one or more alarms atomically. Omitted fields are preserved. Cultures are patched independently and must already be configured in the HMI project.
+- `delete-unified-discrete-alarm` requires the current canonical hash, resolves exactly one name, reports cross references, and blocks referenced deletion by default.
+
+Apply defaults to `dry-run=true`. A persistent apply requires `dry-run=false`, `apply=true`, and `confirm=true`; deletion requires `dry-run=false` and `confirm=true`. Dry-runs execute the same Siemens setters and `Validate()` calls inside a real transaction, then roll back and fresh-read the alarm inventory. Successful applies change only the open engineering project and do not implicitly save, compile, download, or deploy it.
+
+The workflow requires a WinCC Unified engineering license. A missing license is reported as `unified-license-required`, rather than as a not-found result. This surface configures engineering alarms; it does not acknowledge or generate runtime alarms. Analog alarms, OPC UA alarm types, alarm-class CRUD, logging archives, and PLC alarms remain outside this workflow.
+
+Example input:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "alarms": [
+    {
+      "name": "Motor_Overload",
+      "expectedState": "absent",
+      "id": 1001,
+      "alarmClass": "Error",
+      "priority": 10,
+      "raisedStateTag": "Motor1_Status",
+      "raisedStateTagBitNumber": 3,
+      "triggerMode": "OnRisingEdge",
+      "alarmParameterTags": ["Motor1_Speed"],
+      "texts": {
+        "en-US": { "eventText": "Motor overload", "infoText": "Check motor current and cooling." },
+        "it-IT": { "eventText": "Sovraccarico motore", "infoText": "Controllare corrente e raffreddamento." }
+      }
+    }
+  ]
+}
+```
 
 ## Multiuser collaboration workflow
 

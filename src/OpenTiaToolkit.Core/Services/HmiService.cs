@@ -23,6 +23,7 @@ namespace OpenTiaToolkit.Core.Services
         private readonly HmiMutationService _mutationService;
         private readonly HmiCopyService _copyService;
         private readonly HmiTrendService _trendService;
+        private readonly HmiDiscreteAlarmService _discreteAlarmService;
         private readonly HmiJsonExportService _jsonExportService;
         private readonly HmiJsonDiffService _jsonDiffService;
         private readonly HmiJsonImportService _jsonImportService;
@@ -50,6 +51,7 @@ namespace OpenTiaToolkit.Core.Services
             _mutationService = new HmiMutationService(_sessionContext, _adapter, logger);
             _copyService = new HmiCopyService(_sessionContext, _adapter, logger);
             _trendService = new HmiTrendService(_sessionContext, _adapter, logger);
+            _discreteAlarmService = new HmiDiscreteAlarmService(new V21HmiDiscreteAlarmAccess(_sessionContext, _adapter));
             _jsonExportService = new HmiJsonExportService(_sessionContext, _adapter, logger);
             _jsonDiffService = new HmiJsonDiffService();
             _jsonImportService = new HmiJsonImportService(_sessionContext, _adapter, _jsonExportService, logger);
@@ -381,6 +383,27 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await _trendService.DeleteDataLogsAsync(configs, confirm, dryRun);
         }
+
+        /// <inheritdoc/>
+        public Task<IReadOnlyList<HmiDiscreteAlarmSnapshot>> ListDiscreteAlarmsAsync(bool includeValidation = false) =>
+            _discreteAlarmService.ListAsync(includeValidation);
+
+        /// <inheritdoc/>
+        public Task<HmiDiscreteAlarmSnapshot?> GetDiscreteAlarmAsync(string alarmName, bool includeValidation = true) =>
+            _discreteAlarmService.GetAsync(alarmName, includeValidation);
+
+        /// <inheritdoc/>
+        public Task<HmiDiscreteAlarmApplyResult> ApplyDiscreteAlarmsAsync(string inputPath, bool dryRun = true, bool failOnWarning = true) =>
+            _discreteAlarmService.ApplyAsync(inputPath, dryRun, failOnWarning);
+
+        /// <inheritdoc/>
+        public Task<HmiDiscreteAlarmDeleteResult> DeleteDiscreteAlarmAsync(
+            string alarmName,
+            string expectedHash,
+            bool dryRun = true,
+            bool confirm = false,
+            bool allowReferencedDelete = false) =>
+            _discreteAlarmService.DeleteAsync(alarmName, expectedHash, dryRun, confirm, allowReferencedDelete);
 
         private static EngineeringSessionContext ResolveSessionContext(IPortalService portalService)
         {

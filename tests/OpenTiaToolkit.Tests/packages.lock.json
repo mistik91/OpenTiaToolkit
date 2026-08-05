@@ -674,15 +674,15 @@
       "opentiatoolkit.application": {
         "type": "Project",
         "dependencies": {
-          "OpenTiaToolkit.Contracts": "[1.0.0-preview.4, )",
+          "OpenTiaToolkit.Contracts": "[1.0.0-preview.5, )",
           "System.Text.Json": "[8.0.5, )"
         }
       },
       "opentiatoolkit.cli": {
         "type": "Project",
         "dependencies": {
-          "OpenTiaToolkit.Application": "[1.0.0-preview.4, )",
-          "OpenTiaToolkit.Contracts": "[1.0.0-preview.4, )"
+          "OpenTiaToolkit.Application": "[1.0.0-preview.5, )",
+          "OpenTiaToolkit.Contracts": "[1.0.0-preview.5, )"
         }
       },
       "opentiatoolkit.contracts": {
@@ -706,8 +706,8 @@
           "Microsoft.Extensions.DependencyInjection": "[10.0.10, )",
           "Microsoft.Extensions.Hosting": "[10.0.10, )",
           "ModelContextProtocol": "[2.0.0, )",
-          "OpenTiaToolkit.Application": "[1.0.0-preview.4, )",
-          "OpenTiaToolkit.Contracts": "[1.0.0-preview.4, )"
+          "OpenTiaToolkit.Application": "[1.0.0-preview.5, )",
+          "OpenTiaToolkit.Contracts": "[1.0.0-preview.5, )"
         }
       }
     }

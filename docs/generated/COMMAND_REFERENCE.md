@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **182**
+Commands: **186**
 
 ## Devices
 
@@ -1469,6 +1469,19 @@ Dry-runs or applies compact Unified HMI screen patch operations with safety chec
 | `working-path` | Path | no |  | Optional artifact root path |
 | `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
+### apply-unified-discrete-alarms
+
+Atomically dry-runs or applies a versioned WinCC Unified discrete-alarm document
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `hmi-name` | String | yes |  | The Unified HMI name |
+| `input-path` | Path | yes |  | Path to the versioned discrete-alarm JSON document |
+| `dry-run` | Boolean | no | True | Execute setters and Siemens validation in a rolled-back transaction |
+| `apply` | Boolean | no | False | Explicitly request apply |
+| `confirm` | Boolean | no | False | Confirm the reviewed apply |
+| `fail-on-warning` | Boolean | no | True | Block commit on Siemens or toolkit warnings |
+
 ### audit-hmi-label-proximity
 
 Creates an auditable nearest-label mapping report from an exported Unified HMI JSON file
@@ -1576,6 +1589,19 @@ Plans or deletes multiple unreferenced Unified HMI data log archives
 | `dry-run` | Boolean | no | True | Validate and report planned archive deletions without applying them |
 | `confirm` | Boolean | no | False | Confirm deletion when dry-run is false |
 
+### delete-unified-discrete-alarm
+
+Dry-runs or deletes exactly one WinCC Unified discrete alarm with hash and reference guards
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `hmi-name` | String | yes |  | The Unified HMI name |
+| `alarm-name` | String | yes |  | The exact discrete-alarm name |
+| `expected-hash` | String | yes |  | Canonical hash returned by list/get |
+| `dry-run` | Boolean | no | True | Execute deletion in a rolled-back transaction |
+| `confirm` | Boolean | no | False | Confirm destructive deletion |
+| `allow-referenced-delete` | Boolean | no | False | Allow deletion after reviewing reported cross references |
+
 ### diff-hmi-json
 
 Creates a minimal Unified HMI JSON patch from two exports
@@ -1645,6 +1671,16 @@ Summarizes item counts and faceplate contained types for one Unified HMI screen
 | `include-items` | Boolean | no | False | Include compact per-item entries |
 | `include-faceplates` | Boolean | no | False | Include compact faceplate interface entries and configuration counts |
 | `working-path` | Path | no |  | Optional artifact root path |
+
+### get-unified-discrete-alarm
+
+Gets one exact canonical WinCC Unified discrete-alarm snapshot
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `hmi-name` | String | yes |  | The Unified HMI name |
+| `alarm-name` | String | yes |  | The exact discrete-alarm name |
+| `include-validation` | Boolean | no | True | Include Siemens Validate() diagnostics |
 
 ### hmi-status
 
@@ -1736,6 +1772,17 @@ Lists tags in a Unified HMI
 | `include-details` | Boolean | no | True | Read detailed tag metadata such as display name and data type |
 | `include-logging-counts` | Boolean | no | False | Read logging tag counts for returned tags |
 | `output-path` | Path | no |  | Optional CSV file or folder path for large tag lists |
+| `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
+| `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
+
+### list-unified-discrete-alarms
+
+Lists complete canonical WinCC Unified discrete-alarm snapshots
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `hmi-name` | String | yes |  | The Unified HMI name |
+| `include-validation` | Boolean | no | False | Include Siemens Validate() diagnostics |
 | `page-size` | Integer | no |  | Optional maximum number of rows returned in this page (1-1000). |
 | `continuation-token` | String | no |  | Opaque continuation token returned by a previous page. |
 

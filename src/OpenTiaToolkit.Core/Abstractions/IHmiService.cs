@@ -303,4 +303,20 @@ public interface IHmiService
         IReadOnlyList<HmiDataLogDeleteRequest> configs,
         bool confirm = false,
         bool dryRun = true);
+
+    Task<IReadOnlyList<HmiDiscreteAlarmSnapshot>> ListDiscreteAlarmsAsync(bool includeValidation = false);
+
+    Task<HmiDiscreteAlarmSnapshot?> GetDiscreteAlarmAsync(string alarmName, bool includeValidation = true);
+
+    Task<HmiDiscreteAlarmApplyResult> ApplyDiscreteAlarmsAsync(
+        string inputPath,
+        bool dryRun = true,
+        bool failOnWarning = true);
+
+    Task<HmiDiscreteAlarmDeleteResult> DeleteDiscreteAlarmAsync(
+        string alarmName,
+        string expectedHash,
+        bool dryRun = true,
+        bool confirm = false,
+        bool allowReferencedDelete = false);
 }
