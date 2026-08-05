@@ -331,6 +331,15 @@ interventions, and reduced mean duration and reasoning use. Sol remains
 disqualified overall because only 1/3 candidate trials qualified. The invalid
 pilot, contract repair, valid A/B campaigns, trace audit, and cleanup are in
 `reports/hardware-gsdml-promag-sol-max-20260803.md`.
+The repaired OpenCode free endpoint then completed a corrected DeepSeek V4
+Flash Free `max` campaign without provider failures. It scored 80, 80, and 90,
+produced the requested final hardware state in all three trials, and cost $0,
+but remained disqualified at 0/3 because every trace added at least one
+unnecessary partial discovery or GSD-target recovery attempt. The skill already
+contains the violated generic atomic-batch rules, so this result did not trigger
+another skill edit. The frozen campaign, Sol comparison, endpoint evidence, and
+trace audit are in
+`reports/hardware-gsdml-promag-v4-free-max-20260805.md`.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
