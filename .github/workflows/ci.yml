@@ -56,7 +56,7 @@ jobs:
 
           foreach ($file in $jsonFiles) {
             Write-Host "Checking JSON: $($file.FullName)"
-            Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json | Out-Null
+            Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable | Out-Null
           }
 
           $required = @(
