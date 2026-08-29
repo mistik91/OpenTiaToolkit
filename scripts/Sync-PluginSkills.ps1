@@ -18,6 +18,7 @@ if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptRoot '..'))
 $canonicalRoot = Join-Path $repoRoot 'skills'
 $pluginSkillRoots = @(
+    (Join-Path $repoRoot 'plugins\opentia-toolkit-agent-plugin\skills'),
     (Join-Path $repoRoot 'plugins\opentia-toolkit\skills'),
     (Join-Path $repoRoot 'plugins\opentia-toolkit-claude-code\skills'),
     (Join-Path $repoRoot 'plugins\opentia-toolkit-opencode\.opencode\skills')

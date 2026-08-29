@@ -61,9 +61,9 @@ The server advertises tools only. It does not advertise prompts, resources, Task
 
 These snippets are manual fallbacks for clients or environments where installing the local plugin package is not preferred.
 
-## Codex Plugin
+## Portable Agent Plugins 1.0 Package
 
-The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit`](../../plugins/opentia-toolkit). It bundles:
+The repo includes a portable Agent Plugins 1.0 package at [`plugins/opentia-toolkit-agent-plugin`](../../plugins/opentia-toolkit-agent-plugin). It is loadable by compatible ChatGPT/Codex, Cursor, GitHub Copilot, Kiro, VS Code, and other Agent Plugins clients. It bundles:
 
 - the `opentia` MCP server configuration through `scripts/run-opentia-mcp.ps1`
 - the `opentia-toolkit-workflow` router skill and specialized workflow skills
@@ -71,9 +71,11 @@ The repo also includes a local Codex plugin package at [`plugins/opentia-toolkit
 - the `hmi-unified-agent-editing` skill and references
 - a helper script for manually registering the installed V21 worker during development or manual installs
 
-The launcher uses `OPEN_TIA_MCP_EXE` when set; otherwise it searches upward for this repo and runs the Debug or Release MCP build output.
+The root `plugin.json` and `mcp.json` follow the Agent Plugins 1.0 contract. The launcher uses `OPEN_TIA_MCP_EXE` when explicitly set; otherwise it discovers an adjacent installer payload, the default installed product, or this repo's Debug/Release MCP build output.
 
-The marketplace entry lives at [`../../.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json).
+The plugin is an integration package, not the Windows product payload. Install OpenTiaToolkit and register its isolated V21 worker before using MCP tools. If the product is absent, the skills remain available but starting the `opentia` MCP server reports an installation-focused error.
+
+The older Codex-format package remains at [`plugins/opentia-toolkit`](../../plugins/opentia-toolkit), with its marketplace entry at [`../../.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json).
 
 ## Claude Code Plugin
 
@@ -144,7 +146,7 @@ Device-specific workflows should keep their catalog identifiers and parameter-by
 
 ## MCP-Only Client Snippets
 
-The Antigravity and VS Code snippets in this folder configure only the `opentia` MCP server. They do not currently package reusable skill folders. For equivalent behavior in those clients, add project instructions that mirror `basic-tia-interaction`: discover running TIA instances first, verify the open project after connecting, and choose the instance matching a specified project automatically.
+The Antigravity snippets and manual VS Code snippets in this folder configure only the `opentia` MCP server. Prefer the portable Agent Plugins package in VS Code and other conforming clients so the reusable workflow skills are installed together with MCP. Use these snippets when plugin installation is unavailable or an MCP-only configuration is desired.
 
 ## Required TIA Portal Sequence
 

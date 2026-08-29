@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unified HMI Discrete Alarms"
+  short_description: "Safely create and maintain Unified discrete alarms"
+  default_prompt: "Use $hmi-discrete-alarm-workflow to dry-run, apply, and verify a WinCC Unified discrete-alarm change."

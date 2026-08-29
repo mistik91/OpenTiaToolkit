@@ -118,6 +118,14 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = $props.Project.PropertyGroup.Version
 }
 
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\Test-AgentPlugin.ps1') `
+    -PluginRoot (Join-Path $repoRoot 'plugins\opentia-toolkit-agent-plugin') `
+    -ExpectedVersion $Version `
+    -TestLauncher
+if ($LASTEXITCODE -ne 0) {
+    throw "Agent Plugins 1.0 contract validation failed with exit code $LASTEXITCODE."
+}
+
 if (-not $SkipSkillSyncCheck) {
     & powershell -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\Sync-PluginSkills.ps1') -CheckOnly
 }
@@ -171,6 +179,30 @@ Copy-RequiredFile -Source (Join-Path $repoRoot 'README.md') -Destination (Join-P
 Copy-RequiredFile -Source (Join-Path $repoRoot 'LICENSE') -Destination (Join-Path $stageRoot 'LICENSE')
 Copy-RequiredFile -Source (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md') -Destination (Join-Path $stageRoot 'THIRD_PARTY_NOTICES.md')
 Copy-RequiredFile -Source (Join-Path $repoRoot 'SECURITY.md') -Destination (Join-Path $stageRoot 'SECURITY.md')
+
+$stagedPluginRoot = Join-Path $stageRoot 'plugins\opentia-toolkit-agent-plugin'
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\Test-AgentPlugin.ps1') `
+    -PluginRoot $stagedPluginRoot `
+    -ExpectedVersion $Version
+if ($LASTEXITCODE -ne 0) {
+    throw "Staged Agent Plugins 1.0 contract validation failed with exit code $LASTEXITCODE."
+}
+
+$savedMcpOverride = $env:OPEN_TIA_MCP_EXE
+$env:OPEN_TIA_MCP_EXE = $null
+try {
+    $stagedLauncher = Join-Path $stagedPluginRoot 'scripts\run-opentia-mcp.ps1'
+    $resolvedStagedMcp = & powershell -NoProfile -ExecutionPolicy Bypass -File $stagedLauncher -ResolveOnly
+    if ($LASTEXITCODE -ne 0) {
+        throw "Staged portable MCP launcher resolution failed with exit code $LASTEXITCODE."
+    }
+
+    if ([System.IO.Path]::GetFullPath($resolvedStagedMcp) -ne [System.IO.Path]::GetFullPath($mcpStageRoot + '\OpenTiaToolkit.MCP.exe')) {
+        throw "Staged portable MCP launcher resolved '$resolvedStagedMcp' instead of the staged MCP payload."
+    }
+} finally {
+    $env:OPEN_TIA_MCP_EXE = $savedMcpOverride
+}
 
 $manifest = [ordered]@{
     Name = 'OpenTiaToolkit'

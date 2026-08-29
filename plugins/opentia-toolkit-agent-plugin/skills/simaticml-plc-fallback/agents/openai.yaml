@@ -1,0 +1,4 @@
+interface:
+  display_name: "SimaticML PLC Fallback"
+  short_description: "Patch existing Siemens PLC XML with baselines"
+  default_prompt: "Use $simaticml-plc-fallback to make a minimal baseline-bound XML patch to an existing PLC block or type."

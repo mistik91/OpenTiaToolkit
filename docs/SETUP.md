@@ -121,7 +121,11 @@ C:\Program Files\OpenTiaToolkit\plugins
 
 See [INSTALL_AGENT_PLUGINS.md](INSTALL_AGENT_PLUGINS.md) for suggested prompts and manual fallbacks.
 
-The Codex plugin package lives in `plugins/opentia-toolkit`. It runs `scripts/run-opentia-mcp.ps1`, which uses `OPEN_TIA_MCP_EXE` when set or falls back to this repo's Debug/Release MCP build output. It includes the top-level `opentia-toolkit-workflow` router plus specialized TIA interaction, Multiuser collaboration, HMI editing, Unified discrete-alarm engineering, hardware, PLC, library, trend logging, VCI, and repo development skills.
+The portable Agent Plugins 1.0 package lives in `plugins/opentia-toolkit-agent-plugin`. Compatible clients discover its skills from `skills/` and its stdio MCP definition from `mcp.json`. Its launcher uses `OPEN_TIA_MCP_EXE` when explicitly set, discovers an adjacent installed-product payload for default or custom installer locations, or falls back to this repo's Debug/Release MCP build output. It includes the top-level `opentia-toolkit-workflow` router plus specialized TIA interaction, Multiuser collaboration, HMI editing, Unified discrete-alarm engineering, hardware, PLC, library, trend logging, VCI, and repo development skills.
+
+The portable package does not replace product installation. TIA Portal V21, the MCP and isolated worker binaries, and Siemens Openness registration must already be installed before its MCP tools can run. Clients can still load and inspect the packaged skills when the local product is absent.
+
+The legacy Codex plugin remains in `plugins/opentia-toolkit` as a separate package so its `.codex-plugin` and `.mcp.json` files do not become non-portable files inside the Agent Plugins 1.0 package.
 
 The Claude Code plugin package lives in `plugins/opentia-toolkit-claude-code` and uses the same launcher pattern. It includes the same workflow skills. The repo root also has a local Claude Code marketplace at `.claude-plugin/marketplace.json`.
 

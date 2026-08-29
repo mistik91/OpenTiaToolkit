@@ -12,7 +12,13 @@ It also sets `OPEN_TIA_MCP_EXE` to:
 C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 ```
 
-and registers that executable with Siemens Openness during setup when the registration task is selected.
+The setup registration task registers the isolated V21 worker—not the vendor-free MCP host—with Siemens Openness.
+
+## Portable Agent Plugins 1.0
+
+`plugins\opentia-toolkit-agent-plugin` is an Agent Plugins 1.0 package. Its root manifest, 18 workflow skills, and portable stdio MCP configuration can be loaded together by compatible clients including ChatGPT/Codex, Cursor, GitHub Copilot, Kiro, and VS Code.
+
+The plugin does not contain TIA Portal or replace OpenTiaToolkit installation. Install the Windows product and register its V21 worker first. The launcher then discovers the adjacent installed MCP payload even for a custom installation directory; `OPEN_TIA_MCP_EXE` remains an explicit override.
 
 ## Ask Your Agent
 
@@ -21,8 +27,21 @@ After installation, the easiest setup path is to ask your agent to install or co
 Useful prompts:
 
 ```text
-Install the local OpenTiaToolkit plugin from C:\Program Files\OpenTiaToolkit\plugins\opentia-toolkit and configure its MCP server.
+Install the portable OpenTiaToolkit Agent Plugin from C:\Program Files\OpenTiaToolkit\plugins\opentia-toolkit-agent-plugin and configure its MCP server.
 ```
+
+In VS Code, enable `chat.plugins.enabled` and register the installed directory in user settings:
+
+```json
+{
+  "chat.plugins.enabled": true,
+  "chat.pluginLocations": {
+    "C:\\Program Files\\OpenTiaToolkit\\plugins\\opentia-toolkit-agent-plugin": true
+  }
+}
+```
+
+Other conforming clients should use their local-directory Agent Plugins installation flow.
 
 ```text
 Configure OpenTiaToolkit as a local MCP server. Use C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe as the command and use the guidance in C:\Program Files\OpenTiaToolkit\docs\mcp-client-configs.
@@ -42,13 +61,21 @@ The installed plugin packages include workflow skills for TIA Portal discovery, 
 
 ```text
 C:\Program Files\OpenTiaToolkit
-  OpenTiaToolkit.MCP.exe
-  OpenTiaToolkit.CLI.exe
   install-manifest.json
+  cli\
+    OpenTiaToolkit.CLI.exe
+  mcp\
+    OpenTiaToolkit.MCP.exe
+  worker-v21\
+    OpenTiaToolkit.Worker.V21.exe
   docs\
     INSTALL_AGENT_PLUGINS.md
     mcp-client-configs\
   plugins\
+    opentia-toolkit-agent-plugin\
+      plugin.json
+      mcp.json
+      skills\
     opentia-toolkit\
     opentia-toolkit-claude-code\
     opentia-toolkit-claude-desktop\

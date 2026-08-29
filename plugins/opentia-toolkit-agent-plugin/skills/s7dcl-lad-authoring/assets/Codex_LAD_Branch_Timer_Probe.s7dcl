@@ -1,0 +1,45 @@
+{
+    S7_BlockNumber := "59988";
+    S7_Optimized := "TRUE";
+    S7_PreferredLanguage := "LAD";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Codex_LAD_Branch_Timer_Probe"
+    VAR_INPUT
+        Primary : Bool;
+        Alternate : Bool;
+        Reset : Bool;
+    END_VAR
+    VAR_OUTPUT
+        Run : Bool;
+        Latched : Bool;
+        Timed : Bool;
+    END_VAR
+    VAR
+        RetentiveTimer : IEC_TIMER;
+    END_VAR
+
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail Contact( #Primary ) wire#w1 Coil( #Run ) END_RUNG
+        RUNG wire#powerrail Contact( #Alternate ) END_RUNG wire#w1
+    END_NETWORK
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail Contact( #Run ) S_Coil( #Latched ) END_RUNG
+        RUNG wire#powerrail Contact( #Reset ) R_Coil( #Latched ) END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            Contact( #Latched )
+            { S7_Templates := "time_type := Time" }
+            TONR_Coil( timer => #RetentiveTimer, pt := T#2s )
+        END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail Contact( #RetentiveTimer.Q ) Coil( #Timed ) END_RUNG
+        RUNG wire#powerrail Contact( #Reset ) RT_Coil( #RetentiveTimer ) END_RUNG
+    END_NETWORK
+END_FUNCTION_BLOCK
