@@ -1,0 +1,26 @@
+﻿FUNCTION "Codex_SCL_Probe" : Void
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+    VAR_INPUT
+        Seed : DInt;
+        Selector : Int;
+    END_VAR
+    VAR_OUTPUT
+        Result : DInt;
+    END_VAR
+    VAR_TEMP
+        Index : Int;
+        Accumulator : DInt;
+    END_VAR
+BEGIN
+    #Accumulator := #Seed;
+    FOR #Index := 0 TO 3 DO
+        #Accumulator := #Accumulator + #Index;
+    END_FOR;
+    CASE #Selector OF
+        0: #Result := #Accumulator;
+        1: #Result := #Accumulator * 2;
+    ELSE
+        #Result := 0;
+    END_CASE;
+END_FUNCTION

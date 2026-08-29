@@ -22,6 +22,7 @@ Use this checklist before publishing a public preview or stable release. Stable 
 
 - Build the installer with `.\scripts\Build-Installer.ps1`.
 - Validate staged payload contents with `.\scripts\Build-Installer.ps1 -StageOnly`.
+- Validate the portable Agent Plugins 1.0 manifest, MCP configuration, skill layout, product version, and launcher with `.\scripts\Test-AgentPlugin.ps1 -TestLauncher`.
 - Confirm the installed layout includes isolated CLI, MCP, and `worker-v21` payloads, docs, compatibility profile, release metadata, plugins, skills, and registration script.
 - Confirm `OPEN_TIA_MCP_EXE` and `OPEN_TIA_WORKER_EXE` point to their installed subdirectory executables.
 - Validate the Claude Desktop MCPB and its `MCPB-SHA256SUMS.txt` when publishing that bundle.

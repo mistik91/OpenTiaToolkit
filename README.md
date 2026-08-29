@@ -205,7 +205,8 @@ See the [developer guide](docs/DEV_GUIDE.md) for repository architecture and con
 
 | Client or harness | Included package/configuration |
 |---|---|
-| Codex | [`plugins/opentia-toolkit`](plugins/opentia-toolkit) |
+| Agent Plugins 1.0 clients | [`plugins/opentia-toolkit-agent-plugin`](plugins/opentia-toolkit-agent-plugin) — portable skills and stdio MCP for ChatGPT/Codex, Cursor, GitHub Copilot, Kiro, VS Code, and other compatible clients |
+| Codex legacy format | [`plugins/opentia-toolkit`](plugins/opentia-toolkit) |
 | Claude Code | [`plugins/opentia-toolkit-claude-code`](plugins/opentia-toolkit-claude-code) |
 | Claude Desktop | [`plugins/opentia-toolkit-claude-desktop`](plugins/opentia-toolkit-claude-desktop) |
 | OpenCode | [`plugins/opentia-toolkit-opencode`](plugins/opentia-toolkit-opencode) |

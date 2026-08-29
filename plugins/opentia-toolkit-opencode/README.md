@@ -5,7 +5,7 @@ This bundle packages OpenTiaToolkit guidance for OpenCode:
 - `opencode.json`: MCP launcher configuration for the `opentia` server
 - `AGENTS.md`: project instructions for safe OpenTiaToolkit/TIA Portal sessions
 - `.opencode/plugins/opentia-toolkit.js`: a lightweight OpenCode plugin that sets the default OpenTiaToolkit shell log level
-- `.opencode/plugins/run-opentia-mcp.ps1`: MCP launcher for repo builds or `OPEN_TIA_MCP_EXE`
+- `.opencode/plugins/run-opentia-mcp.ps1`: MCP launcher for installed payloads, repo builds, or `OPEN_TIA_MCP_EXE`
 - `.opencode/skills/opentia-toolkit-workflow`: top-level router and shared safety workflow
 - `.opencode/skills/engineering-blueprint-workflow`: state-bound PLC/HMI/hardware blueprint validation, plan, apply, and verification guidance
 - `.opencode/skills/basic-tia-interaction`: TIA Portal instance/project discovery and selection guidance
@@ -21,7 +21,7 @@ This bundle packages OpenTiaToolkit guidance for OpenCode:
 
 The configured MCP server also exposes generic hardware operations for catalog discovery, module/submodule composition, PROFINET wiring, and guarded GSD/GSDML parameter changes.
 
-The MCP entry runs `.opencode/plugins/run-opentia-mcp.ps1`. The launcher uses `OPEN_TIA_MCP_EXE` when set; otherwise it looks for the repo build output at:
+The MCP entry runs `.opencode/plugins/run-opentia-mcp.ps1`. The launcher uses an explicit `OPEN_TIA_MCP_EXE`, an adjacent or default installed-product payload, or the repo build output at:
 
 ```text
 src\OpenTiaToolkit.MCP\bin\Debug\net48\OpenTiaToolkit.MCP.exe
@@ -40,7 +40,7 @@ The supplied `opencode.json` sets a 600-second MCP timeout because broad TIA Por
 
 ## Expected First Use
 
-1. Build `OpenTiaToolkit.MCP` or set `OPEN_TIA_MCP_EXE` to a built MCP executable.
+1. Install OpenTiaToolkit, build `OpenTiaToolkit.MCP`, or set `OPEN_TIA_MCP_EXE` to a built MCP executable.
 2. Build and register the exact `OpenTiaToolkit.Worker.V21.exe`; the MCP host itself is vendor-free.
 3. Copy this bundle into the OpenCode project or global config directory.
 4. Restart OpenCode so the MCP server, plugin, rules, and skills are discovered.

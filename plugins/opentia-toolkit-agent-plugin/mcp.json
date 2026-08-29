@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "opentia": {
+      "type": "stdio",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${PLUGIN_ROOT}/scripts/run-opentia-mcp.ps1"
+      ],
+      "env": {
+        "OPEN_TIA_MCP_LOG_LEVEL": "Error"
+      }
+    }
+  }
+}

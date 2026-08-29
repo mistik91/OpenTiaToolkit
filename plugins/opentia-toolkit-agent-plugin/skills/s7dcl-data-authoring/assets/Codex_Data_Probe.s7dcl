@@ -1,0 +1,16 @@
+﻿{
+    S7_BlockNumber := "59994";
+    S7_Optimized := "TRUE";
+    S7_StandardRetain := "FALSE";
+    S7_Version := "0.1"
+}
+DATA_BLOCK Codex_Data_Probe
+    VAR
+        Enabled : Bool;
+        Counter : DInt;
+        Values : Array[0..3] of Real;
+    END_VAR
+
+    Enabled := FALSE;
+    Counter := 0;
+END_DATA_BLOCK

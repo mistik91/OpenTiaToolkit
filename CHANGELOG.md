@@ -7,6 +7,13 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+- Added a portable Agent Plugins 1.0 package that exposes the shared OpenTiaToolkit skills and stdio MCP server to compatible clients while retaining the existing Codex, Claude Code, Claude Desktop, and OpenCode integrations.
+- Added offline Agent Plugins contract, skill-layout, launcher-resolution, and installer-staging validation.
+
+### Changed
+- Made agent-plugin MCP launchers discover adjacent installed-product payloads and custom installation layouts without requiring inherited `OPEN_TIA_MCP_EXE` state.
+
 ## [1.0.0-preview.5] - 2026-08-05
 
 ### Added

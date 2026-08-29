@@ -1,0 +1,305 @@
+# HMI Unified Screen JSON Operation Reference
+
+Use these examples as intent templates, not as copy-paste substitutes for capability inspection. Keep `baseHash`, `itemNames`, and `properties` aligned with the latest snapshot.
+
+This is not RFC 6902 JSON Patch. Do not use `replace`, `add`, `remove`, `target`, `path`, or generic nested `value` payloads. `apply-hmi-screen-json-patch` accepts OpenTiaToolkit operations only.
+
+Use canonical operation field names in new payloads: `op`, `item`, `itemName`, `itemType`, `targetName`, `eventType`, `scriptCode`, and `dynamizationType`. Kebab-case aliases such as `item-type` are compatibility fallbacks, not the preferred shape for fresh agent output.
+
+When using `base-hash`, repeat the same `item-names` and `properties` from the snapshot on both dry-run and real apply. Do not rely on the operation list to imply filters.
+
+Applied imports require the HMI or project to be offline in TIA Portal. If a result returns `blockedReason: "tia-online-mode"` or `guidance.recommendedNextAction: "take-hmi-offline-and-retry"`, do not retry or auto-call `GoOffline()`; ask the user to take the target offline, then replay the same apply payload.
+
+## Scalar and Layout Edits
+
+Most layout examples below use rectangular geometry. Circles are the exception: for `HmiCircle` / `circle`, use `CenterX`, `CenterY`, and `Radius` in `properties`; do not use `Left`, `Top`, `Width`, or `Height` in JSON patch/import payloads for circles.
+
+Set one property:
+
+```json
+{
+  "op": "set-property",
+  "itemName": "Button_1",
+  "property": "Text",
+  "value": "Start"
+}
+```
+
+Set several properties on one item:
+
+```json
+{
+  "op": "set-properties",
+  "itemName": "Button_1",
+  "properties": {
+    "Text": "Start",
+    "Visible": true
+  }
+}
+```
+
+Move and resize:
+
+```json
+[
+  { "op": "move-item", "itemName": "Button_1", "left": 120, "top": 80 },
+  { "op": "resize-item", "itemName": "Button_1", "width": 180, "height": 48 }
+]
+```
+
+Set full layout in one operation:
+
+```json
+{
+  "op": "set-layout",
+  "itemName": "Button_1",
+  "left": 120,
+  "top": 80,
+  "width": 180,
+  "height": 48
+}
+```
+
+## Item Lifecycle
+
+Create an item:
+
+```json
+{
+  "op": "create-item",
+  "itemName": "Button_Start",
+  "itemType": "button",
+  "left": 120,
+  "top": 80,
+  "width": 180,
+  "height": 48,
+  "properties": {
+    "Text": "Start"
+  }
+}
+```
+
+For `create-item` with `base-hash`, include the new item name in `item-names` even though it does not exist yet, and repeat that filter on dry-run and apply.
+
+If the create sets rectangular geometry, include `Left`, `Top`, `Width`, and `Height` in `properties` along with any scalar overrides such as `Text`.
+
+Create a bound faceplate container:
+
+```json
+[
+  {
+    "op": "create-item",
+    "item": "Valve_1",
+    "itemType": "faceplate-container",
+    "containedType": "V0.0.9\\Valve_Simple",
+    "left": 120,
+    "top": 80
+  },
+  {
+    "op": "set-interface",
+    "item": "Valve_1",
+    "property": "AV",
+    "value": "Valve_1.AV"
+  }
+]
+```
+
+For faceplate creation, include the target in `item-names` and include `ContainedType`, `Interface`, and every touched geometry property in `properties`. `containedType` is canonical; `contained-type`, `faceplateType`, and `faceplate-type` are compatibility aliases.
+
+Create a circle:
+
+```json
+{
+  "op": "create-item",
+  "itemName": "KiwiCircle1",
+  "itemType": "circle",
+  "properties": {
+    "CenterX": "160",
+    "CenterY": "300",
+    "Radius": "60",
+    "BackColor": "#C5E17A"
+  }
+}
+```
+
+For that circle create, snapshot and apply filters should include `item-names: ["KiwiCircle1"]` and `properties: ["CenterX", "CenterY", "Radius", "BackColor"]`. If a circle payload fails on `Left`, `Top`, `Width`, or `Height`, correct the geometry model instead of bypassing preflight.
+
+Duplicate and rename:
+
+```json
+[
+  { "op": "duplicate-item", "source": "Button_Start", "targetName": "Button_Stop" },
+  { "op": "rename-item", "itemName": "Button_Stop", "targetName": "Button_Reset" }
+]
+```
+
+`duplicate-item` requires `source` or `sourceItem` for the existing item. It accepts `item`, `itemName`, `target`, `targetItem`, or `targetName` for the new item. Prefer `source` and `targetName` in new payloads.
+
+When duplicating a faceplate container, include both source and target names in `item-names` and include `ContainedType` plus `Interface` in `properties`. The clone binds `ContainedType` before preflighting or applying the copied interface entries.
+
+Delete:
+
+```json
+{
+  "op": "delete-item",
+  "itemName": "Button_Reset"
+}
+```
+
+## Event Handlers
+
+Set an item event handler:
+
+```json
+{
+  "op": "set-event-handler",
+  "itemName": "Button_1",
+  "eventType": "Tapped",
+  "scriptCode": "return 42;",
+  "globalDefinitionAreaScriptCode": "",
+  "async": false
+}
+```
+
+Event types are Siemens object-type and TIA-version specific. `Tapped` is valid for a V21 `HmiButton`; do not assume that browser-style names such as `Click` are supported. Inspect the target capability or preserve an event type exported from the same target type.
+
+Do not use an empty `scriptCode`. If the script is unknown, ask for it before producing a ready-to-run apply payload.
+
+Remove an item event handler:
+
+```json
+{
+  "op": "remove-event-handler",
+  "itemName": "Button_1",
+  "eventType": "Tapped"
+}
+```
+
+For screen-level event handlers, omit `itemName`.
+
+## Property Event Handlers
+
+Set a property event handler:
+
+```json
+{
+  "op": "set-property-event-handler",
+  "itemName": "Button_1",
+  "property": "Text",
+  "eventType": "Change",
+  "scriptCode": "return 24;",
+  "globalDefinitionAreaScriptCode": "",
+  "async": false
+}
+```
+
+Remove it:
+
+```json
+{
+  "op": "remove-property-event-handler",
+  "itemName": "Button_1",
+  "property": "Text",
+  "eventType": "Change"
+}
+```
+
+## Dynamizations
+
+Set a tag dynamization:
+
+```json
+{
+  "op": "set-dynamization",
+  "itemName": "Button_1",
+  "property": "Text",
+  "dynamizationType": "Tag",
+  "tag": "HmiTag_1"
+}
+```
+
+## Faceplate Interface Dynamizations
+
+Faceplate `Interface` entries may contain their own nested `Dynamizations`. Use the root `Interface` property in filters and keep the exported interface entry name stable.
+
+```json
+{
+  "op": "set-interface",
+  "item": "Faceplate container_1",
+  "property": "First_Step_NR",
+  "dynamizationType": "TagParameter",
+  "dynamicTagName": "Step_'Step_1'"
+}
+```
+
+The compact form defaults the nested dynamization property to the interface entry name. When using a full `dynamization` object, preserve the exported `property` value, such as `First_Step_NR`.
+
+Filter repair after a `Dynamizations` failure means re-reading with the root composite property:
+
+```json
+{
+  "hmi-name": "HMI_1",
+  "screen-path": "Codex/Main",
+  "item-names": ["BtnCopy"],
+  "properties": ["Dynamizations"]
+}
+```
+
+Then retry a supported operation, for example:
+
+```json
+{
+  "op": "set-dynamization",
+  "item": "BtnCopy",
+  "property": "Visible",
+  "tag": "HmiTag_Bool"
+}
+```
+
+If the original intent was removal instead, use:
+
+```json
+{
+  "op": "remove-dynamization",
+  "item": "BtnCopy",
+  "property": "Visible"
+}
+```
+
+If the original failed operation is not available, do not invent one. Ask for the original operation or present the valid set/remove alternatives.
+
+Remove it:
+
+```json
+{
+  "op": "remove-dynamization",
+  "itemName": "Button_1",
+  "property": "Text"
+}
+```
+
+## Result Interpretation
+
+## Multi-Screen File Review
+
+If the user asks for changes across multiple screens and a human-reviewable file diff before applying, use this workflow instead of screen patch:
+
+1. `export-hmi-json` with screen filters.
+2. Edit the exported JSON files in a focused way.
+3. `diff-hmi-json` to generate a reviewable patch file.
+4. `import-hmi-json` with `dry-run=true`; after review, apply only with `dry-run=false`, `apply=true`, and `confirm=true`.
+5. Apply with `dry-run=false` only after review and clean preflight.
+
+`Guidance.RecommendedNextAction` is the first thing an agent should read after `Success`, `SafeToApply`, or `Applied`.
+
+`apply-with-dry-run-false` means the dry-run is acceptable. Replay the same patch with `dry-run=false`.
+
+`verify-result` means the command applied successfully and the next step is confirmation from `VerifiedScreen`, `VerifyExportPath`, or a fresh snapshot.
+
+`re-read-screen` means `baseHash` is stale. Take a new snapshot with equivalent filters and rebase the patch.
+
+`fix-patch-operations` means at least one operation is invalid or under-filtered. Use `RequiredItemNames`, `RequiredProperties`, failed operations, and capability inspection to repair it.
+
+`inspect-safety-block` means preflight is not safe. Do not apply until failures and warnings are understood.
+
+`take-hmi-offline-and-retry` means the Siemens Openness transaction was blocked by TIA online mode. Stop applying, have the user take the HMI/project offline manually, then replay the same `dry-run=false` payload with the same `baseHash`, filters, and operations.

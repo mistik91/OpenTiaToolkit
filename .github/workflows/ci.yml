@@ -70,6 +70,8 @@ jobs:
             'docs\generated\MCP_TOOL_REFERENCE.md',
             'schemas\unified-hmi-json-1.0.schema.json',
             'examples\README.md',
+            'plugins\opentia-toolkit-agent-plugin\plugin.json',
+            'plugins\opentia-toolkit-agent-plugin\mcp.json',
             'plugins\opentia-toolkit\.codex-plugin\plugin.json',
             'plugins\opentia-toolkit\.mcp.json'
           )
@@ -79,6 +81,10 @@ jobs:
               throw "Required publication file is missing: $path"
             }
           }
+
+      - name: Agent Plugins 1.0 contract check
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-AgentPlugin.ps1 -TestLauncher
 
       - name: Plugin skill sync check
         shell: pwsh

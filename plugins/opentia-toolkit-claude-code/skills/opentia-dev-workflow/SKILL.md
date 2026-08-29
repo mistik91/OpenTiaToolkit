@@ -78,7 +78,7 @@ For MCP, use `portal-status`, `list-instances`, and then `connect-instance` thro
 
 ## Skill And Plugin Packaging
 
-Canonical skill sources live under `skills/`. Plugin copies under `plugins/opentia-toolkit/skills`, `plugins/opentia-toolkit-claude-code/skills`, and `plugins/opentia-toolkit-opencode/.opencode/skills` should match the canonical skill content when packaging.
+Canonical skill sources live under `skills/`. Plugin copies under `plugins/opentia-toolkit-agent-plugin/skills`, `plugins/opentia-toolkit/skills`, `plugins/opentia-toolkit-claude-code/skills`, and `plugins/opentia-toolkit-opencode/.opencode/skills` should match the canonical skill content when packaging.
 
 When adding a skill:
 
