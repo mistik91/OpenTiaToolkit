@@ -125,14 +125,18 @@ try {
         [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Applied DQ_Candidate output relocation to 130 and verified it by fresh readback.' } }
     )
 
+    # Deliberately reverse both operation and property order. The assertion is
+    # about one exact atomic operation set, not incidental JSON serialization.
     $mixedOperations = [ordered]@{ operations = @(
             [ordered]@{
-                op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DI_Candidate', 'DI_Candidate') }
-                addressIndex = 0; startAddress = 66; expectedStartAddress = 2
+                expectedStartAddress = 2; startAddress = 128; addressIndex = 0
+                target = [ordered]@{ itemPath = @('DQ_Candidate', 'DQ_Candidate'); deviceName = 'PLC_Main' }
+                op = 'set-io-address-start'
             },
             [ordered]@{
-                op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DQ_Candidate', 'DQ_Candidate') }
-                addressIndex = 0; startAddress = 128; expectedStartAddress = 2
+                expectedStartAddress = 2; startAddress = 66; addressIndex = 0
+                target = [ordered]@{ itemPath = @('DI_Candidate', 'DI_Candidate'); deviceName = 'PLC_Main' }
+                op = 'set-io-address-start'
             }
         ) }
     $mixedBaselineMap = 'DI_Candidate DQ_Candidate DQ_Occupied {"Name":"IoType","Value":"Input"} {"Name":"IoType","Value":"Output"} {"Name":"StartAddress","Value":"2"}'
@@ -140,6 +144,19 @@ try {
         (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output 'DI_Candidate DQ_Candidate DQ_Occupied'),
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedBaselineMap),
         (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $mixedOperations; 'dry-run' = $true }) -Output 'This address is already being used. Next free address: 130.' -ErrorOutput),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedBaselineMap),
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'DQ_Candidate collided with DQ_Occupied at output bytes 128-129; next free address 130. The transaction rolled back, so both DI_Candidate and DQ_Candidate remained unchanged.' } }
+    )
+    $partialMixedOperations = [ordered]@{ operations = @(
+            [ordered]@{
+                op = 'set-io-address-start'; target = [ordered]@{ deviceName = 'PLC_Main'; itemPath = @('DI_Candidate', 'DI_Candidate') }
+                addressIndex = 0; startAddress = 66; expectedStartAddress = 2
+            }
+        ) }
+    Invoke-HardwareCaseAssertionTest -CaseId 'ott-17' -ExpectedPassed $false -ExpectedFailedAssertion 'one-guarded-mixed-patch' -Events @(
+        (New-ToolEvent -Tool 'opentia_get-hardware-tree' -InputObject @{} -Output 'DI_Candidate DQ_Candidate DQ_Occupied'),
+        (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedBaselineMap),
+        (New-ToolEvent -Tool 'opentia_apply-hardware-patch' -InputObject ([ordered]@{ operations = $partialMixedOperations; 'dry-run' = $true }) -Output 'This address is already being used. Next free address: 130.' -ErrorOutput),
         (New-ToolEvent -Tool 'opentia_get-hardware-io-addresses' -InputObject @{} -Output $mixedBaselineMap),
         [ordered]@{ type = 'text'; part = [ordered]@{ text = 'DQ_Candidate collided with DQ_Occupied at output bytes 128-129; next free address 130. The transaction rolled back, so both DI_Candidate and DQ_Candidate remained unchanged.' } }
     )
