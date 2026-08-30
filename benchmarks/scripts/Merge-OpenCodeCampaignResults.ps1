@@ -26,6 +26,16 @@ function Get-ModelReasoningEffort {
     return 'provider-default'
 }
 
+function Get-CaseSkillEvaluationArm {
+    param([Parameter(Mandatory = $true)][object]$Case)
+
+    $property = $Case.PSObject.Properties['skillEvaluationArm']
+    if ($null -eq $property -or [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+        return 'standard'
+    }
+    return [string]$property.Value
+}
+
 $resolvedPaths = @($CampaignResultPath | ForEach-Object { (Resolve-Path -LiteralPath $_).Path })
 if ($resolvedPaths.Count -eq 0) {
     throw 'At least one campaign result is required.'
@@ -55,6 +65,30 @@ if ($trialCounts.Count -ne 1) {
     throw "Campaign results do not share one trialCount: $($trialCounts -join ', ')"
 }
 $trialCount = [int]$trialCounts[0]
+$skillEvaluationJson = @($segments | ForEach-Object {
+        $property = $_.PSObject.Properties['skillEvaluation']
+        if ($null -eq $property -or $null -eq $property.Value) {
+            'null'
+        }
+        else {
+            $property.Value | ConvertTo-Json -Depth 20 -Compress
+        }
+    } | Sort-Object -Unique)
+if ($skillEvaluationJson.Count -ne 1) {
+    throw 'Campaign results do not share one skillEvaluation definition.'
+}
+$skillEvaluationDefinition = if ($skillEvaluationJson[0] -ceq 'null') {
+    $null
+}
+else {
+    $skillEvaluationJson[0] | ConvertFrom-Json
+}
+$skillEvaluationArmCount = if ($null -eq $skillEvaluationDefinition) {
+    1
+}
+else {
+    @($skillEvaluationDefinition.arms).Count
+}
 
 $expectedCaseIdList = [System.Collections.Generic.List[string]]::new()
 foreach ($segment in $segments) {
@@ -109,10 +143,13 @@ for ($segmentIndex = 0; $segmentIndex -lt $segments.Count; $segmentIndex++) {
             $caseId = [string]$case.caseId
             $trialProperty = $case.PSObject.Properties['trialIndex']
             $trialIndex = if ($null -eq $trialProperty) { 1 } else { [int]$trialProperty.Value }
+            $skillEvaluationArm = Get-CaseSkillEvaluationArm -Case $case
             if (@($mergedModel.cases | Where-Object {
-                        [string]$_.caseId -eq $caseId -and [int]$_.trialIndex -eq $trialIndex
+                        [string]$_.caseId -eq $caseId -and
+                        [int]$_.trialIndex -eq $trialIndex -and
+                        (Get-CaseSkillEvaluationArm -Case $_) -ceq $skillEvaluationArm
                     }).Count -gt 0) {
-                throw "Duplicate result for model '$modelId', case '$caseId', and trial $trialIndex."
+                throw "Duplicate result for model '$modelId', case '$caseId', trial $trialIndex, and arm '$skillEvaluationArm'."
             }
             $case | Add-Member -NotePropertyName trialIndex -NotePropertyValue $trialIndex -Force
             if ($null -eq $case.PSObject.Properties['validForModelComparison']) {
@@ -149,11 +186,11 @@ foreach ($entry in $modelsById.GetEnumerator()) {
     $cases = @($model.cases)
     $status = Get-BenchmarkModelStatus `
         -Trials $cases `
-        -ExpectedTrialCount ($expectedCaseIds.Count * $trialCount)
+        -ExpectedTrialCount ($expectedCaseIds.Count * $trialCount * $skillEvaluationArmCount)
 
     $statistics = Get-BenchmarkTrialStatistics -Trials $cases
     $caseAggregates = @(Get-BenchmarkCaseAggregates -Trials $cases)
-    $mergedModels.Add([pscustomobject][ordered]@{
+    $mergedRecord = [ordered]@{
             model         = $model.model
             reasoningEffort = $model.reasoningEffort
             variant       = $model.variant
@@ -167,7 +204,13 @@ foreach ($entry in $modelsById.GetEnumerator()) {
             caseAggregates = $caseAggregates
             sourceResults = $model.sourceResults
             cases         = $model.cases
-        })
+        }
+    if ($null -ne $skillEvaluationDefinition) {
+        $mergedRecord.skillLift = Get-BenchmarkSkillLiftStatistics `
+            -Trials $cases `
+            -TargetSkill ([string]$skillEvaluationDefinition.targetSkill)
+    }
+    $mergedModels.Add([pscustomobject]$mergedRecord)
 }
 
 $totalCost = [double](($mergedModels | Measure-Object -Property totalCostUsd -Sum).Sum)
@@ -178,7 +221,8 @@ $result = [ordered]@{
     mergedAtUtc           = [DateTime]::UtcNow.ToString('o')
     expectedCaseIds       = $expectedCaseIds
     trialCount            = $trialCount
-    expectedTrialCountPerModel = $expectedCaseIds.Count * $trialCount
+    skillEvaluation       = $skillEvaluationDefinition
+    expectedTrialCountPerModel = $expectedCaseIds.Count * $trialCount * $skillEvaluationArmCount
     sourceCampaignResults = $resolvedPaths
     totalCostUsd          = [Math]::Round($totalCost, 8)
     models                = $mergedModels

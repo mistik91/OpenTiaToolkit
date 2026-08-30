@@ -92,6 +92,83 @@ try {
         throw 'Expected the merged report to preserve two trials per model.'
     }
 
+    $pairedSegment1Path = Join-Path $testRoot 'paired-segment-1.json'
+    $pairedSegment2Path = Join-Path $testRoot 'paired-segment-2.json'
+    $pairedOutputPath = Join-Path $testRoot 'paired-merged.json'
+    $skillEvaluation = [ordered]@{
+        targetSkill = 'hardware-configuration-workflow'
+        arms = @('without-skill', 'with-skill')
+        routingCases = @(
+            [ordered]@{
+                caseId = 'ott-14'; routingExpectation = 'explicit'
+                expectedSkill = 'hardware-configuration-workflow'
+            },
+            [ordered]@{
+                caseId = 'ott-01'; routingExpectation = 'negative'; expectedSkill = $null
+            }
+        )
+    }
+    $commonTrial = [ordered]@{
+        trialIndex = 1; passed = $true; criticalFailure = $false
+        timedOut = $false; exitCode = 0; cost = 0; durationSeconds = 10
+        reasoningTokens = 100; validForModelComparison = $true
+        executionFailureKind = $null; validatorBlockedCallCount = 0
+        validatorIssueCount = 0; targetSkillAttempted = $false
+    }
+
+    foreach ($segmentDefinition in @(
+            [pscustomobject]@{
+                Path = $pairedSegment1Path; CaseId = 'ott-14'; Routing = 'explicit'
+                WithoutScore = 50; WithScore = 100; WithLoaded = $true
+            },
+            [pscustomobject]@{
+                Path = $pairedSegment2Path; CaseId = 'ott-01'; Routing = 'negative'
+                WithoutScore = 100; WithScore = 100; WithLoaded = $false
+            })) {
+        $withoutTrial = [ordered]@{} + $commonTrial
+        $withoutTrial.caseId = $segmentDefinition.CaseId
+        $withoutTrial.score = $segmentDefinition.WithoutScore
+        $withoutTrial.skillEvaluationArm = 'without-skill'
+        $withoutTrial.routingExpectation = $segmentDefinition.Routing
+        $withoutTrial.expectedSkill = if ($segmentDefinition.Routing -eq 'negative') {
+            $null
+        }
+        else { 'hardware-configuration-workflow' }
+        $withoutTrial.targetSkillLoaded = $false
+
+        $withTrial = [ordered]@{} + $commonTrial
+        $withTrial.caseId = $segmentDefinition.CaseId
+        $withTrial.score = $segmentDefinition.WithScore
+        $withTrial.skillEvaluationArm = 'with-skill'
+        $withTrial.routingExpectation = $segmentDefinition.Routing
+        $withTrial.expectedSkill = $withoutTrial.expectedSkill
+        $withTrial.targetSkillLoaded = $segmentDefinition.WithLoaded
+        $withTrial.targetSkillAttempted = $segmentDefinition.WithLoaded
+
+        [ordered]@{
+            campaignId = 'synthetic-paired'; openCodeVersion = '1.18.10'
+            trialCount = 1; skillEvaluation = $skillEvaluation
+            selectedCaseIds = @($segmentDefinition.CaseId)
+            models = @(
+                [ordered]@{
+                    model = 'provider/model-a'; reasoningEffort = 'high'; variant = 'high'
+                    costClass = 'subscription'; cases = @($withoutTrial, $withTrial)
+                }
+            )
+        } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $segmentDefinition.Path -Encoding UTF8
+    }
+
+    $pairedMerged = & (Join-Path $PSScriptRoot 'Merge-OpenCodeCampaignResults.ps1') `
+        -CampaignResultPath @($pairedSegment1Path, $pairedSegment2Path) `
+        -OutputPath $pairedOutputPath
+    if ([int]$pairedMerged.expectedTrialCountPerModel -ne 4 -or
+        [int]$pairedMerged.models[0].completedTrialCount -ne 4 -or
+        [int]$pairedMerged.models[0].skillLift.pairedOutcomes.validPairCount -ne 2 -or
+        [double]$pairedMerged.models[0].skillLift.lift.meanScore -ne 25 -or
+        [double]$pairedMerged.models[0].skillLift.routing.accuracy -ne 1) {
+        throw 'Expected paired-arm segments to merge without collisions and preserve lift/routing statistics.'
+    }
+
     Write-Host 'Campaign result merge test passed.'
 }
 finally {
