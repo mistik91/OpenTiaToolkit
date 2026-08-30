@@ -46,6 +46,60 @@
     "allowPaidModels": {
       "type": "boolean"
     },
+    "skillEvaluation": {
+      "type": "object",
+      "required": [
+        "targetSkill",
+        "arms",
+        "routingCases"
+      ],
+      "properties": {
+        "targetSkill": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "arms": {
+          "const": [
+            "without-skill",
+            "with-skill"
+          ]
+        },
+        "routingCases": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "required": [
+              "caseId",
+              "routingExpectation",
+              "expectedSkill"
+            ],
+            "properties": {
+              "caseId": {
+                "type": "string",
+                "pattern": "^ott-[0-9]{2}$"
+              },
+              "routingExpectation": {
+                "enum": [
+                  "explicit",
+                  "implicit",
+                  "contextual",
+                  "negative"
+                ]
+              },
+              "expectedSkill": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "models": {
       "type": "array",
       "minItems": 1,

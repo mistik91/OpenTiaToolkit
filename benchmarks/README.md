@@ -25,6 +25,25 @@ Each run records:
 - the one-based trial index for repeated model/task executions;
 - deterministic trace and final-answer assertions.
 
+Paired skill-evaluation campaigns add:
+
+- workspaces where the target skill directory is physically present or absent;
+- explicit, implicit, contextual, and negative routing labels;
+- target-skill attempt and successful-load telemetry;
+- per-arm pass-rate Wilson intervals, paired score lift, paired pass outcomes,
+  and an exact McNemar diagnostic.
+
+NVIDIA SkillEvaluator 0.2.1 is also available as an advisory, provider-free
+static audit. The wrapper pins the official Git revision, enables UTF-8 for its Windows
+console output, skips model-backed deduplication, and applies the repository
+policy in `skill-evaluation/nvidia-policy.yaml`. That policy downgrades only
+NVIDIA public-catalog author metadata; security, PII, license, Unicode, lint,
+and quality findings remain visible in the generated reports:
+
+```powershell
+.\scripts\Invoke-NvidiaSkillAudit.ps1
+```
+
 Every invocation also writes a suite summary with mean score, pass count,
 duration, cost, and links to the individual result files. Campaign and merged
 reports retain every trial and aggregate each model/task combination with score
@@ -103,6 +122,16 @@ The public alias does not expose a dated backend revision, so the campaign ID
 records the serving epoch rather than claiming equivalence to a separately
 versioned provider model. It preserves the original free-model configuration:
 three trials per case at reasoning effort and variant `max`.
+
+`campaigns/hardware-skill-lift-glm-5-3-flash-high-20260830.json` is the first
+same-commit paired skill-lift pilot. It evaluates
+`hardware-configuration-workflow` on one explicit case (`ott-14`), one
+implicit case (`ott-17`), one contextual cross-domain case (`ott-21`), and one
+negative routing case (`ott-01`). Every case/trial pair runs first without the
+target skill directory and then with it. All other case inputs, visible base
+skills, model settings, fixture restoration, and mechanical scoring remain
+fixed. The model is the subscription-backed `zai-coding-plan/glm-5.3-flash`
+at declared reasoning effort and OpenCode variant `high`.
 
 `campaigns/hardware-skill-io-address-candidate-20260801.json` is the candidate
 half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
@@ -359,6 +388,28 @@ The campaign preflight refreshes OpenCode's model catalog and records each model
 
 OpenCode Desktop and the CLI share the user auth file. Pass `-UseUserOpenCodeAuth` to project only the selected model provider into an isolated per-run auth file. The temporary auth file contains no unrelated provider credentials and is overwritten and deleted after OpenCode exits. Credential values and the source auth path are not written to benchmark artifacts.
 
+Run the paired skill-lift preflight without touching TIA:
+
+```powershell
+.\scripts\Invoke-OpenCodeCampaign.ps1 `
+  -CampaignPath .\campaigns\hardware-skill-lift-glm-5-3-flash-high-20260830.json `
+  -UseUserOpenCodeAuth `
+  -PreflightOnly
+```
+
+Run the complete paired campaign from a non-primary branch:
+
+```powershell
+.\scripts\Invoke-OpenCodeCampaign.ps1 `
+  -CampaignPath .\campaigns\hardware-skill-lift-glm-5-3-flash-high-20260830.json `
+  -UseUserOpenCodeAuth `
+  -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_20260731.zap21
+```
+
+Use `-CaseId` for an ordered subset during a smoke or continuation run. A
+skill-evaluation definition still retains all four routing buckets; filtering
+only narrows execution and the resulting paired statistics.
+
 The `subscription` cost class means OpenCode reports zero monetary request
 cost while the provider consumes an external plan allowance. It is distinct
 from `free`: cost-per-pass remains zero in the JSON aggregates, but it is not
@@ -467,6 +518,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-23` | Held-out ET 200SP topology and addressing | Transfer atomic topology construction to different modules and nonadjacent positions while assigning IO starts through generated result-referenced children |
 | `ott-24` | Held-out ET 200MP family transfer | Transfer the complete topology-and-addressing workflow to a different hardware family without guessing generated-child state |
 | `ott-25` | Brownfield ET 200MP modernization | Atomically replace an existing output module, guard retained state and PROFINET identity, recover from displaced placement, and verify the modernized station |
+| `ott-26` | Third-party GSDML provisioning | Provision an Endress+Hauser Promag 100, preserve generated modules, bind displaced result targets, assign IO, and guarded-write the vendor record |
 
 ## Adding a case
 

@@ -591,6 +591,37 @@ if (-not [string]::IsNullOrWhiteSpace($rawTrace)) {
 }
 
 $toolEvents = @($events | Where-Object { $_.type -eq 'tool_use' -and $null -ne $_.part })
+$skillCalls = @($toolEvents | Where-Object {
+        ([string]$_.part.tool -replace '-', '_') -ceq 'skill'
+    } | ForEach-Object {
+        $state = $_.part.state
+        $name = if ($null -ne $state -and $null -ne $state.input -and
+            $null -ne $state.input.PSObject.Properties['name']) {
+            [string]$state.input.name
+        }
+        else {
+            ''
+        }
+        [pscustomobject][ordered]@{
+            name   = $name
+            status = if ($null -ne $state -and
+                $null -ne $state.PSObject.Properties['status']) {
+                [string]$state.status
+            }
+            else {
+                'unknown'
+            }
+        }
+    })
+$loadedSkills = @($skillCalls | Where-Object {
+        -not [string]::IsNullOrWhiteSpace([string]$_.name) -and
+        [string]$_.status -ceq 'completed'
+    } | ForEach-Object { [string]$_.name } | Sort-Object -Unique)
+$skillUsage = [pscustomobject][ordered]@{
+    callCount    = $skillCalls.Count
+    loadedSkills = $loadedSkills
+    calls        = $skillCalls
+}
 $hasStop = @($events | Where-Object {
         $_.type -eq 'step_finish' -and $_.part.reason -eq 'stop'
     }).Count -gt 0
@@ -865,6 +896,13 @@ $result = [ordered]@{
     else {
         'isolated'
     }
+    skillEvaluation = if ($null -ne $metadata.PSObject.Properties['skillEvaluation']) {
+        $metadata.skillEvaluation
+    }
+    else {
+        $null
+    }
+    skillUsage      = $skillUsage
     openCodeVersion = [string]$metadata.openCodeVersion
     gitCommit       = [string]$metadata.gitCommit
     gitBranch       = [string]$metadata.gitBranch

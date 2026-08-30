@@ -98,6 +98,93 @@ try {
         throw 'Expected trial count did not preserve scalar and multi-case campaign selections.'
     }
 
+    $lift = Get-BenchmarkSkillLiftStatistics `
+        -TargetSkill 'hardware-configuration-workflow' `
+        -Trials @(
+            [pscustomobject]@{
+                caseId = 'ott-14'; trialIndex = 1; skillEvaluationArm = 'without-skill'
+                score = 40; passed = $false; criticalFailure = $false; timedOut = $false
+                exitCode = 0; cost = 0; durationSeconds = 10; reasoningTokens = 100
+                validForModelComparison = $true; targetSkillLoaded = $false
+            },
+            [pscustomobject]@{
+                caseId = 'ott-14'; trialIndex = 1; skillEvaluationArm = 'with-skill'
+                score = 100; passed = $true; criticalFailure = $false; timedOut = $false
+                exitCode = 0; cost = 0; durationSeconds = 12; reasoningTokens = 110
+                validForModelComparison = $true; targetSkillLoaded = $true
+                routingExpectation = 'explicit'; expectedSkill = 'hardware-configuration-workflow'
+            },
+            [pscustomobject]@{
+                caseId = 'ott-01'; trialIndex = 1; skillEvaluationArm = 'without-skill'
+                score = 100; passed = $true; criticalFailure = $false; timedOut = $false
+                exitCode = 0; cost = 0; durationSeconds = 8; reasoningTokens = 80
+                validForModelComparison = $true; targetSkillLoaded = $false
+            },
+            [pscustomobject]@{
+                caseId = 'ott-01'; trialIndex = 1; skillEvaluationArm = 'with-skill'
+                score = 100; passed = $true; criticalFailure = $false; timedOut = $false
+                exitCode = 0; cost = 0; durationSeconds = 9; reasoningTokens = 85
+                validForModelComparison = $true; targetSkillLoaded = $false
+                routingExpectation = 'negative'; expectedSkill = $null
+            }
+        )
+    if ([double]$lift.lift.meanScore -ne 30 -or
+        [double]$lift.lift.passRate -ne 0.5 -or
+        [double]$lift.lift.pairedMeanScore -ne 30 -or
+        [int]$lift.pairedOutcomes.validPairCount -ne 2 -or
+        [int]$lift.pairedOutcomes.skillOnlyPass -ne 1 -or
+        [int]$lift.pairedOutcomes.bothPass -ne 1 -or
+        [double]$lift.pairedOutcomes.exactMcNemarPValue -ne 1 -or
+        [int]$lift.withSkill.targetLoadedCount -ne 1 -or
+        [int]$lift.routing.trialCount -ne 2 -or
+        [double]$lift.routing.accuracy -ne 1) {
+        throw 'Paired skill-lift aggregation returned unexpected statistics.'
+    }
+
+    $caseArmAggregates = @(Get-BenchmarkCaseAggregates -Trials @(
+            [pscustomobject]@{
+                caseId = 'ott-14'; skillEvaluationArm = 'without-skill'; score = 40
+                passed = $false; criticalFailure = $false; cost = 0; durationSeconds = 10
+            },
+            [pscustomobject]@{
+                caseId = 'ott-14'; skillEvaluationArm = 'with-skill'; score = 100
+                passed = $true; criticalFailure = $false; cost = 0; durationSeconds = 12
+            }
+        ))
+    $sortedArms = @($caseArmAggregates | ForEach-Object {
+            [string]$_.skillEvaluationArm
+        } | Sort-Object)
+    if ($caseArmAggregates.Count -ne 2 -or
+        $sortedArms.Count -ne 2 -or
+        $sortedArms -cnotcontains 'with-skill' -or
+        $sortedArms -cnotcontains 'without-skill') {
+        throw 'Case aggregation did not keep skill-evaluation arms separate.'
+    }
+
+    $fakePluginRoot = Join-Path $testRoot 'plugin'
+    $fakeOpenCodeRoot = Join-Path $fakePluginRoot '.opencode'
+    $fakeSkillsRoot = Join-Path $fakeOpenCodeRoot 'skills'
+    New-Item -ItemType Directory -Path (Join-Path $fakeOpenCodeRoot 'plugins') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $fakeOpenCodeRoot 'plugins\tool.js') -Value 'export {}'
+    Set-Content -LiteralPath (Join-Path $fakePluginRoot 'AGENTS.md') -Value '# Agent notes'
+    foreach ($skillName in @('kept-skill', 'hidden-skill')) {
+        $skillRoot = Join-Path $fakeSkillsRoot $skillName
+        New-Item -ItemType Directory -Path $skillRoot -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $skillRoot 'SKILL.md') -Value "# $skillName"
+    }
+    $fakeWorkspace = Join-Path $testRoot 'workspace'
+    New-Item -ItemType Directory -Path $fakeWorkspace | Out-Null
+    $copied = @(Copy-OpenCodeBenchmarkWorkspace `
+            -PluginRoot $fakePluginRoot `
+            -Workspace $fakeWorkspace `
+            -VisibleSkills @('kept-skill'))
+    if ($copied.Count -ne 1 -or $copied[0] -cne 'kept-skill' -or
+        -not (Test-Path -LiteralPath (Join-Path $fakeWorkspace '.opencode\skills\kept-skill\SKILL.md')) -or
+        (Test-Path -LiteralPath (Join-Path $fakeWorkspace '.opencode\skills\hidden-skill')) -or
+        -not (Test-Path -LiteralPath (Join-Path $fakeWorkspace '.opencode\plugins\tool.js'))) {
+        throw 'OpenCode workspace projection did not physically isolate visible skills.'
+    }
+
     $sourceAuthPath = Join-Path $testRoot 'source-auth.json'
     $scopedAuthPath = Join-Path $testRoot 'isolated-data\opencode\auth.json'
     [ordered]@{

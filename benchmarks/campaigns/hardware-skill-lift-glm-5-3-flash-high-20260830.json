@@ -1,0 +1,52 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-skill-lift-glm-5-3-flash-high-20260830",
+  "title": "Paired hardware skill lift pilot with GLM-5.3 Flash High",
+  "caseIds": [
+    "ott-14",
+    "ott-17",
+    "ott-21",
+    "ott-01"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "skillEvaluation": {
+    "targetSkill": "hardware-configuration-workflow",
+    "arms": [
+      "without-skill",
+      "with-skill"
+    ],
+    "routingCases": [
+      {
+        "caseId": "ott-14",
+        "routingExpectation": "explicit",
+        "expectedSkill": "hardware-configuration-workflow"
+      },
+      {
+        "caseId": "ott-17",
+        "routingExpectation": "implicit",
+        "expectedSkill": "hardware-configuration-workflow"
+      },
+      {
+        "caseId": "ott-21",
+        "routingExpectation": "contextual",
+        "expectedSkill": "hardware-configuration-workflow"
+      },
+      {
+        "caseId": "ott-01",
+        "routingExpectation": "negative",
+        "expectedSkill": null
+      }
+    ]
+  },
+  "models": [
+    {
+      "model": "zai-coding-plan/glm-5.3-flash",
+      "reasoningEffort": "high",
+      "variant": "high",
+      "costClass": "subscription"
+    }
+  ]
+}

@@ -173,6 +173,57 @@ foreach ($campaignFile in $campaignFiles) {
         }
     }
 
+    $skillEvaluationProperty = $campaign.PSObject.Properties['skillEvaluation']
+    if ($null -ne $skillEvaluationProperty -and $null -ne $skillEvaluationProperty.Value) {
+        $skillEvaluation = $skillEvaluationProperty.Value
+        $targetSkill = [string]$skillEvaluation.targetSkill
+        if ($targetSkill -notmatch '^[a-z0-9][a-z0-9-]*$' -or
+            -not (Test-Path -LiteralPath (Join-Path (Join-Path $skillsRoot $targetSkill) 'SKILL.md') -PathType Leaf)) {
+            $errors.Add("$($campaignFile.FullName): unknown skill-evaluation target '$targetSkill'.")
+        }
+        $arms = @($skillEvaluation.arms | ForEach-Object { [string]$_ })
+        if ($arms.Count -ne 2 -or $arms[0] -cne 'without-skill' -or $arms[1] -cne 'with-skill') {
+            $errors.Add("$($campaignFile.FullName): skill-evaluation arms must be ordered as without-skill, with-skill.")
+        }
+
+        $routingCaseIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        $routingExpectations = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        foreach ($routingCase in @($skillEvaluation.routingCases)) {
+            $routingCaseId = [string]$routingCase.caseId
+            $routingExpectation = [string]$routingCase.routingExpectation
+            if (-not $routingCaseIds.Add($routingCaseId)) {
+                $errors.Add("$($campaignFile.FullName): duplicate skill routing case '$routingCaseId'.")
+            }
+            if (@($campaign.caseIds) -cnotcontains $routingCaseId) {
+                $errors.Add("$($campaignFile.FullName): routing case '$routingCaseId' is not in caseIds.")
+            }
+            if ($routingExpectation -notin @('explicit', 'implicit', 'contextual', 'negative')) {
+                $errors.Add("$($campaignFile.FullName): routing case '$routingCaseId' has invalid expectation '$routingExpectation'.")
+            }
+            else {
+                [void]$routingExpectations.Add($routingExpectation)
+            }
+            $expectedSkillProperty = $routingCase.PSObject.Properties['expectedSkill']
+            if ($routingExpectation -eq 'negative') {
+                if ($null -eq $expectedSkillProperty -or $null -ne $expectedSkillProperty.Value) {
+                    $errors.Add("$($campaignFile.FullName): negative routing case '$routingCaseId' must set expectedSkill to null.")
+                }
+            }
+            elseif ($null -eq $expectedSkillProperty -or
+                [string]$expectedSkillProperty.Value -cne $targetSkill) {
+                $errors.Add("$($campaignFile.FullName): positive routing case '$routingCaseId' must expect '$targetSkill'.")
+            }
+        }
+        if ($routingCaseIds.Count -ne @($campaign.caseIds).Count) {
+            $errors.Add("$($campaignFile.FullName): skill routing cases must cover every campaign case exactly once.")
+        }
+        foreach ($requiredExpectation in @('explicit', 'implicit', 'contextual', 'negative')) {
+            if (-not $routingExpectations.Contains($requiredExpectation)) {
+                $errors.Add("$($campaignFile.FullName): skill evaluation is missing a '$requiredExpectation' routing case.")
+            }
+        }
+    }
+
     $modelIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $hasPaidModel = $false
     foreach ($model in $campaign.models) {

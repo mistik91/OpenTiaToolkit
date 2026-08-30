@@ -80,6 +80,17 @@ try {
         [ordered]@{
             type = 'tool_use'
             part = [ordered]@{
+                tool  = 'skill'
+                state = [ordered]@{
+                    status = 'completed'
+                    input  = [ordered]@{ name = 'synthetic' }
+                    output = 'synthetic skill content'
+                }
+            }
+        },
+        [ordered]@{
+            type = 'tool_use'
+            part = [ordered]@{
                 tool  = 'opentia_apply-hardware-patch'
                 state = [ordered]@{
                     status = 'error'
@@ -217,6 +228,11 @@ try {
         durationSeconds = 1
         exitCode        = 0
         timedOut        = $false
+        skillEvaluation = [ordered]@{
+            arm           = 'with-skill'
+            targetSkill   = 'synthetic'
+            visibleSkills = @('synthetic')
+        }
     }
     $metadata | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
 
@@ -234,6 +250,13 @@ try {
     }
     if ([int]$result.trialIndex -ne 2) {
         throw "Expected trialIndex 2, got $($result.trialIndex)."
+    }
+    if ([string]$result.skillEvaluation.arm -cne 'with-skill' -or
+        [string]$result.skillEvaluation.targetSkill -cne 'synthetic' -or
+        [int]$result.skillUsage.callCount -ne 1 -or
+        @($result.skillUsage.loadedSkills).Count -ne 1 -or
+        [string]$result.skillUsage.loadedSkills[0] -cne 'synthetic') {
+        throw 'Skill-evaluation identity or skill-load telemetry was not preserved.'
     }
     if (-not [bool]$result.validForModelComparison -or $null -ne $result.executionFailure) {
         throw 'A completed trace was incorrectly marked invalid for model comparison.'
