@@ -94,6 +94,24 @@ and apply.
 
 Keep patch operations small and auditable. Prefer several focused patches over one broad hardware rewrite.
 
+Patch scope must also preserve the requested failure semantics. When several
+related hardware changes are meant to succeed or roll back together, put the
+complete guarded operation set in one `apply-hardware-patch` request and one
+transactional dry-run. Do not split an atomic request by module, IO type, or
+individual write merely to simplify the call. Use separate focused patches
+only when the changes are genuinely independent and partial success is
+acceptable.
+
+Finalize the intended operation set from read-only discovery before its first
+preview. Do not use partial or redundant hardware-patch calls as exploratory
+probes. After a clean preview, apply the exact same ordered operations and
+guards once, changing only `dry-run` and required confirmation fields. If a
+preview exposes a concrete error, revise the complete candidate set and
+preview it again; once clean, do not add, omit, duplicate, or reorder
+operations between preview and apply. For a coordinated cross-domain change,
+finalize and preview every domain's complete operation set before the first
+apply, then apply only those reviewed sets.
+
 Treat one newly created station and its required child modules, network
 connections, and identity as one atomic unit. Do not split that unit merely to
 make individual calls smaller; a successful final state does not prove that
