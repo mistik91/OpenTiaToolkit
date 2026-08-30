@@ -564,6 +564,32 @@ function Get-BenchmarkExactMcNemarPValue {
     return [Math]::Round([Math]::Min(1.0, 2.0 * $sum), 6)
 }
 
+function Get-BenchmarkSkillCalls {
+    param(
+        [Parameter(Mandatory = $true)][object]$Result,
+        [Parameter(Mandatory = $true)][string]$SkillName
+    )
+
+    $skillUsageProperty = $Result.PSObject.Properties['skillUsage']
+    if ($null -eq $skillUsageProperty -or $null -eq $skillUsageProperty.Value) {
+        return
+    }
+    $callsProperty = $skillUsageProperty.Value.PSObject.Properties['calls']
+    if ($null -eq $callsProperty -or $null -eq $callsProperty.Value) {
+        return
+    }
+
+    foreach ($call in @($callsProperty.Value)) {
+        if ($null -eq $call) {
+            continue
+        }
+        $nameProperty = $call.PSObject.Properties['name']
+        if ($null -ne $nameProperty -and [string]$nameProperty.Value -ceq $SkillName) {
+            $call
+        }
+    }
+}
+
 function Get-BenchmarkSkillLiftStatistics {
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Trials,

@@ -335,14 +335,9 @@ try {
                     else {
                         [string]$skillEvaluationDefinition.targetSkill
                     }
-                    $targetSkillCalls = if ($null -eq $targetSkill) {
-                        @()
-                    }
-                    else {
-                        @($result.skillUsage.calls | Where-Object {
-                                [string]$_.name -ceq $targetSkill
-                            })
-                    }
+                    $targetSkillCalls = @(if ($null -ne $targetSkill) {
+                            Get-BenchmarkSkillCalls -Result $result -SkillName $targetSkill
+                        })
                     $routingCase = if ($routingCasesById.ContainsKey([string]$result.caseId)) {
                         $routingCasesById[[string]$result.caseId]
                     }
@@ -383,7 +378,7 @@ try {
                             else {
                                 $routingCase.expectedSkill
                             }
-                            targetSkillAttempted = $targetSkillCalls.Count -gt 0
+                            targetSkillAttempted = @($targetSkillCalls).Count -gt 0
                             targetSkillLoaded = @($targetSkillCalls | Where-Object {
                                     [string]$_.status -ceq 'completed'
                                 }).Count -gt 0

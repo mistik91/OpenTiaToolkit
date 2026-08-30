@@ -186,17 +186,11 @@ foreach ($modelEntry in $campaign.models) {
                     [int]$validatorProperty.Value.issueCount
                 }
                 else { 0 }
-                $targetSkillCalls = if ($skillEvaluationArm -eq 'standard') {
-                    @()
-                }
-                else {
-                    @($result.skillUsage.calls | Where-Object {
-                            $null -ne $_ -and
-                            $null -ne $_.PSObject.Properties['name'] -and
-                            [string]$_.PSObject.Properties['name'].Value -ceq
-                                [string]$skillEvaluationDefinition.targetSkill
-                        })
-                }
+                $targetSkillCalls = @(if ($skillEvaluationArm -ne 'standard') {
+                        Get-BenchmarkSkillCalls `
+                            -Result $result `
+                            -SkillName ([string]$skillEvaluationDefinition.targetSkill)
+                    })
                 $routingCase = if ($routingCasesById.ContainsKey($caseId)) {
                     $routingCasesById[$caseId]
                 }

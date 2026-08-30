@@ -98,6 +98,32 @@ try {
         throw 'Expected trial count did not preserve scalar and multi-case campaign selections.'
     }
 
+    $nonTargetSkillResult = [pscustomobject]@{
+        skillUsage = [pscustomobject]@{
+            calls = @(
+                [pscustomobject]@{ name = 'opentia-toolkit-workflow'; status = 'completed' },
+                [pscustomobject]@{ name = 'basic-tia-interaction'; status = 'completed' }
+            )
+        }
+    }
+    $noTargetCalls = @(Get-BenchmarkSkillCalls `
+            -Result $nonTargetSkillResult `
+            -SkillName 'hardware-configuration-workflow')
+    $targetSkillResult = [pscustomobject]@{
+        skillUsage = [pscustomobject]@{
+            calls = @([pscustomobject]@{
+                    name = 'hardware-configuration-workflow'; status = 'completed'
+                })
+        }
+    }
+    $targetCalls = @(Get-BenchmarkSkillCalls `
+            -Result $targetSkillResult `
+            -SkillName 'hardware-configuration-workflow')
+    if (@($noTargetCalls).Count -ne 0 -or @($targetCalls).Count -ne 1 -or
+        [string]$targetCalls[0].status -cne 'completed') {
+        throw 'Skill-call selection did not preserve empty and matching call sets.'
+    }
+
     $lift = Get-BenchmarkSkillLiftStatistics `
         -TargetSkill 'hardware-configuration-workflow' `
         -Trials @(

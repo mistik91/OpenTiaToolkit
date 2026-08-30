@@ -681,14 +681,9 @@ foreach ($requestedCaseId in $CaseId) {
         -OutputPath $resultPath
     $results += $result
     $executionFailureKind = Get-BenchmarkTrialExecutionFailureKind -Trial $result
-    $targetSkillCalls = if ($SkillEvaluationArm -eq 'standard') {
-        @()
-    }
-    else {
-        @($result.skillUsage.calls | Where-Object {
-                [string]$_.name -ceq $SkillEvaluationTarget
-            })
-    }
+    $targetSkillCalls = @(if ($SkillEvaluationArm -ne 'standard') {
+            Get-BenchmarkSkillCalls -Result $result -SkillName $SkillEvaluationTarget
+        })
     $suiteResults += [pscustomobject][ordered]@{
         caseId          = [string]$result.caseId
         trialIndex      = [int]$result.trialIndex
@@ -718,7 +713,7 @@ foreach ($requestedCaseId in $CaseId) {
         else {
             $SkillEvaluationTarget
         }
-        targetSkillAttempted = $targetSkillCalls.Count -gt 0
+        targetSkillAttempted = @($targetSkillCalls).Count -gt 0
         targetSkillLoaded = @($targetSkillCalls | Where-Object {
                 [string]$_.status -ceq 'completed'
             }).Count -gt 0
