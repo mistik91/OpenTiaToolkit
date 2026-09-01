@@ -133,6 +133,13 @@ skills, model settings, fixture restoration, and mechanical scoring remain
 fixed. The model is the subscription-backed `zai-coding-plan/glm-5.3-flash`
 at declared reasoning effort and OpenCode variant `high`.
 
+`campaigns/hardware-gsdml-ifm-glm-5-3-flash-high-20260901.json` freezes the
+first campaign for held-out cross-vendor case `ott-27`. It runs three trials
+with the same subscription-backed GLM-5.3 Flash model at declared reasoning
+effort and OpenCode variant `high`. The hardware skills are unchanged from the
+prior Promag and skill-lift work, so the campaign measures transfer rather than
+case-specific skill tuning.
+
 `campaigns/hardware-skill-io-address-candidate-20260801.json` is the candidate
 half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
 prompt, fixture, three-trial count, and maximum reasoning configuration fixed;
@@ -370,6 +377,17 @@ another skill edit. The frozen campaign, Sol comparison, endpoint evidence, and
 trace audit are in
 `reports/hardware-gsdml-promag-v4-free-max-20260805.md`.
 
+`ott-27` raises that vendor-transfer boundary with an IFM AL1400 IO-Link
+master from a different installed GSDML package. The case must distinguish the
+current package from legacy and no-PQI catalog distractors, preserve the
+generated four-port module and proxy, independently recover two displaced port
+placements, bind five input/output address objects across generated and plugged
+items, and guarded-write then reread a vendor port-options byte. The frozen
+skills were not edited during design. The live gold audit proved the strict
+two-stage preview, unchanged apply, independent readback, forced rollback,
+exact delete inverse, and zero-error/zero-warning compile; see
+`reports/ott-27-gold-audit-20260901.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -519,6 +537,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-24` | Held-out ET 200MP family transfer | Transfer the complete topology-and-addressing workflow to a different hardware family without guessing generated-child state |
 | `ott-25` | Brownfield ET 200MP modernization | Atomically replace an existing output module, guard retained state and PROFINET identity, recover from displaced placement, and verify the modernized station |
 | `ott-26` | Third-party GSDML provisioning | Provision an Endress+Hauser Promag 100, preserve generated modules, bind displaced result targets, assign IO, and guarded-write the vendor record |
+| `ott-27` | Held-out cross-vendor GSDML transfer | Provision an IFM AL1400, reject package distractors, preserve generated proxy IO, bind two displaced ports and five address objects, and guarded-write the port-options record |
 
 ## Adding a case
 
