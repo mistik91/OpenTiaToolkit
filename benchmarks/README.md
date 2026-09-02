@@ -144,6 +144,12 @@ the correct final hardware state. The trace audit, zero-metered-cost semantics,
 and recovered aggregation are in
 `reports/hardware-gsdml-ifm-glm-5-3-flash-high-20260901.md`.
 
+`campaigns/hardware-gsdml-ifm-glm-5-3-high-20260902.json` holds that case,
+fixture, three-trial count, skill payload, and `high` effort fixed while moving
+from GLM-5.3 Flash to subscription-backed `zai-coding-plan/glm-5.3`. This is
+the lower-cost capability escalation before an optional GPT-5.6 Sol `xhigh`
+ceiling campaign.
+
 `campaigns/hardware-skill-io-address-candidate-20260801.json` is the candidate
 half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
 prompt, fixture, three-trial count, and maximum reasoning configuration fixed;
