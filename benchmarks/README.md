@@ -148,7 +148,10 @@ and recovered aggregation are in
 fixture, three-trial count, skill payload, and `high` effort fixed while moving
 from GLM-5.3 Flash to subscription-backed `zai-coding-plan/glm-5.3`. This is
 the lower-cost capability escalation before an optional GPT-5.6 Sol `xhigh`
-ceiling campaign.
+ceiling campaign. GLM-5.3 qualified 3/3 at 100/100/100 with the exact four-call
+transaction sequence and zero validator interventions, so no Sol run was
+needed on this case. Results and cleanup are in
+`reports/hardware-gsdml-ifm-glm-5-3-high-20260902.md`.
 
 `campaigns/hardware-skill-io-address-candidate-20260801.json` is the candidate
 half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
