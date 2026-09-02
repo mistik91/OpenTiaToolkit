@@ -153,6 +153,29 @@ transaction sequence and zero validator interventions, so no Sol run was
 needed on this case. Results and cleanup are in
 `reports/hardware-gsdml-ifm-glm-5-3-high-20260902.md`.
 
+The PR qualification baseline groups the remaining nineteen cases by fixture
+so every checkpoint batch receives exactly one immutable archive or one
+preprovisioned Multiuser session. All groups use
+`zai-coding-plan/glm-5.3` at declared effort and variant `high`, with three
+trials per case:
+
+| Campaign prefix | Fixture | Cases | New trials |
+| --- | --- | --- | ---: |
+| `full-suite-baseline` | `tia-v21-baseline-1` | `ott-01`, `ott-03`, `ott-08`, `ott-10`, `ott-14`, `ott-15`, `ott-16` | 21 |
+| `full-suite-io` | `tia-v21-io-2` | `ott-13`, `ott-17` | 6 |
+| `full-suite-multi-address` | `tia-v21-multi-address-3` | `ott-12`, `ott-19` | 6 |
+| `full-suite-cross-domain` | `tia-v21-cross-domain-4` | `ott-20` | 3 |
+| `full-suite-cross-domain-transfer` | `tia-v21-cross-domain-transfer-5` | `ott-21` | 3 |
+| `full-suite-topology` | `tia-v21-topology-6` | `ott-22`, `ott-23`, `ott-24`, `ott-26` | 12 |
+| `full-suite-brownfield` | `tia-v21-brownfield-7` | `ott-25` | 3 |
+| `full-suite-multiuser` | `tia-v21-multiuser-1` | `ott-18` | 3 |
+
+The already completed, input-identical `ott-27` GLM-5.3 High qualification
+supplies the other three trials, producing a 60-trial full-suite baseline
+without spending subscription quota to repeat a 3/3 result. The batch driver
+defaults to one case-sized three-trial checkpoint. It never mixes fixture
+archives inside one campaign.
+
 `campaigns/hardware-skill-io-address-candidate-20260801.json` is the candidate
 half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
 prompt, fixture, three-trial count, and maximum reasoning configuration fixed;
