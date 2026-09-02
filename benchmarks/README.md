@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: nineteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -138,7 +138,11 @@ first campaign for held-out cross-vendor case `ott-27`. It runs three trials
 with the same subscription-backed GLM-5.3 Flash model at declared reasoning
 effort and OpenCode variant `high`. The hardware skills are unchanged from the
 prior Promag and skill-lift work, so the campaign measures transfer rather than
-case-specific skill tuning.
+case-specific skill tuning. It scored 60, 70, and 90, but all three trials
+failed at least one critical transaction-discipline assertion despite reaching
+the correct final hardware state. The trace audit, zero-metered-cost semantics,
+and recovered aggregation are in
+`reports/hardware-gsdml-ifm-glm-5-3-flash-high-20260901.md`.
 
 `campaigns/hardware-skill-io-address-candidate-20260801.json` is the candidate
 half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
