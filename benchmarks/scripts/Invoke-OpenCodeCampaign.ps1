@@ -263,7 +263,7 @@ try {
             $modelResults.Add($modelRecord)
 
             foreach ($selectedCaseId in $selectedCaseIds) {
-                foreach ($trialIndex in $selectedTrialIndexes) {
+                foreach ($selectedTrialIndex in $selectedTrialIndexes) {
                     foreach ($skillEvaluationArm in $skillEvaluationArms) {
                     if ($totalCost -ge [double]$campaign.maxCostUsd) {
                         $modelRecord.status = 'not-completed-budget-guard'
@@ -279,7 +279,7 @@ try {
                     $runnerParameters = @{
                         CaseId                 = @([string]$selectedCaseId)
                         Model                  = $modelId
-                        TrialIndex             = $trialIndex
+                        TrialIndex             = $selectedTrialIndex
                         ReasoningEffort        = $reasoningEffort
                         FixtureArchivePath     = $FixtureArchivePath
                         OutputRoot             = $campaignDirectory
@@ -322,7 +322,7 @@ try {
                             Sort-Object LastWriteTimeUtc -Descending |
                             Select-Object -First 1)
                     if ($newSuite.Count -ne 1) {
-                        throw "Expected one new suite result for '$modelId' / '$selectedCaseId' / trial $trialIndex, got $($newSuite.Count)."
+                        throw "Expected one new suite result for '$modelId' / '$selectedCaseId' / trial $selectedTrialIndex, got $($newSuite.Count)."
                     }
                     $suite = Get-Content -LiteralPath $newSuite[0].FullName -Raw | ConvertFrom-Json
                     if (@($suite.results).Count -ne 1) {
@@ -333,8 +333,8 @@ try {
                         throw "Suite result references a missing case result: $resultPath"
                     }
                     $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
-                    if ([int]$result.trialIndex -ne $trialIndex) {
-                        throw "Result '$resultPath' reports trial $($result.trialIndex), expected $trialIndex."
+                    if ([int]$result.trialIndex -ne $selectedTrialIndex) {
+                        throw "Result '$resultPath' reports trial $($result.trialIndex), expected $selectedTrialIndex."
                     }
                     if ($skillEvaluationArm -ne 'standard' -and
                         ([string]$result.skillEvaluation.arm -cne $skillEvaluationArm -or
