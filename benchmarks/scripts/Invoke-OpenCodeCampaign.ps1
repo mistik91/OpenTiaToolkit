@@ -398,8 +398,8 @@ try {
                 $trials = @($modelRecord.cases)
                 $expectedTrialCount = Get-BenchmarkExpectedTrialCount `
                     -CaseIds @($selectedCaseIds) `
-                    -TrialCount ([int]$campaign.trialCount)
-                $expectedTrialCount *= $skillEvaluationArms.Count
+                    -TrialCount ([int]$campaign.trialCount) `
+                    -EvaluationArmCount (@($skillEvaluationArms).Count)
                 $modelRecord.status = Get-BenchmarkModelStatus `
                     -Trials $trials `
                     -ExpectedTrialCount $expectedTrialCount

@@ -467,10 +467,13 @@ function Get-BenchmarkExpectedTrialCount {
 
         [Parameter(Mandatory = $true)]
         [ValidateRange(1, 10)]
-        [int]$TrialCount
+        [int]$TrialCount,
+
+        [ValidateRange(1, 10)]
+        [int]$EvaluationArmCount = 1
     )
 
-    return @($CaseIds).Count * $TrialCount
+    return @($CaseIds).Count * $TrialCount * $EvaluationArmCount
 }
 
 function Get-BenchmarkCaseAggregates {

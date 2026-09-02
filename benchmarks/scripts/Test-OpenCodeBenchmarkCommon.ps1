@@ -94,8 +94,9 @@ try {
     }
 
     if ((Get-BenchmarkExpectedTrialCount -CaseIds 'ott-14' -TrialCount 3) -ne 3 -or
-        (Get-BenchmarkExpectedTrialCount -CaseIds @('ott-01', 'ott-14') -TrialCount 3) -ne 6) {
-        throw 'Expected trial count did not preserve scalar and multi-case campaign selections.'
+        (Get-BenchmarkExpectedTrialCount -CaseIds @('ott-01', 'ott-14') -TrialCount 3) -ne 6 -or
+        (Get-BenchmarkExpectedTrialCount -CaseIds @('ott-01', 'ott-14') -TrialCount 3 -EvaluationArmCount 2) -ne 12) {
+        throw 'Expected trial count did not preserve scalar, multi-case, and paired-arm campaign selections.'
     }
 
     $nonTargetSkillResult = [pscustomobject]@{
