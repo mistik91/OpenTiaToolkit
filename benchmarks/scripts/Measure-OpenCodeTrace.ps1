@@ -640,10 +640,24 @@ if (-not $hasStop -and $terminalError.Count -gt 0) {
     if ($message -match '\[(?<status>[45][0-9]{2})\]') {
         $statusCode = [int]$Matches.status
     }
-    $isProviderError = $message -match '(?i)streaming response failed|provider|request queue|rate limit' -or
+    elseif ($null -ne $errorData) {
+        foreach ($statusPropertyName in @('statusCode', 'status')) {
+            $statusProperty = $errorData.PSObject.Properties[$statusPropertyName]
+            if ($null -ne $statusProperty -and
+                [string]$statusProperty.Value -match '^[45][0-9]{2}$') {
+                $statusCode = [int]$statusProperty.Value
+                break
+            }
+        }
+    }
+    $isRateLimit = $statusCode -eq 429 -or
+        $message -match '(?i)rate[ -]?limit|too many requests|usage limit|limit exhausted|temporarily overloaded|high (?:concurrency|frequency)|fair use|quota|insufficient balance|no resource package' -or
+        $message -match '(?<!\d)(?:1113|1302|1305|1308|1309|1310|1311|1313|1314|1315|1316|1317|1318|1319|1320|1321)(?!\d)'
+    $isProviderError = $isRateLimit -or
+        $message -match '(?i)streaming response failed|provider|request queue' -or
         $null -ne $statusCode
     $executionFailure = [pscustomobject][ordered]@{
-        kind       = if ($isProviderError) { 'provider-error' } else { 'runtime-error' }
+        kind       = if ($isRateLimit) { 'rate-limit' } elseif ($isProviderError) { 'provider-error' } else { 'runtime-error' }
         statusCode = $statusCode
         message    = $message
     }

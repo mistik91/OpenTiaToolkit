@@ -179,6 +179,7 @@
         "kind": {
           "enum": [
             "provider-error",
+            "rate-limit",
             "runtime-error",
             "process-error",
             "incomplete-trace"

@@ -291,6 +291,29 @@ try {
         throw 'A terminal provider 503 was not classified as endpoint-invalid.'
     }
 
+    [ordered]@{
+        type = 'error'
+        error = [ordered]@{
+            name = 'ProviderError'
+            data = [ordered]@{
+                statusCode = 429
+                message = '1308 Usage limit reached. Resets at 2026-09-02T05:00:00Z'
+            }
+        }
+    } | ConvertTo-Json -Depth 20 -Compress |
+        Set-Content -LiteralPath $tracePath -Encoding UTF8
+    $rateLimitResultPath = Join-Path $testRoot 'rate-limit-result.json'
+    $rateLimitResult = & (Join-Path $PSScriptRoot 'Measure-OpenCodeTrace.ps1') `
+        -CasePath $casePath `
+        -TracePath $tracePath `
+        -MetadataPath $metadataPath `
+        -OutputPath $rateLimitResultPath
+    if ([bool]$rateLimitResult.validForModelComparison -or [bool]$rateLimitResult.passed -or
+        [string]$rateLimitResult.executionFailure.kind -ne 'rate-limit' -or
+        [int]$rateLimitResult.executionFailure.statusCode -ne 429) {
+        throw 'A terminal provider 429 was not classified as a rate-limit pause signal.'
+    }
+
     $metadata.timedOut = $true
     $metadata.finishedAtUtc = '2026-01-01T00:01:00.0000000Z'
     $metadata.durationSeconds = 60

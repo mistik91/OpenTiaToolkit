@@ -276,6 +276,66 @@ function Get-BenchmarkTrialExecutionFailureKind {
     return $null
 }
 
+function Test-BenchmarkTrialRateLimited {
+    param([Parameter(Mandatory = $true)][object]$Trial)
+
+    if ((Get-BenchmarkTrialExecutionFailureKind -Trial $Trial) -ceq 'rate-limit') {
+        return $true
+    }
+
+    $failureProperty = $Trial.PSObject.Properties['executionFailure']
+    if ($null -eq $failureProperty -or $null -eq $failureProperty.Value) {
+        return $false
+    }
+
+    $statusProperty = $failureProperty.Value.PSObject.Properties['statusCode']
+    if ($null -ne $statusProperty -and $null -ne $statusProperty.Value -and
+        [int]$statusProperty.Value -eq 429) {
+        return $true
+    }
+
+    $messageProperty = $failureProperty.Value.PSObject.Properties['message']
+    if ($null -eq $messageProperty) {
+        return $false
+    }
+    $message = [string]$messageProperty.Value
+    return $message -match '(?i)rate[ -]?limit|too many requests|usage limit|limit exhausted|temporarily overloaded|high (?:concurrency|frequency)|fair use|quota|insufficient balance|no resource package' -or
+        $message -match '(?<!\d)(?:1113|1302|1305|1308|1309|1310|1311|1313|1314|1315|1316|1317|1318|1319|1320|1321)(?!\d)'
+}
+
+function Get-BenchmarkRateLimitResetAtUtc {
+    param([Parameter(Mandatory = $true)][object]$Trial)
+
+    if (-not (Test-BenchmarkTrialRateLimited -Trial $Trial)) {
+        return $null
+    }
+
+    $failureProperty = $Trial.PSObject.Properties['executionFailure']
+    if ($null -eq $failureProperty -or $null -eq $failureProperty.Value) {
+        return $null
+    }
+    $messageProperty = $failureProperty.Value.PSObject.Properties['message']
+    if ($null -eq $messageProperty) {
+        return $null
+    }
+
+    $message = [string]$messageProperty.Value
+    $matches = [regex]::Matches(
+        $message,
+        '(?i)(?:reset(?:s| at)?|next_flush_time)[^0-9]{0,16}(?<timestamp>20\d{2}-\d{2}-\d{2}[T ][0-9:.+-]+Z?)')
+    foreach ($match in $matches) {
+        $parsed = [DateTimeOffset]::MinValue
+        if ([DateTimeOffset]::TryParse(
+                [string]$match.Groups['timestamp'].Value,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::AssumeUniversal,
+                [ref]$parsed)) {
+            return $parsed.ToUniversalTime().ToString('o')
+        }
+    }
+    return $null
+}
+
 function Test-BenchmarkTrialRuntimeFailure {
     param([Parameter(Mandatory = $true)][object]$Trial)
 
@@ -301,7 +361,7 @@ function Get-BenchmarkModelStatus {
             -not (Test-BenchmarkTrialValidForModelComparison -Trial $_)
         })
     $hasEndpointInvalid = @($invalidItems | Where-Object {
-            (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -eq 'provider-error'
+            (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -in @('provider-error', 'rate-limit')
         }).Count -gt 0
     $hasRuntimeFailure = @($items | Where-Object {
             Test-BenchmarkTrialRuntimeFailure -Trial $_
@@ -369,7 +429,7 @@ function Get-BenchmarkTrialStatistics {
             -not (Test-BenchmarkTrialValidForModelComparison -Trial $_)
         })
     $endpointInvalidCount = @($invalidItems | Where-Object {
-            (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -eq 'provider-error'
+            (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -in @('provider-error', 'rate-limit')
         }).Count
     $passedCount = @($validItems | Where-Object { [bool]$_.passed }).Count
     $criticalFailureCount = @($validItems | Where-Object { [bool]$_.criticalFailure }).Count

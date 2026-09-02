@@ -7,6 +7,8 @@ param(
 
     [string[]]$CaseId,
 
+    [int[]]$TrialIndex,
+
     [string]$FixtureArchivePath,
 
     [string]$MultiuserSessionPath,
@@ -93,6 +95,19 @@ $selectedCaseIds = if ($requestedCaseFilters.Count -gt 0) {
 else {
     @($campaign.caseIds)
 }
+$requestedTrialFilters = @($TrialIndex)
+if ($requestedTrialFilters.Count -gt 0) {
+    $invalidTrialIndexes = @($requestedTrialFilters | Where-Object {
+            $_ -lt 1 -or $_ -gt [int]$campaign.trialCount
+        } | Sort-Object -Unique)
+    if ($invalidTrialIndexes.Count -gt 0) {
+        throw "Campaign '$($campaign.id)' has trial indexes 1-$($campaign.trialCount); invalid selection: $($invalidTrialIndexes -join ', ')"
+    }
+    $selectedTrialIndexes = @($requestedTrialFilters | Sort-Object -Unique)
+}
+else {
+    $selectedTrialIndexes = @(1..([int]$campaign.trialCount))
+}
 $skillEvaluationDefinition = Get-OptionalProperty -Object $campaign -Name 'skillEvaluation'
 $skillEvaluationArms = if ($null -eq $skillEvaluationDefinition) {
     @('standard')
@@ -115,8 +130,10 @@ if ($paidModels.Count -gt 0 -and
     (-not [bool]$campaign.allowPaidModels -or -not $AllowPaidModels)) {
     throw "Campaign '$($campaign.id)' contains paid models. Both allowPaidModels=true in the manifest and -AllowPaidModels at runtime are required."
 }
-if (-not $PreflightOnly -and [string]::IsNullOrWhiteSpace($FixtureArchivePath)) {
-    throw 'Live campaign execution requires -FixtureArchivePath.'
+if (-not $PreflightOnly -and
+    [string]::IsNullOrWhiteSpace($FixtureArchivePath) -and
+    [string]::IsNullOrWhiteSpace($MultiuserSessionPath)) {
+    throw 'Live campaign execution requires -FixtureArchivePath or -MultiuserSessionPath.'
 }
 
 $resolvedUserAuthPath = $null
@@ -211,6 +228,7 @@ $catalogSnapshot = [ordered]@{
     schemaVersion   = 2
     campaignId      = [string]$campaign.id
     trialCount      = [int]$campaign.trialCount
+    selectedTrialIndexes = $selectedTrialIndexes
     checkedAtUtc    = [DateTime]::UtcNow.ToString('o')
     openCodeVersion = $openCodeVersion
     skillEvaluation = $skillEvaluationDefinition
@@ -245,7 +263,7 @@ try {
             $modelResults.Add($modelRecord)
 
             foreach ($selectedCaseId in $selectedCaseIds) {
-                for ($trialIndex = 1; $trialIndex -le [int]$campaign.trialCount; $trialIndex++) {
+                foreach ($trialIndex in $selectedTrialIndexes) {
                     foreach ($skillEvaluationArm in $skillEvaluationArms) {
                     if ($totalCost -ge [double]$campaign.maxCostUsd) {
                         $modelRecord.status = 'not-completed-budget-guard'
@@ -443,6 +461,7 @@ finally {
         maxCostUsd          = [double]$campaign.maxCostUsd
         totalCostUsd        = [Math]::Round($totalCost, 8)
         trialCount          = [int]$campaign.trialCount
+        selectedTrialIndexes = $selectedTrialIndexes
         skillEvaluation     = $skillEvaluationDefinition
         selectedCaseIds     = $selectedCaseIds
         selectedModels      = @($selectedModelEntries | ForEach-Object { [string]$_.model })

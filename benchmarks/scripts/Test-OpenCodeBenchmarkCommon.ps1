@@ -79,6 +79,23 @@ try {
         throw 'Endpoint-invalid model status was not preserved.'
     }
 
+    $rateLimitedTrial = [pscustomobject]@{
+        passed = $false; criticalFailure = $false; timedOut = $false; exitCode = 0
+        score = 0; cost = 0; durationSeconds = 1; reasoningTokens = 0
+        validForModelComparison = $false
+        executionFailure = [pscustomobject]@{
+            kind = 'rate-limit'; statusCode = 429
+            message = '1308 Usage limit reached. Resets at 2026-09-02T05:00:00Z'
+        }
+    }
+    $rateLimitedStatistics = Get-BenchmarkTrialStatistics -Trials @($rateLimitedTrial)
+    if (-not (Test-BenchmarkTrialRateLimited -Trial $rateLimitedTrial) -or
+        [string](Get-BenchmarkRateLimitResetAtUtc -Trial $rateLimitedTrial) -cne '2026-09-02T05:00:00.0000000+00:00' -or
+        [int]$rateLimitedStatistics.endpointInvalidCount -ne 1 -or
+        (Get-BenchmarkModelStatus -Trials @($rateLimitedTrial) -ExpectedTrialCount 1) -ne 'endpoint-invalid') {
+        throw 'Rate-limit detection, reset parsing, or endpoint-invalid aggregation failed.'
+    }
+
     $legacyCompactStatistics = Get-BenchmarkTrialStatistics -Trials @(
         [pscustomobject]@{
             caseId = 'ott-01'; score = 100; passed = $true; criticalFailure = $false

@@ -437,6 +437,43 @@ Run the complete paired campaign from a non-primary branch:
   -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_20260731.zap21
 ```
 
+For long standard model campaigns, run a bounded checkpoint batch instead of
+one uninterrupted campaign. The default batch size is three accepted trials;
+every attempt is recorded before the next trial starts:
+
+```powershell
+.\scripts\Invoke-OpenCodeCampaignBatch.ps1 `
+  -CampaignPath .\campaigns\hardware-gsdml-ifm-glm-5-3-high-20260902.json `
+  -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_Topology_20260801.zap21 `
+  -UseUserOpenCodeAuth `
+  -TiaInstanceId <pid> `
+  -BatchSize 3
+```
+
+The command stops with `paused-batch-limit` after the configured number of
+accepted trials. Continue from the exact next model/case/trial with the emitted
+checkpoint path:
+
+```powershell
+.\scripts\Invoke-OpenCodeCampaignBatch.ps1 `
+  -CampaignPath .\campaigns\hardware-gsdml-ifm-glm-5-3-high-20260902.json `
+  -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_Topology_20260801.zap21 `
+  -UseUserOpenCodeAuth `
+  -TiaInstanceId <pid> `
+  -CheckpointPath .\artifacts\<batch-directory>\checkpoint.json `
+  -BatchSize 3
+```
+
+HTTP 429 and documented Z.AI quota/concurrency business codes are classified
+as `rate-limit`. The batch stops immediately with `paused-rate-limit`, retains
+the rejected attempt as endpoint evidence, leaves that trial pending, and
+records the provider message, status code, and reset timestamp when present.
+Do not resume until that timestamp or the provider dashboard shows available
+quota. Generic provider failures and harness failures also pause instead of
+consuming the remainder of the batch. Paired skill-evaluation arms remain on
+the existing campaign runner and are intentionally rejected by the batch
+driver for now.
+
 Use `-CaseId` for an ordered subset during a smoke or continuation run. A
 skill-evaluation definition still retains all four routing buckets; filtering
 only narrows execution and the resulting paired statistics.
