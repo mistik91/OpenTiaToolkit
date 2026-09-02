@@ -497,6 +497,13 @@ consuming the remainder of the batch. Paired skill-evaluation arms remain on
 the existing campaign runner and are intentionally rejected by the batch
 driver for now.
 
+Each trial scopes `OPEN_TIA_MCP_ALLOWED_ROOTS` to its exact isolated workspace
+and the OpenTiaToolkit temporary staging directory. Before model inference, a
+raw MCP policy probe validates a workspace artifact. A rejection of that exact
+workspace is classified as `harness-error`, excluded from model comparison,
+and pauses a checkpoint batch as `paused-harness-error`; a model-selected path
+outside the declared workspace remains an ordinary model outcome.
+
 Use `-CaseId` for an ordered subset during a smoke or continuation run. A
 skill-evaluation definition still retains all four routing buckets; filtering
 only narrows execution and the resulting paired statistics.

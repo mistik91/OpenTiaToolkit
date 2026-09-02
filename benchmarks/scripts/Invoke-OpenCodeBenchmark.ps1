@@ -473,6 +473,7 @@ foreach ($requestedCaseId in $CaseId) {
     $workspace = Join-Path $executionDirectory 'workspace'
     New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
     New-Item -ItemType Directory -Path $workspace -Force | Out-Null
+    $benchmarkMcpAllowedRoots = Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspace
 
     if (-not $SkipFixtureRestore) {
         $instanceId = Get-OnlyTiaInstanceId -CliExecutable $cliExecutable -RequestedId $TiaInstanceId
@@ -531,7 +532,8 @@ foreach ($requestedCaseId in $CaseId) {
                     '.opencode/plugins/run-opentia-mcp.ps1'
                 )
                 environment = [ordered]@{
-                    OPEN_TIA_MCP_LOG_LEVEL = 'Error'
+                    OPEN_TIA_MCP_LOG_LEVEL     = 'Error'
+                    OPEN_TIA_MCP_ALLOWED_ROOTS = $benchmarkMcpAllowedRoots
                 }
                 enabled     = $true
                 timeout     = 600000
@@ -556,6 +558,11 @@ foreach ($requestedCaseId in $CaseId) {
     }
     $configPath = Join-Path $workspace 'opencode.json'
     $config | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $configPath -Encoding UTF8
+    & (Join-Path $PSScriptRoot 'Assert-OpenTiaMcpWorkspacePolicy.ps1') `
+        -McpPath $mcpExecutable `
+        -WorkspacePath $workspace `
+        -AllowedRoots $benchmarkMcpAllowedRoots |
+        Out-Null
 
     $isolatedConfigRoot = Join-Path $executionDirectory 'xdg-config'
     $isolatedDataRoot = Join-Path $executionDirectory 'xdg-data'
@@ -659,6 +666,8 @@ foreach ($requestedCaseId in $CaseId) {
         exitCode        = [int]$execution.ExitCode
         timedOut        = [bool]$execution.TimedOut
         workspacePath   = $workspace
+        mcpAllowedRoots = $benchmarkMcpAllowedRoots
+        mcpWorkspacePolicyPreflight = 'passed'
         skillEvaluation = if ($SkillEvaluationArm -eq 'standard') {
             $null
         }

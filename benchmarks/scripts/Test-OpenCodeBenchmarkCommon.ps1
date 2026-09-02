@@ -10,6 +10,19 @@ $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("OpenTiaBenchmarkCommon
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 
 try {
+    $workspacePath = Join-Path $testRoot 'mcp-workspace'
+    New-Item -ItemType Directory -Path $workspacePath | Out-Null
+    $allowedRoots = @((Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspacePath) -split ';')
+    $expectedWorkspaceRoot = [System.IO.Path]::GetFullPath($workspacePath).TrimEnd([char[]]'\/')
+    $expectedTempRoot = [System.IO.Path]::GetFullPath(
+        (Join-Path ([System.IO.Path]::GetTempPath()) 'OpenTiaToolkit')
+    ).TrimEnd([char[]]'\/')
+    if ($allowedRoots.Count -ne 2 -or
+        [string]$allowedRoots[0] -cne $expectedWorkspaceRoot -or
+        [string]$allowedRoots[1] -cne $expectedTempRoot) {
+        throw "Benchmark MCP allowed roots were not scoped to the workspace and toolkit temp root: $($allowedRoots -join ';')"
+    }
+
     if ((Get-OpenCodeModelProvider -Model 'openrouter/example/model') -cne 'openrouter') {
         throw 'Provider parsing did not preserve the OpenCode provider id.'
     }
@@ -94,6 +107,14 @@ try {
         [int]$rateLimitedStatistics.endpointInvalidCount -ne 1 -or
         (Get-BenchmarkModelStatus -Trials @($rateLimitedTrial) -ExpectedTrialCount 1) -ne 'endpoint-invalid') {
         throw 'Rate-limit detection, reset parsing, or endpoint-invalid aggregation failed.'
+    }
+
+    $harnessInvalidTrial = [pscustomobject]@{
+        passed = $false; criticalFailure = $false; timedOut = $false; exitCode = 0
+        validForModelComparison = $false; executionFailureKind = 'harness-error'
+    }
+    if ((Get-BenchmarkModelStatus -Trials @($harnessInvalidTrial) -ExpectedTrialCount 1) -cne 'harness-invalid') {
+        throw 'Harness-invalid model status was not preserved.'
     }
 
     $legacyCompactStatistics = Get-BenchmarkTrialStatistics -Trials @(

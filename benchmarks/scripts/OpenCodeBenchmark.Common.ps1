@@ -1,5 +1,16 @@
 Set-StrictMode -Version Latest
 
+function Get-BenchmarkMcpAllowedRoots {
+    param([Parameter(Mandatory = $true)][string]$WorkspacePath)
+
+    $workspaceRoot = [System.IO.Path]::GetFullPath($WorkspacePath).TrimEnd([char[]]'\/')
+    $toolkitTempRoot = [System.IO.Path]::GetFullPath(
+        (Join-Path ([System.IO.Path]::GetTempPath()) 'OpenTiaToolkit')
+    ).TrimEnd([char[]]'\/')
+    return (@($workspaceRoot, $toolkitTempRoot) |
+            Select-Object -Unique) -join ';'
+}
+
 function Get-OpenCodeModelProvider {
     param([Parameter(Mandatory = $true)][string]$Model)
 
@@ -363,6 +374,9 @@ function Get-BenchmarkModelStatus {
     $hasEndpointInvalid = @($invalidItems | Where-Object {
             (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -in @('provider-error', 'rate-limit')
         }).Count -gt 0
+    $hasHarnessInvalid = @($invalidItems | Where-Object {
+            (Get-BenchmarkTrialExecutionFailureKind -Trial $_) -ceq 'harness-error'
+        }).Count -gt 0
     $hasRuntimeFailure = @($items | Where-Object {
             Test-BenchmarkTrialRuntimeFailure -Trial $_
         }).Count -gt 0
@@ -374,6 +388,9 @@ function Get-BenchmarkModelStatus {
 
     if ($hasEndpointInvalid) {
         return 'endpoint-invalid'
+    }
+    if ($hasHarnessInvalid) {
+        return 'harness-invalid'
     }
     if ($hasRuntimeFailure) {
         return 'runtime-failure'

@@ -626,8 +626,73 @@ $hasStop = @($events | Where-Object {
         $_.type -eq 'step_finish' -and $_.part.reason -eq 'stop'
     }).Count -gt 0
 $terminalError = @($events | Where-Object { $_.type -eq 'error' } | Select-Object -Last 1)
+$workspacePolicyFailure = $null
+$workspaceProperty = $metadata.PSObject.Properties['workspacePath']
+if ($null -ne $workspaceProperty -and
+    -not [string]::IsNullOrWhiteSpace([string]$workspaceProperty.Value)) {
+    $workspaceRoot = [System.IO.Path]::GetFullPath(
+        [string]$workspaceProperty.Value
+    ).TrimEnd([char[]]'\/')
+    $workspacePrefix = $workspaceRoot + [System.IO.Path]::DirectorySeparatorChar
+    foreach ($toolEvent in $toolEvents) {
+        $state = $toolEvent.part.state
+        if ($null -eq $state -or [string]$state.status -cne 'error' -or
+            $null -eq $state.PSObject.Properties['error']) {
+            continue
+        }
+        $rawError = [string]$state.error
+        $message = $rawError
+        try {
+            $errorPayload = $rawError | ConvertFrom-Json
+            if ($null -ne $errorPayload.PSObject.Properties['message']) {
+                $message = [string]$errorPayload.message
+            }
+        }
+        catch {
+            # Preserve the raw tool error when it is not JSON.
+        }
+        $deniedPathMatch = [regex]::Match(
+            $message,
+            "(?i)MCP file policy rejected [^']+ '(?<path>[^']+)'"
+        )
+        if (-not $deniedPathMatch.Success) {
+            continue
+        }
+        try {
+            $deniedPath = [System.IO.Path]::GetFullPath(
+                [string]$deniedPathMatch.Groups['path'].Value
+            )
+        }
+        catch {
+            continue
+        }
+        if ([string]::Equals(
+                $deniedPath,
+                $workspaceRoot,
+                [System.StringComparison]::OrdinalIgnoreCase
+            ) -or
+            $deniedPath.StartsWith(
+                $workspacePrefix,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )) {
+            $workspacePolicyFailure = [pscustomobject][ordered]@{
+                tool    = [string]$toolEvent.part.tool
+                path    = $deniedPath
+                message = $message
+            }
+            break
+        }
+    }
+}
 $executionFailure = $null
-if (-not $hasStop -and $terminalError.Count -gt 0) {
+if ($null -ne $workspacePolicyFailure) {
+    $executionFailure = [pscustomobject][ordered]@{
+        kind       = 'harness-error'
+        statusCode = $null
+        message    = "Benchmark MCP rejected its own workspace path '$($workspacePolicyFailure.path)' during '$($workspacePolicyFailure.tool)'."
+    }
+}
+elseif (-not $hasStop -and $terminalError.Count -gt 0) {
     $errorData = $terminalError[0].error.data
     $message = if ($null -ne $errorData -and
         $null -ne $errorData.PSObject.Properties['message']) {

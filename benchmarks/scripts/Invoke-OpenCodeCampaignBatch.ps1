@@ -324,6 +324,10 @@ foreach ($workItem in @($state.workItems | Where-Object { [string]$_.status -cne
             $state.status = 'paused-provider-error'
             $state.lastError = $failureMessage
         }
+        elseif ($failureKind -ceq 'harness-error') {
+            $state.status = 'paused-harness-error'
+            $state.lastError = $failureMessage
+        }
         else {
             $state.status = 'paused-execution-error'
             $state.lastError = $failureMessage

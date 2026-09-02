@@ -180,6 +180,7 @@
           "enum": [
             "provider-error",
             "rate-limit",
+            "harness-error",
             "runtime-error",
             "process-error",
             "incomplete-trace"
