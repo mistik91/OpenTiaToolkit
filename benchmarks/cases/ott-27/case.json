@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-27",
+  "title": "Held-out IFM AL1400 GSDML transfer",
+  "description": "Tests transfer of generic GSDML provisioning to a modular IFM IO-Link master with version distractors, generated proxy IO, two independently learned port displacements, result-bound mixed IO, a guarded vendor byte, and independent readback.",
+  "fixtureId": "tia-v21-topology-6",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1200,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "focused-al1400-catalog-discovery",
+      "type": "tool",
+      "points": 3,
+      "critical": true,
+      "namePattern": "find_hardware_catalog_items$",
+      "inputEquals": {"search-text": "AL1400"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "GSD:GSDML-V2\\.35-IFM-AL1X0X-20230127-075900\\.XML/DAP/DIM_AL1400"
+      ]
+    },
+    {
+      "id": "focused-port-catalog-discovery",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "find_hardware_catalog_items$",
+      "inputEquals": {"search-text": "IO-Link 4I"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "GSD:GSDML-V2\\.35-IFM-AL1X0X-20230127-075900\\.XML/SM/IDS IO-Link 4I_2O",
+        "GSD:GSDML-V2\\.35-IFM-AL1X0X-20230127-075900\\.XML/SM/IDS IO-Link 4I"
+      ]
+    },
+    {
+      "id": "tree-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 2,
+      "outputPatterns": [
+        "PLC_Main",
+        "IOL_Master_01",
+        "GSD:GSDML-V2\\.35-IFM-AL1X0X-20230127-075900\\.XML/DAP/DIM_AL1400",
+        "4 Ports_1",
+        "IO-Link Master Proxy 4P EnMo",
+        "FlowPort",
+        "LevelPort",
+        "positionNumber\"?\\s*:\\s*2",
+        "positionNumber\"?\\s*:\\s*3"
+      ]
+    },
+    {
+      "id": "network-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_hardware_networks$",
+      "minCount": 2,
+      "outputPatterns": [
+        "CellPN",
+        "CellIO",
+        "IOL_Master_01",
+        "192\\.168\\.0\\.62",
+        "iol-master-01",
+        "PnDeviceNumber",
+        "\"62\""
+      ]
+    },
+    {
+      "id": "io-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "IO-Link Master Proxy 4P EnMo",
+        "FlowPort",
+        "LevelPort",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"224\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"40\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"16\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"8\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"192\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"193\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"220\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"225\""
+      ]
+    },
+    {
+      "id": "no-generated-parent-capability-probe",
+      "type": "forbiddenTool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "can_plug_hardware_item$"
+    },
+    {
+      "id": "two-stage-strict-placement-recovery",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": true},
+      "minCount": 3,
+      "maxCount": 3,
+      "outputPatterns": [
+        "(?is)FlowPort.*?placed at.*?IOL_Master_01/FlowPort.*?instead of requested.*?IOL_Master_01/4 Ports_1/FlowPort",
+        "(?is)LevelPort.*?placed at.*?IOL_Master_01/LevelPort.*?instead of requested.*?IOL_Master_01/4 Ports_1/LevelPort",
+        "Set allowDisplacedPlacement=true",
+        "\"RolledBack\"\\s*:\\s*true",
+        "\"BeforeHex\"\\s*:\\s*\"17\"",
+        "\"WrittenHex\"\\s*:\\s*\"07\"",
+        "\"WrittenStartAddress\"\\s*:\\s*192",
+        "\"WrittenStartAddress\"\\s*:\\s*193",
+        "\"WrittenStartAddress\"\\s*:\\s*220",
+        "\"WrittenStartAddress\"\\s*:\\s*225"
+      ]
+    },
+    {
+      "id": "exact-corrected-operation-set",
+      "type": "toolOperationSet",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "operationPath": "operations",
+      "normalizeResultReferences": true,
+      "expectedOperations": [
+        {"op":"create-device-with-item","resultId":"iol-master","typeIdentifier":"GSD:GSDML-V2.35-IFM-AL1X0X-20230127-075900.XML/DAP/DIM_AL1400","deviceName":"IOL_Master_01","itemName":"IOL_Master_01"},
+        {"op":"plug-item","resultId":"flow-port","targetRef":"iol-master","target":{"itemPath":["4 Ports_1"]},"typeIdentifier":"GSD:GSDML-V2.35-IFM-AL1X0X-20230127-075900.XML/SM/IDS IO-Link 4I_2O","itemName":"FlowPort","positionNumber":2,"allowDisplacedPlacement":true},
+        {"op":"plug-item","resultId":"level-port","targetRef":"iol-master","target":{"itemPath":["4 Ports_1"]},"typeIdentifier":"GSD:GSDML-V2.35-IFM-AL1X0X-20230127-075900.XML/SM/IDS IO-Link 4I","itemName":"LevelPort","positionNumber":3,"allowDisplacedPlacement":true},
+        {"op":"connect-node-to-subnet","targetRef":"iol-master","target":{"itemPath":["IOL_Master_01","PN-IO"]},"nodeIndex":0,"subnetName":"CellPN"},
+        {"op":"connect-io-connector","targetRef":"iol-master","target":{"itemPath":["IOL_Master_01","PN-IO"]},"connectorIndex":0,"ioSystemName":"CellIO"},
+        {"op":"configure-profinet-device","targetRef":"iol-master","target":{"itemPath":["IOL_Master_01","PN-IO"]},"ipAddress":"192.168.0.62","pnDeviceName":"iol-master-01","pnDeviceNumber":62},
+        {"op":"set-gsd-parameter-data","targetRef":"flow-port","datasetNumber":47360,"byteOffset":3,"dataHex":"07","expectedDataHex":"17"},
+        {"op":"set-io-address-start","targetRef":"iol-master","target":{"itemPath":["IO-Link Master Proxy 4P EnMo"]},"addressIndex":0,"startAddress":192},
+        {"op":"set-io-address-start","targetRef":"iol-master","target":{"itemPath":["IO-Link Master Proxy 4P EnMo"]},"addressIndex":1,"startAddress":192},
+        {"op":"set-io-address-start","targetRef":"flow-port","addressIndex":0,"startAddress":220},
+        {"op":"set-io-address-start","targetRef":"flow-port","addressIndex":1,"startAddress":193},
+        {"op":"set-io-address-start","targetRef":"level-port","addressIndex":0,"startAddress":225}
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "strict-preview-apply-readback-sequence",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*FlowPort.*?placed at.*?IOL_Master_01/FlowPort)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*LevelPort.*?placed at.*?IOL_Master_01/LevelPort)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*WrittenHex\\\"?\\s*:\\s*\\\"07\\\")(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_get-hardware-tree).)*\\\"dry-run\\\"\\s*:\\s*false)(?:(?!opentia_get-hardware-tree).)*opentia_get-hardware-tree.*?opentia_get-hardware-networks.*?opentia_get-hardware-io-addresses.*?opentia_get-gsd-parameter-data.*?opentia_compile-software"
+    },
+    {
+      "id": "corrected-apply-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {"dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Hardware patch applied",
+        "\"Applied\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*false",
+        "Connected node to subnet: CellPN",
+        "Connected IO connector to IO system: CellIO",
+        "192\\.168\\.0\\.62",
+        "iol-master-01",
+        "\"BeforeHex\"\\s*:\\s*\"17\"",
+        "\"WrittenHex\"\\s*:\\s*\"07\"",
+        "\"WrittenStartAddress\"\\s*:\\s*192",
+        "\"WrittenStartAddress\"\\s*:\\s*193",
+        "\"WrittenStartAddress\"\\s*:\\s*220",
+        "\"WrittenStartAddress\"\\s*:\\s*225"
+      ]
+    },
+    {
+      "id": "gsd-parameter-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_gsd_parameter_data$",
+      "minCount": 1,
+      "outputPatterns": [
+        "IOL_Master_01",
+        "FlowPort",
+        "DatasetNumber\"?\\s*:\\s*47360",
+        "ByteOffset\"?\\s*:\\s*3",
+        "Length\"?\\s*:\\s*1",
+        "DataHex\"?\\s*:\\s*\"07\""
+      ]
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount|Errors)[^0-9]*0",
+        "(?i)(warning count|WarningCount|Warnings)[^0-9]*0"
+      ]
+    }
+  ]
+}

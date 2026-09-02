@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: nineteen cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -24,6 +24,25 @@ Each run records:
   next-patch correction;
 - the one-based trial index for repeated model/task executions;
 - deterministic trace and final-answer assertions.
+
+Paired skill-evaluation campaigns add:
+
+- workspaces where the target skill directory is physically present or absent;
+- explicit, implicit, contextual, and negative routing labels;
+- target-skill attempt and successful-load telemetry;
+- per-arm pass-rate Wilson intervals, paired score lift, paired pass outcomes,
+  and an exact McNemar diagnostic.
+
+NVIDIA SkillEvaluator 0.2.1 is also available as an advisory, provider-free
+static audit. The wrapper pins the official Git revision, enables UTF-8 for its Windows
+console output, skips model-backed deduplication, and applies the repository
+policy in `skill-evaluation/nvidia-policy.yaml`. That policy downgrades only
+NVIDIA public-catalog author metadata; security, PII, license, Unicode, lint,
+and quality findings remain visible in the generated reports:
+
+```powershell
+.\scripts\Invoke-NvidiaSkillAudit.ps1
+```
 
 Every invocation also writes a suite summary with mean score, pass count,
 duration, cost, and links to the individual result files. Campaign and merged
@@ -103,6 +122,59 @@ The public alias does not expose a dated backend revision, so the campaign ID
 records the serving epoch rather than claiming equivalence to a separately
 versioned provider model. It preserves the original free-model configuration:
 three trials per case at reasoning effort and variant `max`.
+
+`campaigns/hardware-skill-lift-glm-5-3-flash-high-20260830.json` is the first
+same-commit paired skill-lift pilot. It evaluates
+`hardware-configuration-workflow` on one explicit case (`ott-14`), one
+implicit case (`ott-17`), one contextual cross-domain case (`ott-21`), and one
+negative routing case (`ott-01`). Every case/trial pair runs first without the
+target skill directory and then with it. All other case inputs, visible base
+skills, model settings, fixture restoration, and mechanical scoring remain
+fixed. The model is the subscription-backed `zai-coding-plan/glm-5.3-flash`
+at declared reasoning effort and OpenCode variant `high`.
+
+`campaigns/hardware-gsdml-ifm-glm-5-3-flash-high-20260901.json` freezes the
+first campaign for held-out cross-vendor case `ott-27`. It runs three trials
+with the same subscription-backed GLM-5.3 Flash model at declared reasoning
+effort and OpenCode variant `high`. The hardware skills are unchanged from the
+prior Promag and skill-lift work, so the campaign measures transfer rather than
+case-specific skill tuning. It scored 60, 70, and 90, but all three trials
+failed at least one critical transaction-discipline assertion despite reaching
+the correct final hardware state. The trace audit, zero-metered-cost semantics,
+and recovered aggregation are in
+`reports/hardware-gsdml-ifm-glm-5-3-flash-high-20260901.md`.
+
+`campaigns/hardware-gsdml-ifm-glm-5-3-high-20260902.json` holds that case,
+fixture, three-trial count, skill payload, and `high` effort fixed while moving
+from GLM-5.3 Flash to subscription-backed `zai-coding-plan/glm-5.3`. This is
+the lower-cost capability escalation before an optional GPT-5.6 Sol `xhigh`
+ceiling campaign. GLM-5.3 qualified 3/3 at 100/100/100 with the exact four-call
+transaction sequence and zero validator interventions, so no Sol run was
+needed on this case. Results and cleanup are in
+`reports/hardware-gsdml-ifm-glm-5-3-high-20260902.md`.
+
+The PR qualification baseline groups the remaining nineteen cases by fixture
+so every checkpoint batch receives exactly one immutable archive or one
+preprovisioned Multiuser session. All groups use
+`zai-coding-plan/glm-5.3` at declared effort and variant `high`, with three
+trials per case:
+
+| Campaign prefix | Fixture | Cases | New trials |
+| --- | --- | --- | ---: |
+| `full-suite-baseline` | `tia-v21-baseline-1` | `ott-01`, `ott-03`, `ott-08`, `ott-10`, `ott-14`, `ott-15`, `ott-16` | 21 |
+| `full-suite-io` | `tia-v21-io-2` | `ott-13`, `ott-17` | 6 |
+| `full-suite-multi-address` | `tia-v21-multi-address-3` | `ott-12`, `ott-19` | 6 |
+| `full-suite-cross-domain` | `tia-v21-cross-domain-4` | `ott-20` | 3 |
+| `full-suite-cross-domain-transfer` | `tia-v21-cross-domain-transfer-5` | `ott-21` | 3 |
+| `full-suite-topology` | `tia-v21-topology-6` | `ott-22`, `ott-23`, `ott-24`, `ott-26` | 12 |
+| `full-suite-brownfield` | `tia-v21-brownfield-7` | `ott-25` | 3 |
+| `full-suite-multiuser` | `tia-v21-multiuser-1` | `ott-18` | 3 |
+
+The already completed, input-identical `ott-27` GLM-5.3 High qualification
+supplies the other three trials, producing a 60-trial full-suite baseline
+without spending subscription quota to repeat a 3/3 result. The batch driver
+defaults to one case-sized three-trial checkpoint. It never mixes fixture
+archives inside one campaign.
 
 `campaigns/hardware-skill-io-address-candidate-20260801.json` is the candidate
 half of a controlled skill A/B. It holds the refreshed free model, `ott-14`
@@ -341,6 +413,17 @@ another skill edit. The frozen campaign, Sol comparison, endpoint evidence, and
 trace audit are in
 `reports/hardware-gsdml-promag-v4-free-max-20260805.md`.
 
+`ott-27` raises that vendor-transfer boundary with an IFM AL1400 IO-Link
+master from a different installed GSDML package. The case must distinguish the
+current package from legacy and no-PQI catalog distractors, preserve the
+generated four-port module and proxy, independently recover two displaced port
+placements, bind five input/output address objects across generated and plugged
+items, and guarded-write then reread a vendor port-options byte. The frozen
+skills were not edited during design. The live gold audit proved the strict
+two-stage preview, unchanged apply, independent readback, forced rollback,
+exact delete inverse, and zero-error/zero-warning compile; see
+`reports/ott-27-gold-audit-20260901.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -358,6 +441,72 @@ that the selected model does not advertise.
 The campaign preflight refreshes OpenCode's model catalog and records each model's status, advertised tool-call capability, context limits, input/output pricing, and provider credential type. A model declared `free` or `subscription` is rejected if the refreshed catalog reports a non-zero base input or output price.
 
 OpenCode Desktop and the CLI share the user auth file. Pass `-UseUserOpenCodeAuth` to project only the selected model provider into an isolated per-run auth file. The temporary auth file contains no unrelated provider credentials and is overwritten and deleted after OpenCode exits. Credential values and the source auth path are not written to benchmark artifacts.
+
+Run the paired skill-lift preflight without touching TIA:
+
+```powershell
+.\scripts\Invoke-OpenCodeCampaign.ps1 `
+  -CampaignPath .\campaigns\hardware-skill-lift-glm-5-3-flash-high-20260830.json `
+  -UseUserOpenCodeAuth `
+  -PreflightOnly
+```
+
+Run the complete paired campaign from a non-primary branch:
+
+```powershell
+.\scripts\Invoke-OpenCodeCampaign.ps1 `
+  -CampaignPath .\campaigns\hardware-skill-lift-glm-5-3-flash-high-20260830.json `
+  -UseUserOpenCodeAuth `
+  -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_20260731.zap21
+```
+
+For long standard model campaigns, run a bounded checkpoint batch instead of
+one uninterrupted campaign. The default batch size is three accepted trials;
+every attempt is recorded before the next trial starts:
+
+```powershell
+.\scripts\Invoke-OpenCodeCampaignBatch.ps1 `
+  -CampaignPath .\campaigns\hardware-gsdml-ifm-glm-5-3-high-20260902.json `
+  -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_Topology_20260801.zap21 `
+  -UseUserOpenCodeAuth `
+  -TiaInstanceId <pid> `
+  -BatchSize 3
+```
+
+The command stops with `paused-batch-limit` after the configured number of
+accepted trials. Continue from the exact next model/case/trial with the emitted
+checkpoint path:
+
+```powershell
+.\scripts\Invoke-OpenCodeCampaignBatch.ps1 `
+  -CampaignPath .\campaigns\hardware-gsdml-ifm-glm-5-3-high-20260902.json `
+  -FixtureArchivePath E:\Documents\OpenTiaBench\Archives\OTT_Benchmark_V21_Topology_20260801.zap21 `
+  -UseUserOpenCodeAuth `
+  -TiaInstanceId <pid> `
+  -CheckpointPath .\artifacts\<batch-directory>\checkpoint.json `
+  -BatchSize 3
+```
+
+HTTP 429 and documented Z.AI quota/concurrency business codes are classified
+as `rate-limit`. The batch stops immediately with `paused-rate-limit`, retains
+the rejected attempt as endpoint evidence, leaves that trial pending, and
+records the provider message, status code, and reset timestamp when present.
+Do not resume until that timestamp or the provider dashboard shows available
+quota. Generic provider failures and harness failures also pause instead of
+consuming the remainder of the batch. Paired skill-evaluation arms remain on
+the existing campaign runner and are intentionally rejected by the batch
+driver for now.
+
+Each trial scopes `OPEN_TIA_MCP_ALLOWED_ROOTS` to its exact isolated workspace
+and the OpenTiaToolkit temporary staging directory. Before model inference, a
+raw MCP policy probe validates a workspace artifact. A rejection of that exact
+workspace is classified as `harness-error`, excluded from model comparison,
+and pauses a checkpoint batch as `paused-harness-error`; a model-selected path
+outside the declared workspace remains an ordinary model outcome.
+
+Use `-CaseId` for an ordered subset during a smoke or continuation run. A
+skill-evaluation definition still retains all four routing buckets; filtering
+only narrows execution and the resulting paired statistics.
 
 The `subscription` cost class means OpenCode reports zero monetary request
 cost while the provider consumes an external plan allowance. It is distinct
@@ -467,6 +616,8 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-23` | Held-out ET 200SP topology and addressing | Transfer atomic topology construction to different modules and nonadjacent positions while assigning IO starts through generated result-referenced children |
 | `ott-24` | Held-out ET 200MP family transfer | Transfer the complete topology-and-addressing workflow to a different hardware family without guessing generated-child state |
 | `ott-25` | Brownfield ET 200MP modernization | Atomically replace an existing output module, guard retained state and PROFINET identity, recover from displaced placement, and verify the modernized station |
+| `ott-26` | Third-party GSDML provisioning | Provision an Endress+Hauser Promag 100, preserve generated modules, bind displaced result targets, assign IO, and guarded-write the vendor record |
+| `ott-27` | Held-out cross-vendor GSDML transfer | Provision an IFM AL1400, reject package distractors, preserve generated proxy IO, bind two displaced ports and five address objects, and guarded-write the port-options record |
 
 ## Adding a case
 

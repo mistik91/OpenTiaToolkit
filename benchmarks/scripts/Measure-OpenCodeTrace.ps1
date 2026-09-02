@@ -591,12 +591,108 @@ if (-not [string]::IsNullOrWhiteSpace($rawTrace)) {
 }
 
 $toolEvents = @($events | Where-Object { $_.type -eq 'tool_use' -and $null -ne $_.part })
+$skillCalls = @($toolEvents | Where-Object {
+        ([string]$_.part.tool -replace '-', '_') -ceq 'skill'
+    } | ForEach-Object {
+        $state = $_.part.state
+        $name = if ($null -ne $state -and $null -ne $state.input -and
+            $null -ne $state.input.PSObject.Properties['name']) {
+            [string]$state.input.name
+        }
+        else {
+            ''
+        }
+        [pscustomobject][ordered]@{
+            name   = $name
+            status = if ($null -ne $state -and
+                $null -ne $state.PSObject.Properties['status']) {
+                [string]$state.status
+            }
+            else {
+                'unknown'
+            }
+        }
+    })
+$loadedSkills = @($skillCalls | Where-Object {
+        -not [string]::IsNullOrWhiteSpace([string]$_.name) -and
+        [string]$_.status -ceq 'completed'
+    } | ForEach-Object { [string]$_.name } | Sort-Object -Unique)
+$skillUsage = [pscustomobject][ordered]@{
+    callCount    = $skillCalls.Count
+    loadedSkills = $loadedSkills
+    calls        = $skillCalls
+}
 $hasStop = @($events | Where-Object {
         $_.type -eq 'step_finish' -and $_.part.reason -eq 'stop'
     }).Count -gt 0
 $terminalError = @($events | Where-Object { $_.type -eq 'error' } | Select-Object -Last 1)
+$workspacePolicyFailure = $null
+$workspaceProperty = $metadata.PSObject.Properties['workspacePath']
+if ($null -ne $workspaceProperty -and
+    -not [string]::IsNullOrWhiteSpace([string]$workspaceProperty.Value)) {
+    $workspaceRoot = [System.IO.Path]::GetFullPath(
+        [string]$workspaceProperty.Value
+    ).TrimEnd([char[]]'\/')
+    $workspacePrefix = $workspaceRoot + [System.IO.Path]::DirectorySeparatorChar
+    foreach ($toolEvent in $toolEvents) {
+        $state = $toolEvent.part.state
+        if ($null -eq $state -or [string]$state.status -cne 'error' -or
+            $null -eq $state.PSObject.Properties['error']) {
+            continue
+        }
+        $rawError = [string]$state.error
+        $message = $rawError
+        try {
+            $errorPayload = $rawError | ConvertFrom-Json
+            if ($null -ne $errorPayload.PSObject.Properties['message']) {
+                $message = [string]$errorPayload.message
+            }
+        }
+        catch {
+            # Preserve the raw tool error when it is not JSON.
+        }
+        $deniedPathMatch = [regex]::Match(
+            $message,
+            "(?i)MCP file policy rejected [^']+ '(?<path>[^']+)'"
+        )
+        if (-not $deniedPathMatch.Success) {
+            continue
+        }
+        try {
+            $deniedPath = [System.IO.Path]::GetFullPath(
+                [string]$deniedPathMatch.Groups['path'].Value
+            )
+        }
+        catch {
+            continue
+        }
+        if ([string]::Equals(
+                $deniedPath,
+                $workspaceRoot,
+                [System.StringComparison]::OrdinalIgnoreCase
+            ) -or
+            $deniedPath.StartsWith(
+                $workspacePrefix,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )) {
+            $workspacePolicyFailure = [pscustomobject][ordered]@{
+                tool    = [string]$toolEvent.part.tool
+                path    = $deniedPath
+                message = $message
+            }
+            break
+        }
+    }
+}
 $executionFailure = $null
-if (-not $hasStop -and $terminalError.Count -gt 0) {
+if ($null -ne $workspacePolicyFailure) {
+    $executionFailure = [pscustomobject][ordered]@{
+        kind       = 'harness-error'
+        statusCode = $null
+        message    = "Benchmark MCP rejected its own workspace path '$($workspacePolicyFailure.path)' during '$($workspacePolicyFailure.tool)'."
+    }
+}
+elseif (-not $hasStop -and $terminalError.Count -gt 0) {
     $errorData = $terminalError[0].error.data
     $message = if ($null -ne $errorData -and
         $null -ne $errorData.PSObject.Properties['message']) {
@@ -609,10 +705,24 @@ if (-not $hasStop -and $terminalError.Count -gt 0) {
     if ($message -match '\[(?<status>[45][0-9]{2})\]') {
         $statusCode = [int]$Matches.status
     }
-    $isProviderError = $message -match '(?i)streaming response failed|provider|request queue|rate limit' -or
+    elseif ($null -ne $errorData) {
+        foreach ($statusPropertyName in @('statusCode', 'status')) {
+            $statusProperty = $errorData.PSObject.Properties[$statusPropertyName]
+            if ($null -ne $statusProperty -and
+                [string]$statusProperty.Value -match '^[45][0-9]{2}$') {
+                $statusCode = [int]$statusProperty.Value
+                break
+            }
+        }
+    }
+    $isRateLimit = $statusCode -eq 429 -or
+        $message -match '(?i)rate[ -]?limit|too many requests|usage limit|limit exhausted|temporarily overloaded|high (?:concurrency|frequency)|fair use|quota|insufficient balance|no resource package' -or
+        $message -match '(?<!\d)(?:1113|1302|1305|1308|1309|1310|1311|1313|1314|1315|1316|1317|1318|1319|1320|1321)(?!\d)'
+    $isProviderError = $isRateLimit -or
+        $message -match '(?i)streaming response failed|provider|request queue' -or
         $null -ne $statusCode
     $executionFailure = [pscustomobject][ordered]@{
-        kind       = if ($isProviderError) { 'provider-error' } else { 'runtime-error' }
+        kind       = if ($isRateLimit) { 'rate-limit' } elseif ($isProviderError) { 'provider-error' } else { 'runtime-error' }
         statusCode = $statusCode
         message    = $message
     }
@@ -865,6 +975,13 @@ $result = [ordered]@{
     else {
         'isolated'
     }
+    skillEvaluation = if ($null -ne $metadata.PSObject.Properties['skillEvaluation']) {
+        $metadata.skillEvaluation
+    }
+    else {
+        $null
+    }
+    skillUsage      = $skillUsage
     openCodeVersion = [string]$metadata.openCodeVersion
     gitCommit       = [string]$metadata.gitCommit
     gitBranch       = [string]$metadata.gitBranch

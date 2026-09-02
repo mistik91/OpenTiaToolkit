@@ -85,11 +85,13 @@ Treat `start-cpu` and `stop-cpu` as optional guarded follow-ups. Some TIA Portal
 
 Use `modify-tags` for explicit `create`, `update`, `delete`, and `replace` operations. Prefer inline JSON `operations` for precise agent-driven changes and `input-path` for reviewed JSON or CSV batches. Start with `dry-run=true`, require exact selectors that resolve to one tag, and review every planned before/after snapshot.
 
+After a clean preview, apply any `modify-tags` mutation by reusing the exact same operation set with `dry-run=false` and `confirm=true`. Do not omit confirmation for `create` or `update`, and do not repeat an unchanged preview merely to recover from a missing confirmation argument.
+
 For a logical-address update, use the exact supported fields `match.tagTable`, `match.name`, `match.logicalAddress`, and `set.logicalAddress`. Bind all three observed match fields when they are available. Do not substitute aliases such as `table`, `tagTableName`, or `address`; unknown match fields can be ignored and silently weaken the selector.
 
 When a tag batch is one gate in a coordinated multi-domain change, complete every required domain preview before the first apply. If any preview fails, apply none of the staged domains; do not turn a schema-error retry into permission to mutate.
 
-Use `replace` when the intent is to delete and recreate a tag so stale PLC references are exposed. Applying `delete` or `replace` requires `confirm=true`. Do not infer page-number, base-name, address-shift, table-selection, or auto-suffix behavior; inspect tags and encode the intended operations explicitly.
+Use `replace` when the intent is to delete and recreate a tag so stale PLC references are exposed. Do not infer page-number, base-name, address-shift, table-selection, or auto-suffix behavior; inspect tags and encode the intended operations explicitly.
 
 Over MCP, `modify-tags` reports operation-level progress and can be cancelled cooperatively between operations and before TIA write calls. For long batches, check `operation-status` before retrying and use `cancel-operation` when the user wants to stop.
 

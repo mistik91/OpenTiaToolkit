@@ -48,10 +48,35 @@
     },
     {
       "id": "one-guarded-mixed-patch",
-      "type": "traceRegex",
+      "type": "toolOperationSet",
       "points": 15,
       "critical": true,
-      "pattern": "(?is)opentia_apply-hardware-patch.*?set-io-address-start.*?DI_Candidate.*?addressIndex\"?\\s*:\\s*0.*?startAddress\"?\\s*:\\s*66.*?expectedStartAddress\"?\\s*:\\s*2.*?set-io-address-start.*?DQ_Candidate.*?addressIndex\"?\\s*:\\s*0.*?startAddress\"?\\s*:\\s*128.*?expectedStartAddress\"?\\s*:\\s*2"
+      "namePattern": "apply_hardware_patch$",
+      "operationPath": "operations",
+      "expectedOperations": [
+        {
+          "op": "set-io-address-start",
+          "target": {
+            "deviceName": "PLC_Main",
+            "itemPath": ["DI_Candidate", "DI_Candidate"]
+          },
+          "addressIndex": 0,
+          "startAddress": 66,
+          "expectedStartAddress": 2
+        },
+        {
+          "op": "set-io-address-start",
+          "target": {
+            "deviceName": "PLC_Main",
+            "itemPath": ["DQ_Candidate", "DQ_Candidate"]
+          },
+          "addressIndex": 0,
+          "startAddress": 128,
+          "expectedStartAddress": 2
+        }
+      ],
+      "minCount": 1,
+      "maxCount": 1
     },
     {
       "id": "collision-preview",

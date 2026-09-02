@@ -7,6 +7,8 @@ param(
 
     [string[]]$CaseId,
 
+    [int[]]$TrialIndex,
+
     [string]$FixtureArchivePath,
 
     [string]$MultiuserSessionPath,
@@ -93,6 +95,32 @@ $selectedCaseIds = if ($requestedCaseFilters.Count -gt 0) {
 else {
     @($campaign.caseIds)
 }
+$requestedTrialFilters = @($TrialIndex)
+if ($requestedTrialFilters.Count -gt 0) {
+    $invalidTrialIndexes = @($requestedTrialFilters | Where-Object {
+            $_ -lt 1 -or $_ -gt [int]$campaign.trialCount
+        } | Sort-Object -Unique)
+    if ($invalidTrialIndexes.Count -gt 0) {
+        throw "Campaign '$($campaign.id)' has trial indexes 1-$($campaign.trialCount); invalid selection: $($invalidTrialIndexes -join ', ')"
+    }
+    $selectedTrialIndexes = @($requestedTrialFilters | Sort-Object -Unique)
+}
+else {
+    $selectedTrialIndexes = @(1..([int]$campaign.trialCount))
+}
+$skillEvaluationDefinition = Get-OptionalProperty -Object $campaign -Name 'skillEvaluation'
+$skillEvaluationArms = if ($null -eq $skillEvaluationDefinition) {
+    @('standard')
+}
+else {
+    @($skillEvaluationDefinition.arms | ForEach-Object { [string]$_ })
+}
+$routingCasesById = @{}
+if ($null -ne $skillEvaluationDefinition) {
+    foreach ($routingCase in @($skillEvaluationDefinition.routingCases)) {
+        $routingCasesById[[string]$routingCase.caseId] = $routingCase
+    }
+}
 
 $paidModels = @($selectedModelEntries | Where-Object { [string]$_.costClass -eq 'paid' })
 $credentialedModels = @($selectedModelEntries | Where-Object {
@@ -102,8 +130,10 @@ if ($paidModels.Count -gt 0 -and
     (-not [bool]$campaign.allowPaidModels -or -not $AllowPaidModels)) {
     throw "Campaign '$($campaign.id)' contains paid models. Both allowPaidModels=true in the manifest and -AllowPaidModels at runtime are required."
 }
-if (-not $PreflightOnly -and [string]::IsNullOrWhiteSpace($FixtureArchivePath)) {
-    throw 'Live campaign execution requires -FixtureArchivePath.'
+if (-not $PreflightOnly -and
+    [string]::IsNullOrWhiteSpace($FixtureArchivePath) -and
+    [string]::IsNullOrWhiteSpace($MultiuserSessionPath)) {
+    throw 'Live campaign execution requires -FixtureArchivePath or -MultiuserSessionPath.'
 }
 
 $resolvedUserAuthPath = $null
@@ -198,8 +228,10 @@ $catalogSnapshot = [ordered]@{
     schemaVersion   = 2
     campaignId      = [string]$campaign.id
     trialCount      = [int]$campaign.trialCount
+    selectedTrialIndexes = $selectedTrialIndexes
     checkedAtUtc    = [DateTime]::UtcNow.ToString('o')
     openCodeVersion = $openCodeVersion
+    skillEvaluation = $skillEvaluationDefinition
     models          = $catalogEntries
 }
 $catalogSnapshot | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $catalogSnapshotPath -Encoding UTF8
@@ -231,7 +263,8 @@ try {
             $modelResults.Add($modelRecord)
 
             foreach ($selectedCaseId in $selectedCaseIds) {
-                for ($trialIndex = 1; $trialIndex -le [int]$campaign.trialCount; $trialIndex++) {
+                foreach ($selectedTrialIndex in $selectedTrialIndexes) {
+                    foreach ($skillEvaluationArm in $skillEvaluationArms) {
                     if ($totalCost -ge [double]$campaign.maxCostUsd) {
                         $modelRecord.status = 'not-completed-budget-guard'
                         $campaignStatus = 'budget-guard-reached'
@@ -246,12 +279,16 @@ try {
                     $runnerParameters = @{
                         CaseId                 = @([string]$selectedCaseId)
                         Model                  = $modelId
-                        TrialIndex             = $trialIndex
+                        TrialIndex             = $selectedTrialIndex
                         ReasoningEffort        = $reasoningEffort
                         FixtureArchivePath     = $FixtureArchivePath
                         OutputRoot             = $campaignDirectory
                         UseUserOpenCodeAuth    = [bool]$UseUserOpenCodeAuth
                         AllowPrimaryBranch     = [bool]$AllowPrimaryBranch
+                    }
+                    if ($skillEvaluationArm -ne 'standard') {
+                        $runnerParameters.SkillEvaluationArm = $skillEvaluationArm
+                        $runnerParameters.SkillEvaluationTarget = [string]$skillEvaluationDefinition.targetSkill
                     }
                     if (-not [string]::IsNullOrWhiteSpace([string]$variant)) {
                         $runnerParameters.Variant = [string]$variant
@@ -285,7 +322,7 @@ try {
                             Sort-Object LastWriteTimeUtc -Descending |
                             Select-Object -First 1)
                     if ($newSuite.Count -ne 1) {
-                        throw "Expected one new suite result for '$modelId' / '$selectedCaseId' / trial $trialIndex, got $($newSuite.Count)."
+                        throw "Expected one new suite result for '$modelId' / '$selectedCaseId' / trial $selectedTrialIndex, got $($newSuite.Count)."
                     }
                     $suite = Get-Content -LiteralPath $newSuite[0].FullName -Raw | ConvertFrom-Json
                     if (@($suite.results).Count -ne 1) {
@@ -296,8 +333,13 @@ try {
                         throw "Suite result references a missing case result: $resultPath"
                     }
                     $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
-                    if ([int]$result.trialIndex -ne $trialIndex) {
-                        throw "Result '$resultPath' reports trial $($result.trialIndex), expected $trialIndex."
+                    if ([int]$result.trialIndex -ne $selectedTrialIndex) {
+                        throw "Result '$resultPath' reports trial $($result.trialIndex), expected $selectedTrialIndex."
+                    }
+                    if ($skillEvaluationArm -ne 'standard' -and
+                        ([string]$result.skillEvaluation.arm -cne $skillEvaluationArm -or
+                            [string]$result.skillEvaluation.targetSkill -cne [string]$skillEvaluationDefinition.targetSkill)) {
+                        throw "Result '$resultPath' did not preserve skill-evaluation arm '$skillEvaluationArm'."
                     }
 
                     $caseCost = [double]$result.usage.cost
@@ -305,6 +347,21 @@ try {
                     $criticalFailures = @($result.assertions |
                             Where-Object { [bool]$_.critical -and -not [bool]$_.passed })
                     $executionFailureKind = Get-BenchmarkTrialExecutionFailureKind -Trial $result
+                    $targetSkill = if ($skillEvaluationArm -eq 'standard') {
+                        $null
+                    }
+                    else {
+                        [string]$skillEvaluationDefinition.targetSkill
+                    }
+                    $targetSkillCalls = @(if ($null -ne $targetSkill) {
+                            Get-BenchmarkSkillCalls -Result $result -SkillName $targetSkill
+                        })
+                    $routingCase = if ($routingCasesById.ContainsKey([string]$result.caseId)) {
+                        $routingCasesById[[string]$result.caseId]
+                    }
+                    else {
+                        $null
+                    }
                     $modelRecord.cases.Add([pscustomobject][ordered]@{
                             caseId          = [string]$result.caseId
                             trialIndex      = [int]$result.trialIndex
@@ -320,8 +377,35 @@ try {
                             reasoningTokens = [long]$result.usage.tokens.reasoning
                             validatorBlockedCallCount = [int]$result.validatorInterventions.blockedCallCount
                             validatorIssueCount = [int]$result.validatorInterventions.issueCount
+                            skillEvaluationArm = if ($skillEvaluationArm -eq 'standard') {
+                                $null
+                            }
+                            else {
+                                $skillEvaluationArm
+                            }
+                            skillEvaluationTarget = $targetSkill
+                            routingExpectation = if ($null -eq $routingCase) {
+                                $null
+                            }
+                            else {
+                                [string]$routingCase.routingExpectation
+                            }
+                            expectedSkill = if ($null -eq $routingCase) {
+                                $null
+                            }
+                            else {
+                                $routingCase.expectedSkill
+                            }
+                            targetSkillAttempted = @($targetSkillCalls).Count -gt 0
+                            targetSkillLoaded = @($targetSkillCalls | Where-Object {
+                                    [string]$_.status -ceq 'completed'
+                                }).Count -gt 0
                             resultPath      = $resultPath
                         })
+                    }
+                    if ($stopCampaign) {
+                        break
+                    }
                 }
                 if ($stopCampaign) {
                     break
@@ -332,7 +416,8 @@ try {
                 $trials = @($modelRecord.cases)
                 $expectedTrialCount = Get-BenchmarkExpectedTrialCount `
                     -CaseIds @($selectedCaseIds) `
-                    -TrialCount ([int]$campaign.trialCount)
+                    -TrialCount ([int]$campaign.trialCount) `
+                    -EvaluationArmCount (@($skillEvaluationArms).Count)
                 $modelRecord.status = Get-BenchmarkModelStatus `
                     -Trials $trials `
                     -ExpectedTrialCount $expectedTrialCount
@@ -341,6 +426,12 @@ try {
                 -NotePropertyValue (Get-BenchmarkTrialStatistics -Trials @($modelRecord.cases))
             $modelRecord | Add-Member -NotePropertyName caseAggregates `
                 -NotePropertyValue @(Get-BenchmarkCaseAggregates -Trials @($modelRecord.cases))
+            if ($null -ne $skillEvaluationDefinition) {
+                $modelRecord | Add-Member -NotePropertyName skillLift `
+                    -NotePropertyValue (Get-BenchmarkSkillLiftStatistics `
+                        -Trials @($modelRecord.cases) `
+                        -TargetSkill ([string]$skillEvaluationDefinition.targetSkill))
+            }
         }
 
         if ([string]$campaignStatus -eq 'running') {
@@ -370,6 +461,8 @@ finally {
         maxCostUsd          = [double]$campaign.maxCostUsd
         totalCostUsd        = [Math]::Round($totalCost, 8)
         trialCount          = [int]$campaign.trialCount
+        selectedTrialIndexes = $selectedTrialIndexes
+        skillEvaluation     = $skillEvaluationDefinition
         selectedCaseIds     = $selectedCaseIds
         selectedModels      = @($selectedModelEntries | ForEach-Object { [string]$_.model })
         models              = $modelResults

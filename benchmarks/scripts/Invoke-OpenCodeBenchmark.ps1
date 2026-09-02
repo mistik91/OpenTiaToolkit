@@ -10,6 +10,11 @@ param(
 
     [string]$ReasoningEffort,
 
+    [ValidateSet('standard', 'with-skill', 'without-skill')]
+    [string]$SkillEvaluationArm = 'standard',
+
+    [string]$SkillEvaluationTarget,
+
     [ValidateRange(1, 1000)]
     [int]$TrialIndex = 1,
 
@@ -65,6 +70,15 @@ if ([string]$effectiveReasoningEffort -eq 'provider-default' -and
 if ([string]$effectiveReasoningEffort -ne 'provider-default' -and
     [string]::IsNullOrWhiteSpace($Variant)) {
     throw "ReasoningEffort '$effectiveReasoningEffort' requires an explicit Variant."
+}
+if ($SkillEvaluationArm -eq 'standard' -and
+    -not [string]::IsNullOrWhiteSpace($SkillEvaluationTarget)) {
+    throw 'SkillEvaluationTarget can only be used with a paired skill-evaluation arm.'
+}
+if ($SkillEvaluationArm -ne 'standard' -and
+    ([string]::IsNullOrWhiteSpace($SkillEvaluationTarget) -or
+        $SkillEvaluationTarget -notmatch '^[a-z0-9][a-z0-9-]*$')) {
+    throw "SkillEvaluationArm '$SkillEvaluationArm' requires a valid SkillEvaluationTarget."
 }
 
 function Resolve-ExistingFile {
@@ -364,6 +378,10 @@ $openCodeExecutable = Join-Path $benchmarkRoot 'node_modules\opencode-ai\bin\ope
 if (-not (Test-Path -LiteralPath $openCodeExecutable -PathType Leaf)) {
     throw "Pinned OpenCode executable not found. Run 'npm ci' in '$benchmarkRoot'."
 }
+if ($SkillEvaluationArm -ne 'standard' -and
+    -not (Test-Path -LiteralPath (Join-Path (Join-Path $pluginRoot ".opencode\skills\$SkillEvaluationTarget") 'SKILL.md') -PathType Leaf)) {
+    throw "SkillEvaluationTarget '$SkillEvaluationTarget' is not shipped in the OpenCode plugin."
+}
 
 & (Join-Path $PSScriptRoot 'Test-BenchmarkDefinitions.ps1')
 
@@ -449,11 +467,13 @@ foreach ($requestedCaseId in $CaseId) {
     finally {
         $modelHashAlgorithm.Dispose()
     }
-    $runDirectory = Join-Path $OutputRoot "$runStamp-$requestedCaseId-trial-$TrialIndex-$safeModel"
-    $executionDirectory = Join-Path $WorkspaceRoot "$runStamp-$requestedCaseId-t$TrialIndex-$modelHash"
+    $armSuffix = if ($SkillEvaluationArm -eq 'standard') { '' } else { "-$SkillEvaluationArm" }
+    $runDirectory = Join-Path $OutputRoot "$runStamp-$requestedCaseId-trial-$TrialIndex$armSuffix-$safeModel"
+    $executionDirectory = Join-Path $WorkspaceRoot "$runStamp-$requestedCaseId-t$TrialIndex$armSuffix-$modelHash"
     $workspace = Join-Path $executionDirectory 'workspace'
     New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
     New-Item -ItemType Directory -Path $workspace -Force | Out-Null
+    $benchmarkMcpAllowedRoots = Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspace
 
     if (-not $SkipFixtureRestore) {
         $instanceId = Get-OnlyTiaInstanceId -CliExecutable $cliExecutable -RequestedId $TiaInstanceId
@@ -474,13 +494,26 @@ foreach ($requestedCaseId in $CaseId) {
         continue
     }
 
-    Copy-Item -LiteralPath (Join-Path $pluginRoot '.opencode') -Destination $workspace -Recurse
-    Copy-Item -LiteralPath (Join-Path $pluginRoot 'AGENTS.md') -Destination $workspace
+    $visibleSkills = [System.Collections.Generic.List[string]]::new()
+    foreach ($skill in @($case.allowedSkills)) {
+        if ($SkillEvaluationArm -ne 'without-skill' -or
+            [string]$skill -cne $SkillEvaluationTarget) {
+            $visibleSkills.Add([string]$skill)
+        }
+    }
+    if ($SkillEvaluationArm -eq 'with-skill' -and
+        -not $visibleSkills.Contains($SkillEvaluationTarget)) {
+        $visibleSkills.Add($SkillEvaluationTarget)
+    }
+    $copiedSkills = @(Copy-OpenCodeBenchmarkWorkspace `
+            -PluginRoot $pluginRoot `
+            -Workspace $workspace `
+            -VisibleSkills @($visibleSkills))
     Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $casePath) $case.promptFile) `
         -Destination (Join-Path $workspace 'task.md')
 
     $skillPermissions = [ordered]@{ '*' = 'deny' }
-    foreach ($skill in $case.allowedSkills) {
+    foreach ($skill in $copiedSkills) {
         $skillPermissions[[string]$skill] = 'allow'
     }
     $allowWorkspaceEdits = $null -ne $case.PSObject.Properties['allowWorkspaceEdits'] -and
@@ -499,7 +532,8 @@ foreach ($requestedCaseId in $CaseId) {
                     '.opencode/plugins/run-opentia-mcp.ps1'
                 )
                 environment = [ordered]@{
-                    OPEN_TIA_MCP_LOG_LEVEL = 'Error'
+                    OPEN_TIA_MCP_LOG_LEVEL     = 'Error'
+                    OPEN_TIA_MCP_ALLOWED_ROOTS = $benchmarkMcpAllowedRoots
                 }
                 enabled     = $true
                 timeout     = 600000
@@ -524,6 +558,11 @@ foreach ($requestedCaseId in $CaseId) {
     }
     $configPath = Join-Path $workspace 'opencode.json'
     $config | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $configPath -Encoding UTF8
+    & (Join-Path $PSScriptRoot 'Assert-OpenTiaMcpWorkspacePolicy.ps1') `
+        -McpPath $mcpExecutable `
+        -WorkspacePath $workspace `
+        -AllowedRoots $benchmarkMcpAllowedRoots |
+        Out-Null
 
     $isolatedConfigRoot = Join-Path $executionDirectory 'xdg-config'
     $isolatedDataRoot = Join-Path $executionDirectory 'xdg-data'
@@ -627,6 +666,18 @@ foreach ($requestedCaseId in $CaseId) {
         exitCode        = [int]$execution.ExitCode
         timedOut        = [bool]$execution.TimedOut
         workspacePath   = $workspace
+        mcpAllowedRoots = $benchmarkMcpAllowedRoots
+        mcpWorkspacePolicyPreflight = 'passed'
+        skillEvaluation = if ($SkillEvaluationArm -eq 'standard') {
+            $null
+        }
+        else {
+            [ordered]@{
+                arm           = $SkillEvaluationArm
+                targetSkill   = $SkillEvaluationTarget
+                visibleSkills = @($copiedSkills)
+            }
+        }
     }
     $metadataPath = Join-Path $runDirectory 'metadata.json'
     $resultPath = Join-Path $runDirectory 'result.json'
@@ -639,6 +690,9 @@ foreach ($requestedCaseId in $CaseId) {
         -OutputPath $resultPath
     $results += $result
     $executionFailureKind = Get-BenchmarkTrialExecutionFailureKind -Trial $result
+    $targetSkillCalls = @(if ($SkillEvaluationArm -ne 'standard') {
+            Get-BenchmarkSkillCalls -Result $result -SkillName $SkillEvaluationTarget
+        })
     $suiteResults += [pscustomobject][ordered]@{
         caseId          = [string]$result.caseId
         trialIndex      = [int]$result.trialIndex
@@ -656,6 +710,22 @@ foreach ($requestedCaseId in $CaseId) {
         validatorBlockedCallCount = [int]$result.validatorInterventions.blockedCallCount
         validatorIssueCount = [int]$result.validatorInterventions.issueCount
         resultPath      = $resultPath
+        skillEvaluationArm = if ($SkillEvaluationArm -eq 'standard') {
+            $null
+        }
+        else {
+            $SkillEvaluationArm
+        }
+        skillEvaluationTarget = if ($SkillEvaluationArm -eq 'standard') {
+            $null
+        }
+        else {
+            $SkillEvaluationTarget
+        }
+        targetSkillAttempted = @($targetSkillCalls).Count -gt 0
+        targetSkillLoaded = @($targetSkillCalls | Where-Object {
+                [string]$_.status -ceq 'completed'
+            }).Count -gt 0
     }
 
     Write-Host ("{0} trial {1}: score={2} passed={3} validForComparison={4} artifacts={5}" -f
@@ -676,6 +746,16 @@ if ($suiteResults.Count -gt 0) {
         variant         = if ([string]::IsNullOrWhiteSpace($Variant)) { $null } else { $Variant }
         authProvider    = if ($UseUserOpenCodeAuth) { $modelProvider } else { $null }
         authSource      = if ($UseUserOpenCodeAuth) { 'user-opencode-provider-scoped' } else { 'isolated' }
+        skillEvaluation = if ($SkillEvaluationArm -eq 'standard') {
+            $null
+        }
+        else {
+            [ordered]@{
+                arm           = $SkillEvaluationArm
+                targetSkill   = $SkillEvaluationTarget
+                visibleSkills = @($copiedSkills)
+            }
+        }
         openCodeVersion = $openCodeVersion
         gitCommit       = $commit
         gitBranch       = $branch

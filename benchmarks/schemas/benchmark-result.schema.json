@@ -53,6 +53,77 @@
     "authSource": {
       "type": "string"
     },
+    "skillEvaluation": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "arm": {
+          "enum": [
+            "with-skill",
+            "without-skill"
+          ]
+        },
+        "targetSkill": {
+          "type": "string"
+        },
+        "visibleSkills": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "arm",
+        "targetSkill",
+        "visibleSkills"
+      ],
+      "additionalProperties": false
+    },
+    "skillUsage": {
+      "type": "object",
+      "properties": {
+        "callCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "loadedSkills": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "calls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "callCount",
+        "loadedSkills",
+        "calls"
+      ],
+      "additionalProperties": false
+    },
     "openCodeVersion": {
       "type": "string"
     },
@@ -108,6 +179,8 @@
         "kind": {
           "enum": [
             "provider-error",
+            "rate-limit",
+            "harness-error",
             "runtime-error",
             "process-error",
             "incomplete-trace"
