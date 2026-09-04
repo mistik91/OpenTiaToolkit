@@ -433,6 +433,14 @@ distractor survived. The live gold path, forced second-operation rollback, and
 immutable fixture identity are recorded in
 `reports/ott-28-gold-audit-20260904.md`.
 
+Its first model campaign is frozen in
+`campaigns/hmi-alarm-reconciliation-glm-5-3-high-20260904.json`. GLM-5.3 High
+completed three valid trials and, after an evidence-preserving evaluator
+correction for equivalent full-scan and exact-path HMI-tag discovery, passed
+3/3 at 100. DeepSeek V4 Flash Free maximum-effort preflight was attempted first
+but the refreshed OpenCode catalog no longer advertised that model. See
+`reports/hmi-alarm-reconciliation-glm-5-3-high-20260904.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
