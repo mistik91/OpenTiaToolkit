@@ -35,9 +35,8 @@
       "points": 3,
       "critical": true,
       "namePattern": "list_hmi_tags$",
-      "inputEquals": {"hmi-name": "HMI_RT_1", "allow-full-scan": true, "include-details": true},
+      "inputEquals": {"hmi-name": "HMI_RT_1"},
       "minCount": 1,
-      "maxCount": 1,
       "outputPatterns": [
         "(?is)\"Name\"\\s*:\\s*\"MixerAlarmBits\".*?\"DataType\"\\s*:\\s*\"Int\".*?\"TagTableName\"\\s*:\\s*\"OTT28 Fixture\"",
         "(?is)\"Name\"\\s*:\\s*\"MixerSpeed\".*?\"DataType\"\\s*:\\s*\"Real\"",

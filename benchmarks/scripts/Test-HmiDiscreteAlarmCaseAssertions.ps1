@@ -99,6 +99,8 @@ function New-AlarmEvents {
         [switch]$AllowReferencedDelete,
         [switch]$SaveProject,
         [switch]$OmitInternalTagDiscovery,
+        [switch]$TargetedInternalTagDiscovery,
+        [switch]$IncompleteTargetedInternalTagDiscovery,
         [switch]$WrongComputedAllocation
     )
 
@@ -117,6 +119,19 @@ function New-AlarmEvents {
     $tags = New-ToolEvent -Tool 'opentia_list-hmi-tags' -InputObject @{
         'hmi-name' = 'HMI_RT_1'; 'allow-full-scan' = $true; 'max-results' = 50; 'max-depth' = 5; 'include-details' = $true
     } -Output '[{"Name":"BatchNumber","DataType":"DInt","TagTableName":"OTT28 Fixture"},{"Name":"MixerAlarmBits","DataType":"Int","TagTableName":"OTT28 Fixture"},{"Name":"MixerSpeed","DataType":"Real","TagTableName":"OTT28 Fixture"}]'
+    $targetedTags = @(
+        (New-ToolEvent -Tool 'opentia_list-hmi-tags' -InputObject @{
+                'hmi-name' = 'HMI_RT_1'; 'root-path' = 'MixerAlarmBits'
+            } -Output '[{"Name":"MixerAlarmBits","DataType":"Int","TagTableName":"OTT28 Fixture"}]'),
+        (New-ToolEvent -Tool 'opentia_list-hmi-tags' -InputObject @{
+                'hmi-name' = 'HMI_RT_1'; 'root-path' = 'MixerSpeed'
+            } -Output '[{"Name":"MixerSpeed","DataType":"Real","TagTableName":"OTT28 Fixture"}]')
+    )
+    if (-not $IncompleteTargetedInternalTagDiscovery) {
+        $targetedTags += New-ToolEvent -Tool 'opentia_list-hmi-tags' -InputObject @{
+            'hmi-name' = 'HMI_RT_1'; 'root-path' = 'BatchNumber'
+        } -Output '[{"Name":"BatchNumber","DataType":"DInt","TagTableName":"OTT28 Fixture"}]'
+    }
     $baselineList = New-ToolEvent -Tool 'opentia_list-unified-discrete-alarms' -InputObject @{
         'hmi-name' = 'HMI_RT_1'; 'include-validation' = $true
     } -Output '[{"Name":"Mixer_Bit_Distractor","Id":2403,"Validation":[]},{"Name":"Mixer_Id_Distractor","Id":2401,"Validation":[]},{"Name":"Mixer_Overload","Id":2400,"ContentHash":"9eedff2c8971afc5c2c87259c9bf801cd8bcbed1b7fdf3e11a5ddda3054c641a","Validation":[]},{"Name":"Mixer_Trip_Legacy","Id":2399,"ContentHash":"f01f6f6649ff1a83369281154deebed14914bae2a35eb033b75dfda74c1278f8","Validation":[]},{"Name":"Mixer_Trip_Legacy_Display","Id":2398,"ContentHash":"2eaba142159d40a68202a0e7939374a74495c34cade687565d18b1bff566925c","Validation":[]}]'
@@ -185,12 +200,21 @@ function New-AlarmEvents {
     $verificationEvents += $finalList
 
     $discoveryEvents = @($open)
-    if (-not $OmitInternalTagDiscovery) { $discoveryEvents += $tags }
+    if (-not $OmitInternalTagDiscovery) {
+        $discoveryEvents += if ($TargetedInternalTagDiscovery) { $targetedTags } else { $tags }
+    }
     return $discoveryEvents + @($baselineList, $baselineOverload) + $reconciliationEvents + $verificationEvents
 }
 
 try {
     Invoke-AlarmAssertionTest -Label 'representative' -Events (New-AlarmEvents)
+
+    Invoke-AlarmAssertionTest -Label 'targeted-internal-tag-discovery' `
+        -Events (New-AlarmEvents -TargetedInternalTagDiscovery)
+
+    Invoke-AlarmAssertionTest -Label 'incomplete-targeted-internal-tag-discovery' `
+        -Events (New-AlarmEvents -TargetedInternalTagDiscovery -IncompleteTargetedInternalTagDiscovery) `
+        -ExpectedPassed $false -ExpectedFailedAssertion 'internal-hmi-tag-discovery'
 
     Invoke-AlarmAssertionTest -Label 'apply-before-preview' -Events (New-AlarmEvents -ApplyBeforePreview) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'preview-apply-readback-retire-sequence'
