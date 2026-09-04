@@ -30,7 +30,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             new[]
             {
                 new CommandParameter("hmi-name", CommandParameterType.String, "The Unified HMI name", required: true),
-                new CommandParameter("filter", CommandParameterType.String, "Optional text filter", required: false),
+                new CommandParameter("filter", CommandParameterType.String, "Optional text filter within the selected scope; it does not authorize a full-tree scan", required: false),
                 new CommandParameter("root-path", CommandParameterType.String, "Optional tag path to enumerate only that subtree", required: false),
                 new CommandParameter("allow-full-scan", CommandParameterType.Boolean, "Allow scanning the full HMI tag tree when root-path is omitted", required: false, defaultValue: false),
                 new CommandParameter("max-results", CommandParameterType.Integer, "Maximum number of tags to return during enumeration", required: false, defaultValue: 200),
@@ -72,7 +72,7 @@ namespace OpenTiaToolkit.Core.Commands.Hmi
             if (!hasRootPath && !args.GetBool("allow-full-scan", false))
             {
                 return CommandResult.CreateFailure(
-                    "Refusing to scan the complete Unified HMI tag tree without allow-full-scan=true. Provide a concrete root-path for a known tag/subtree, or opt into a bounded full scan with max-results and max-depth.",
+                    "Refusing to scan the complete Unified HMI tag tree without allow-full-scan=true. A filter narrows returned matches but does not scope tree traversal. Provide a concrete root-path for a known tag/subtree, or opt into a bounded full scan with max-results and max-depth.",
                     new
                     {
                         safetyBlocked = true,

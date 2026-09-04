@@ -131,6 +131,23 @@
         "The local session path is machine-specific and is supplied to the runner.",
         "The case must not attempt commit-multiuser-session; V21 public Openness requires UI check-in."
       ]
+    },
+    {
+      "id": "tia-v21-unified-alarms-8",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_UnifiedAlarms_20260904.zap21",
+      "sha256": "316B538B73F1DF41FBC07DBD0DA5963F039E552568EB1984604FE854DBE9BD52",
+      "sizeBytes": 5655259,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with internal Unified HMI tags MixerAlarmBits (Int), MixerSpeed (Real), and BatchNumber (DInt) in tag table OTT28 Fixture; no HMI-to-PLC connection is required.",
+        "Contains five valid discrete alarms occupying IDs 2398, 2399, 2400, 2401, and 2403 plus MixerAlarmBits trigger bits 0-4, leaving computed ID 2402 and bit 5 as the first free choices in the task ranges.",
+        "Mixer_Trip_Legacy is the exact unreferenced retirement target; Mixer_Trip_Legacy_Display is a near-name preservation distractor.",
+        "The read-only archive was independently restored, all tags and alarm hashes were verified, the gold update/create/delete path succeeded without saving, and a forced second-operation Siemens setter failure rolled back the first change."
+      ]
     }
   ]
 }

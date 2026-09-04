@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty-one cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm reconciliation and guarded retirement, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -424,6 +424,29 @@ two-stage preview, unchanged apply, independent readback, forced rollback,
 exact delete inverse, and zero-error/zero-warning compile; see
 `reports/ott-27-gold-audit-20260901.md`.
 
+`ott-28` exercises WinCC Unified discrete-alarm reconciliation on a dedicated
+fixture whose trigger and parameter sources are internal HMI tags. It requires
+a hash-bound partial update, computed allocation across occupied alarm IDs and
+trigger bits, one atomic update/create preview and apply, exact-name guarded
+retirement with cross-reference review, and fresh proof that a near-name
+distractor survived. The live gold path, forced second-operation rollback, and
+immutable fixture identity are recorded in
+`reports/ott-28-gold-audit-20260904.md`.
+
+Its first model campaign is frozen in
+`campaigns/hmi-alarm-reconciliation-glm-5-3-high-20260904.json`. GLM-5.3 High
+completed three valid trials and, after an evidence-preserving evaluator
+correction for equivalent full-scan and exact-path HMI-tag discovery, passed
+3/3 at 100. DeepSeek V4 Flash Free maximum-effort preflight was attempted first
+but the refreshed OpenCode catalog no longer advertised that model. See
+`reports/hmi-alarm-reconciliation-glm-5-3-high-20260904.md`.
+
+A same-model verification after the generic tag-filter scope clarification
+again passed 3/3 at 100 and reduced filter-only safety rejections from 3 to 0.
+The three trials independently chose scoped, bounded-filtered, and exact-path
+tag discovery rather than converging on a fixture-specific recipe. See
+`reports/hmi-alarm-filter-skill-verification-20260905.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -618,6 +641,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-25` | Brownfield ET 200MP modernization | Atomically replace an existing output module, guard retained state and PROFINET identity, recover from displaced placement, and verify the modernized station |
 | `ott-26` | Third-party GSDML provisioning | Provision an Endress+Hauser Promag 100, preserve generated modules, bind displaced result targets, assign IO, and guarded-write the vendor record |
 | `ott-27` | Held-out cross-vendor GSDML transfer | Provision an IFM AL1400, reject package distractors, preserve generated proxy IO, bind two displaced ports and five address objects, and guarded-write the port-options record |
+| `ott-28` | Unified discrete-alarm reconciliation | Hash-bind a partial update, compute a free ID and trigger bit, atomically create the new alarm, retire one exact unreferenced alarm, and preserve its near-name distractor |
 
 ## Adding a case
 
