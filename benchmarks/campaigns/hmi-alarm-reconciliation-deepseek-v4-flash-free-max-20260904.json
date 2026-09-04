@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hmi-alarm-reconciliation-deepseek-v4-flash-free-max-20260904",
+  "title": "DeepSeek V4 Flash Free maximum-effort Unified alarm reconciliation",
+  "caseIds": [
+    "ott-28"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}
