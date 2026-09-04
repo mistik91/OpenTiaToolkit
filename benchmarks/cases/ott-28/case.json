@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-28",
+  "title": "Unified discrete-alarm reconciliation and guarded retirement",
+  "description": "Tests complete WinCC Unified alarm discovery, hash-bound partial update, computed ID and trigger-bit allocation, atomic update/create dry-run and apply, guarded exact-name retirement, distractor preservation, and fresh canonical readback.",
+  "fixtureId": "tia-v21-unified-alarms-8",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 900,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hmi-discrete-alarm-workflow"
+  ],
+  "allowWorkspaceEdits": true,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "hmi-opened",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "open_unified_hmi$",
+      "inputEquals": {"hmi-name": "HMI_RT_1"},
+      "minCount": 1
+    },
+    {
+      "id": "internal-hmi-tag-discovery",
+      "type": "tool",
+      "points": 3,
+      "critical": true,
+      "namePattern": "list_hmi_tags$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "allow-full-scan": true, "include-details": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "(?is)\"Name\"\\s*:\\s*\"MixerAlarmBits\".*?\"DataType\"\\s*:\\s*\"Int\".*?\"TagTableName\"\\s*:\\s*\"OTT28 Fixture\"",
+        "(?is)\"Name\"\\s*:\\s*\"MixerSpeed\".*?\"DataType\"\\s*:\\s*\"Real\"",
+        "(?is)\"Name\"\\s*:\\s*\"BatchNumber\".*?\"DataType\"\\s*:\\s*\"DInt\""
+      ]
+    },
+    {
+      "id": "complete-baseline-and-final-inventory",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "list_unified_discrete_alarms$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "include-validation": true},
+      "minCount": 2,
+      "maxCount": 2,
+      "outputPatterns": [
+        "Mixer_Id_Distractor",
+        "Mixer_Bit_Distractor",
+        "Mixer_Trip_Legacy_Display",
+        "Mixer_SpeedHigh",
+        "\"Validation\"\\s*:\\s*\\[\\]"
+      ]
+    },
+    {
+      "id": "hash-bound-overload-baseline-and-readback",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_unified_discrete_alarm$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "alarm-name": "Mixer_Overload", "include-validation": true},
+      "minCount": 2,
+      "maxCount": 2,
+      "outputPatterns": [
+        "9eedff2c8971afc5c2c87259c9bf801cd8bcbed1b7fdf3e11a5ddda3054c641a",
+        "dfc7126ba2e9948c3d76373a1e77c575d7dc3e9989de56a9767f1fb7e8f7f629",
+        "(?is)\"Name\"\\s*:\\s*\"Mixer_Overload\".*?\"AlarmClass\"\\s*:\\s*\"Critical\".*?\"Priority\"\\s*:\\s*14.*?\"Origin\"\\s*:\\s*\"Mixer\".*?\"Area\"\\s*:\\s*\"Process\".*?\"RaisedStateTag\"\\s*:\\s*\"MixerAlarmBits\".*?\"RaisedStateTagBitNumber\"\\s*:\\s*0",
+        "(?is)\"AlarmParameterTags\"\\s*:\\s*\\[\\s*\"MixerSpeed\"\\s*,\\s*\"BatchNumber\"",
+        "Mixer overload critical at speed \\{0\\} during batch \\{1\\}\\.",
+        "Stop the mixer, inspect the drive, and record the batch before restart\\."
+      ]
+    },
+    {
+      "id": "atomic-reconciliation-preview",
+      "type": "tool",
+      "points": 12,
+      "critical": true,
+      "namePattern": "apply_unified_discrete_alarms$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true, "fail-on-warning": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Discrete-alarm dry-run completed and the transaction was rolled back",
+        "\"Success\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*true",
+        "(?is)\"Name\"\\s*:\\s*\"Mixer_Overload\".*?\"Status\"\\s*:\\s*\"Updated\"",
+        "(?is)\"Name\"\\s*:\\s*\"Mixer_SpeedHigh\".*?\"Status\"\\s*:\\s*\"Created\".*?\"Id\"\\s*:\\s*2402.*?\"AlarmClass\"\\s*:\\s*\"Critical\".*?\"Priority\"\\s*:\\s*14.*?\"RaisedStateTag\"\\s*:\\s*\"MixerAlarmBits\".*?\"RaisedStateTagBitNumber\"\\s*:\\s*5",
+        "Mixer speed high at \\{0\\} rpm during batch \\{1\\}\\.",
+        "Reduce the mixer speed and inspect the drive\\."
+      ]
+    },
+    {
+      "id": "atomic-reconciliation-apply",
+      "type": "tool",
+      "points": 12,
+      "critical": true,
+      "namePattern": "apply_unified_discrete_alarms$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": false, "apply": true, "confirm": true, "fail-on-warning": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Discrete alarms were applied atomically",
+        "\"Success\"\\s*:\\s*true",
+        "\"Committed\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*false",
+        "dfc7126ba2e9948c3d76373a1e77c575d7dc3e9989de56a9767f1fb7e8f7f629",
+        "0f12d0427b2f66a88fa16cdf673e192c7e6fbd13ad515314794daa684cb53322"
+      ]
+    },
+    {
+      "id": "overload-final-canonical-state",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_unified_discrete_alarm$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "alarm-name": "Mixer_Overload", "include-validation": true},
+      "minCount": 2,
+      "maxCount": 2,
+      "outputPatterns": [
+        "\"AlarmClass\"\\s*:\\s*\"Critical\"",
+        "\"Priority\"\\s*:\\s*14",
+        "\"ContentHash\"\\s*:\\s*\"dfc7126ba2e9948c3d76373a1e77c575d7dc3e9989de56a9767f1fb7e8f7f629\""
+      ]
+    },
+    {
+      "id": "new-alarm-final-canonical-state",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_unified_discrete_alarm$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "alarm-name": "Mixer_SpeedHigh", "include-validation": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "(?is)\"Name\"\\s*:\\s*\"Mixer_SpeedHigh\".*?\"Id\"\\s*:\\s*2402.*?\"AlarmClass\"\\s*:\\s*\"Critical\".*?\"Priority\"\\s*:\\s*14.*?\"RaisedStateTag\"\\s*:\\s*\"MixerAlarmBits\".*?\"RaisedStateTagBitNumber\"\\s*:\\s*5",
+        "(?is)\"AlarmParameterTags\"\\s*:\\s*\\[\\s*\"MixerSpeed\"\\s*,\\s*\"BatchNumber\"",
+        "\"Validation\"\\s*:\\s*\\[\\]",
+        "\"ContentHash\"\\s*:\\s*\"0f12d0427b2f66a88fa16cdf673e192c7e6fbd13ad515314794daa684cb53322\""
+      ]
+    },
+    {
+      "id": "guarded-retirement-preview",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "delete_unified_discrete_alarm$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "alarm-name": "Mixer_Trip_Legacy", "expected-hash": "f01f6f6649ff1a83369281154deebed14914bae2a35eb033b75dfda74c1278f8", "dry-run": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Delete dry-run completed and was rolled back",
+        "\"Success\"\\s*:\\s*true",
+        "\"CrossReferences\"\\s*:\\s*\\[\\]",
+        "\"RolledBack\"\\s*:\\s*true"
+      ]
+    },
+    {
+      "id": "guarded-retirement-apply",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "delete_unified_discrete_alarm$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "alarm-name": "Mixer_Trip_Legacy", "expected-hash": "f01f6f6649ff1a83369281154deebed14914bae2a35eb033b75dfda74c1278f8", "dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "The exact discrete alarm was deleted",
+        "\"Success\"\\s*:\\s*true",
+        "\"Deleted\"\\s*:\\s*true",
+        "\"Committed\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*false"
+      ]
+    },
+    {
+      "id": "retirement-fresh-exact-read",
+      "type": "tool",
+      "points": 7,
+      "critical": true,
+      "namePattern": "get_unified_discrete_alarm$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "alarm-name": "Mixer_Trip_Legacy"},
+      "minCount": 2,
+      "maxCount": 2,
+      "outputPatterns": [
+        "f01f6f6649ff1a83369281154deebed14914bae2a35eb033b75dfda74c1278f8",
+        "(?i)Unified discrete alarm not found: Mixer_Trip_Legacy"
+      ]
+    },
+    {
+      "id": "near-name-distractor-preserved",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "get_unified_discrete_alarm$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "alarm-name": "Mixer_Trip_Legacy_Display", "include-validation": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"Id\"\\s*:\\s*2398",
+        "2eaba142159d40a68202a0e7939374a74495c34cade687565d18b1bff566925c"
+      ]
+    },
+    {
+      "id": "preview-apply-readback-retire-sequence",
+      "type": "traceRegex",
+      "points": 3,
+      "critical": true,
+      "pattern": "(?is)opentia_list-unified-discrete-alarms.*?opentia_apply-unified-discrete-alarms(?=(?:(?!opentia_apply-unified-discrete-alarms).)*\"dry-run\"\\s*:\\s*true)(?:(?!opentia_apply-unified-discrete-alarms).)*\"RolledBack\"\\s*:\\s*true.*?opentia_apply-unified-discrete-alarms(?=(?:(?!opentia_get-unified-discrete-alarm).)*\"dry-run\"\\s*:\\s*false)(?:(?!opentia_get-unified-discrete-alarm).)*\"Committed\"\\s*:\\s*true.*?opentia_get-unified-discrete-alarm(?=(?:(?!opentia_get-unified-discrete-alarm).)*Mixer_Overload).*?opentia_get-unified-discrete-alarm(?=(?:(?!opentia_get-unified-discrete-alarm).)*Mixer_SpeedHigh).*?opentia_get-unified-discrete-alarm(?=(?:(?!opentia_delete-unified-discrete-alarm).)*Mixer_Trip_Legacy).*?opentia_delete-unified-discrete-alarm(?=(?:(?!opentia_delete-unified-discrete-alarm).)*\"dry-run\"\\s*:\\s*true)(?:(?!opentia_delete-unified-discrete-alarm).)*\"RolledBack\"\\s*:\\s*true.*?opentia_delete-unified-discrete-alarm(?=(?:(?!opentia_get-unified-discrete-alarm).)*\"dry-run\"\\s*:\\s*false)(?:(?!opentia_get-unified-discrete-alarm).)*\"Deleted\"\\s*:\\s*true.*?opentia_get-unified-discrete-alarm(?=(?:(?!opentia_get-unified-discrete-alarm).)*Mixer_Trip_Legacy)(?:(?!opentia_get-unified-discrete-alarm).)*(?i:Unified discrete alarm not found).*?opentia_get-unified-discrete-alarm(?=(?:(?!opentia_list-unified-discrete-alarms).)*Mixer_Trip_Legacy_Display).*?opentia_list-unified-discrete-alarms"
+    },
+    {
+      "id": "no-referenced-delete-override",
+      "type": "forbiddenTool",
+      "points": 1,
+      "critical": true,
+      "namePattern": "delete_unified_discrete_alarm$",
+      "inputEquals": {"allow-referenced-delete": true}
+    },
+    {
+      "id": "project-not-saved",
+      "type": "forbiddenTool",
+      "points": 1,
+      "critical": true,
+      "namePattern": "save_project$"
+    }
+  ]
+}
