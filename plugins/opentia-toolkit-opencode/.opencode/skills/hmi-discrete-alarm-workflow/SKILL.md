@@ -25,6 +25,12 @@ This workflow covers engineering configuration only. Do not use it for analog al
 - Treat `list-unified-alarms` as a legacy shallow, read-only insight across multiple alarm families. Do not use it as the source for a discrete-alarm mutation.
 - If a large result is returned as an artifact manifest, read the file at `data.outputPath` before planning the change.
 
+## Resolve Alarm Tags
+
+- Use `list-hmi-tags` to prove that every trigger, acknowledgment, control, and parameter tag required by the change already exists and has the expected data type.
+- A text `filter` narrows returned matches but does not scope tree traversal. Pair it with a concrete `root-path`, or explicitly use `allow-full-scan=true` with appropriate `max-results` and `max-depth` bounds. A filter-only call is rejected by the full-scan safety guard.
+- For several known tags in unrelated paths, separate exact `root-path` reads are equivalent to one bounded full scan. Judge discovery by the returned tag identities and metadata, not by one preferred call shape.
+
 ## Prepare a Versioned Change Document
 
 Create a JSON document with `schemaVersion` `1.0` and one or more alarm requests:

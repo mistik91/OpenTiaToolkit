@@ -1764,7 +1764,7 @@ Lists tags in a Unified HMI
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `hmi-name` | String | yes |  | The Unified HMI name |
-| `filter` | String | no |  | Optional text filter |
+| `filter` | String | no |  | Optional text filter within the selected scope; it does not authorize a full-tree scan |
 | `root-path` | String | no |  | Optional tag path to enumerate only that subtree |
 | `allow-full-scan` | Boolean | no | False | Allow scanning the full HMI tag tree when root-path is omitted |
 | `max-results` | Integer | no | 200 | Maximum number of tags to return during enumeration |

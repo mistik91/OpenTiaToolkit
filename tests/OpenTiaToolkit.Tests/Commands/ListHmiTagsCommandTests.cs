@@ -70,6 +70,7 @@ namespace OpenTiaToolkit.Tests.Commands
 
             Assert.IsFalse(result.Success);
             StringAssert.Contains(result.Error, "allow-full-scan=true");
+            StringAssert.Contains(result.Error, "filter narrows returned matches but does not scope tree traversal");
             hmiService.Verify(service => service.GetTagsAsync(It.IsAny<HmiTagBrowseOptions>()), Times.Never);
         }
 

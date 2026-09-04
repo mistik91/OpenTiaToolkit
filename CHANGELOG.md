@@ -13,6 +13,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 - Made agent-plugin MCP launchers discover adjacent installed-product payloads and custom installation layouts without requiring inherited `OPEN_TIA_MCP_EXE` state.
+- Clarified in the `list-hmi-tags` schema, safety error, and discrete-alarm skill that `filter` narrows results but still requires a concrete `root-path` or an explicitly bounded full-tree scan.
 
 ## [1.0.0-preview.5] - 2026-08-05
 

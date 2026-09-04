@@ -73,10 +73,12 @@ including the fixture table for `MixerAlarmBits`. New regressions prove both a
 complete targeted-read sequence and rejection when one required tag is absent.
 It adds no task example or answer to a model-visible skill or prompt.
 
-All three traces first attempted the unsupported `filter` argument and then
-self-corrected. That repeated inefficiency is a reasonable candidate for a
-future generic skill A/B evaluation, but it did not compromise correctness and
-no skill was changed during this campaign.
+All three traces first attempted a supported `filter` without either a
+`root-path` or explicit `allow-full-scan=true`. The command's full-tree safety
+guard rejected that incomplete call and each trial self-corrected. This
+repeated inefficiency motivated a subsequent generic skill clarification; it
+did not compromise campaign correctness, and the skill remained unchanged
+during the recorded trials.
 
 ## Validation, artifacts, and cleanup
 

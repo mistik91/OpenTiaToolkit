@@ -4805,7 +4805,7 @@
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Optional text filter"
+          "description": "Optional text filter within the selected scope; it does not authorize a full-tree scan"
         },
         {
           "name": "root-path",
