@@ -441,6 +441,12 @@ correction for equivalent full-scan and exact-path HMI-tag discovery, passed
 but the refreshed OpenCode catalog no longer advertised that model. See
 `reports/hmi-alarm-reconciliation-glm-5-3-high-20260904.md`.
 
+A same-model verification after the generic tag-filter scope clarification
+again passed 3/3 at 100 and reduced filter-only safety rejections from 3 to 0.
+The three trials independently chose scoped, bounded-filtered, and exact-path
+tag discovery rather than converging on a fixture-specific recipe. See
+`reports/hmi-alarm-filter-skill-verification-20260905.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
