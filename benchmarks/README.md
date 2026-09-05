@@ -462,6 +462,13 @@ effort and OpenCode variant `high`. A GLM-5.3 High fallback is created and run
 only if Flash fails for model capability; evidence of a skill-contract problem
 stops the campaign before any skill edit.
 
+That initial cohort scored 100/100/100 under the original rubric, but every
+trace first made a filter-only `list-hmi-tags` call, hit the full-scan safety
+guard, and recovered. The corrected rubric re-adjudicates those traces at
+99/99/99 with a critical failure. After a generic skill clarification, the
+same Flash High configuration passed 3/3 at 100 with zero filter-only safety
+rejections. See `reports/hmi-trend-filter-skill-verification-20260905.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
