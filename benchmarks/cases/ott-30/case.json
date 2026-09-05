@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-30",
+  "title": "Native SCL multi-object stateful authoring",
+  "description": "Tests capability-first native SCL authoring, mechanical workspace artifact inspection, a UDT plus stateful FB in one atomic transaction, canonical generated identities, and independent compile-backed readback.",
+  "fixtureId": "tia-v21-baseline-1",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1200,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "plc-code-engineering",
+    "scl-source-authoring"
+  ],
+  "allowWorkspaceEdits": true,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 3,
+      "critical": true
+    },
+    {
+      "id": "plc-code-skill-loaded",
+      "type": "tool",
+      "points": 2,
+      "namePattern": "skill$",
+      "inputEquals": {"name": "plc-code-engineering"},
+      "minCount": 1
+    },
+    {
+      "id": "scl-skill-loaded",
+      "type": "tool",
+      "points": 2,
+      "namePattern": "skill$",
+      "inputEquals": {"name": "scl-source-authoring"},
+      "minCount": 1
+    },
+    {
+      "id": "tia-context-established",
+      "type": "traceRegex",
+      "points": 3,
+      "critical": true,
+      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?opentia_list-projects.*?opentia_open-plc"
+    },
+    {
+      "id": "native-scl-artifact",
+      "type": "workspaceFile",
+      "points": 13,
+      "critical": true,
+      "relativePath": "artifacts/OTT30_RecipeWindowMonitor.scl",
+      "minBytes": 700,
+      "maxBytes": 12000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?im)^\\s*TYPE\\s+\"OTT30_RecipeWindow\"\\s*$",
+        "(?i)\\bTarget\\s*:\\s*Array\\s*\\[\\s*0\\s*\\.\\.\\s*3\\s*\\]\\s+of\\s+Real\\s*;",
+        "(?i)\\bTolerance\\s*:\\s*Array\\s*\\[\\s*0\\s*\\.\\.\\s*3\\s*\\]\\s+of\\s+Real\\s*;",
+        "(?i)\\bEnabled\\s*:\\s*Array\\s*\\[\\s*0\\s*\\.\\.\\s*3\\s*\\]\\s+of\\s+Bool\\s*;",
+        "(?i)\\bHoldTime\\s*:\\s*Time\\s*;",
+        "(?im)^\\s*FUNCTION_BLOCK\\s+\"OTT30_RecipeWindowMonitor\"\\s*$",
+        "(?i)\\bActual\\s*:\\s*Array\\s*\\[\\s*0\\s*\\.\\.\\s*3\\s*\\]\\s+of\\s+Real\\s*;",
+        "(?i)\\bRecipe\\s*:\\s*\"?OTT30_RecipeWindow\"?\\s*;",
+        "(?is)(?m)^\\s*VAR\\s*$.*?\\bR_TRIG\\b.*?^\\s*END_VAR\\s*$",
+        "(?is)(?m)^\\s*VAR\\s*$.*?\\bTON_TIME\\b.*?^\\s*END_VAR\\s*$",
+        "(?is)FOR\\s+#?[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*0\\s+TO\\s+3\\s+DO.*?END_FOR",
+        "(?i)ABS\\s*\\(\\s*#Recipe\\.Tolerance\\s*\\[",
+        "(?is)ABS\\s*\\(\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[",
+        "(?is)ABS\\s*\\(\\s*#Actual\\s*\\[.*?IF\\s+#[A-Za-z_][A-Za-z0-9_]*\\s*>\\s*#[A-Za-z_][A-Za-z0-9_]*\\s+THEN.*?#FirstOutsideIndex",
+        "(?i)#FirstOutsideIndex\\s*:=\\s*-1\\s*;",
+        "(?is)#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;",
+        "(?is)#[A-Za-z_][A-Za-z0-9_]*\\s*\\(\\s*CLK\\s*:=\\s*#Start\\s*\\)",
+        "(?is)#[A-Za-z_][A-Za-z0-9_]*\\.TON\\s*\\(.*?PT\\s*:=\\s*#Recipe\\.HoldTime",
+        "(?is)CASE\\s+#[A-Za-z_][A-Za-z0-9_]*\\s+OF.*?0\\s*:.*?1\\s*:.*?2\\s*:.*?ELSE.*?END_CASE",
+        "(?is)IF\\s+#Reset\\s+THEN.*?:=\\s*0\\s*;",
+        "(?i)#State\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;",
+        "(?is)#Active\\s*:=\\s*(?:#[A-Za-z_][A-Za-z0-9_]*\\s*<>\\s*0|\\(?\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*1.*?#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*\\)?)\\s*;",
+        "(?i)#Ready\\s*:=.*?=\\s*2\\s*;"
+      ],
+      "forbiddenContentPatterns": [
+        "(?is)\\bVAR_TEMP\\b.*?\\b(?:R_TRIG|TON(?:_TIME)?)\\b.*?\\bEND_VAR\\b",
+        "(?i)\\b(?:WHILE|REPEAT)\\b"
+      ]
+    },
+    {
+      "id": "verified-scl-validation",
+      "type": "tool",
+      "points": 6,
+      "critical": true,
+      "namePattern": "validate_plc_code_artifact$",
+      "minCount": 1,
+      "maxCount": 3,
+      "outputPatterns": [
+        "\"Valid\"\\s*:\\s*true",
+        "\"Format\"\\s*:\\s*\"SCL\"",
+        "\"Classification\"\\s*:\\s*\"verified\"",
+        "\"HasUtf8Bom\"\\s*:\\s*true",
+        "(?is)\"Name\"\\s*:\\s*\"OTT30_RecipeWindow\".*?\"ObjectType\"\\s*:\\s*\"TYPE\"",
+        "(?is)\"Name\"\\s*:\\s*\"OTT30_RecipeWindowMonitor\".*?\"ObjectType\"\\s*:\\s*\"FB\"",
+        "\"Errors\"\\s*:\\s*\\[\\s*\\]",
+        "\"Warnings\"\\s*:\\s*\\[\\s*\\]"
+      ]
+    },
+    {
+      "id": "type-create-capability",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindow", "object-kind": "Type", "block-type": "TYPE", "operation": "Create", "requested-format": "SCL", "requested-language": "SCL"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["\"Exists\"\\s*:\\s*false", "\"ExactIdentityResolved\"\\s*:\\s*true", "\"SelectedRoute\"\\s*:\\s*\"DirectScl\""]
+    },
+    {
+      "id": "fb-create-capability",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindowMonitor", "object-kind": "Block", "block-type": "FB", "operation": "Create", "requested-format": "SCL", "requested-language": "SCL"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["\"Exists\"\\s*:\\s*false", "\"ExactIdentityResolved\"\\s*:\\s*true", "\"SelectedRoute\"\\s*:\\s*\"DirectScl\""]
+    },
+    {
+      "id": "two-target-clean-transaction",
+      "type": "tool",
+      "points": 7,
+      "critical": true,
+      "namePattern": "begin_plc_code_transaction$",
+      "inputEquals": {"plc-name": "PLC_Main", "compile-policy": "CleanCompile"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["\"State\"\\s*:\\s*\"Draft\"", "\"CapabilityRoute\"\\s*:\\s*\"DirectScl\"", "OTT30_RecipeWindow", "OTT30_RecipeWindowMonitor", "\"CompilePolicy\"\\s*:\\s*\"CleanCompile\""]
+    },
+    {
+      "id": "one-scl-source-operation",
+      "type": "tool",
+      "points": 7,
+      "critical": true,
+      "namePattern": "add_scl_source_transaction_operation$",
+      "inputEquals": {"confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["GenerateSclSource", "OTT30_RecipeWindowMonitor", "Added guarded SCL source generation for 2 declared object\\(s\\)"]
+    },
+    {
+      "id": "single-safe-plan",
+      "type": "tool",
+      "points": 9,
+      "critical": true,
+      "namePattern": "plan_plc_code_transaction$",
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"State\"\\s*:\\s*\"Planned\"",
+        "\"Status\"\\s*:\\s*\"Safe\"",
+        "\"ApplyToken\"\\s*:\\s*\"[^\"]+\"",
+        "(?is)\"Name\"\\s*:\\s*\"OTT30_RecipeWindow\".*?\"BlockType\"\\s*:\\s*\"TYPE\".*?\"Action\"\\s*:\\s*\"Create\".*?\"BaselineHash\"\\s*:\\s*\"missing\"",
+        "(?is)\"Name\"\\s*:\\s*\"OTT30_RecipeWindowMonitor\".*?\"BlockType\"\\s*:\\s*\"FB\".*?\"Action\"\\s*:\\s*\"Create\".*?\"BaselineHash\"\\s*:\\s*\"missing\"",
+        "\"ErrorCount\"\\s*:\\s*0",
+        "\"WarningCount\"\\s*:\\s*0"
+      ]
+    },
+    {
+      "id": "single-verified-apply",
+      "type": "tool",
+      "points": 14,
+      "critical": true,
+      "namePattern": "apply_plc_code_transaction$",
+      "inputEquals": {"confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"State\"\\s*:\\s*\"Succeeded\"",
+        "\"Applied\"\\s*:\\s*true",
+        "\"Verified\"\\s*:\\s*true",
+        "\"RollbackAttempted\"\\s*:\\s*false",
+        "\"RecoveryRequired\"\\s*:\\s*false",
+        "(?is)\"FinalCompilation\"\\s*:\\s*\\{.*?\"Success\"\\s*:\\s*true.*?\"ErrorCount\"\\s*:\\s*0.*?\"WarningCount\"\\s*:\\s*0",
+        "(?is)\"Name\"\\s*:\\s*\"OTT30_RecipeWindow\".*?\"BlockType\"\\s*:\\s*\"TYPE\".*?\"CanonicalResultHash\"\\s*:\\s*\"[0-9a-f]{64}\"",
+        "(?is)\"Name\"\\s*:\\s*\"OTT30_RecipeWindowMonitor\".*?\"BlockType\"\\s*:\\s*\"FB\".*?\"CanonicalResultHash\"\\s*:\\s*\"[0-9a-f]{64}\""
+      ]
+    },
+    {
+      "id": "type-final-identity",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindow", "object-kind": "Type", "block-type": "TYPE", "operation": "Modify", "requested-format": "SCL", "requested-language": "SCL"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["\"Exists\"\\s*:\\s*true", "\"ExactIdentityResolved\"\\s*:\\s*true", "\"SelectedRoute\"\\s*:\\s*\"DirectScl\""]
+    },
+    {
+      "id": "fb-final-identity",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindowMonitor", "object-kind": "Block", "block-type": "FB", "operation": "Modify", "requested-format": "SCL", "requested-language": "SCL"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["\"Exists\"\\s*:\\s*true", "\"ExactIdentityResolved\"\\s*:\\s*true", "\"SelectedRoute\"\\s*:\\s*\"DirectScl\"", "\"SclSourceRouteObserved\"\\s*:\\s*true"]
+    },
+    {
+      "id": "fb-info-readback",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "get_block_info$",
+      "inputEquals": {"plc-name": "PLC_Main", "block-name": "OTT30_RecipeWindowMonitor"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["\"Type\"\\s*:\\s*\"FB\"", "\"ProgrammingLanguage\"\\s*:\\s*\"SCL\""]
+    },
+    {
+      "id": "fb-source-readback",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "export_block_as_source$",
+      "inputEquals": {"plc-name": "PLC_Main", "block-name": "OTT30_RecipeWindowMonitor"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["\"Success\"\\s*:\\s*true", "OTT30_RecipeWindowMonitor\\.scl"]
+    },
+    {
+      "id": "type-xml-readback",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "export_type$",
+      "inputEquals": {"plc-name": "PLC_Main", "type-name": "OTT30_RecipeWindow"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["Successfully exported type", "OTT30_RecipeWindow\\.xml"]
+    },
+    {
+      "id": "fresh-clean-compile",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "inputEquals": {"plc-name": "PLC_Main"},
+      "minCount": 1,
+      "maxCount": 3,
+      "outputPatterns": ["Compilation successful", "\"errorCount\"\\s*:\\s*0", "\"warningCount\"\\s*:\\s*0"]
+    },
+    {
+      "id": "capability-transaction-sequence",
+      "type": "traceRegex",
+      "points": 2,
+      "critical": true,
+      "pattern": "(?is)opentia_discover-plc-code-capabilities.*?opentia_discover-plc-code-capabilities.*?opentia_validate-plc-code-artifact.*?opentia_begin-plc-code-transaction.*?opentia_add-scl-source-transaction-operation.*?opentia_plan-plc-code-transaction.*?opentia_apply-plc-code-transaction.*?opentia_compile-software"
+    },
+    {
+      "id": "no-invalid-scl-attempt",
+      "type": "traceRegex",
+      "points": 1,
+      "pattern": "(?is)^(?!.*(?:\"Valid\"\\s*:\\s*false|SCL artifact is invalid)).*$"
+    },
+    {
+      "id": "no-bypass-probe-save-or-destructive-cleanup",
+      "type": "forbiddenTool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "(import_source|generate_blocks_from_source|run_plc_code_probe|begin_promoted_plc_code_transaction|add_simaticml_transaction_operation|add_plc_code_transaction_operation|plan_block_document_import|apply_block_document_import|save_project|save_as_project|delete_block|delete_plc_type|discard_plc_code_transaction)$"
+    },
+    {
+      "id": "final-summary",
+      "type": "finalRegex",
+      "points": 1,
+      "pattern": "(?is)(?=.*OTT30_RecipeWindow)(?=.*OTT30_RecipeWindowMonitor)(?=.*DirectScl)(?=.*Succeeded)(?=.*canonical)(?=.*0\\s+errors)(?=.*0\\s+warnings)(?=.*(?:not saved|without saving))"
+    }
+  ]
+}

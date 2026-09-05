@@ -14,6 +14,11 @@ try {
     $resultPath = Join-Path $testRoot 'result.json'
     $workspacePath = Join-Path $testRoot 'workspace'
     New-Item -ItemType Directory -Path $workspacePath | Out-Null
+    [System.IO.File]::WriteAllText(
+        (Join-Path $workspacePath 'candidate.scl'),
+        "FUNCTION_BLOCK `"Synthetic`"`r`nBEGIN`r`nEND_FUNCTION_BLOCK`r`n",
+        [System.Text.UTF8Encoding]::new($true)
+    )
 
     $case = [ordered]@{
         schemaVersion = 1
@@ -73,6 +78,18 @@ try {
                 type    = 'traceRegex'
                 points  = 20
                 pattern = 'PLC_Main'
+            },
+            [ordered]@{
+                id          = 'workspace-file'
+                type        = 'workspaceFile'
+                points      = 20
+                critical    = $true
+                relativePath = 'candidate.scl'
+                minBytes    = 20
+                maxBytes    = 1000
+                requireUtf8Bom = $true
+                contentPatterns = @('(?im)^FUNCTION_BLOCK\s+"Synthetic"\s*$', '(?i)END_FUNCTION_BLOCK')
+                forbiddenContentPatterns = @('(?i)DELETE')
             }
         )
     }
@@ -246,7 +263,9 @@ try {
         -OutputPath $resultPath
 
     if (-not $result.passed -or [double]$result.score -ne 100) {
-        throw "Expected a passing 100-point synthetic result, got passed=$($result.passed), score=$($result.score)."
+        $failedAssertions = @($result.assertions | Where-Object { -not [bool]$_.passed } |
+                ForEach-Object { "$($_.id) [$($_.details)]" }) -join ', '
+        throw "Expected a passing 100-point synthetic result, got passed=$($result.passed), score=$($result.score), failed=$failedAssertions."
     }
     if ([long]$result.usage.tokens.total -ne 12) {
         throw "Expected 12 total tokens, got $($result.usage.tokens.total)."

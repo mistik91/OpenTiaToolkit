@@ -88,6 +88,7 @@
             "tool",
             "toolOperationSet",
             "forbiddenTool",
+            "workspaceFile",
             "finalRegex",
             "traceRegex",
             "run"
@@ -127,6 +128,33 @@
         },
         "normalizeResultReferences": {
           "type": "boolean"
+        },
+        "relativePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requireUtf8Bom": {
+          "type": "boolean"
+        },
+        "contentPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbiddenContentPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "outputPatterns": {
           "type": "array",

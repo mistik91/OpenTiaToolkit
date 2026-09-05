@@ -627,6 +627,7 @@ $hasStop = @($events | Where-Object {
     }).Count -gt 0
 $terminalError = @($events | Where-Object { $_.type -eq 'error' } | Select-Object -Last 1)
 $workspacePolicyFailure = $null
+$workspaceRoot = $null
 $workspaceProperty = $metadata.PSObject.Properties['workspacePath']
 if ($null -ne $workspaceProperty -and
     -not [string]::IsNullOrWhiteSpace([string]$workspaceProperty.Value)) {
@@ -882,6 +883,98 @@ foreach ($assertion in $case.assertions) {
                 })
             $passed = $matchingTools.Count -eq 0
             $details = "forbiddenMatches=$($matchingTools.Count)"
+        }
+        'workspaceFile' {
+            $relativePath = [string]$assertion.relativePath
+            $artifactPath = $null
+            $artifactError = $null
+            $artifactBytes = $null
+            $artifactText = $null
+            $contentPassed = $true
+            $forbiddenPassed = $true
+            $missingContentPatternIndexes = [System.Collections.Generic.List[int]]::new()
+            $presentForbiddenPatternIndexes = [System.Collections.Generic.List[int]]::new()
+            try {
+                if ([string]::IsNullOrWhiteSpace([string]$workspaceRoot)) {
+                    throw 'metadata does not contain workspacePath'
+                }
+                if ([System.IO.Path]::IsPathRooted($relativePath) -or
+                    @($relativePath -split '[\\/]' | Where-Object { $_ -eq '..' }).Count -gt 0) {
+                    throw 'relativePath is rooted or contains traversal'
+                }
+                $artifactPath = [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot $relativePath))
+                $workspacePrefixForArtifact = $workspaceRoot + [System.IO.Path]::DirectorySeparatorChar
+                if (-not $artifactPath.StartsWith(
+                        $workspacePrefixForArtifact,
+                        [System.StringComparison]::OrdinalIgnoreCase
+                    )) {
+                    throw 'resolved artifact is outside workspacePath'
+                }
+                if (-not [System.IO.File]::Exists($artifactPath)) {
+                    throw 'artifact file does not exist'
+                }
+                $artifactBytes = [System.IO.File]::ReadAllBytes($artifactPath)
+                $hasUtf8Bom = $artifactBytes.Length -ge 3 -and
+                    $artifactBytes[0] -eq 0xef -and
+                    $artifactBytes[1] -eq 0xbb -and
+                    $artifactBytes[2] -eq 0xbf
+                $offset = if ($hasUtf8Bom) { 3 } else { 0 }
+                $artifactText = [System.Text.UTF8Encoding]::new($false, $true).GetString(
+                    $artifactBytes,
+                    $offset,
+                    $artifactBytes.Length - $offset
+                )
+
+                if ($null -ne $assertion.PSObject.Properties['minBytes'] -and
+                    $artifactBytes.Length -lt [int64]$assertion.minBytes) {
+                    $contentPassed = $false
+                }
+                if ($null -ne $assertion.PSObject.Properties['maxBytes'] -and
+                    $artifactBytes.Length -gt [int64]$assertion.maxBytes) {
+                    $contentPassed = $false
+                }
+                if ($null -ne $assertion.PSObject.Properties['requireUtf8Bom'] -and
+                    [bool]$assertion.requireUtf8Bom -ne $hasUtf8Bom) {
+                    $contentPassed = $false
+                }
+                if ($null -ne $assertion.PSObject.Properties['contentPatterns']) {
+                    $contentPatternIndex = 0
+                    foreach ($pattern in @($assertion.contentPatterns)) {
+                        if ($artifactText -notmatch [string]$pattern) {
+                            $contentPassed = $false
+                            $missingContentPatternIndexes.Add($contentPatternIndex)
+                        }
+                        $contentPatternIndex++
+                    }
+                }
+                if ($null -ne $assertion.PSObject.Properties['forbiddenContentPatterns']) {
+                    $forbiddenPatternIndex = 0
+                    foreach ($pattern in @($assertion.forbiddenContentPatterns)) {
+                        if ($artifactText -match [string]$pattern) {
+                            $forbiddenPassed = $false
+                            $presentForbiddenPatternIndexes.Add($forbiddenPatternIndex)
+                        }
+                        $forbiddenPatternIndex++
+                    }
+                }
+            }
+            catch {
+                $artifactError = $_.Exception.Message
+                $contentPassed = $false
+                $forbiddenPassed = $false
+            }
+            $passed = $contentPassed -and $forbiddenPassed
+            $artifactLength = if ($null -eq $artifactBytes) { 0 } else { $artifactBytes.Length }
+            $details = "path=$relativePath; bytes=$artifactLength; contentMatched=$contentPassed; forbiddenAbsent=$forbiddenPassed"
+            if ($missingContentPatternIndexes.Count -gt 0) {
+                $details += "; missingContentPatternIndexes=$($missingContentPatternIndexes -join ',')"
+            }
+            if ($presentForbiddenPatternIndexes.Count -gt 0) {
+                $details += "; presentForbiddenPatternIndexes=$($presentForbiddenPatternIndexes -join ',')"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($artifactError)) {
+                $details += "; error=$artifactError"
+            }
         }
         'finalRegex' {
             $passed = $finalText -match [string]$assertion.pattern
