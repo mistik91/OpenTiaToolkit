@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-29",
+  "title": "Unified trend logging reconciliation and guarded retirement",
+  "description": "Tests scoped HMI-tag discovery, mixed blocked/planned deletion analysis, shared-archive bulk creation, association-bound logging-tag removal, ordered archive retirement, and fresh final reference verification.",
+  "fixtureId": "tia-v21-unified-trends-9",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 900,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hmi-trend-logging-workflow"
+  ],
+  "allowWorkspaceEdits": true,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 3,
+      "critical": true
+    },
+    {
+      "id": "hmi-opened",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "open_unified_hmi$",
+      "inputEquals": {"hmi-name": "HMI_RT_1"},
+      "minCount": 1
+    },
+    {
+      "id": "baseline-and-final-tag-evidence",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "list_hmi_tags$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "include-logging-counts": true},
+      "minCount": 2,
+      "maxCount": 6,
+      "outputPatterns": [
+        "(?is)\"Path\"\\s*:\\s*\"BatchNumber\".*?\"DataType\"\\s*:\\s*\"DInt\".*?\"LoggingTagCount\"\\s*:\\s*0",
+        "(?is)\"Path\"\\s*:\\s*\"MixerAlarmBits\".*?\"DataType\"\\s*:\\s*\"Int\".*?\"LoggingTagCount\"\\s*:\\s*1",
+        "(?is)\"Path\"\\s*:\\s*\"MixerSpeed\".*?\"DataType\"\\s*:\\s*\"Real\".*?\"LoggingTagCount\"\\s*:\\s*1",
+        "(?is)\"Path\"\\s*:\\s*\"BatchNumber\".*?\"LoggingTagCount\"\\s*:\\s*1",
+        "(?is)\"Path\"\\s*:\\s*\"MixerAlarmBits\".*?\"LoggingTagCount\"\\s*:\\s*0"
+      ]
+    },
+    {
+      "id": "mixed-retirement-safety-input",
+      "type": "toolOperationSet",
+      "points": 4,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "expectedOperations": [
+        {"dataLogName": "MixerLegacyLog"},
+        {"dataLogName": "MixerBatchRetireLog"}
+      ],
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "mixed-retirement-safety-result",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "minCount": 4,
+      "maxCount": 4,
+      "outputPatterns": [
+        "(?is)(\"PlannedCount\"\\s*:\\s*1|1 planned).*?(\"BlockedCount\"\\s*:\\s*1|1 blocked)",
+        "MixerLegacyLog",
+        "MixerBatchRetireLog",
+        "MixerSpeed"
+      ]
+    },
+    {
+      "id": "shared-process-log-preview-input",
+      "type": "toolOperationSet",
+      "points": 6,
+      "critical": true,
+      "namePattern": "create_hmi_trends$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "expectedOperations": [
+        {"tagPath": "MixerSpeed", "dataLogName": "MixerProcessLog", "cyclic": true, "cycle": "T5s", "logMaxSize": 4096, "durationDays": 60, "segmentMaxSize": 512},
+        {"tagPath": "BatchNumber", "dataLogName": "MixerProcessLog", "cyclic": false, "logMaxSize": 4096, "durationDays": 60, "segmentMaxSize": 512}
+      ],
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "shared-process-log-preview-result",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "create_hmi_trends$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"RequestedCount\"\\s*:\\s*2",
+        "\"PlannedCount\"\\s*:\\s*2",
+        "\"BlockedCount\"\\s*:\\s*0",
+        "\"NotFoundCount\"\\s*:\\s*0",
+        "\"FailedCount\"\\s*:\\s*0",
+        "MixerSpeed",
+        "BatchNumber",
+        "MixerProcessLog"
+      ]
+    },
+    {
+      "id": "shared-process-log-apply-input",
+      "type": "toolOperationSet",
+      "points": 7,
+      "critical": true,
+      "namePattern": "create_hmi_trends$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": false, "confirm": true},
+      "expectedOperations": [
+        {"tagPath": "MixerSpeed", "dataLogName": "MixerProcessLog", "cyclic": true, "cycle": "T5s", "logMaxSize": 4096, "durationDays": 60, "segmentMaxSize": 512},
+        {"tagPath": "BatchNumber", "dataLogName": "MixerProcessLog", "cyclic": false, "logMaxSize": 4096, "durationDays": 60, "segmentMaxSize": 512}
+      ],
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "shared-process-log-apply-result",
+      "type": "tool",
+      "points": 9,
+      "critical": true,
+      "namePattern": "create_hmi_trends$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"RequestedCount\"\\s*:\\s*2",
+        "\"AppliedCount\"\\s*:\\s*2",
+        "\"BlockedCount\"\\s*:\\s*0",
+        "\"NotFoundCount\"\\s*:\\s*0",
+        "\"FailedCount\"\\s*:\\s*0",
+        "(?is)\"TagPath\"\\s*:\\s*\"MixerSpeed\".*?\"DataLogName\"\\s*:\\s*\"MixerProcessLog\".*?\"LoggingMode\"\\s*:\\s*\"Cyclic\".*?\"Cycle\"\\s*:\\s*\"T5s\".*?\"LogMaxSize\"\\s*:\\s*4096.*?\"DurationDays\"\\s*:\\s*60.*?\"SegmentMaxSize\"\\s*:\\s*512.*?\"LoggingTagCreated\"\\s*:\\s*false",
+        "(?is)\"TagPath\"\\s*:\\s*\"BatchNumber\".*?\"DataLogName\"\\s*:\\s*\"MixerProcessLog\".*?\"LoggingMode\"\\s*:\\s*\"OnChange\".*?\"Cycle\"\\s*:\\s*null.*?\"LoggingTagCreated\"\\s*:\\s*true"
+      ]
+    },
+    {
+      "id": "status-logging-removal-preview-input",
+      "type": "toolOperationSet",
+      "points": 4,
+      "critical": true,
+      "namePattern": "remove_hmi_logging_tags$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "expectedOperations": [
+        {"tagPath": "MixerAlarmBits", "dataLogName": "MixerProtectedLog"}
+      ],
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "logging-removal-preview-results",
+      "type": "tool",
+      "points": 6,
+      "critical": true,
+      "namePattern": "remove_hmi_logging_tags$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "minCount": 2,
+      "maxCount": 2,
+      "outputPatterns": [
+        "\"RequestedCount\"\\s*:\\s*1",
+        "\"PlannedCount\"\\s*:\\s*1",
+        "\"RequestedCount\"\\s*:\\s*2",
+        "\"PlannedCount\"\\s*:\\s*2",
+        "MixerAlarmBits",
+        "MixerProtectedLog",
+        "MixerSpeed",
+        "BatchNumber",
+        "MixerProcessLog"
+      ]
+    },
+    {
+      "id": "status-logging-removal-apply-input",
+      "type": "toolOperationSet",
+      "points": 4,
+      "critical": true,
+      "namePattern": "remove_hmi_logging_tags$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": false, "confirm": true},
+      "expectedOperations": [
+        {"tagPath": "MixerAlarmBits", "dataLogName": "MixerProtectedLog"}
+      ],
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "status-logging-removal-apply-result",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "remove_hmi_logging_tags$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"RequestedCount\"\\s*:\\s*1",
+        "\"AppliedCount\"\\s*:\\s*1",
+        "\"BlockedCount\"\\s*:\\s*0",
+        "\"NotFoundCount\"\\s*:\\s*0",
+        "\"FailedCount\"\\s*:\\s*0",
+        "MixerAlarmBits",
+        "MixerProtectedLog"
+      ]
+    },
+    {
+      "id": "retired-archive-preview-and-absence-inputs",
+      "type": "toolOperationSet",
+      "points": 4,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "expectedOperations": [
+        {"dataLogName": "MixerLegacyLog"},
+        {"dataLogName": "MixerBatchRetireLog"},
+        {"dataLogName": "MixerProtectedLog"}
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "retired-archive-preview-and-absence-results",
+      "type": "tool",
+      "points": 6,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "minCount": 4,
+      "maxCount": 4,
+      "outputPatterns": [
+        "\"RequestedCount\"\\s*:\\s*3",
+        "\"PlannedCount\"\\s*:\\s*3",
+        "\"NotFoundCount\"\\s*:\\s*3",
+        "MixerLegacyLog",
+        "MixerBatchRetireLog",
+        "MixerProtectedLog"
+      ]
+    },
+    {
+      "id": "retired-archive-apply-input",
+      "type": "toolOperationSet",
+      "points": 4,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": false, "confirm": true},
+      "expectedOperations": [
+        {"dataLogName": "MixerLegacyLog"},
+        {"dataLogName": "MixerBatchRetireLog"},
+        {"dataLogName": "MixerProtectedLog"}
+      ],
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "retired-archive-apply-result",
+      "type": "tool",
+      "points": 6,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"RequestedCount\"\\s*:\\s*3",
+        "\"AppliedCount\"\\s*:\\s*3",
+        "\"BlockedCount\"\\s*:\\s*0",
+        "\"NotFoundCount\"\\s*:\\s*0",
+        "\"FailedCount\"\\s*:\\s*0",
+        "MixerLegacyLog",
+        "MixerBatchRetireLog",
+        "MixerProtectedLog"
+      ]
+    },
+    {
+      "id": "final-process-associations-input",
+      "type": "toolOperationSet",
+      "points": 3,
+      "critical": true,
+      "namePattern": "remove_hmi_logging_tags$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "expectedOperations": [
+        {"tagPath": "MixerSpeed", "dataLogName": "MixerProcessLog"},
+        {"tagPath": "BatchNumber", "dataLogName": "MixerProcessLog"}
+      ],
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "active-process-log-guard-input",
+      "type": "toolOperationSet",
+      "points": 2,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "operationPath": "configs",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "expectedOperations": [
+        {"dataLogName": "MixerProcessLog"}
+      ],
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "active-process-log-guard-result",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "inputEquals": {"hmi-name": "HMI_RT_1", "dry-run": true},
+      "minCount": 4,
+      "maxCount": 4,
+      "outputPatterns": [
+        "(?is)(\"BlockedCount\"\\s*:\\s*1|1 blocked)",
+        "MixerProcessLog",
+        "MixerSpeed",
+        "BatchNumber"
+      ]
+    },
+    {
+      "id": "reconciliation-sequence",
+      "type": "traceRegex",
+      "points": 1,
+      "critical": true,
+      "pattern": "(?is)opentia_list-hmi-tags.*?opentia_delete-hmi-data-logs(?=(?:(?!opentia_create-hmi-trends).)*\"dry-run\"\\s*:\\s*true).*?opentia_create-hmi-trends(?=(?:(?!opentia_create-hmi-trends).)*\"dry-run\"\\s*:\\s*true).*?opentia_create-hmi-trends(?=(?:(?!opentia_remove-hmi-logging-tags).)*\"dry-run\"\\s*:\\s*false).*?opentia_remove-hmi-logging-tags(?=(?:(?!opentia_remove-hmi-logging-tags).)*\"dry-run\"\\s*:\\s*true).*?opentia_remove-hmi-logging-tags(?=(?:(?!opentia_delete-hmi-data-logs).)*\"dry-run\"\\s*:\\s*false).*?opentia_delete-hmi-data-logs(?=(?:(?!opentia_delete-hmi-data-logs).)*\"dry-run\"\\s*:\\s*true).*?opentia_delete-hmi-data-logs(?=(?:(?!opentia_list-hmi-tags).)*\"dry-run\"\\s*:\\s*false).*?opentia_list-hmi-tags.*?opentia_remove-hmi-logging-tags.*?opentia_delete-hmi-data-logs.*?opentia_delete-hmi-data-logs"
+    },
+    {
+      "id": "mixed-batch-never-applied",
+      "type": "forbiddenTool",
+      "points": 1,
+      "critical": true,
+      "namePattern": "delete_hmi_data_logs$",
+      "inputEquals": {
+        "hmi-name": "HMI_RT_1",
+        "configs": [
+          {"dataLogName": "MixerLegacyLog"},
+          {"dataLogName": "MixerBatchRetireLog"}
+        ],
+        "dry-run": false
+      }
+    },
+    {
+      "id": "no-out-of-domain-or-single-item-mutation",
+      "type": "forbiddenTool",
+      "points": 1,
+      "critical": true,
+      "namePattern": "(create_hmi_trend|remove_hmi_logging_tag|delete_hmi_data_log|save_project|apply_hmi_screen_json_patch|apply_hmi_screen_json_edit|apply_unified_discrete_alarms|delete_unified_discrete_alarm|apply_hardware_patch|modify_tags|compile_software)$"
+    }
+  ]
+}
