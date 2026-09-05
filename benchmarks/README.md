@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty-one cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm reconciliation and guarded retirement, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty-two cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -447,6 +447,28 @@ The three trials independently chose scoped, bounded-filtered, and exact-path
 tag discovery rather than converging on a fixture-specific recipe. See
 `reports/hmi-alarm-filter-skill-verification-20260905.md`.
 
+`ott-29` opens the Unified trend-logging domain on a dedicated fixture. It
+requires the agent to interpret a mixed blocked/planned deletion preview,
+reconcile two related tags into one shared archive, retire an association-bound
+logging tag, delete three archives only after their references are gone, and
+then prove both the new active references and retired-archive absence. The
+immutable fixture identity and independently executed gold path are in
+`reports/ott-29-gold-audit-20260905.md`.
+
+Its first three-trial campaign is frozen in
+`campaigns/hmi-trend-reconciliation-glm-5-3-flash-high-20260905.json` and uses
+subscription-backed `zai-coding-plan/glm-5.3-flash` with declared reasoning
+effort and OpenCode variant `high`. A GLM-5.3 High fallback is created and run
+only if Flash fails for model capability; evidence of a skill-contract problem
+stops the campaign before any skill edit.
+
+That initial cohort scored 100/100/100 under the original rubric, but every
+trace first made a filter-only `list-hmi-tags` call, hit the full-scan safety
+guard, and recovered. The corrected rubric re-adjudicates those traces at
+99/99/99 with a critical failure. After a generic skill clarification, the
+same Flash High configuration passed 3/3 at 100 with zero filter-only safety
+rejections. See `reports/hmi-trend-filter-skill-verification-20260905.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -642,6 +664,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-26` | Third-party GSDML provisioning | Provision an Endress+Hauser Promag 100, preserve generated modules, bind displaced result targets, assign IO, and guarded-write the vendor record |
 | `ott-27` | Held-out cross-vendor GSDML transfer | Provision an IFM AL1400, reject package distractors, preserve generated proxy IO, bind two displaced ports and five address objects, and guarded-write the port-options record |
 | `ott-28` | Unified discrete-alarm reconciliation | Hash-bind a partial update, compute a free ID and trigger bit, atomically create the new alarm, retire one exact unreferenced alarm, and preserve its near-name distractor |
+| `ott-29` | Unified trend-logging reconciliation | Interpret mixed reference safety, move and create two tag associations in one shared archive, retire one logging tag and three obsolete archives, and prove the final active and absent state |
 
 ## Adding a case
 

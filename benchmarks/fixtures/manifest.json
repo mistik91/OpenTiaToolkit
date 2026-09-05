@@ -148,6 +148,23 @@
         "Mixer_Trip_Legacy is the exact unreferenced retirement target; Mixer_Trip_Legacy_Display is a near-name preservation distractor.",
         "The read-only archive was independently restored, all tags and alarm hashes were verified, the gold update/create/delete path succeeded without saving, and a forced second-operation Siemens setter failure rolled back the first change."
       ]
+    },
+    {
+      "id": "tia-v21-unified-trends-9",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Trends_20260905.zap21",
+      "sha256": "7078FA79558948F375229C94AB69FF00D171646CAE874D51DA9B8453D35C82EB",
+      "sizeBytes": 5641130,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-unified-alarms-8 with a trend-logging reconciliation baseline on the same three internal HMI tags.",
+        "MixerSpeed has one cyclic T10s logging tag associated with MixerLegacyLog; MixerAlarmBits has one cyclic T1s logging tag associated with MixerProtectedLog; BatchNumber has no logging tag.",
+        "MixerBatchRetireLog exists without active logging-tag references and is the orphaned archive in the mixed safety preflight.",
+        "The read-only archive was independently restored; exact logging associations, the orphaned archive, the complete gold reconciliation, active-reference blocking, final absence checks, and close-without-save cleanup were verified."
+      ]
     }
   ]
 }
