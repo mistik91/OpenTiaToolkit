@@ -1,10 +1,10 @@
 # PASS — ott-29 Unified trend-logging gold audit
 
-Date: 2026-09-05  
-Branch: `codex/hmi-trend-logging-benchmark`  
-TIA Portal: V21 Update 2, visible instance PID 13856  
-Project: disposable `OTT_Benchmark` copies only  
-HMI: `HMI_RT_1`
+- Date: 2026-09-05
+- Branch: `codex/hmi-trend-logging-benchmark`
+- TIA Portal: V21 Update 2, visible instance PID 13856
+- Project: disposable `OTT_Benchmark` copies only
+- HMI: `HMI_RT_1`
 
 ## Immutable fixture
 
