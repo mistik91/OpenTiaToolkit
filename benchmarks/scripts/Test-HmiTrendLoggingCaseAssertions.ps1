@@ -114,7 +114,8 @@ function New-TrendEvents {
         [switch]$OmitProcessLogGuard,
         [switch]$OmitRetiredAbsence,
         [switch]$UseSingleItemCommand,
-        [switch]$SaveProject
+        [switch]$SaveProject,
+        [switch]$FilterOnlySafetyRejection
     )
 
     $cycle = if ($WrongCycle) { 'T10s' } else { 'T5s' }
@@ -147,6 +148,13 @@ function New-TrendEvents {
     $events.Add((New-ToolEvent -Tool 'opentia_open-unified-hmi' -InputObject @{
                 'hmi-name' = 'HMI_RT_1'
             } -Output '{"opened":true,"hmiName":"HMI_RT_1"}'))
+
+    if ($FilterOnlySafetyRejection) {
+        $events.Add((New-ToolEvent -Tool 'opentia_list-hmi-tags' -InputObject @{
+                    'hmi-name' = 'HMI_RT_1'; filter = 'Mixer'; 'include-details' = $true
+                    'include-logging-counts' = $true
+                } -Output 'Refusing to scan the complete Unified HMI tag tree without allow-full-scan=true. A filter narrows returned matches but does not scope tree traversal.' -ErrorOutput))
+    }
 
     if ($TargetedTagReads) {
         $events.Add((New-TagEvent -Path 'BatchNumber' -DataType 'DInt' -LoggingTagCount 0))
@@ -269,6 +277,8 @@ try {
         -ExpectedPassed $false -ExpectedFailedAssertion 'no-out-of-domain-or-single-item-mutation'
     Invoke-TrendAssertionTest -Label 'project-saved' -Events (New-TrendEvents -SaveProject) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'no-out-of-domain-or-single-item-mutation'
+    Invoke-TrendAssertionTest -Label 'filter-only-safety-rejection' -Events (New-TrendEvents -FilterOnlySafetyRejection) `
+        -ExpectedPassed $false -ExpectedFailedAssertion 'no-filter-only-safety-rejection'
 
     Write-Host 'Unified HMI trend-logging case assertion tests passed.'
 }

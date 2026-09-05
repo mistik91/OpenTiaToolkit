@@ -32,7 +32,7 @@
     {
       "id": "baseline-and-final-tag-evidence",
       "type": "tool",
-      "points": 10,
+      "points": 9,
       "critical": true,
       "namePattern": "list_hmi_tags$",
       "inputEquals": {"hmi-name": "HMI_RT_1", "include-logging-counts": true},
@@ -45,6 +45,13 @@
         "(?is)\"Path\"\\s*:\\s*\"BatchNumber\".*?\"LoggingTagCount\"\\s*:\\s*1",
         "(?is)\"Path\"\\s*:\\s*\"MixerAlarmBits\".*?\"LoggingTagCount\"\\s*:\\s*0"
       ]
+    },
+    {
+      "id": "no-filter-only-safety-rejection",
+      "type": "traceRegex",
+      "points": 1,
+      "critical": true,
+      "pattern": "(?is)^(?!.*Refusing to scan the complete Unified HMI tag tree without allow-full-scan=true).*$"
     },
     {
       "id": "mixed-retirement-safety-input",
