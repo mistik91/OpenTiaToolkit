@@ -129,6 +129,11 @@ $limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
     '        Difference : Real;',
     "        Difference : Real;`r`n        LowerLimit : Real;`r`n        UpperLimit : Real;"
 )
+
+$parenthesizedActiveSource = $representativeSource.Replace(
+    '#Active := #InternalState <> 0;',
+    '#Active := (#InternalState <> 0);'
+)
 $limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
     "            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);`r`n            IF #Difference > #EffectiveTolerance THEN",
     "            #LowerLimit := #Recipe.Target[#Index] - #EffectiveTolerance;`r`n            #UpperLimit := #Recipe.Target[#Index] + #EffectiveTolerance;`r`n            IF (#Actual[#Index] < #LowerLimit) OR (#Actual[#Index] > #UpperLimit) THEN"
@@ -326,6 +331,7 @@ try {
         -Source $equivalentSource
     Invoke-SclAssertionTest -Label 'direct-output-state' -Events (New-SclEvents) -Source $directOutputStateSource
     Invoke-SclAssertionTest -Label 'limit-temporaries-output-case' -Events (New-SclEvents) -Source $limitAndOutputCaseSource
+    Invoke-SclAssertionTest -Label 'parenthesized-active' -Events (New-SclEvents) -Source $parenthesizedActiveSource
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `
