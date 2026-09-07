@@ -10,6 +10,25 @@ $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("OpenTiaBenchmarkCommon
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 
 try {
+    $executableRoot = Join-Path $testRoot 'executables'
+    $debugRoot = Join-Path $executableRoot 'Debug\net48'
+    $releaseRoot = Join-Path $executableRoot 'Release\net48'
+    New-Item -ItemType Directory -Path $debugRoot -Force | Out-Null
+    New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
+    $debugExecutable = Join-Path $debugRoot 'Synthetic.CLI.exe'
+    $releaseExecutable = Join-Path $releaseRoot 'Synthetic.CLI.exe'
+    New-Item -ItemType File -Path $debugExecutable | Out-Null
+    New-Item -ItemType File -Path $releaseExecutable | Out-Null
+    (Get-Item -LiteralPath $debugExecutable).LastWriteTimeUtc = [DateTime]::UtcNow.AddDays(-10)
+    (Get-Item -LiteralPath $releaseExecutable).LastWriteTimeUtc = [DateTime]::UtcNow
+    $resolvedExecutable = Resolve-ExistingFile `
+        -SearchRoot $executableRoot `
+        -Filter 'Synthetic.CLI.exe' `
+        -Label 'synthetic CLI'
+    if ([string]$resolvedExecutable -cne [System.IO.Path]::GetFullPath($debugExecutable)) {
+        throw "Executable resolution did not prefer Debug over a newer Release build: $resolvedExecutable"
+    }
+
     $workspacePath = Join-Path $testRoot 'mcp-workspace'
     New-Item -ItemType Directory -Path $workspacePath | Out-Null
     $allowedRoots = @((Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspacePath) -split ';')
