@@ -146,7 +146,8 @@ function New-CapabilityEvent {
         [Parameter(Mandatory = $true)][ValidateSet('TYPE', 'FB')][string]$BlockType,
         [Parameter(Mandatory = $true)][string]$ObjectName,
         [Parameter(Mandatory = $true)][ValidateSet('Create', 'Modify')][string]$Operation,
-        [switch]$OmitBlockType
+        [switch]$OmitBlockType,
+        [switch]$OmitRequestedLanguage
     )
 
     $exists = if ($Operation -eq 'Modify') { 'true' } else { 'false' }
@@ -157,9 +158,9 @@ function New-CapabilityEvent {
             'object-kind' = $ObjectKind
             operation = $Operation
             'requested-format' = 'SCL'
-            'requested-language' = 'SCL'
         }
     if (-not $OmitBlockType) { $inputObject['block-type'] = $BlockType }
+    if (-not $OmitRequestedLanguage) { $inputObject['requested-language'] = 'SCL' }
     return New-ToolEvent -Tool 'opentia_discover-plc-code-capabilities' -InputObject $inputObject -Output ('{"Target":{"Exists":' + $exists + ',"ExactIdentityResolved":true,' +
         '"ObjectKind":"' + $ObjectKind + '","ObjectName":"' + $ObjectName + '",' +
         '"ObjectType":"' + $BlockType + '"},"ImportExport":{"SclSourceRouteObserved":' +
@@ -176,6 +177,7 @@ function New-SclEvents {
         [switch]$DiscardFailedDraft,
         [switch]$DiscardSuccessful,
         [switch]$OmitTypeBlockType,
+        [switch]$OmitTypeRequestedLanguage,
         [switch]$OmitWarningBudget
     )
 
@@ -193,7 +195,8 @@ function New-SclEvents {
         $events.Add((New-ToolEvent -Tool 'opentia_open-plc' -InputObject @{ 'plc-name' = 'PLC_Main' } -Output '{"opened":true}'))
     }
     if (-not $MissingTypeCapability) {
-        $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Create -OmitBlockType:$OmitTypeBlockType))
+        $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Create `
+                    -OmitBlockType:$OmitTypeBlockType -OmitRequestedLanguage:$OmitTypeRequestedLanguage))
     }
     $events.Add((New-CapabilityEvent -ObjectKind Block -BlockType FB -ObjectName 'OTT30_RecipeWindowMonitor' -Operation Create))
     $events.Add((New-ToolEvent -Tool 'opentia_validate-plc-code-artifact' -InputObject @{
@@ -236,7 +239,8 @@ function New-SclEvents {
     $events.Add((New-ToolEvent -Tool 'opentia_export-type' -InputObject @{
                 'plc-name' = 'PLC_Main'; 'type-name' = 'OTT30_RecipeWindow'; 'export-path' = 'artifacts/readback/OTT30_RecipeWindow.xml'
             } -Output '{"message":"Successfully exported type","exportPath":"artifacts/readback/OTT30_RecipeWindow.xml"}'))
-    $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Modify -OmitBlockType:$OmitTypeBlockType))
+    $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Modify `
+                -OmitBlockType:$OmitTypeBlockType -OmitRequestedLanguage:$OmitTypeRequestedLanguage))
     $events.Add((New-CapabilityEvent -ObjectKind Block -BlockType FB -ObjectName 'OTT30_RecipeWindowMonitor' -Operation Modify))
     $events.Add((New-ToolEvent -Tool 'opentia_compile-software' -InputObject @{ 'plc-name' = 'PLC_Main' } -Output '{"message":"Compilation successful: 0 errors, 0 warnings","errorCount":0,"warningCount":0}'))
     if ($SaveProject) {
@@ -304,7 +308,7 @@ function Invoke-SclAssertionTest {
 
 try {
     Invoke-SclAssertionTest -Label 'representative' -Events (New-SclEvents)
-    Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft -OmitTypeBlockType) `
+    Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft -OmitTypeBlockType -OmitTypeRequestedLanguage) `
         -Source $equivalentSource
     Invoke-SclAssertionTest -Label 'direct-output-state' -Events (New-SclEvents) -Source $directOutputStateSource
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
