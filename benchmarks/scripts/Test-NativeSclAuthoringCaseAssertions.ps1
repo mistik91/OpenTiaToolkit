@@ -109,6 +109,7 @@ $equivalentSource = $equivalentSource.Replace(
     "    #Active := #InternalState <> 0;`r`n    #Ready := #InternalState = 2;",
     "    #IsMonitoring := #InternalState = 1;`r`n    #IsReady := #InternalState = 2;`r`n    #Active := #IsMonitoring OR #IsReady;`r`n    #Ready := (#InternalState = 2);"
 )
+$equivalentSource = $equivalentSource.Replace('#ReadyTimer.TON(', '#ReadyTimer(')
 
 function New-ToolEvent {
     param(
