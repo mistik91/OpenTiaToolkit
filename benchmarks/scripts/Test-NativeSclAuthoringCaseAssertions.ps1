@@ -99,11 +99,15 @@ $equivalentSource = $equivalentSource.Replace(
 )
 $equivalentSource = $equivalentSource.Replace(
     '            IF #Difference > #EffectiveTolerance THEN',
-    '            IF #Actual[#Index] < #Recipe.Target[#Index] - #EffectiveTolerance OR #Actual[#Index] > #Recipe.Target[#Index] + #EffectiveTolerance THEN'
+    '            IF (#Actual[#Index] < (#Recipe.Target[#Index] - #EffectiveTolerance)) OR (#Actual[#Index] > (#Recipe.Target[#Index] + #EffectiveTolerance)) THEN'
+)
+$equivalentSource = $equivalentSource.Replace(
+    "                IF #FirstOutsideIndex = -1 THEN`r`n                    #FirstOutsideIndex := #Index;`r`n                END_IF;",
+    "                #FirstOutsideIndex := #Index;`r`n                EXIT;"
 )
 $equivalentSource = $equivalentSource.Replace(
     "    #Active := #InternalState <> 0;`r`n    #Ready := #InternalState = 2;",
-    "    #IsMonitoring := #InternalState = 1;`r`n    #IsReady := #InternalState = 2;`r`n    #Active := #IsMonitoring OR #IsReady;`r`n    #Ready := #IsReady;"
+    "    #IsMonitoring := #InternalState = 1;`r`n    #IsReady := #InternalState = 2;`r`n    #Active := #IsMonitoring OR #IsReady;`r`n    #Ready := (#InternalState = 2);"
 )
 
 function New-ToolEvent {
@@ -127,20 +131,22 @@ function New-CapabilityEvent {
         [Parameter(Mandatory = $true)][ValidateSet('Type', 'Block')][string]$ObjectKind,
         [Parameter(Mandatory = $true)][ValidateSet('TYPE', 'FB')][string]$BlockType,
         [Parameter(Mandatory = $true)][string]$ObjectName,
-        [Parameter(Mandatory = $true)][ValidateSet('Create', 'Modify')][string]$Operation
+        [Parameter(Mandatory = $true)][ValidateSet('Create', 'Modify')][string]$Operation,
+        [switch]$OmitBlockType
     )
 
     $exists = if ($Operation -eq 'Modify') { 'true' } else { 'false' }
     $sclObserved = if ($ObjectKind -eq 'Block' -and $Operation -eq 'Modify') { 'true' } else { 'false' }
-    return New-ToolEvent -Tool 'opentia_discover-plc-code-capabilities' -InputObject ([ordered]@{
+    $inputObject = [ordered]@{
             'plc-name' = 'PLC_Main'
             'object-name' = $ObjectName
             'object-kind' = $ObjectKind
-            'block-type' = $BlockType
             operation = $Operation
             'requested-format' = 'SCL'
             'requested-language' = 'SCL'
-        }) -Output ('{"Target":{"Exists":' + $exists + ',"ExactIdentityResolved":true,' +
+        }
+    if (-not $OmitBlockType) { $inputObject['block-type'] = $BlockType }
+    return New-ToolEvent -Tool 'opentia_discover-plc-code-capabilities' -InputObject $inputObject -Output ('{"Target":{"Exists":' + $exists + ',"ExactIdentityResolved":true,' +
         '"ObjectKind":"' + $ObjectKind + '","ObjectName":"' + $ObjectName + '",' +
         '"ObjectType":"' + $BlockType + '"},"ImportExport":{"SclSourceRouteObserved":' +
         $sclObserved + '},"SelectedRoute":"DirectScl"}')
@@ -154,7 +160,8 @@ function New-SclEvents {
         [switch]$SaveProject,
         [switch]$AlternativeContext,
         [switch]$DiscardFailedDraft,
-        [switch]$DiscardSuccessful
+        [switch]$DiscardSuccessful,
+        [switch]$OmitTypeBlockType
     )
 
     $events = [System.Collections.Generic.List[object]]::new()
@@ -171,7 +178,7 @@ function New-SclEvents {
         $events.Add((New-ToolEvent -Tool 'opentia_open-plc' -InputObject @{ 'plc-name' = 'PLC_Main' } -Output '{"opened":true}'))
     }
     if (-not $MissingTypeCapability) {
-        $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Create))
+        $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Create -OmitBlockType:$OmitTypeBlockType))
     }
     $events.Add((New-CapabilityEvent -ObjectKind Block -BlockType FB -ObjectName 'OTT30_RecipeWindowMonitor' -Operation Create))
     $events.Add((New-ToolEvent -Tool 'opentia_validate-plc-code-artifact' -InputObject @{
@@ -208,7 +215,7 @@ function New-SclEvents {
     $events.Add((New-ToolEvent -Tool 'opentia_export-type' -InputObject @{
                 'plc-name' = 'PLC_Main'; 'type-name' = 'OTT30_RecipeWindow'; 'export-path' = 'artifacts/readback/OTT30_RecipeWindow.xml'
             } -Output '{"message":"Successfully exported type","exportPath":"artifacts/readback/OTT30_RecipeWindow.xml"}'))
-    $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Modify))
+    $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Modify -OmitBlockType:$OmitTypeBlockType))
     $events.Add((New-CapabilityEvent -ObjectKind Block -BlockType FB -ObjectName 'OTT30_RecipeWindowMonitor' -Operation Modify))
     $events.Add((New-ToolEvent -Tool 'opentia_compile-software' -InputObject @{ 'plc-name' = 'PLC_Main' } -Output '{"message":"Compilation successful: 0 errors, 0 warnings","errorCount":0,"warningCount":0}'))
     if ($SaveProject) {
@@ -276,7 +283,7 @@ function Invoke-SclAssertionTest {
 
 try {
     Invoke-SclAssertionTest -Label 'representative' -Events (New-SclEvents)
-    Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft) `
+    Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft -OmitTypeBlockType) `
         -Source $equivalentSource
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'

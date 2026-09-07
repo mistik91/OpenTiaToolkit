@@ -66,8 +66,8 @@
         "(?is)(?m)^\\s*VAR\\s*$.*?\\bTON_TIME\\b.*?^\\s*END_VAR\\s*$",
         "(?is)FOR\\s+#?[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*0\\s+TO\\s+3\\s+DO.*?END_FOR",
         "(?is)(?:ABS\\s*\\(\\s*#Recipe\\.Tolerance\\s*\\[|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Recipe\\.Tolerance\\s*\\[.*?IF\\s+#[A-Za-z_][A-Za-z0-9_]*\\s*<\\s*0(?:\\.0)?\\s+THEN.*?#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*-\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;)",
-        "(?is)(?:ABS\\s*\\(\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[|#Actual\\s*\\[.*?<\\s*#Recipe\\.Target\\s*\\[.*?-\\s*#[A-Za-z_][A-Za-z0-9_]*.*?\\bOR\\b.*?#Actual\\s*\\[.*?>\\s*#Recipe\\.Target\\s*\\[.*?\\+\\s*#[A-Za-z_][A-Za-z0-9_]*)",
-        "(?is)IF\\s+#FirstOutsideIndex\\s*=\\s*-1\\s+THEN.*?#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;",
+        "(?is)(?:ABS\\s*\\(\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[|#Actual\\s*\\[.*?<\\s*\\(*\\s*#Recipe\\.Target\\s*\\[.*?-\\s*#[A-Za-z_][A-Za-z0-9_]*.*?\\bOR\\b.*?#Actual\\s*\\[.*?>\\s*\\(*\\s*#Recipe\\.Target\\s*\\[.*?\\+\\s*#[A-Za-z_][A-Za-z0-9_]*)",
+        "(?is)(?:IF\\s+#FirstOutsideIndex\\s*=\\s*-1\\s+THEN.*?#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;|#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;\\s*EXIT\\s*;)",
         "(?i)#FirstOutsideIndex\\s*:=\\s*-1\\s*;",
         "(?is)#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;",
         "(?is)#[A-Za-z_][A-Za-z0-9_]*\\s*\\(\\s*CLK\\s*:=\\s*#Start\\s*\\)",
@@ -76,7 +76,7 @@
         "(?is)IF\\s+#Reset\\s+THEN.*?:=\\s*0\\s*;",
         "(?i)#State\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;",
         "(?is)#Active\\s*:=\\s*(?:#[A-Za-z_][A-Za-z0-9_]*\\s*<>\\s*0|\\(?\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*1.*?#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*\\)?|#[A-Za-z_][A-Za-z0-9_]*\\s+OR\\s+#[A-Za-z_][A-Za-z0-9_]*)\\s*;",
-        "(?is)(?:#Ready\\s*:=.*?=\\s*2\\s*;|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*;.*?#Ready\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;)"
+        "(?is)(?:#Ready\\s*:=.*?=\\s*2\\s*\\)*\\s*;|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*;.*?#Ready\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;)"
       ],
       "forbiddenContentPatterns": [
         "(?is)\\bVAR_TEMP\\b.*?\\b(?:R_TRIG|TON(?:_TIME)?)\\b.*?\\bEND_VAR\\b",
@@ -108,7 +108,7 @@
       "points": 5,
       "critical": true,
       "namePattern": "discover_plc_code_capabilities$",
-      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindow", "object-kind": "Type", "block-type": "TYPE", "operation": "Create", "requested-format": "SCL", "requested-language": "SCL"},
+      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindow", "object-kind": "Type", "operation": "Create", "requested-format": "SCL", "requested-language": "SCL"},
       "minCount": 1,
       "maxCount": 1,
       "outputPatterns": ["\"Exists\"\\s*:\\s*false", "\"ExactIdentityResolved\"\\s*:\\s*true", "\"SelectedRoute\"\\s*:\\s*\"DirectScl\""]
@@ -190,7 +190,7 @@
       "points": 4,
       "critical": true,
       "namePattern": "discover_plc_code_capabilities$",
-      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindow", "object-kind": "Type", "block-type": "TYPE", "operation": "Modify", "requested-format": "SCL", "requested-language": "SCL"},
+      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindow", "object-kind": "Type", "operation": "Modify", "requested-format": "SCL", "requested-language": "SCL"},
       "minCount": 1,
       "maxCount": 1,
       "outputPatterns": ["\"Exists\"\\s*:\\s*true", "\"ExactIdentityResolved\"\\s*:\\s*true", "\"SelectedRoute\"\\s*:\\s*\"DirectScl\""]
