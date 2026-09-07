@@ -67,7 +67,7 @@
         "(?is)FOR\\s+#?[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*0\\s+TO\\s+3\\s+DO.*?END_FOR",
         "(?is)(?:ABS\\s*\\(\\s*#Recipe\\.Tolerance\\s*\\[|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Recipe\\.Tolerance\\s*\\[.*?IF\\s+#[A-Za-z_][A-Za-z0-9_]*\\s*<\\s*0(?:\\.0)?\\s+THEN.*?#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*-\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;)",
         "(?is)(?:ABS\\s*\\(\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[|#Actual\\s*\\[.*?<\\s*\\(*\\s*#Recipe\\.Target\\s*\\[.*?-\\s*#[A-Za-z_][A-Za-z0-9_]*.*?\\bOR\\b.*?#Actual\\s*\\[.*?>\\s*\\(*\\s*#Recipe\\.Target\\s*\\[.*?\\+\\s*#[A-Za-z_][A-Za-z0-9_]*|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[.*?ABS\\s*\\(\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*\\)\\s*>\\s*#[A-Za-z_][A-Za-z0-9_]*|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Recipe\\.Target\\s*\\[.*?-\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;.*?#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Recipe\\.Target\\s*\\[.*?\\+\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;.*?#Actual\\s*\\[.*?<\\s*#[A-Za-z_][A-Za-z0-9_]*.*?\\bOR\\b.*?#Actual\\s*\\[.*?>\\s*#[A-Za-z_][A-Za-z0-9_]*)",
-        "(?is)(?:IF\\s+#FirstOutsideIndex\\s*=\\s*-1\\s+THEN.*?#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;|#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;\\s*EXIT\\s*;)",
+        "(?is)(?:IF\\s+(?=(?:(?!\\bTHEN\\b).)*#FirstOutsideIndex\\s*=\\s*-1)(?:(?!\\bTHEN\\b).)*\\bTHEN\\b.*?#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;|#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;\\s*EXIT\\s*;)",
         "(?i)#FirstOutsideIndex\\s*:=\\s*-1\\s*;",
         "(?is)#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;",
         "(?is)#[A-Za-z_][A-Za-z0-9_]*\\s*\\(\\s*CLK\\s*:=\\s*#Start\\s*\\)",

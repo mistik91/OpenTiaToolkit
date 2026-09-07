@@ -134,6 +134,10 @@ $parenthesizedActiveSource = $representativeSource.Replace(
     '#Active := #InternalState <> 0;',
     '#Active := (#InternalState <> 0);'
 )
+$conjunctiveFirstOutsideSource = $representativeSource.Replace(
+    "            IF #Difference > #EffectiveTolerance THEN`r`n                #AllInTolerance := FALSE;`r`n                IF #FirstOutsideIndex = -1 THEN`r`n                    #FirstOutsideIndex := #Index;`r`n                END_IF;`r`n            END_IF;",
+    "            IF (#Difference > #EffectiveTolerance) AND (#FirstOutsideIndex = -1) THEN`r`n                #AllInTolerance := FALSE;`r`n                #FirstOutsideIndex := #Index;`r`n            END_IF;"
+)
 $limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
     "            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);`r`n            IF #Difference > #EffectiveTolerance THEN",
     "            #LowerLimit := #Recipe.Target[#Index] - #EffectiveTolerance;`r`n            #UpperLimit := #Recipe.Target[#Index] + #EffectiveTolerance;`r`n            IF (#Actual[#Index] < #LowerLimit) OR (#Actual[#Index] > #UpperLimit) THEN"
@@ -332,6 +336,7 @@ try {
     Invoke-SclAssertionTest -Label 'direct-output-state' -Events (New-SclEvents) -Source $directOutputStateSource
     Invoke-SclAssertionTest -Label 'limit-temporaries-output-case' -Events (New-SclEvents) -Source $limitAndOutputCaseSource
     Invoke-SclAssertionTest -Label 'parenthesized-active' -Events (New-SclEvents) -Source $parenthesizedActiveSource
+    Invoke-SclAssertionTest -Label 'conjunctive-first-outside-guard' -Events (New-SclEvents) -Source $conjunctiveFirstOutsideSource
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `
