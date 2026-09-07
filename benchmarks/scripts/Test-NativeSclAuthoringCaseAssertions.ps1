@@ -111,6 +111,19 @@ $equivalentSource = $equivalentSource.Replace(
 )
 $equivalentSource = $equivalentSource.Replace('#ReadyTimer.TON(', '#ReadyTimer(')
 
+$directOutputStateSource = $representativeSource
+$directOutputStateSource = $directOutputStateSource.Replace('        InternalState : USInt;', '')
+$directOutputStateSource = $directOutputStateSource.Replace(
+    '            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);',
+    '            #Difference := #Actual[#Index] - #Recipe.Target[#Index];'
+)
+$directOutputStateSource = $directOutputStateSource.Replace(
+    '            IF #Difference > #EffectiveTolerance THEN',
+    '            IF ABS(#Difference) > #EffectiveTolerance THEN'
+)
+$directOutputStateSource = $directOutputStateSource.Replace('#InternalState', '#State')
+$directOutputStateSource = $directOutputStateSource.Replace('    #State := #State;', '')
+
 function New-ToolEvent {
     param(
         [Parameter(Mandatory = $true)][string]$Tool,
@@ -162,7 +175,8 @@ function New-SclEvents {
         [switch]$AlternativeContext,
         [switch]$DiscardFailedDraft,
         [switch]$DiscardSuccessful,
-        [switch]$OmitTypeBlockType
+        [switch]$OmitTypeBlockType,
+        [switch]$OmitWarningBudget
     )
 
     $events = [System.Collections.Generic.List[object]]::new()
@@ -189,9 +203,15 @@ function New-SclEvents {
     if ($DiscardFailedDraft) {
         $events.Add((New-ToolEvent -Tool 'opentia_discard-plc-code-transaction' -InputObject @{ 'transaction-id' = 'failed-draft'; confirm = $true } -Output '{"Discarded":true,"PreviousState":"Draft"}'))
     }
-    $events.Add((New-ToolEvent -Tool 'opentia_begin-plc-code-transaction' -InputObject @{
-                'plc-name' = 'PLC_Main'; 'capability-ids' = 'type-id,fb-id'; 'compile-policy' = 'CleanCompile'
-            } -Output '{"State":"Draft","CapabilityRoute":"DirectScl","CapabilityBindings":[{"ObjectName":"OTT30_RecipeWindow"},{"ObjectName":"OTT30_RecipeWindowMonitor"}],"CompilePolicy":"CleanCompile"}'))
+    $beginInput = [ordered]@{
+        'plc-name' = 'PLC_Main'
+        'capability-ids' = 'type-id,fb-id'
+        'compile-policy' = 'CleanCompile'
+    }
+    if (-not $OmitWarningBudget) { $beginInput['maximum-new-warnings'] = 0 }
+    $maximumNewWarnings = if ($OmitWarningBudget) { 'null' } else { '0' }
+    $events.Add((New-ToolEvent -Tool 'opentia_begin-plc-code-transaction' -InputObject $beginInput `
+            -Output ('{"State":"Draft","CapabilityRoute":"DirectScl","CapabilityBindings":[{"ObjectName":"OTT30_RecipeWindow"},{"ObjectName":"OTT30_RecipeWindowMonitor"}],"CompilePolicy":"CleanCompile","MaximumNewWarnings":' + $maximumNewWarnings + '}')))
     $events.Add((New-ToolEvent -Tool 'opentia_add-scl-source-transaction-operation' -InputObject @{
                 'transaction-id' = 'tx'; 'source-path' = 'C:\OTT\Bench\synthetic\workspace\artifacts\OTT30_RecipeWindowMonitor.scl'; confirm = $true
             } -Output '{"Kind":"GenerateSclSource","SourceName":"OTT30_RecipeWindowMonitor","Message":"Added guarded SCL source generation for 2 declared object(s)."}'))
@@ -286,6 +306,7 @@ try {
     Invoke-SclAssertionTest -Label 'representative' -Events (New-SclEvents)
     Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft -OmitTypeBlockType) `
         -Source $equivalentSource
+    Invoke-SclAssertionTest -Label 'direct-output-state' -Events (New-SclEvents) -Source $directOutputStateSource
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `
@@ -293,6 +314,8 @@ try {
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-type-capability' -Events (New-SclEvents -MissingTypeCapability) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'type-create-capability'
+    Invoke-SclAssertionTest -Label 'missing-warning-budget' -Events (New-SclEvents -OmitWarningBudget) `
+        -ExpectedPassed $false -ExpectedFailedAssertion 'two-target-clean-transaction'
     Invoke-SclAssertionTest -Label 'duplicate-apply' -Events (New-SclEvents -DuplicateApply) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'single-verified-apply'
     Invoke-SclAssertionTest -Label 'lower-level-import' -Events (New-SclEvents -LowLevelImport) `

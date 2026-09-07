@@ -77,8 +77,8 @@ public sealed class QueryPlcBehaviorEvidenceCommand : ICommand
         };
         if (includeExecution)
         {
-            parameters.Add(new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile", false, "NoNewErrors"));
-            parameters.Add(new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase", false));
+            parameters.Add(new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile; CleanCompile requires zero errors but does not limit warnings", false, "NoNewErrors"));
+            parameters.Add(new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase; use 0 to reject any new warnings", false));
             parameters.Add(new CommandParameter("accept-unknown-impact", CommandParameterType.Boolean, "Accept a reviewed Unknown impact fingerprint", false, false));
             parameters.Add(new CommandParameter("only-changes", CommandParameterType.Boolean, "Use software-changes downloads for probe and cleanup", false, true));
             parameters.Add(new CommandParameter("force", CommandParameterType.Boolean, "Run despite exact existing behavioral evidence", false, false));

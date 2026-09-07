@@ -16,8 +16,8 @@ public sealed class BeginPlcCodeTransactionCommand : ICommand
     {
         new CommandParameter("plc-name", CommandParameterType.String, "Exact PLC device name", true),
         new CommandParameter("description", CommandParameterType.String, "Human-readable engineering intent", false),
-        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile", false, "NoNewErrors"),
-        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile", false),
+        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile; CleanCompile requires zero errors but does not limit warnings", false, "NoNewErrors"),
+        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile; use 0 to reject any new warnings", false),
         new CommandParameter("capability-id", CommandParameterType.String, "One live capability discovery id to bind and revalidate at plan/apply", false),
         new CommandParameter("capability-ids", CommandParameterType.String, "Comma-separated capability ids for an atomic multi-target transaction", false)
     });
