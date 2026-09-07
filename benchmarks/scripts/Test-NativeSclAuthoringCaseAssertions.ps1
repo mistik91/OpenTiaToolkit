@@ -124,6 +124,20 @@ $directOutputStateSource = $directOutputStateSource.Replace(
 $directOutputStateSource = $directOutputStateSource.Replace('#InternalState', '#State')
 $directOutputStateSource = $directOutputStateSource.Replace('    #State := #State;', '')
 
+$limitAndOutputCaseSource = $representativeSource
+$limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
+    '        Difference : Real;',
+    "        Difference : Real;`r`n        LowerLimit : Real;`r`n        UpperLimit : Real;"
+)
+$limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
+    "            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);`r`n            IF #Difference > #EffectiveTolerance THEN",
+    "            #LowerLimit := #Recipe.Target[#Index] - #EffectiveTolerance;`r`n            #UpperLimit := #Recipe.Target[#Index] + #EffectiveTolerance;`r`n            IF (#Actual[#Index] < #LowerLimit) OR (#Actual[#Index] > #UpperLimit) THEN"
+)
+$limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
+    "    #State := #InternalState;`r`n    #Active := #InternalState <> 0;`r`n    #Ready := #InternalState = 2;",
+    "    CASE #InternalState OF`r`n        2:`r`n            #Active := TRUE;`r`n            #Ready := TRUE;`r`n        1:`r`n            #Active := TRUE;`r`n            #Ready := FALSE;`r`n        ELSE`r`n            #Active := FALSE;`r`n            #Ready := FALSE;`r`n    END_CASE;`r`n    #State := #InternalState;"
+)
+
 function New-ToolEvent {
     param(
         [Parameter(Mandatory = $true)][string]$Tool,
@@ -311,6 +325,7 @@ try {
     Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft -OmitTypeBlockType -OmitTypeRequestedLanguage) `
         -Source $equivalentSource
     Invoke-SclAssertionTest -Label 'direct-output-state' -Events (New-SclEvents) -Source $directOutputStateSource
+    Invoke-SclAssertionTest -Label 'limit-temporaries-output-case' -Events (New-SclEvents) -Source $limitAndOutputCaseSource
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `
