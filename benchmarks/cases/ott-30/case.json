@@ -42,7 +42,7 @@
       "type": "traceRegex",
       "points": 3,
       "critical": true,
-      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?opentia_list-projects.*?opentia_open-plc"
+      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?(?:opentia_list-projects|opentia_get-project-info).*?(?:opentia_open-plc|opentia_list-plcs|opentia_get-software-tree)"
     },
     {
       "id": "native-scl-artifact",
@@ -65,9 +65,9 @@
         "(?is)(?m)^\\s*VAR\\s*$.*?\\bR_TRIG\\b.*?^\\s*END_VAR\\s*$",
         "(?is)(?m)^\\s*VAR\\s*$.*?\\bTON_TIME\\b.*?^\\s*END_VAR\\s*$",
         "(?is)FOR\\s+#?[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*0\\s+TO\\s+3\\s+DO.*?END_FOR",
-        "(?i)ABS\\s*\\(\\s*#Recipe\\.Tolerance\\s*\\[",
-        "(?is)ABS\\s*\\(\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[",
-        "(?is)ABS\\s*\\(\\s*#Actual\\s*\\[.*?IF\\s+#[A-Za-z_][A-Za-z0-9_]*\\s*>\\s*#[A-Za-z_][A-Za-z0-9_]*\\s+THEN.*?#FirstOutsideIndex",
+        "(?is)(?:ABS\\s*\\(\\s*#Recipe\\.Tolerance\\s*\\[|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Recipe\\.Tolerance\\s*\\[.*?IF\\s+#[A-Za-z_][A-Za-z0-9_]*\\s*<\\s*0(?:\\.0)?\\s+THEN.*?#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*-\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;)",
+        "(?is)(?:ABS\\s*\\(\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[|#Actual\\s*\\[.*?<\\s*#Recipe\\.Target\\s*\\[.*?-\\s*#[A-Za-z_][A-Za-z0-9_]*.*?\\bOR\\b.*?#Actual\\s*\\[.*?>\\s*#Recipe\\.Target\\s*\\[.*?\\+\\s*#[A-Za-z_][A-Za-z0-9_]*)",
+        "(?is)IF\\s+#FirstOutsideIndex\\s*=\\s*-1\\s+THEN.*?#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;",
         "(?i)#FirstOutsideIndex\\s*:=\\s*-1\\s*;",
         "(?is)#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;",
         "(?is)#[A-Za-z_][A-Za-z0-9_]*\\s*\\(\\s*CLK\\s*:=\\s*#Start\\s*\\)",
@@ -75,8 +75,8 @@
         "(?is)CASE\\s+#[A-Za-z_][A-Za-z0-9_]*\\s+OF.*?0\\s*:.*?1\\s*:.*?2\\s*:.*?ELSE.*?END_CASE",
         "(?is)IF\\s+#Reset\\s+THEN.*?:=\\s*0\\s*;",
         "(?i)#State\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;",
-        "(?is)#Active\\s*:=\\s*(?:#[A-Za-z_][A-Za-z0-9_]*\\s*<>\\s*0|\\(?\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*1.*?#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*\\)?)\\s*;",
-        "(?i)#Ready\\s*:=.*?=\\s*2\\s*;"
+        "(?is)#Active\\s*:=\\s*(?:#[A-Za-z_][A-Za-z0-9_]*\\s*<>\\s*0|\\(?\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*1.*?#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*\\)?|#[A-Za-z_][A-Za-z0-9_]*\\s+OR\\s+#[A-Za-z_][A-Za-z0-9_]*)\\s*;",
+        "(?is)(?:#Ready\\s*:=.*?=\\s*2\\s*;|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*;.*?#Ready\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;)"
       ],
       "forbiddenContentPatterns": [
         "(?is)\\bVAR_TEMP\\b.*?\\b(?:R_TRIG|TON(?:_TIME)?)\\b.*?\\bEND_VAR\\b",
@@ -265,10 +265,10 @@
     },
     {
       "id": "no-bypass-probe-save-or-destructive-cleanup",
-      "type": "forbiddenTool",
+      "type": "traceRegex",
       "points": 2,
       "critical": true,
-      "namePattern": "(import_source|generate_blocks_from_source|run_plc_code_probe|begin_promoted_plc_code_transaction|add_simaticml_transaction_operation|add_plc_code_transaction_operation|plan_block_document_import|apply_block_document_import|save_project|save_as_project|delete_block|delete_plc_type|discard_plc_code_transaction)$"
+      "pattern": "(?is)^(?!.*opentia_(?:import-source|generate-blocks-from-source|run-plc-code-probe|begin-promoted-plc-code-transaction|add-simaticml-transaction-operation|add-plc-code-transaction-operation|plan-block-document-import|apply-block-document-import|save-project|save-as-project|delete-block|delete-plc-type))(?!.*opentia_apply-plc-code-transaction.*?\\\"State\\\"\\s*:\\s*\\\"Succeeded\\\".*?opentia_discard-plc-code-transaction).*$"
     },
     {
       "id": "final-summary",

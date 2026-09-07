@@ -108,6 +108,18 @@ public sealed class PlcCodeFormatServiceTests
     }
 
     [TestMethod]
+    public void ValidateScl_ParenthesizedBooleanExpressions_AreNotProjectDependencies()
+    {
+        string path = Write("BooleanExpressions.scl", "FUNCTION \"BooleanExpressions\" : Bool\r\nVAR_INPUT A : Real; B : Real; C : Bool; END_VAR\r\nBEGIN\r\nIF (#A < #B) OR (#A > 10.0) THEN\r\n  #BooleanExpressions := (#C AND (#A > 0.0));\r\nELSE\r\n  #BooleanExpressions := NOT (#C);\r\nEND_IF;\r\nEND_FUNCTION\r\n");
+
+        var result = _service.ValidateScl(path);
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("verified", result.Classification, string.Join("; ", result.Warnings));
+        Assert.AreEqual(0, result.Dependencies.Count);
+    }
+
+    [TestMethod]
     public void ValidateScl_TimerStorageAliasInTemp_IsRejected()
     {
         string path = Write("BadTimer.scl", "FUNCTION_BLOCK \"BadTimer\"\r\nVAR_TEMP DelayTimer : TON_TIME; END_VAR\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\n");

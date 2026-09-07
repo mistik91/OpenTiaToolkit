@@ -226,14 +226,14 @@
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Exact target block group for every declared block"
+          "description": "Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted)"
         },
         {
           "name": "type-group-path",
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Exact target PLC type group for every declared TYPE"
+          "description": "Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)"
         },
         {
           "name": "depends-on",
@@ -2266,7 +2266,7 @@
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Exact PLC block or type group"
+          "description": "Target subgroup relative to Program blocks or PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)"
         },
         {
           "name": "operation",
@@ -6256,14 +6256,14 @@
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Exact target block group"
+          "description": "Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted)"
         },
         {
           "name": "type-group-path",
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Exact target PLC type group for SCL TYPE declarations"
+          "description": "Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)"
         },
         {
           "name": "compile-policy",

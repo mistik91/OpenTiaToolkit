@@ -105,7 +105,7 @@ internal sealed class PlcCodeTransactionAuthoringService
         }
         else if (!string.IsNullOrWhiteSpace(baselineDirectory) || !string.IsNullOrWhiteSpace(allowedChanges))
             throw new InvalidOperationException("baseline-directory and allowed-changes are valid only for target-mode=baseline-bound.");
-        string group = PlcWorkflowPrimitives.NormalizeGroupPath(groupPath);
+        string group = PlcWorkflowPrimitives.NormalizeGroupPath(groupPath, transaction.PlcName);
         _capabilityGate.RequireOperation(transaction, "UpsertBlockDocuments", "Block", validation.BlockName, validation.BlockType, group);
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
@@ -136,7 +136,7 @@ internal sealed class PlcCodeTransactionAuthoringService
         foreach (PlcCodeDeclaredObject declared in validation.DeclaredObjects)
         {
             bool isType = declared.ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase);
-            _capabilityGate.RequireOperation(transaction, "GenerateSclSource", isType ? "Type" : "Block", declared.Name, declared.ObjectType, isType ? PlcWorkflowPrimitives.NormalizeTypeGroupPath(typeGroupPath) : PlcWorkflowPrimitives.NormalizeGroupPath(groupPath));
+            _capabilityGate.RequireOperation(transaction, "GenerateSclSource", isType ? "Type" : "Block", declared.Name, declared.ObjectType, isType ? PlcWorkflowPrimitives.NormalizeTypeGroupPath(typeGroupPath, transaction.PlcName) : PlcWorkflowPrimitives.NormalizeGroupPath(groupPath, transaction.PlcName));
         }
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
@@ -145,8 +145,8 @@ internal sealed class PlcCodeTransactionAuthoringService
             Kind = "GenerateSclSource",
             SourcePath = path,
             SourceName = Path.GetFileNameWithoutExtension(path),
-            GroupPath = PlcWorkflowPrimitives.NormalizeGroupPath(groupPath),
-            TypeGroupPath = PlcWorkflowPrimitives.NormalizeTypeGroupPath(typeGroupPath),
+            GroupPath = PlcWorkflowPrimitives.NormalizeGroupPath(groupPath, transaction.PlcName),
+            TypeGroupPath = PlcWorkflowPrimitives.NormalizeTypeGroupPath(typeGroupPath, transaction.PlcName),
             InputHash = validation.InputHash,
             Dependencies = validation.Dependencies,
             ExplicitDependsOn = PlcCodeTransactionIntegrity.ParseDependencySequences(dependsOn),
@@ -168,7 +168,7 @@ internal sealed class PlcCodeTransactionAuthoringService
             throw new InvalidDataException("SimaticML transactions require exactly one supported PLC block or PLC type identity.");
         bool isType = validation.DeclaredObjects[0].ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase);
         PlcCodeChangeContract changeContract = _formats.AnalyzeSimaticMlChange(candidate, baseline, allowTopologyChange, allowedChangePaths!);
-        string group = isType ? PlcWorkflowPrimitives.NormalizeTypeGroupPath(groupPath) : PlcWorkflowPrimitives.NormalizeGroupPath(groupPath);
+        string group = isType ? PlcWorkflowPrimitives.NormalizeTypeGroupPath(groupPath, transaction.PlcName) : PlcWorkflowPrimitives.NormalizeGroupPath(groupPath, transaction.PlcName);
         _capabilityGate.RequireOperation(transaction, isType ? "PatchSimaticMlType" : "PatchSimaticMlBlock", isType ? "Type" : "Block", validation.DeclaredObjects[0].Name, validation.DeclaredObjects[0].ObjectType, group);
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation
@@ -193,7 +193,7 @@ internal sealed class PlcCodeTransactionAuthoringService
     {
         PlcCodeTransaction transaction = LoadDraft(transactionId);
         if (string.IsNullOrWhiteSpace(typeName)) throw new InvalidOperationException("type-name is required.");
-        string group = PlcWorkflowPrimitives.NormalizeTypeGroupPath(groupPath);
+        string group = PlcWorkflowPrimitives.NormalizeTypeGroupPath(groupPath, transaction.PlcName);
         _capabilityGate.RequireOperation(transaction, "DeletePlcType", "Type", typeName.Trim(), "TYPE", group);
         var operations = transaction.Operations.ToList();
         operations.Add(new PlcCodeTransactionOperation

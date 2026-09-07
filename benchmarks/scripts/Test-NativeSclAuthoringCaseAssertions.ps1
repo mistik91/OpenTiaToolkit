@@ -84,6 +84,28 @@ BEGIN
 END_FUNCTION_BLOCK
 '@
 
+$equivalentSource = $representativeSource
+$equivalentSource = $equivalentSource.Replace(
+    '        EffectiveTolerance : Real;',
+    "        EffectiveTolerance : Real;`r`n        IsMonitoring : Bool;`r`n        IsReady : Bool;"
+)
+$equivalentSource = $equivalentSource.Replace(
+    '            #EffectiveTolerance := ABS(#Recipe.Tolerance[#Index]);',
+    "            #EffectiveTolerance := #Recipe.Tolerance[#Index];`r`n            IF #EffectiveTolerance < 0.0 THEN`r`n                #EffectiveTolerance := -#EffectiveTolerance;`r`n            END_IF;"
+)
+$equivalentSource = $equivalentSource.Replace(
+    '            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);',
+    ''
+)
+$equivalentSource = $equivalentSource.Replace(
+    '            IF #Difference > #EffectiveTolerance THEN',
+    '            IF #Actual[#Index] < #Recipe.Target[#Index] - #EffectiveTolerance OR #Actual[#Index] > #Recipe.Target[#Index] + #EffectiveTolerance THEN'
+)
+$equivalentSource = $equivalentSource.Replace(
+    "    #Active := #InternalState <> 0;`r`n    #Ready := #InternalState = 2;",
+    "    #IsMonitoring := #InternalState = 1;`r`n    #IsReady := #InternalState = 2;`r`n    #Active := #IsMonitoring OR #IsReady;`r`n    #Ready := #IsReady;"
+)
+
 function New-ToolEvent {
     param(
         [Parameter(Mandatory = $true)][string]$Tool,
@@ -129,7 +151,10 @@ function New-SclEvents {
         [switch]$MissingTypeCapability,
         [switch]$DuplicateApply,
         [switch]$LowLevelImport,
-        [switch]$SaveProject
+        [switch]$SaveProject,
+        [switch]$AlternativeContext,
+        [switch]$DiscardFailedDraft,
+        [switch]$DiscardSuccessful
     )
 
     $events = [System.Collections.Generic.List[object]]::new()
@@ -137,8 +162,14 @@ function New-SclEvents {
     $events.Add((New-ToolEvent -Tool 'skill' -InputObject @{ name = 'scl-source-authoring' } -Output 'loaded'))
     $events.Add((New-ToolEvent -Tool 'opentia_list-instances' -InputObject @{} -Output '{"count":1,"processId":13352}'))
     $events.Add((New-ToolEvent -Tool 'opentia_connect-instance' -InputObject @{ 'instance-id' = 13352 } -Output '{"connected":true}'))
-    $events.Add((New-ToolEvent -Tool 'opentia_list-projects' -InputObject @{} -Output '{"Name":"OTT_Benchmark"}'))
-    $events.Add((New-ToolEvent -Tool 'opentia_open-plc' -InputObject @{ 'plc-name' = 'PLC_Main' } -Output '{"opened":true}'))
+    if ($AlternativeContext) {
+        $events.Add((New-ToolEvent -Tool 'opentia_get-project-info' -InputObject @{} -Output '{"Name":"OTT_Benchmark"}'))
+        $events.Add((New-ToolEvent -Tool 'opentia_list-plcs' -InputObject @{} -Output '{"Name":"PLC_Main"}'))
+    }
+    else {
+        $events.Add((New-ToolEvent -Tool 'opentia_list-projects' -InputObject @{} -Output '{"Name":"OTT_Benchmark"}'))
+        $events.Add((New-ToolEvent -Tool 'opentia_open-plc' -InputObject @{ 'plc-name' = 'PLC_Main' } -Output '{"opened":true}'))
+    }
     if (-not $MissingTypeCapability) {
         $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Create))
     }
@@ -147,6 +178,9 @@ function New-SclEvents {
                 'input-path' = 'C:\OTT\Bench\synthetic\workspace\artifacts\OTT30_RecipeWindowMonitor.scl'
                 'code-format' = 'scl'
             } -Output '{"Valid":true,"Format":"SCL","Classification":"verified","HasUtf8Bom":true,"DeclaredObjects":[{"Name":"OTT30_RecipeWindow","ObjectType":"TYPE"},{"Name":"OTT30_RecipeWindowMonitor","ObjectType":"FB"}],"Errors":[],"Warnings":[]}'))
+    if ($DiscardFailedDraft) {
+        $events.Add((New-ToolEvent -Tool 'opentia_discard-plc-code-transaction' -InputObject @{ 'transaction-id' = 'failed-draft'; confirm = $true } -Output '{"Discarded":true,"PreviousState":"Draft"}'))
+    }
     $events.Add((New-ToolEvent -Tool 'opentia_begin-plc-code-transaction' -InputObject @{
                 'plc-name' = 'PLC_Main'; 'capability-ids' = 'type-id,fb-id'; 'compile-policy' = 'CleanCompile'
             } -Output '{"State":"Draft","CapabilityRoute":"DirectScl","CapabilityBindings":[{"ObjectName":"OTT30_RecipeWindow"},{"ObjectName":"OTT30_RecipeWindowMonitor"}],"CompilePolicy":"CleanCompile"}'))
@@ -159,6 +193,9 @@ function New-SclEvents {
     } -Output '{"State":"Succeeded","Applied":true,"Verified":true,"RollbackAttempted":false,"RecoveryRequired":false,"FinalCompilation":{"Success":true,"ErrorCount":0,"WarningCount":0},"TargetSnapshots":[{"Target":{"Name":"OTT30_RecipeWindow","BlockType":"TYPE"},"CanonicalResultHash":"846160c6f0eaf012a83eb211cb476c202625eb1c72c9585dba7216d0b1059d36"},{"Target":{"Name":"OTT30_RecipeWindowMonitor","BlockType":"FB"},"CanonicalResultHash":"596958bf182b01ec03b74d3399bd98ec8a098dace1b5dac8cddb8107be7158d4"}]}'
     $events.Add($apply)
     if ($DuplicateApply) { $events.Add($apply) }
+    if ($DiscardSuccessful) {
+        $events.Add((New-ToolEvent -Tool 'opentia_discard-plc-code-transaction' -InputObject @{ 'transaction-id' = 'tx'; confirm = $true } -Output '{"Discarded":true,"PreviousState":"Succeeded"}'))
+    }
     if ($LowLevelImport) {
         $events.Add((New-ToolEvent -Tool 'opentia_import-source' -InputObject @{ path = 'candidate.scl' } -Output '{"imported":true}'))
     }
@@ -239,6 +276,8 @@ function Invoke-SclAssertionTest {
 
 try {
     Invoke-SclAssertionTest -Label 'representative' -Events (New-SclEvents)
+    Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft) `
+        -Source $equivalentSource
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `
@@ -251,6 +290,8 @@ try {
     Invoke-SclAssertionTest -Label 'lower-level-import' -Events (New-SclEvents -LowLevelImport) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'no-bypass-probe-save-or-destructive-cleanup'
     Invoke-SclAssertionTest -Label 'project-saved' -Events (New-SclEvents -SaveProject) `
+        -ExpectedPassed $false -ExpectedFailedAssertion 'no-bypass-probe-save-or-destructive-cleanup'
+    Invoke-SclAssertionTest -Label 'successful-transaction-discarded' -Events (New-SclEvents -DiscardSuccessful) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'no-bypass-probe-save-or-destructive-cleanup'
 
     Write-Host 'Native SCL authoring case assertion tests passed.'

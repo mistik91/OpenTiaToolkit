@@ -13,7 +13,7 @@ namespace OpenTiaToolkit.Core.Services;
 
 public sealed class PlcCodeFormatService
 {
-    public const string ValidatorCatalogVersion = "plc-code-formats/1.3";
+    public const string ValidatorCatalogVersion = "plc-code-formats/1.4";
     private static readonly Regex SclDeclarationRegex = new Regex(@"(?im)^\s*(FUNCTION_BLOCK|FUNCTION|ORGANIZATION_BLOCK|DATA_BLOCK|TYPE)\s+(?:""(?<quoted>[^""]+)""|(?<plain>[^\s:]+))", RegexOptions.Compiled);
     private static readonly Regex SclCallRegex = new Regex(@"(?im)(?<![#\w])(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*\(", RegexOptions.Compiled);
     private static readonly Regex StatefulTypeRegex = new Regex(@"\b(TON|TOF|TP|TON_TIME|TOF_TIME|TP_TIME|IEC_TIMER|R_TRIG|F_TRIG|CTU|CTD|CTUD|IEC_COUNTER)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -383,6 +383,12 @@ public sealed class PlcCodeFormatService
     private static string FlgNetTopologyFingerprint(XDocument document) => string.Join("|", document.Descendants().Where(element => new[] { "Parts", "Wires", "Part", "Wire", "NameCon", "IdentCon" }.Contains(element.Name.LocalName, StringComparer.Ordinal)).Select(element => element.ToString(SaveOptions.DisableFormatting)));
     private static PlcCodeValidationFinding Finding(string construct, string classification, string text, int index, string message) => new PlcCodeValidationFinding { Construct = construct, Classification = classification, Line = LineOf(text, index), Message = message };
     private static int LineOf(string text, int index) => 1 + text.Take(Math.Max(0, index)).Count(character => character == '\n');
-    private static bool IsSclBuiltin(string name) => new[] { "ABS", "MIN", "MAX", "LIMIT", "SEL", "MOVE", "TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD", "SHL", "SHR", "ROL", "ROR", "ROUND", "TRUNC", "CEIL", "FLOOR" }.Contains(name, StringComparer.OrdinalIgnoreCase);
+    private static bool IsSclBuiltin(string name) => new[]
+    {
+        "ABS", "MIN", "MAX", "LIMIT", "SEL", "MOVE", "TON", "TOF", "TP", "R_TRIG", "F_TRIG", "CTU", "CTD", "CTUD",
+        "SHL", "SHR", "ROL", "ROR", "ROUND", "TRUNC", "CEIL", "FLOOR",
+        // These language keywords may precede a parenthesized expression but are not project or library calls.
+        "IF", "ELSIF", "CASE", "FOR", "WHILE", "UNTIL", "AND", "OR", "XOR", "NOT"
+    }.Contains(name, StringComparer.OrdinalIgnoreCase);
     private static string Hash(byte[] bytes) { using (SHA256 sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", string.Empty).ToLowerInvariant(); }
 }

@@ -34,6 +34,7 @@ public sealed class PlcCodeCapabilityDiscoveryServiceTests
             PlcName = "PLC_1",
             ObjectName = "Probe",
             ObjectKind = "Block",
+            GroupPath = "PLC_1/Blocks",
             Operation = "Create",
             BlockType = "FC",
             RequestedLanguage = "LAD"
@@ -41,6 +42,7 @@ public sealed class PlcCodeCapabilityDiscoveryServiceTests
         var workflow = new PlcDocumentWorkflowService(plc.Object, context, discoveryService);
 
         PlcCodeTransaction transaction = await workflow.BeginTransactionAsync("PLC_1", "test", capabilityId: discovery.CapabilityId);
+        Assert.AreEqual(string.Empty, discovery.Request.GroupPath);
         Assert.AreEqual(discovery.Fingerprint, transaction.CapabilityBindings.Single().Fingerprint);
 
         exists = true;

@@ -487,8 +487,8 @@ Adds validated SCL source import and exact generated-block replacement to a pers
 |---|---|---:|---|---|
 | `transaction-id` | String | yes |  | Draft PLC code transaction id |
 | `source-path` | Path | yes |  | UTF-8 SCL source file |
-| `group-path` | String | no |  | Exact target block group for every declared block |
-| `type-group-path` | String | no |  | Exact target PLC type group for every declared TYPE |
+| `group-path` | String | no |  | Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted) |
+| `type-group-path` | String | no |  | Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted) |
 | `depends-on` | String | no |  | Optional comma-separated operation sequences that must apply first |
 | `confirm` | Boolean | yes |  | Confirm adding the reviewed source operation |
 
@@ -642,7 +642,7 @@ Discovers and fingerprints the live TIA, PLC, target, safety, VCI, and import/ex
 | `plc-name` | String | yes |  | Exact PLC device name |
 | `object-kind` | String | no | Block | Block or Type |
 | `object-name` | String | yes |  | Exact existing or intended object name |
-| `group-path` | String | no |  | Exact PLC block or type group |
+| `group-path` | String | no |  | Target subgroup relative to Program blocks or PLC data types; omit for root (PLC-prefixed software-tree paths are accepted) |
 | `operation` | String | no | Modify | Modify or Create |
 | `block-type` | String | no |  | FB, FC, OB, DB, GlobalDB, InstanceDB, or TYPE when known |
 | `requested-language` | String | no |  | Requested code language such as LAD, FBD, or SCL |
@@ -1144,8 +1144,8 @@ Runs an exact all-create SCL or S7DCL probe, verifies it, removes every probe ar
 | `capability-ids` | String | yes |  | Comma-separated Create capability id for every declared probe object |
 | `code-format` | String | no | auto | auto, scl, or s7dcl |
 | `input-path` | Path | yes |  | Disposable SCL or S7DCL probe artifact |
-| `group-path` | String | no |  | Exact target block group |
-| `type-group-path` | String | no |  | Exact target PLC type group for SCL TYPE declarations |
+| `group-path` | String | no |  | Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted) |
+| `type-group-path` | String | no |  | Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted) |
 | `compile-policy` | String | no | NoNewErrors | NoNewErrors (default) or CleanCompile |
 | `maximum-new-warnings` | Integer | no |  | Optional maximum warning increase accepted by the probe |
 | `accept-unknown-impact` | Boolean | no | False | Explicitly accept reviewed unresolved impact in the disposable target |

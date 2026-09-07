@@ -117,8 +117,8 @@ public sealed class AddSclSourceTransactionOperationCommand : ICommand
     {
         new CommandParameter("transaction-id", CommandParameterType.String, "Draft PLC code transaction id", true),
         new CommandParameter("source-path", CommandParameterType.Path, "UTF-8 SCL source file", true),
-        new CommandParameter("group-path", CommandParameterType.String, "Exact target block group for every declared block", false),
-        new CommandParameter("type-group-path", CommandParameterType.String, "Exact target PLC type group for every declared TYPE", false),
+        new CommandParameter("group-path", CommandParameterType.String, "Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted)", false),
+        new CommandParameter("type-group-path", CommandParameterType.String, "Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)", false),
         new CommandParameter("depends-on", CommandParameterType.String, "Optional comma-separated operation sequences that must apply first", false),
         new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding the reviewed source operation", true)
     });
