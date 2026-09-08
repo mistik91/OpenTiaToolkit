@@ -168,6 +168,18 @@ $mismatchedTemporaryFirstOutsideSource = $temporaryFirstOutsideSource.Replace(
     '#FirstOutsideIndex := #FirstOutside;',
     '#FirstOutsideIndex := #OtherIndex;'
 )
+$inclusiveInsideSource = $representativeSource.Replace(
+    '        EffectiveTolerance : Real;',
+    "        EffectiveTolerance : Real;`r`n        Inside : Bool;"
+)
+$inclusiveInsideSource = $inclusiveInsideSource.Replace(
+    '            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);',
+    '            #Inside := (#Actual[#Index] >= (#Recipe.Target[#Index] - #EffectiveTolerance)) AND (#Actual[#Index] <= (#Recipe.Target[#Index] + #EffectiveTolerance));'
+)
+$inclusiveInsideSource = $inclusiveInsideSource.Replace(
+    '            IF #Difference > #EffectiveTolerance THEN',
+    '            IF NOT #Inside THEN'
+)
 $limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
     "            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);`r`n            IF #Difference > #EffectiveTolerance THEN",
     "            #LowerLimit := #Recipe.Target[#Index] - #EffectiveTolerance;`r`n            #UpperLimit := #Recipe.Target[#Index] + #EffectiveTolerance;`r`n            IF (#Actual[#Index] < #LowerLimit) OR (#Actual[#Index] > #UpperLimit) THEN"
@@ -391,10 +403,13 @@ try {
     Invoke-SclAssertionTest -Label 'conjunctive-first-outside-guard' -Events (New-SclEvents) -Source $conjunctiveFirstOutsideSource
     Invoke-SclAssertionTest -Label 'typed-state-literals' -Events (New-SclEvents) -Source $typedLiteralSource
     Invoke-SclAssertionTest -Label 'temporary-first-outside-index' -Events (New-SclEvents) -Source $temporaryFirstOutsideSource
+    Invoke-SclAssertionTest -Label 'inclusive-inside-predicate' -Events (New-SclEvents) -Source $inclusiveInsideSource
     Invoke-SclAssertionTest -Label 'nothing-saved-summary' -Events (New-SclEvents) `
         -FinalText 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. Nothing saved.'
     Invoke-SclAssertionTest -Label 'no-save-performed-summary' -Events (New-SclEvents) `
         -FinalText 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. No instance DB, OB change, save, or discard performed.'
+    Invoke-SclAssertionTest -Label 'no-save-summary' -Events (New-SclEvents) `
+        -FinalText 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. No save.'
     Invoke-SclAssertionTest -Label 'active-only-while-monitoring' -Events (New-SclEvents) `
         -Source $monitoringOnlyActiveSource -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'fb-rediscovery-without-language-evidence' `
@@ -408,6 +423,9 @@ try {
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `
         -Source ($representativeSource.Replace('ABS(#Recipe.Tolerance[#Index])', '#Recipe.Tolerance[#Index]')) `
+        -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
+    Invoke-SclAssertionTest -Label 'missing-window-comparison' -Events (New-SclEvents) `
+        -Source ($representativeSource.Replace('#Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);', '#Difference := 0.0;')) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-type-capability' -Events (New-SclEvents -MissingTypeCapability) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'type-create-capability'
