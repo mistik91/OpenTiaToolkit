@@ -234,6 +234,8 @@ function New-SclEvents {
         [switch]$LowLevelImport,
         [switch]$SaveProject,
         [switch]$AlternativeContext,
+        [switch]$CapabilityOnlyContext,
+        [switch]$OmitProjectContext,
         [switch]$DiscardFailedDraft,
         [switch]$DiscardSuccessful,
         [switch]$OmitTypeBlockType,
@@ -251,6 +253,12 @@ function New-SclEvents {
     if ($AlternativeContext) {
         $events.Add((New-ToolEvent -Tool 'opentia_get-project-info' -InputObject @{} -Output '{"Name":"OTT_Benchmark"}'))
         $events.Add((New-ToolEvent -Tool 'opentia_list-plcs' -InputObject @{} -Output '{"Name":"PLC_Main"}'))
+    }
+    elseif ($CapabilityOnlyContext) {
+        $events.Add((New-ToolEvent -Tool 'opentia_get-project-info' -InputObject @{} -Output '{"Name":"OTT_Benchmark"}'))
+    }
+    elseif ($OmitProjectContext) {
+        # Leave project and PLC context unproven for the negative assertion case.
     }
     else {
         $events.Add((New-ToolEvent -Tool 'opentia_list-projects' -InputObject @{} -Output '{"Name":"OTT_Benchmark"}'))
@@ -376,6 +384,7 @@ try {
     Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft -OmitTypeBlockType -OmitTypeRequestedLanguage) `
         -Source $equivalentSource
     Invoke-SclAssertionTest -Label 'format-only-fb-rediscovery' -Events (New-SclEvents -FormatOnlyFbRediscovery)
+    Invoke-SclAssertionTest -Label 'capability-proven-plc-context' -Events (New-SclEvents -CapabilityOnlyContext)
     Invoke-SclAssertionTest -Label 'direct-output-state' -Events (New-SclEvents) -Source $directOutputStateSource
     Invoke-SclAssertionTest -Label 'limit-temporaries-output-case' -Events (New-SclEvents) -Source $limitAndOutputCaseSource
     Invoke-SclAssertionTest -Label 'parenthesized-active' -Events (New-SclEvents) -Source $parenthesizedActiveSource
@@ -384,6 +393,8 @@ try {
     Invoke-SclAssertionTest -Label 'temporary-first-outside-index' -Events (New-SclEvents) -Source $temporaryFirstOutsideSource
     Invoke-SclAssertionTest -Label 'nothing-saved-summary' -Events (New-SclEvents) `
         -FinalText 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. Nothing saved.'
+    Invoke-SclAssertionTest -Label 'no-save-performed-summary' -Events (New-SclEvents) `
+        -FinalText 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. No instance DB, OB change, save, or discard performed.'
     Invoke-SclAssertionTest -Label 'active-only-while-monitoring' -Events (New-SclEvents) `
         -Source $monitoringOnlyActiveSource -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'fb-rediscovery-without-language-evidence' `
@@ -391,6 +402,8 @@ try {
         -ExpectedPassed $false -ExpectedFailedAssertion 'fb-final-identity'
     Invoke-SclAssertionTest -Label 'mismatched-temporary-first-outside-index' -Events (New-SclEvents) `
         -Source $mismatchedTemporaryFirstOutsideSource -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
+    Invoke-SclAssertionTest -Label 'project-context-not-proven' -Events (New-SclEvents -OmitProjectContext) `
+        -ExpectedPassed $false -ExpectedFailedAssertion 'tia-context-established'
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `

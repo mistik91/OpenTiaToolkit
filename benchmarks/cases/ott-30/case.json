@@ -42,7 +42,7 @@
       "type": "traceRegex",
       "points": 3,
       "critical": true,
-      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?(?:opentia_list-projects|opentia_get-project-info).*?(?:opentia_open-plc|opentia_list-plcs|opentia_get-software-tree)"
+      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?(?:opentia_list-projects|opentia_get-project-info).*?(?:opentia_open-plc|opentia_list-plcs|opentia_get-software-tree|opentia_discover-plc-code-capabilities)"
     },
     {
       "id": "native-scl-artifact",
@@ -274,7 +274,7 @@
       "id": "final-summary",
       "type": "finalRegex",
       "points": 1,
-      "pattern": "(?is)(?=.*OTT30_RecipeWindow)(?=.*OTT30_RecipeWindowMonitor)(?=.*DirectScl)(?=.*Succeeded)(?=.*canonical)(?=.*0\\s+errors)(?=.*0\\s+warnings)(?=.*(?:not saved|nothing saved|without saving))"
+      "pattern": "(?is)(?=.*OTT30_RecipeWindow)(?=.*OTT30_RecipeWindowMonitor)(?=.*DirectScl)(?=.*Succeeded)(?=.*canonical)(?=.*0\\s+errors)(?=.*0\\s+warnings)(?=.*(?:not saved|nothing saved|without saving|\\bno\\b(?:(?![.!?]).){0,80}\\bsave\\b(?:(?![.!?]).){0,40}\\bperformed\\b))"
     }
   ]
 }
