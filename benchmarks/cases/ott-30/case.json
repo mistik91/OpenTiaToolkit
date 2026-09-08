@@ -201,10 +201,10 @@
       "points": 4,
       "critical": true,
       "namePattern": "discover_plc_code_capabilities$",
-      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindowMonitor", "object-kind": "Block", "block-type": "FB", "operation": "Modify", "requested-format": "SCL", "requested-language": "SCL"},
+      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT30_RecipeWindowMonitor", "object-kind": "Block", "operation": "Modify", "requested-format": "SCL"},
       "minCount": 1,
       "maxCount": 1,
-      "outputPatterns": ["\"Exists\"\\s*:\\s*true", "\"ExactIdentityResolved\"\\s*:\\s*true", "\"SelectedRoute\"\\s*:\\s*\"DirectScl\"", "\"SclSourceRouteObserved\"\\s*:\\s*true"]
+      "outputPatterns": ["\"Exists\"\\s*:\\s*true", "\"ExactIdentityResolved\"\\s*:\\s*true", "\"ObjectType\"\\s*:\\s*\"FB\"", "\"ProgrammingLanguage\"\\s*:\\s*\"SCL\"", "\"SelectedRoute\"\\s*:\\s*\"DirectScl\"", "\"SclSourceRouteObserved\"\\s*:\\s*true"]
     },
     {
       "id": "fb-info-readback",

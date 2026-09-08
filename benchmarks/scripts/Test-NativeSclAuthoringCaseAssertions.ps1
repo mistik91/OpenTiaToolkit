@@ -185,11 +185,18 @@ function New-CapabilityEvent {
         [Parameter(Mandatory = $true)][string]$ObjectName,
         [Parameter(Mandatory = $true)][ValidateSet('Create', 'Modify')][string]$Operation,
         [switch]$OmitBlockType,
-        [switch]$OmitRequestedLanguage
+        [switch]$OmitRequestedLanguage,
+        [switch]$OmitProgrammingLanguageEvidence
     )
 
     $exists = if ($Operation -eq 'Modify') { 'true' } else { 'false' }
     $sclObserved = if ($ObjectKind -eq 'Block' -and $Operation -eq 'Modify') { 'true' } else { 'false' }
+    $programmingLanguageEvidence = if ($ObjectKind -eq 'Block' -and -not $OmitProgrammingLanguageEvidence) {
+        ',"ProgrammingLanguage":"SCL"'
+    }
+    else {
+        ''
+    }
     $inputObject = [ordered]@{
             'plc-name' = 'PLC_Main'
             'object-name' = $ObjectName
@@ -201,7 +208,7 @@ function New-CapabilityEvent {
     if (-not $OmitRequestedLanguage) { $inputObject['requested-language'] = 'SCL' }
     return New-ToolEvent -Tool 'opentia_discover-plc-code-capabilities' -InputObject $inputObject -Output ('{"Target":{"Exists":' + $exists + ',"ExactIdentityResolved":true,' +
         '"ObjectKind":"' + $ObjectKind + '","ObjectName":"' + $ObjectName + '",' +
-        '"ObjectType":"' + $BlockType + '"},"ImportExport":{"SclSourceRouteObserved":' +
+        '"ObjectType":"' + $BlockType + '"' + $programmingLanguageEvidence + '},"ImportExport":{"SclSourceRouteObserved":' +
         $sclObserved + '},"SelectedRoute":"DirectScl"}')
 }
 
@@ -216,6 +223,8 @@ function New-SclEvents {
         [switch]$DiscardSuccessful,
         [switch]$OmitTypeBlockType,
         [switch]$OmitTypeRequestedLanguage,
+        [switch]$FormatOnlyFbRediscovery,
+        [switch]$OmitFbLanguageEvidence,
         [switch]$OmitWarningBudget
     )
 
@@ -279,7 +288,9 @@ function New-SclEvents {
             } -Output '{"message":"Successfully exported type","exportPath":"artifacts/readback/OTT30_RecipeWindow.xml"}'))
     $events.Add((New-CapabilityEvent -ObjectKind Type -BlockType TYPE -ObjectName 'OTT30_RecipeWindow' -Operation Modify `
                 -OmitBlockType:$OmitTypeBlockType -OmitRequestedLanguage:$OmitTypeRequestedLanguage))
-    $events.Add((New-CapabilityEvent -ObjectKind Block -BlockType FB -ObjectName 'OTT30_RecipeWindowMonitor' -Operation Modify))
+    $events.Add((New-CapabilityEvent -ObjectKind Block -BlockType FB -ObjectName 'OTT30_RecipeWindowMonitor' -Operation Modify `
+                -OmitBlockType:$FormatOnlyFbRediscovery -OmitRequestedLanguage:$FormatOnlyFbRediscovery `
+                -OmitProgrammingLanguageEvidence:$OmitFbLanguageEvidence))
     $events.Add((New-ToolEvent -Tool 'opentia_compile-software' -InputObject @{ 'plc-name' = 'PLC_Main' } -Output '{"message":"Compilation successful: 0 errors, 0 warnings","errorCount":0,"warningCount":0}'))
     if ($SaveProject) {
         $events.Add((New-ToolEvent -Tool 'opentia_save-project' -InputObject @{ confirm = $true } -Output '{"saved":true}'))
@@ -349,6 +360,7 @@ try {
     Invoke-SclAssertionTest -Label 'representative' -Events (New-SclEvents)
     Invoke-SclAssertionTest -Label 'equivalent-implementation' -Events (New-SclEvents -AlternativeContext -DiscardFailedDraft -OmitTypeBlockType -OmitTypeRequestedLanguage) `
         -Source $equivalentSource
+    Invoke-SclAssertionTest -Label 'format-only-fb-rediscovery' -Events (New-SclEvents -FormatOnlyFbRediscovery)
     Invoke-SclAssertionTest -Label 'direct-output-state' -Events (New-SclEvents) -Source $directOutputStateSource
     Invoke-SclAssertionTest -Label 'limit-temporaries-output-case' -Events (New-SclEvents) -Source $limitAndOutputCaseSource
     Invoke-SclAssertionTest -Label 'parenthesized-active' -Events (New-SclEvents) -Source $parenthesizedActiveSource
@@ -358,6 +370,9 @@ try {
         -FinalText 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. Nothing saved.'
     Invoke-SclAssertionTest -Label 'active-only-while-monitoring' -Events (New-SclEvents) `
         -Source $monitoringOnlyActiveSource -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
+    Invoke-SclAssertionTest -Label 'fb-rediscovery-without-language-evidence' `
+        -Events (New-SclEvents -FormatOnlyFbRediscovery -OmitFbLanguageEvidence) `
+        -ExpectedPassed $false -ExpectedFailedAssertion 'fb-final-identity'
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `
