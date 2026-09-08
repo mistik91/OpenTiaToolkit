@@ -138,6 +138,21 @@ $conjunctiveFirstOutsideSource = $representativeSource.Replace(
     "            IF #Difference > #EffectiveTolerance THEN`r`n                #AllInTolerance := FALSE;`r`n                IF #FirstOutsideIndex = -1 THEN`r`n                    #FirstOutsideIndex := #Index;`r`n                END_IF;`r`n            END_IF;",
     "            IF (#Difference > #EffectiveTolerance) AND (#FirstOutsideIndex = -1) THEN`r`n                #AllInTolerance := FALSE;`r`n                #FirstOutsideIndex := #Index;`r`n            END_IF;"
 )
+$typedLiteralSource = $representativeSource
+$typedLiteralSource = $typedLiteralSource.Replace('#FirstOutsideIndex = -1', '#FirstOutsideIndex < 0')
+$typedLiteralSource = $typedLiteralSource.Replace('#InternalState := 0;', '#InternalState := USINT#0;')
+$typedLiteralSource = $typedLiteralSource.Replace('#InternalState := 1;', '#InternalState := USINT#1;')
+$typedLiteralSource = $typedLiteralSource.Replace('#InternalState := 2;', '#InternalState := USINT#2;')
+$typedLiteralSource = $typedLiteralSource.Replace('#InternalState = 1', '#InternalState = USINT#1')
+$typedLiteralSource = $typedLiteralSource.Replace('#InternalState = 2', '#InternalState = USINT#2')
+$typedLiteralSource = $typedLiteralSource.Replace('#InternalState <> 0', '#InternalState <> USINT#0')
+$typedLiteralSource = $typedLiteralSource.Replace('            0:', '            USINT#0:')
+$typedLiteralSource = $typedLiteralSource.Replace('            1:', '            USINT#1:')
+$typedLiteralSource = $typedLiteralSource.Replace('            2:', '            USINT#2:')
+$monitoringOnlyActiveSource = $representativeSource.Replace(
+    '#Active := #InternalState <> 0;',
+    '#Active := (#InternalState = 1);'
+)
 $limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
     "            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);`r`n            IF #Difference > #EffectiveTolerance THEN",
     "            #LowerLimit := #Recipe.Target[#Index] - #EffectiveTolerance;`r`n            #UpperLimit := #Recipe.Target[#Index] + #EffectiveTolerance;`r`n            IF (#Actual[#Index] < #LowerLimit) OR (#Actual[#Index] > #UpperLimit) THEN"
@@ -277,6 +292,7 @@ function Invoke-SclAssertionTest {
         [Parameter(Mandatory = $true)][string]$Label,
         [Parameter(Mandatory = $true)][object[]]$Events,
         [string]$Source = $representativeSource,
+        [string]$FinalText = 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. Project was not saved.',
         [switch]$WithoutBom,
         [bool]$ExpectedPassed = $true,
         [string]$ExpectedFailedAssertion
@@ -294,7 +310,7 @@ function Invoke-SclAssertionTest {
     $metadataPath = Join-Path $testRoot "$Label-metadata.json"
     $resultPath = Join-Path $testRoot "$Label-result.json"
     @($Events) + @(
-        [ordered]@{ type = 'text'; part = [ordered]@{ text = 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. Project was not saved.' } },
+        [ordered]@{ type = 'text'; part = [ordered]@{ text = $FinalText } },
         [ordered]@{ type = 'step_finish'; part = [ordered]@{
                 reason = 'stop'; tokens = [ordered]@{ total = 10; input = 5; output = 5; reasoning = 0 }; cost = 0
             } }
@@ -337,6 +353,11 @@ try {
     Invoke-SclAssertionTest -Label 'limit-temporaries-output-case' -Events (New-SclEvents) -Source $limitAndOutputCaseSource
     Invoke-SclAssertionTest -Label 'parenthesized-active' -Events (New-SclEvents) -Source $parenthesizedActiveSource
     Invoke-SclAssertionTest -Label 'conjunctive-first-outside-guard' -Events (New-SclEvents) -Source $conjunctiveFirstOutsideSource
+    Invoke-SclAssertionTest -Label 'typed-state-literals' -Events (New-SclEvents) -Source $typedLiteralSource
+    Invoke-SclAssertionTest -Label 'nothing-saved-summary' -Events (New-SclEvents) `
+        -FinalText 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. Nothing saved.'
+    Invoke-SclAssertionTest -Label 'active-only-while-monitoring' -Events (New-SclEvents) `
+        -Source $monitoringOnlyActiveSource -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
         -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'missing-absolute-tolerance' -Events (New-SclEvents) `

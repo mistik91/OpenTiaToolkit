@@ -67,16 +67,16 @@
         "(?is)FOR\\s+#?[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*0\\s+TO\\s+3\\s+DO.*?END_FOR",
         "(?is)(?:ABS\\s*\\(\\s*#Recipe\\.Tolerance\\s*\\[|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Recipe\\.Tolerance\\s*\\[.*?IF\\s+#[A-Za-z_][A-Za-z0-9_]*\\s*<\\s*0(?:\\.0)?\\s+THEN.*?#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*-\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;)",
         "(?is)(?:ABS\\s*\\(\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[|#Actual\\s*\\[.*?<\\s*\\(*\\s*#Recipe\\.Target\\s*\\[.*?-\\s*#[A-Za-z_][A-Za-z0-9_]*.*?\\bOR\\b.*?#Actual\\s*\\[.*?>\\s*\\(*\\s*#Recipe\\.Target\\s*\\[.*?\\+\\s*#[A-Za-z_][A-Za-z0-9_]*|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Actual\\s*\\[.*?-\\s*#Recipe\\.Target\\s*\\[.*?ABS\\s*\\(\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*\\)\\s*>\\s*#[A-Za-z_][A-Za-z0-9_]*|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Recipe\\.Target\\s*\\[.*?-\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;.*?#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#Recipe\\.Target\\s*\\[.*?\\+\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;.*?#Actual\\s*\\[.*?<\\s*#[A-Za-z_][A-Za-z0-9_]*.*?\\bOR\\b.*?#Actual\\s*\\[.*?>\\s*#[A-Za-z_][A-Za-z0-9_]*)",
-        "(?is)(?:IF\\s+(?=(?:(?!\\bTHEN\\b).)*#FirstOutsideIndex\\s*=\\s*-1)(?:(?!\\bTHEN\\b).)*\\bTHEN\\b.*?#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;|#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;\\s*EXIT\\s*;)",
+        "(?is)(?:IF\\s+(?=(?:(?!\\bTHEN\\b).)*#FirstOutsideIndex\\s*(?:=\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?-1|<\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?0))(?:(?!\\bTHEN\\b).)*\\bTHEN\\b.*?#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;|#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;\\s*EXIT\\s*;)",
         "(?i)#FirstOutsideIndex\\s*:=\\s*-1\\s*;",
         "(?is)#FirstOutsideIndex\\s*:=\\s*#?[A-Za-z_][A-Za-z0-9_]*\\s*;",
         "(?is)#[A-Za-z_][A-Za-z0-9_]*\\s*\\(\\s*CLK\\s*:=\\s*#Start\\s*\\)",
         "(?is)#[A-Za-z_][A-Za-z0-9_]*(?:\\.TON)?\\s*\\(.*?PT\\s*:=\\s*#Recipe\\.HoldTime",
-        "(?is)CASE\\s+#[A-Za-z_][A-Za-z0-9_]*\\s+OF.*?0\\s*:.*?1\\s*:.*?2\\s*:.*?ELSE.*?END_CASE",
-        "(?is)IF\\s+#Reset\\s+THEN.*?:=\\s*0\\s*;",
+        "(?is)CASE\\s+#[A-Za-z_][A-Za-z0-9_]*\\s+OF.*?(?:[A-Za-z][A-Za-z0-9_]*#)?0\\s*:.*?(?:[A-Za-z][A-Za-z0-9_]*#)?1\\s*:.*?(?:[A-Za-z][A-Za-z0-9_]*#)?2\\s*:.*?ELSE.*?END_CASE",
+        "(?is)IF\\s+#Reset\\s+THEN.*?:=\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?0\\s*;",
         "(?is)(?:#State\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;|CASE\\s+#State\\s+OF)",
-        "(?is)(?:#Active\\s*:=\\s*(?:\\(*\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*<>\\s*0\\s*\\)*|\\(?\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*1.*?#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*\\)?|#[A-Za-z_][A-Za-z0-9_]*\\s+OR\\s+#[A-Za-z_][A-Za-z0-9_]*)\\s*;|CASE\\s+#[A-Za-z_][A-Za-z0-9_]*\\s+OF(?=(?:(?!END_CASE).)*?\\b2\\s*:.*?#Active\\s*:=\\s*TRUE\\s*;)(?=(?:(?!END_CASE).)*?\\b1\\s*:.*?#Active\\s*:=\\s*TRUE\\s*;)(?=(?:(?!END_CASE).)*?\\bELSE.*?#Active\\s*:=\\s*FALSE\\s*;).*?END_CASE)",
-        "(?is)(?:#Ready\\s*:=.*?=\\s*2\\s*\\)*\\s*;|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*2\\s*;.*?#Ready\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;|CASE\\s+#[A-Za-z_][A-Za-z0-9_]*\\s+OF(?=(?:(?!END_CASE).)*?\\b2\\s*:.*?#Ready\\s*:=\\s*TRUE\\s*;)(?=(?:(?!END_CASE).)*?\\b1\\s*:.*?#Ready\\s*:=\\s*FALSE\\s*;)(?=(?:(?!END_CASE).)*?\\bELSE.*?#Ready\\s*:=\\s*FALSE\\s*;).*?END_CASE)"
+        "(?is)(?:#Active\\s*:=\\s*(?:\\(*\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*<>\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?0\\s*\\)*|\\(*\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?1\\s*\\)*\\s+OR\\s+\\(*\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?2\\s*\\)*|\\(*\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?2\\s*\\)*\\s+OR\\s+\\(*\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?1\\s*\\)*|#[A-Za-z_][A-Za-z0-9_]*\\s+OR\\s+#[A-Za-z_][A-Za-z0-9_]*)\\s*;|CASE\\s+#[A-Za-z_][A-Za-z0-9_]*\\s+OF(?=(?:(?!END_CASE).)*?(?:[A-Za-z][A-Za-z0-9_]*#)?2\\s*:.*?#Active\\s*:=\\s*TRUE\\s*;)(?=(?:(?!END_CASE).)*?(?:[A-Za-z][A-Za-z0-9_]*#)?1\\s*:.*?#Active\\s*:=\\s*TRUE\\s*;)(?=(?:(?!END_CASE).)*?\\bELSE.*?#Active\\s*:=\\s*FALSE\\s*;).*?END_CASE)",
+        "(?is)(?:#Ready\\s*:=.*?=\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?2\\s*\\)*\\s*;|#[A-Za-z_][A-Za-z0-9_]*\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*(?:[A-Za-z][A-Za-z0-9_]*#)?2\\s*;.*?#Ready\\s*:=\\s*#[A-Za-z_][A-Za-z0-9_]*\\s*;|CASE\\s+#[A-Za-z_][A-Za-z0-9_]*\\s+OF(?=(?:(?!END_CASE).)*?(?:[A-Za-z][A-Za-z0-9_]*#)?2\\s*:.*?#Ready\\s*:=\\s*TRUE\\s*;)(?=(?:(?!END_CASE).)*?(?:[A-Za-z][A-Za-z0-9_]*#)?1\\s*:.*?#Ready\\s*:=\\s*FALSE\\s*;)(?=(?:(?!END_CASE).)*?\\bELSE.*?#Ready\\s*:=\\s*FALSE\\s*;).*?END_CASE)"
       ],
       "forbiddenContentPatterns": [
         "(?is)\\bVAR_TEMP\\b.*?\\b(?:R_TRIG|TON(?:_TIME)?)\\b.*?\\bEND_VAR\\b",
@@ -274,7 +274,7 @@
       "id": "final-summary",
       "type": "finalRegex",
       "points": 1,
-      "pattern": "(?is)(?=.*OTT30_RecipeWindow)(?=.*OTT30_RecipeWindowMonitor)(?=.*DirectScl)(?=.*Succeeded)(?=.*canonical)(?=.*0\\s+errors)(?=.*0\\s+warnings)(?=.*(?:not saved|without saving))"
+      "pattern": "(?is)(?=.*OTT30_RecipeWindow)(?=.*OTT30_RecipeWindowMonitor)(?=.*DirectScl)(?=.*Succeeded)(?=.*canonical)(?=.*0\\s+errors)(?=.*0\\s+warnings)(?=.*(?:not saved|nothing saved|without saving))"
     }
   ]
 }
