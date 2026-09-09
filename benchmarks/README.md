@@ -488,6 +488,12 @@ subscription-backed `zai-coding-plan/glm-5.3-flash` at declared effort and
 variant `high`. GLM-5.3 High is reserved as the capability fallback. A generic
 skill-contract problem stops the campaign before skill modification.
 
+The completed Flash-to-GLM escalation and surgical skill/evaluator hardening
+are reported in
+`reports/native-scl-authoring-glm-5-3-high-20260909.md`. Under the final
+evaluator, GLM-5.3 High scores 100/40/100: two clean passes and one genuine
+critical retry-budget violation, so the model remains unqualified.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
