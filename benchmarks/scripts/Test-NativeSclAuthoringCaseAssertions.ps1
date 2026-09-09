@@ -180,6 +180,22 @@ $inclusiveInsideSource = $inclusiveInsideSource.Replace(
     '            IF #Difference > #EffectiveTolerance THEN',
     '            IF NOT #Inside THEN'
 )
+$signedDeviationSource = $representativeSource.Replace(
+    '            #EffectiveTolerance := ABS(#Recipe.Tolerance[#Index]);',
+    "            IF #Recipe.Tolerance[#Index] < 0.0 THEN`r`n                #EffectiveTolerance := -#Recipe.Tolerance[#Index];`r`n            ELSE`r`n                #EffectiveTolerance := #Recipe.Tolerance[#Index];`r`n            END_IF;"
+)
+$signedDeviationSource = $signedDeviationSource.Replace(
+    '            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);',
+    '            #Difference := #Actual[#Index] - #Recipe.Target[#Index];'
+)
+$signedDeviationSource = $signedDeviationSource.Replace(
+    '            IF #Difference > #EffectiveTolerance THEN',
+    '            IF NOT ((#Difference >= -#EffectiveTolerance) AND (#Difference <= #EffectiveTolerance)) THEN'
+)
+$mismatchedSignedDeviationSource = $signedDeviationSource.Replace(
+    '#Difference <= #EffectiveTolerance',
+    '#OtherDifference <= #EffectiveTolerance'
+)
 $limitAndOutputCaseSource = $limitAndOutputCaseSource.Replace(
     "            #Difference := ABS(#Actual[#Index] - #Recipe.Target[#Index]);`r`n            IF #Difference > #EffectiveTolerance THEN",
     "            #LowerLimit := #Recipe.Target[#Index] - #EffectiveTolerance;`r`n            #UpperLimit := #Recipe.Target[#Index] + #EffectiveTolerance;`r`n            IF (#Actual[#Index] < #LowerLimit) OR (#Actual[#Index] > #UpperLimit) THEN"
@@ -404,6 +420,7 @@ try {
     Invoke-SclAssertionTest -Label 'typed-state-literals' -Events (New-SclEvents) -Source $typedLiteralSource
     Invoke-SclAssertionTest -Label 'temporary-first-outside-index' -Events (New-SclEvents) -Source $temporaryFirstOutsideSource
     Invoke-SclAssertionTest -Label 'inclusive-inside-predicate' -Events (New-SclEvents) -Source $inclusiveInsideSource
+    Invoke-SclAssertionTest -Label 'signed-deviation-window' -Events (New-SclEvents) -Source $signedDeviationSource
     Invoke-SclAssertionTest -Label 'nothing-saved-summary' -Events (New-SclEvents) `
         -FinalText 'Created OTT30_RecipeWindow and OTT30_RecipeWindowMonitor through DirectScl. Transaction Succeeded with canonical verification and a final compile of 0 errors and 0 warnings. Nothing saved.'
     Invoke-SclAssertionTest -Label 'no-save-performed-summary' -Events (New-SclEvents) `
@@ -417,6 +434,8 @@ try {
         -ExpectedPassed $false -ExpectedFailedAssertion 'fb-final-identity'
     Invoke-SclAssertionTest -Label 'mismatched-temporary-first-outside-index' -Events (New-SclEvents) `
         -Source $mismatchedTemporaryFirstOutsideSource -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
+    Invoke-SclAssertionTest -Label 'mismatched-signed-deviation-window' -Events (New-SclEvents) `
+        -Source $mismatchedSignedDeviationSource -ExpectedPassed $false -ExpectedFailedAssertion 'native-scl-artifact'
     Invoke-SclAssertionTest -Label 'project-context-not-proven' -Events (New-SclEvents -OmitProjectContext) `
         -ExpectedPassed $false -ExpectedFailedAssertion 'tia-context-established'
     Invoke-SclAssertionTest -Label 'missing-bom' -Events (New-SclEvents) -WithoutBom `
