@@ -120,11 +120,8 @@ campaign. Campaign-owned OpenCode, CLI, and Release-worker processes exited.
 The pre-existing repository MCP was preserved and its isolated worker/session
 was reset after a blocked read-only cleanup probe.
 
-TIA PID 4216 remains open on the final disposable project at
-`C:\OTT\Bench\20260908T235925456Z-ott-30-t3-80EE5FEA\restored\OTT_Benchmark`.
-Both a fresh Release CLI worker and a reset MCP worker blocked while performing
-read-only instance discovery, so the cleanup gate could not independently
-verify the selected project through Openness. The process was deliberately not
-terminated and no close command was issued without that verification. The
-project is an unsaved fixture restore under the benchmark root; it must be
-closed without saving once TIA becomes responsive.
+The final disposable project was closed from the TIA UI without retaining the
+portal session. A process-level verification then confirmed that PID 4216 and
+all other TIA Portal processes had exited. The immutable archive remained
+unchanged, and no campaign-owned OpenCode, CLI, worker, testhost, or disposable
+TIA process remained.
