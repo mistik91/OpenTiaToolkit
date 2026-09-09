@@ -324,7 +324,11 @@ public sealed class PlcCodeCapabilityDiscoveryService
         if (!request.Operation.Equals("Create", StringComparison.OrdinalIgnoreCase) && !request.Operation.Equals("Modify", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("operation must be Create or Modify.");
         string kind = request.ObjectKind.Equals("Type", StringComparison.OrdinalIgnoreCase) ? "Type" : "Block";
         string operation = request.Operation.Equals("Create", StringComparison.OrdinalIgnoreCase) ? "Create" : "Modify";
-        return new PlcCodeCapabilityRequest { PlcName = request.PlcName.Trim(), ObjectKind = kind, ObjectName = request.ObjectName.Trim(), GroupPath = (request.GroupPath ?? string.Empty).Replace('\\', '/').Trim().Trim('/'), Operation = operation, BlockType = request.BlockType?.Trim(), RequestedLanguage = request.RequestedLanguage?.Trim(), RequestedFormat = request.RequestedFormat?.Trim(), PreferSourceControl = request.PreferSourceControl };
+        string plcName = request.PlcName.Trim();
+        string groupPath = kind == "Type"
+            ? PlcWorkflowPrimitives.NormalizeTypeGroupPath(request.GroupPath, plcName)
+            : PlcWorkflowPrimitives.NormalizeGroupPath(request.GroupPath, plcName);
+        return new PlcCodeCapabilityRequest { PlcName = plcName, ObjectKind = kind, ObjectName = request.ObjectName.Trim(), GroupPath = groupPath, Operation = operation, BlockType = request.BlockType?.Trim(), RequestedLanguage = request.RequestedLanguage?.Trim(), RequestedFormat = request.RequestedFormat?.Trim(), PreferSourceControl = request.PreferSourceControl };
     }
 
     private static string ComputeFingerprint(PlcCodeCapabilityDiscovery value)

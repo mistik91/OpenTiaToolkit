@@ -81,30 +81,6 @@ if ($SkillEvaluationArm -ne 'standard' -and
     throw "SkillEvaluationArm '$SkillEvaluationArm' requires a valid SkillEvaluationTarget."
 }
 
-function Resolve-ExistingFile {
-    param(
-        [string]$ExplicitPath,
-        [string]$SearchRoot,
-        [string]$Filter,
-        [string]$Label
-    )
-
-    if (-not [string]::IsNullOrWhiteSpace($ExplicitPath)) {
-        $resolved = (Resolve-Path -LiteralPath $ExplicitPath).Path
-        if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
-            throw "$Label does not exist: $resolved"
-        }
-        return $resolved
-    }
-
-    $candidates = @(Get-ChildItem -LiteralPath $SearchRoot -Recurse -Filter $Filter -File |
-            Sort-Object @{ Expression = { if ($_.FullName -match '\\Debug\\') { 0 } else { 1 } } }, LastWriteTimeUtc -Descending)
-    if ($candidates.Count -eq 0) {
-        throw "Could not find $Label below '$SearchRoot'. Build the repository or pass its explicit path."
-    }
-    return $candidates[0].FullName
-}
-
 function Stop-OwnedProcessTree {
     param([Parameter(Mandatory = $true)][int]$RootProcessId)
 

@@ -17,7 +17,7 @@ public sealed class DiscoverPlcCodeCapabilitiesCommand : ICommand
         new CommandParameter("plc-name", CommandParameterType.String, "Exact PLC device name", true),
         new CommandParameter("object-kind", CommandParameterType.String, "Block or Type", false, "Block"),
         new CommandParameter("object-name", CommandParameterType.String, "Exact existing or intended object name", true),
-        new CommandParameter("group-path", CommandParameterType.String, "Exact PLC block or type group", false),
+        new CommandParameter("group-path", CommandParameterType.String, "Target subgroup relative to Program blocks or PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)", false),
         new CommandParameter("operation", CommandParameterType.String, "Modify or Create", false, "Modify"),
         new CommandParameter("block-type", CommandParameterType.String, "FB, FC, OB, DB, GlobalDB, InstanceDB, or TYPE when known", false),
         new CommandParameter("requested-language", CommandParameterType.String, "Requested code language such as LAD, FBD, or SCL", false),

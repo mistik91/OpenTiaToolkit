@@ -131,6 +131,16 @@ public class PlcDocumentWorkflowCollaboratorTests
     }
 
     [TestMethod]
+    public void GroupPathNormalization_AcceptsSoftwareTreeContainerAliases()
+    {
+        Assert.AreEqual(string.Empty, PlcWorkflowPrimitives.NormalizeGroupPath("PLC_1/Blocks", "PLC_1"));
+        Assert.AreEqual("Area/Motors", PlcWorkflowPrimitives.NormalizeGroupPath("PLC_1/Blocks/Area/Motors", "PLC_1"));
+        Assert.AreEqual(string.Empty, PlcWorkflowPrimitives.NormalizeTypeGroupPath("PLC_1/Types", "PLC_1"));
+        Assert.AreEqual("Recipes", PlcWorkflowPrimitives.NormalizeTypeGroupPath("PLC_1/Types/Recipes", "PLC_1"));
+        Assert.AreEqual("Other/Blocks", PlcWorkflowPrimitives.NormalizeGroupPath("Other/Blocks", "PLC_1"));
+    }
+
+    [TestMethod]
     public void TransactionIntegrity_ParsesDependenciesAndOrdersProviderFirst()
     {
         CollectionAssert.AreEqual(new[] { 1, 2, 3 }, PlcCodeTransactionIntegrity.ParseDependencySequences("3, 1;2 2").ToArray());

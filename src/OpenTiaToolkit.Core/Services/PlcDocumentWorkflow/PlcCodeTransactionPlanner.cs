@@ -118,7 +118,7 @@ internal sealed class PlcCodeTransactionPlanner
 
     private PlcCodeTransactionOperation PrepareTransactionOperation(PlcCodeTransaction transaction, PlcCodeTransactionOperation source, PlcDocumentValidationResult validation, string baselineRoot)
     {
-        string normalizedGroup = NormalizeGroupPath(source.GroupPath);
+        string normalizedGroup = PlcWorkflowPrimitives.NormalizeGroupPath(source.GroupPath, transaction.PlcName);
         object root = RequireBlockRoot();
         if (ResolveGroup(root, normalizedGroup) == null) throw new InvalidOperationException($"PLC block group was not found: '{DisplayGroup(normalizedGroup)}'.");
         IReadOnlyList<ResolvedBlock> named = FindBlocks(root, validation.BlockName!);
@@ -182,9 +182,9 @@ internal sealed class PlcCodeTransactionPlanner
         if (!FixedEquals(source.InputHash, validation.InputHash)) throw new InvalidOperationException($"Operation {source.Sequence} SCL source changed after it was added.");
         IReadOnlyList<PlcSurfaceItem> sources = await _plcService.ListExternalSourcesAsync().ConfigureAwait(false);
         if (sources.Any(item => string.Equals(item.Name, source.SourceName, StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException($"External source '{source.SourceName}' already exists and cannot be backed up through Openness. Use a unique source file name.");
-        string group = NormalizeGroupPath(source.GroupPath);
+        string group = PlcWorkflowPrimitives.NormalizeGroupPath(source.GroupPath, transaction.PlcName);
         if (ResolveGroup(RequireBlockRoot(), group) == null) throw new InvalidOperationException($"PLC block group was not found: '{DisplayGroup(group)}'.");
-        string typeGroup = NormalizeTypeGroupPath(source.TypeGroupPath);
+        string typeGroup = PlcWorkflowPrimitives.NormalizeTypeGroupPath(source.TypeGroupPath, transaction.PlcName);
         if (TiaReflectionHelper.GetTypeGroupByPath(RequireTypeRoot(), typeGroup) == null) throw new InvalidOperationException($"PLC type group was not found: '{DisplayGroup(typeGroup)}'.");
         var snapshots = new List<PlcCodeTransactionTargetSnapshot>();
         int targetIndex = 0;
@@ -255,7 +255,7 @@ internal sealed class PlcCodeTransactionPlanner
         PlcCodeDeclaredObject declared = validation.DeclaredObjects[0];
         if (declared.ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase))
         {
-            string typeGroup = NormalizeTypeGroupPath(source.GroupPath);
+            string typeGroup = PlcWorkflowPrimitives.NormalizeTypeGroupPath(source.GroupPath, transaction.PlcName);
             if (TiaReflectionHelper.GetTypeGroupByPath(RequireTypeRoot(), typeGroup) == null) throw new InvalidOperationException($"PLC type group was not found: '{DisplayGroup(typeGroup)}'.");
             IReadOnlyList<ResolvedType> allTypeMatches = FindTypes(RequireTypeRoot(), declared.Name);
             IReadOnlyList<ResolvedType> typeMatches = allTypeMatches.Where(item => GroupEquals(item.Identity.GroupPath, typeGroup)).ToArray();
@@ -291,7 +291,7 @@ internal sealed class PlcCodeTransactionPlanner
                 ApplyState = "Pending"
             };
         }
-        string group = NormalizeGroupPath(source.GroupPath);
+        string group = PlcWorkflowPrimitives.NormalizeGroupPath(source.GroupPath, transaction.PlcName);
         object root = RequireBlockRoot();
         if (ResolveGroup(root, group) == null) throw new InvalidOperationException($"PLC block group was not found: '{DisplayGroup(group)}'.");
         IReadOnlyList<ResolvedBlock> matches = FindBlocks(root, declared.Name).Where(item => GroupEquals(item.Identity.GroupPath, group) && BlockTypeEquals(item.Identity.BlockType, declared.ObjectType)).ToArray();
@@ -331,7 +331,7 @@ internal sealed class PlcCodeTransactionPlanner
 
     private PlcCodeTransactionOperation PrepareDeleteTypeTransactionOperation(PlcCodeTransaction transaction, PlcCodeTransactionOperation source)
     {
-        string group = NormalizeTypeGroupPath(source.GroupPath);
+        string group = PlcWorkflowPrimitives.NormalizeTypeGroupPath(source.GroupPath, transaction.PlcName);
         if (!FixedEquals(source.InputHash, TypeIdentityHash(group, source.SourceName!))) throw new InvalidOperationException($"Operation {source.Sequence} PLC type deletion identity changed after it was added.");
         if (TiaReflectionHelper.GetTypeGroupByPath(RequireTypeRoot(), group) == null) throw new InvalidOperationException($"PLC type group was not found: '{DisplayGroup(group)}'.");
         IReadOnlyList<ResolvedType> allMatches = FindTypes(RequireTypeRoot(), source.SourceName!);

@@ -18,10 +18,10 @@ public sealed class RunPlcCodeProbeCommand : ICommand
         new CommandParameter("capability-ids", CommandParameterType.String, "Comma-separated Create capability id for every declared probe object", true),
         new CommandParameter("code-format", CommandParameterType.String, "auto, scl, or s7dcl", false, "auto"),
         new CommandParameter("input-path", CommandParameterType.Path, "Disposable SCL or S7DCL probe artifact", true),
-        new CommandParameter("group-path", CommandParameterType.String, "Exact target block group", false),
-        new CommandParameter("type-group-path", CommandParameterType.String, "Exact target PLC type group for SCL TYPE declarations", false),
-        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile", false, "NoNewErrors"),
-        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by the probe", false),
+        new CommandParameter("group-path", CommandParameterType.String, "Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted)", false),
+        new CommandParameter("type-group-path", CommandParameterType.String, "Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)", false),
+        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile; CleanCompile requires zero errors but does not limit warnings", false, "NoNewErrors"),
+        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by the probe; use 0 to reject any new warnings", false),
         new CommandParameter("accept-unknown-impact", CommandParameterType.Boolean, "Explicitly accept reviewed unresolved impact in the disposable target", false, false),
         new CommandParameter("force", CommandParameterType.Boolean, "Run again even when exact verified evidence already exists", false, false),
         new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm temporary live mutation and mandatory cleanup", true)
@@ -71,8 +71,8 @@ public sealed class BeginPromotedPlcCodeTransactionCommand : ICommand
         new CommandParameter("code-format", CommandParameterType.String, "auto, scl, or s7dcl", false, "auto"),
         new CommandParameter("input-path", CommandParameterType.Path, "Exact production artifact whose normalized shape matches the evidence", true),
         new CommandParameter("description", CommandParameterType.String, "Human-readable production engineering intent", true),
-        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile", false, "NoNewErrors"),
-        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile", false),
+        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile; CleanCompile requires zero errors but does not limit warnings", false, "NoNewErrors"),
+        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile; use 0 to reject any new warnings", false),
         new CommandParameter("save-decision", CommandParameterType.String, "Defer or ManualAfterVerification; this command never silently saves the project", true),
         new CommandParameter("source-control-decision", CommandParameterType.String, "None or VCISeparateAfterSave; direct import never impersonates VCI synchronization", true)
     });

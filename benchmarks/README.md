@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty-two cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty-three cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -24,6 +24,9 @@ Each run records:
   next-patch correction;
 - the one-based trial index for repeated model/task executions;
 - deterministic trace and final-answer assertions.
+- path-confined workspace-file assertions for authored artifacts, including
+  strict UTF-8 decoding, optional BOM and size guards, required content
+  patterns, and forbidden content patterns;
 
 Paired skill-evaluation campaigns add:
 
@@ -469,6 +472,28 @@ guard, and recovered. The corrected rubric re-adjudicates those traces at
 same Flash High configuration passed 3/3 at 100 with zero filter-only safety
 rejections. See `reports/hmi-trend-filter-skill-verification-20260905.md`.
 
+`ott-30` opens native SCL authoring with a held-out UDT plus stateful FB task.
+It requires per-target Create capability discovery, one UTF-8 BOM source, a
+verified offline classification, one capability-bound `CleanCompile`
+transaction, canonical evidence for both generated identities, independent
+source/XML readback, fresh Modify discovery, and a clean final compile. The
+rubric mechanically inspects the isolated source artifact as well as the MCP
+trace so syntactically valid but behaviorally incomplete submissions cannot
+pass on compile evidence alone. The independently executed TIA gold path is in
+`reports/ott-30-gold-audit-20260905.md`.
+
+Its first campaign is frozen in
+`campaigns/native-scl-authoring-glm-5-3-flash-high-20260905.json` and runs
+subscription-backed `zai-coding-plan/glm-5.3-flash` at declared effort and
+variant `high`. GLM-5.3 High is reserved as the capability fallback. A generic
+skill-contract problem stops the campaign before skill modification.
+
+The completed Flash-to-GLM escalation and surgical skill/evaluator hardening
+are reported in
+`reports/native-scl-authoring-glm-5-3-high-20260909.md`. Under the final
+evaluator, GLM-5.3 High scores 100/40/100: two clean passes and one genuine
+critical retry-budget violation, so the model remains unqualified.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -665,6 +690,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-27` | Held-out cross-vendor GSDML transfer | Provision an IFM AL1400, reject package distractors, preserve generated proxy IO, bind two displaced ports and five address objects, and guarded-write the port-options record |
 | `ott-28` | Unified discrete-alarm reconciliation | Hash-bind a partial update, compute a free ID and trigger bit, atomically create the new alarm, retire one exact unreferenced alarm, and preserve its near-name distractor |
 | `ott-29` | Unified trend-logging reconciliation | Interpret mixed reference safety, move and create two tag associations in one shared archive, retire one logging tag and three obsolete archives, and prove the final active and absent state |
+| `ott-30` | Native SCL multi-object authoring | Author a UDT and stateful FB in one source and transaction, prove the source semantics mechanically, and verify exact generated identities and clean compilation |
 
 ## Adding a case
 
@@ -674,3 +700,8 @@ Copy an existing `cases/ott-*` directory, keep the prompt separate from `case.js
 property order. Set `normalizeResultReferences: true` when `resultId` values
 are agent-chosen local names: the evaluator then accepts consistent bijective
 renaming across `resultId`/`targetRef` while still rejecting broken bindings.
+
+`workspaceFile` resolves `relativePath` strictly below the recorded isolated
+workspace and rejects rooted or traversal paths. Use its size, UTF-8 BOM,
+required-pattern, and forbidden-pattern checks when the task's correctness
+depends on an authored artifact that tool outputs cannot fully describe.

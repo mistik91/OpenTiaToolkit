@@ -797,11 +797,13 @@ public class PlcDocumentWorkflowServiceTests
         plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
         var service = new PlcDocumentWorkflowService(plc.Object, context);
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "transactional type generation");
-        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, "PLC_1/Blocks", "PLC_1/Types");
         PlcCodeTransaction plan = await service.PlanTransactionAsync(draft.TransactionId);
         PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
 
         Assert.IsTrue(result.Applied, result.Message);
+        Assert.AreEqual(string.Empty, result.Transaction.Operations.Single().GroupPath);
+        Assert.AreEqual(string.Empty, result.Transaction.Operations.Single().TypeGroupPath);
         Assert.IsTrue(result.Transaction.Operations.Single().TargetSnapshots.Any(snapshot => snapshot.Target.BlockType == "TYPE" && snapshot.CanonicalResultHash != null));
         Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
     }

@@ -28,7 +28,7 @@ internal sealed class PlcDocumentImportWorkflow
         PlcDocumentValidationResult validation = Validate(importDirectory, fileName);
         if (!validation.Valid) throw new InvalidDataException("PLC documents are invalid: " + string.Join("; ", validation.Errors));
         await EnsurePlcOpen(plcName).ConfigureAwait(false);
-        string group = PlcWorkflowPrimitives.NormalizeGroupPath(groupPath);
+        string group = PlcWorkflowPrimitives.NormalizeGroupPath(groupPath, plcName);
         if (_targets.ResolveBlockGroup(group) == null) throw new InvalidOperationException($"PLC block group was not found: '{PlcWorkflowPrimitives.DisplayGroup(group)}'.");
         IReadOnlyList<ResolvedBlock> named = _targets.FindBlocks(validation.BlockName!);
         IReadOnlyList<ResolvedBlock> inGroup = named.Where(item => PlcWorkflowPrimitives.GroupEquals(item.Identity.GroupPath, group)).ToArray();

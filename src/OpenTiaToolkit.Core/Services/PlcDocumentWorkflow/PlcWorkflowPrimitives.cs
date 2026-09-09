@@ -44,24 +44,37 @@ internal static class PlcWorkflowPrimitives
         return difference == 0;
     }
 
-    internal static string NormalizeGroupPath(string? path)
+    internal static string NormalizeGroupPath(string? path, string? plcName = null)
     {
         if (string.IsNullOrWhiteSpace(path)) return string.Empty;
         string normalized = string.Join("/", path!.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim()));
-        if (normalized.Equals("Program Blocks", StringComparison.OrdinalIgnoreCase)) return string.Empty;
-        return normalized.StartsWith("Program Blocks/", StringComparison.OrdinalIgnoreCase) ? normalized.Substring("Program Blocks/".Length) : normalized;
+        normalized = StripPlcPrefix(normalized, plcName);
+        foreach (string root in new[] { "Program Blocks", "Blocks" })
+        {
+            if (normalized.Equals(root, StringComparison.OrdinalIgnoreCase)) return string.Empty;
+            if (normalized.StartsWith(root + "/", StringComparison.OrdinalIgnoreCase)) return normalized.Substring(root.Length + 1);
+        }
+        return normalized;
     }
 
-    internal static string NormalizeTypeGroupPath(string? path)
+    internal static string NormalizeTypeGroupPath(string? path, string? plcName = null)
     {
         if (string.IsNullOrWhiteSpace(path)) return string.Empty;
         string normalized = string.Join("/", path!.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Trim()));
+        normalized = StripPlcPrefix(normalized, plcName);
         foreach (string root in new[] { "PLC data types", "PLC types", "Types" })
         {
             if (normalized.Equals(root, StringComparison.OrdinalIgnoreCase)) return string.Empty;
             if (normalized.StartsWith(root + "/", StringComparison.OrdinalIgnoreCase)) return normalized.Substring(root.Length + 1);
         }
         return normalized;
+    }
+
+    private static string StripPlcPrefix(string path, string? plcName)
+    {
+        if (string.IsNullOrWhiteSpace(plcName)) return path;
+        string prefix = plcName!.Trim().Trim('/', '\\') + "/";
+        return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? path.Substring(prefix.Length) : path;
     }
 
     internal static string DisplayGroup(string path) => string.IsNullOrEmpty(path) ? "<root>" : path;

@@ -16,8 +16,8 @@ public sealed class BeginPlcCodeTransactionCommand : ICommand
     {
         new CommandParameter("plc-name", CommandParameterType.String, "Exact PLC device name", true),
         new CommandParameter("description", CommandParameterType.String, "Human-readable engineering intent", false),
-        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile", false, "NoNewErrors"),
-        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile", false),
+        new CommandParameter("compile-policy", CommandParameterType.String, "NoNewErrors (default) or CleanCompile; CleanCompile requires zero errors but does not limit warnings", false, "NoNewErrors"),
+        new CommandParameter("maximum-new-warnings", CommandParameterType.Integer, "Optional maximum warning increase accepted by final compile; use 0 to reject any new warnings", false),
         new CommandParameter("capability-id", CommandParameterType.String, "One live capability discovery id to bind and revalidate at plan/apply", false),
         new CommandParameter("capability-ids", CommandParameterType.String, "Comma-separated capability ids for an atomic multi-target transaction", false)
     });
@@ -117,8 +117,8 @@ public sealed class AddSclSourceTransactionOperationCommand : ICommand
     {
         new CommandParameter("transaction-id", CommandParameterType.String, "Draft PLC code transaction id", true),
         new CommandParameter("source-path", CommandParameterType.Path, "UTF-8 SCL source file", true),
-        new CommandParameter("group-path", CommandParameterType.String, "Exact target block group for every declared block", false),
-        new CommandParameter("type-group-path", CommandParameterType.String, "Exact target PLC type group for every declared TYPE", false),
+        new CommandParameter("group-path", CommandParameterType.String, "Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted)", false),
+        new CommandParameter("type-group-path", CommandParameterType.String, "Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)", false),
         new CommandParameter("depends-on", CommandParameterType.String, "Optional comma-separated operation sequences that must apply first", false),
         new CommandParameter("confirm", CommandParameterType.Boolean, "Confirm adding the reviewed source operation", true)
     });

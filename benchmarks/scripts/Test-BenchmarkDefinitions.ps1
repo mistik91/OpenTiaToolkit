@@ -14,7 +14,7 @@ $fixtureManifestPath = Join-Path $benchmarkRoot 'fixtures\manifest.json'
 $errors = [System.Collections.Generic.List[string]]::new()
 $fixtures = (Get-Content -LiteralPath $fixtureManifestPath -Raw | ConvertFrom-Json).fixtures
 $fixtureIds = @($fixtures | ForEach-Object { [string]$_.id })
-$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'finalRegex', 'traceRegex', 'run')
+$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'workspaceFile', 'finalRegex', 'traceRegex', 'run')
 
 foreach ($fixture in $fixtures) {
     if ([string]::IsNullOrWhiteSpace([string]$fixture.id)) {
@@ -113,6 +113,32 @@ foreach ($caseFile in $caseFiles) {
             if ($null -eq $assertion.PSObject.Properties['expectedOperations'] -or
                 @($assertion.expectedOperations).Count -eq 0) {
                 $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' needs expectedOperations.")
+            }
+        }
+        if ($assertion.type -eq 'workspaceFile') {
+            $relativePath = [string]$assertion.relativePath
+            if ([string]::IsNullOrWhiteSpace($relativePath) -or
+                [System.IO.Path]::IsPathRooted($relativePath) -or
+                @($relativePath -split '[\\/]' | Where-Object { $_ -eq '..' }).Count -gt 0) {
+                $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' needs a workspace-relative relativePath without traversal.")
+            }
+            if ($null -ne $assertion.PSObject.Properties['minBytes'] -and
+                $null -ne $assertion.PSObject.Properties['maxBytes'] -and
+                [int64]$assertion.minBytes -gt [int64]$assertion.maxBytes) {
+                $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' minBytes cannot exceed maxBytes.")
+            }
+            foreach ($patternProperty in @('contentPatterns', 'forbiddenContentPatterns')) {
+                if ($null -eq $assertion.PSObject.Properties[$patternProperty]) {
+                    continue
+                }
+                foreach ($pattern in @($assertion.$patternProperty)) {
+                    try {
+                        [void][regex]::new([string]$pattern)
+                    }
+                    catch {
+                        $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' has an invalid $patternProperty regex.")
+                    }
+                }
             }
         }
         if ($assertion.type -in @('finalRegex', 'traceRegex')) {
