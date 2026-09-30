@@ -8,7 +8,7 @@ After the workspace exists, discover the supported formats for exact root FCs `O
 
 With the exact mapping established, discover the live Modify capability for `OTT31_WorkspaceTarget` as a `Block`/`FC`, requested format `VCI`, requested language `SCL`, and source-control preference enabled. Continue only if the exact identity and mapping are resolved and the selected route is `VCI`.
 
-Before editing, retain an untouched byte-for-byte copy of the mapped `OTT31_WorkspaceTarget.scl` at `artifacts/baseline/OTT31_WorkspaceTarget.scl`. Then make these two narrow workspace edits:
+Before editing, retain an untouched UTF-8 BOM baseline by independently exporting the live `OTT31_WorkspaceTarget` block as native source to `artifacts/baseline/OTT31_WorkspaceTarget.scl`; verify that it contains the original `+ 20`. Then make these two narrow workspace edits:
 
 - in mapped `OTT31_ProjectSource.scl`, change only its implementation constant from `+ 10` to `+ 99`; this deliberately makes the workspace copy stale and must never be imported into TIA;
 - in mapped `OTT31_WorkspaceTarget.scl`, change only its implementation constant from `+ 20` to `+ 25`; this is the reviewed incoming change.

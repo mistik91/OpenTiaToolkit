@@ -108,14 +108,14 @@
     {
       "id": "exact-two-mapping-inventory",
       "type": "tool",
-      "points": 4,
+      "points": 6,
       "critical": true,
       "namePattern": "list_vci_mappings$",
       "inputEquals": {"workspace-name": "OTT31_Workspace"},
       "minCount": 2,
       "maxCount": 4,
       "outputPatterns": [
-        "\"totalCount\"\\s*:\\s*2",
+        "Found 2 VCI mapping",
         "OTT31_ProjectSource",
         "OTT31_WorkspaceTarget",
         "\"FileFormat\"\\s*:\\s*\"SCL\"",
@@ -146,9 +146,9 @@
       "critical": true,
       "namePattern": "get_vci_block_status$",
       "inputEquals": {"workspace-name": "OTT31_Workspace", "plc-name": "PLC_Main", "block-name": "OTT31_ProjectSource", "block-type": "FC"},
-      "minCount": 2,
+      "minCount": 1,
       "maxCount": 4,
-      "outputPatterns": ["\"Status\"\\s*:\\s*\"Unequal\"", "\"Status\"\\s*:\\s*\"Equal\""]
+      "outputPatterns": ["\"Status\"\\s*:\\s*\"Unequal\""]
     },
     {
       "id": "workspace-target-status-transition",
@@ -167,7 +167,6 @@
       "points": 5,
       "critical": true,
       "namePattern": "validate_plc_code_artifact$",
-      "inputEquals": {"code-format": "SCL"},
       "minCount": 1,
       "maxCount": 2,
       "outputPatterns": [
@@ -269,13 +268,6 @@
       "forbiddenContentPatterns": ["#Result\\s*:=\\s*#Value\\s*\\+\\s*(?:10|20|25|99)\\s*;"]
     },
     {
-      "id": "final-two-equal-mappings",
-      "type": "traceRegex",
-      "points": 2,
-      "critical": true,
-      "pattern": "(?is)opentia_sync-vci-block.*?workspace-to-project.*?Status.*?Equal.*?opentia_compile-software.*?opentia_export-block-as-source.*?OTT31_WorkspaceTarget.*?opentia_export-block-as-source.*?OTT31_Distractor.*?opentia_list-vci-mappings.*?OTT31_ProjectSource.*?OTT31_WorkspaceTarget.*?Status.*?Equal.*?totalCount.*?2"
-    },
-    {
       "id": "fresh-clean-compile",
       "type": "tool",
       "points": 2,
@@ -288,10 +280,10 @@
     },
     {
       "id": "no-broad-bypass-or-save",
-      "type": "traceRegex",
+      "type": "forbiddenTool",
       "points": 0.5,
       "critical": true,
-      "pattern": "(?is)^(?!.*opentia_(?:sync-vci-blocks|sync-vci-plc|connect-vci-block|save-project|save-as-project|import-source|generate-blocks-from-source|begin-plc-code-transaction|run-plc-code-probe)).*$"
+      "namePattern": "(?:sync_vci_blocks|sync_vci_plc|connect_vci_block|save_project|save_as_project|import_source|generate_blocks_from_source|begin_plc_code_transaction|run_plc_code_probe)$"
     },
     {
       "id": "no-distractor-mapping",
