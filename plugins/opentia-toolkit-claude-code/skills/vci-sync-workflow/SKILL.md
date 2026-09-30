@@ -18,17 +18,17 @@ Use this skill for TIA Version Control Interface work. Read the shared [PLC code
    - `get-vci-workspace`
    - `list-vci-mappings`
    For large mapping reviews, pass `output-path` to `list-vci-mappings` or use the returned CSV artifact path when it auto-spills.
-4. For a block workflow, discover supported formats with `get-vci-block-formats`.
-5. Before synchronization, run `get-vci-block-status` for mapped objects when possible. If its mapping, format, or status no longer matches capability discovery, treat the evidence as stale and rediscover before synchronization.
+4. Ensure the intended workspace exists before block-format discovery. For a new repository, create the exact reviewed root with `create-vci-workspace` first. `get-vci-block-formats` enumerates formats through existing project workspaces, so an empty result when the project has no VCI workspace is not evidence that the block is unsupported.
+5. For a block workflow, discover supported formats with `get-vci-block-formats`.
+6. Before synchronization, run `get-vci-block-status` for mapped objects when possible. If its mapping, format, or status no longer matches capability discovery, treat the evidence as stale and rediscover before synchronization.
    If a workspace file will be authored or modified, route its content through `plc-code-engineering`, run `validate-plc-code-artifact` for its exact format, and retain the project export as rollback evidence before workspace-to-project sync.
-6. Choose the operation:
-   - `create-vci-workspace` for a new workspace root.
+7. Choose the mapping or synchronization operation:
    - `export-vci-block` to export one PLC block and create its mapping.
    - `connect-vci-block` to map an existing workspace file to a PLC block.
    - `sync-vci-block` for one block.
    - `sync-vci-blocks` for a filtered block set.
    - `sync-vci-plc` for supported objects of a PLC.
-7. Verify with `get-vci-block-status` or `list-vci-mappings`.
+8. Verify with `get-vci-block-status` or `list-vci-mappings`.
 
 ## Direction Rules
 
