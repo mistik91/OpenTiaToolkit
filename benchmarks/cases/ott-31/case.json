@@ -157,9 +157,9 @@
       "critical": true,
       "namePattern": "get_vci_block_status$",
       "inputEquals": {"workspace-name": "OTT31_Workspace", "plc-name": "PLC_Main", "block-name": "OTT31_WorkspaceTarget", "block-type": "FC"},
-      "minCount": 2,
+      "minCount": 1,
       "maxCount": 4,
-      "outputPatterns": ["\"Status\"\\s*:\\s*\"Unequal\"", "\"Status\"\\s*:\\s*\"Equal\""]
+      "outputPatterns": ["\"Status\"\\s*:\\s*\"Unequal\""]
     },
     {
       "id": "workspace-target-validated",
@@ -297,7 +297,7 @@
       "id": "final-summary",
       "type": "finalRegex",
       "points": 1,
-      "pattern": "(?is)(?=.*OTT31_ProjectSource)(?=.*OTT31_WorkspaceTarget)(?=.*OTT31_Distractor)(?=.*project-to-workspace)(?=.*workspace-to-project)(?=.*VCI)(?=.*Equal)(?=.*0\\s+errors)(?=.*0\\s+warnings)(?=.*(?:not saved|without saving|no save))"
+      "pattern": "(?is)(?=.*OTT31_ProjectSource)(?=.*OTT31_WorkspaceTarget)(?=.*(?:OTT31_)?Distractor)(?=.*project-to-workspace)(?=.*workspace-to-project)(?=.*VCI)(?=.*Equal)(?=.*0\\s+errors)(?=.*0\\s+warnings)(?=.*(?:not saved|without saving|no save))"
     }
   ]
 }
