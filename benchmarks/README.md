@@ -515,6 +515,14 @@ subscription-backed `zai-coding-plan/glm-5.3-flash` at declared effort and
 variant `high`. `campaigns/vci-sync-glm-5-3-high-20260930.json` is the
 capability fallback and is run only when Flash fails for model capability.
 
+The frozen three-trial Flash High cohort qualifies at 98/100/98 (mean 98.67),
+with a mean duration of 271.177 seconds and $0 reported incremental subscription
+cost. Both directions and independent preservation/readback checks passed;
+the full GLM fallback was not run. One read-only overlap rejection recovered
+safely. Pilot scorer corrections, exact settings, per-trial cost, independent
+verification, and cleanup are documented in
+`reports/vci-sync-glm-5-3-flash-high-20260930.md`.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
