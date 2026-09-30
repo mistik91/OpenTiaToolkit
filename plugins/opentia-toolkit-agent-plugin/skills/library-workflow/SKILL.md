@@ -19,7 +19,7 @@ Keep this workflow read-first. Library commands can reveal company standards; mu
    - Use `library-scope=global` for an open global library.
 3. For global libraries:
    - Run `list-global-libraries` first when the available library name/path is unknown.
-   - Open user or default Siemens libraries with `open-global-library --path "<path>" --read-only=true`.
+   - Open user or default Siemens libraries with `open-global-library --path "<path>" --read-only=true --confirm=true`. Read-only protects the library file; opening it still changes the portal session and requires explicit confirmation through MCP.
    - Close user global libraries with `close-global-library` when finished.
 4. Browse before selecting:
    - `list-master-copies` for reusable objects.
@@ -40,6 +40,8 @@ Siemens System/Corporate global libraries may be returned by `list-global-librar
 ## Master Copy Safety
 
 Do not assume every master copy is PLC-compatible.
+
+A successful `copy-from-master-copy` dry run proves source-path and target-group resolution, not source-domain compatibility or collision safety. Establish compatibility independently and inspect existing target objects before applying; do not infer permission to overwrite from the dry-run success message.
 
 - PLC block/type master copies can be candidates for `copy-from-master-copy` into PLC block groups.
 - HMI graphics, controls, faceplates, and screen assets should not be applied to PLC block groups.
