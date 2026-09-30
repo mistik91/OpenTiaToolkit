@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty-three cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
+This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty-four cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, bidirectional VCI synchronization, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -494,6 +494,27 @@ are reported in
 evaluator, GLM-5.3 High scores 100/40/100: two clean passes and one genuine
 critical retry-budget violation, so the model remains unqualified.
 
+`ott-31` opens the VCI synchronization domain on a dedicated three-FC fixture.
+It creates a per-trial workspace before discovering formats, maps exactly two
+SCL blocks, and then proves both directions without a bulk shortcut: a stale
+workspace file is replaced from TIA while a separately validated workspace
+change is imported into TIA. The rubric inspects the mapped files, untouched
+baseline, independent project readback, final mapping status, and an unmapped
+distractor. The immutable fixture and independently executed positive and
+policy-denied gold paths are recorded in
+`reports/ott-31-gold-audit-20260930.md`.
+
+The gold audit exposed one generic ordering constraint before model inference:
+TIA V21 enumerates supported block formats through existing workspaces, so
+format discovery returns an empty list when the project has none. The shipped
+VCI skill now creates a reviewed new workspace before format discovery and
+explicitly prevents treating that empty pre-workspace result as unsupported
+target evidence. The first campaign is frozen in
+`campaigns/vci-sync-glm-5-3-flash-high-20260930.json` with
+subscription-backed `zai-coding-plan/glm-5.3-flash` at declared effort and
+variant `high`. `campaigns/vci-sync-glm-5-3-high-20260930.json` is the
+capability fallback and is run only when Flash fails for model capability.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -691,6 +712,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-28` | Unified discrete-alarm reconciliation | Hash-bind a partial update, compute a free ID and trigger bit, atomically create the new alarm, retire one exact unreferenced alarm, and preserve its near-name distractor |
 | `ott-29` | Unified trend-logging reconciliation | Interpret mixed reference safety, move and create two tag associations in one shared archive, retire one logging tag and three obsolete archives, and prove the final active and absent state |
 | `ott-30` | Native SCL multi-object authoring | Author a UDT and stateful FB in one source and transaction, prove the source semantics mechanically, and verify exact generated identities and clean compilation |
+| `ott-31` | Bidirectional VCI block reconciliation | Create a workspace before format discovery, map two exact SCL blocks, prove both sync directions, validate the imported source, preserve an unmapped distractor, and verify Equal mappings plus a clean compile |
 
 ## Adding a case
 

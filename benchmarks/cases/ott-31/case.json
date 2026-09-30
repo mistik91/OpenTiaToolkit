@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-31",
+  "title": "Bidirectional VCI block reconciliation",
+  "description": "Tests workspace-first VCI format discovery, exact SCL mappings, source-control capability selection, opposite directional syncs, guarded workspace-to-project import, distractor preservation, and compile-backed readback.",
+  "fixtureId": "tia-v21-vci-10",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1200,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "plc-code-engineering",
+    "vci-sync-workflow"
+  ],
+  "allowWorkspaceEdits": true,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 3,
+      "critical": true
+    },
+    {
+      "id": "vci-skill-loaded",
+      "type": "tool",
+      "points": 2,
+      "namePattern": "skill$",
+      "inputEquals": {"name": "vci-sync-workflow"},
+      "minCount": 1
+    },
+    {
+      "id": "plc-code-skill-loaded",
+      "type": "tool",
+      "points": 2,
+      "namePattern": "skill$",
+      "inputEquals": {"name": "plc-code-engineering"},
+      "minCount": 1
+    },
+    {
+      "id": "tia-context-established",
+      "type": "traceRegex",
+      "points": 3,
+      "critical": true,
+      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?(?:opentia_list-projects|opentia_get-project-info).*?(?:opentia_open-plc|opentia_list-plcs|opentia_get-software-tree|opentia_list-vci-workspaces)"
+    },
+    {
+      "id": "workspace-before-format-discovery",
+      "type": "traceRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)opentia_list-vci-workspaces.*?Found\\s+0\\s+VCI\\s+workspace.*?opentia_create-vci-workspace(?=(?:(?!opentia_get-vci-block-formats).)*\"workspace-name\"\\s*:\\s*\"OTT31_Workspace\")(?:(?!opentia_get-vci-block-formats).)*Created VCI workspace.*?opentia_get-vci-block-formats"
+    },
+    {
+      "id": "project-source-scl-format-discovery",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "get_vci_block_formats$",
+      "inputEquals": {"plc-name": "PLC_Main", "block-name": "OTT31_ProjectSource", "block-type": "FC"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Found 3 supported VCI format",
+        "\"SCL\"",
+        "\"SimaticML\"",
+        "\"SimaticSD\""
+      ]
+    },
+    {
+      "id": "workspace-target-scl-format-discovery",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "get_vci_block_formats$",
+      "inputEquals": {"plc-name": "PLC_Main", "block-name": "OTT31_WorkspaceTarget", "block-type": "FC"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Found 3 supported VCI format",
+        "\"SCL\"",
+        "\"SimaticML\"",
+        "\"SimaticSD\""
+      ]
+    },
+    {
+      "id": "project-source-exact-mapping",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "export_vci_block$",
+      "inputEquals": {"workspace-name": "OTT31_Workspace", "plc-name": "PLC_Main", "block-name": "OTT31_ProjectSource", "block-type": "FC", "relative-directory": ".", "file-name": "OTT31_ProjectSource", "file-format": "SCL"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["Exported and mapped VCI block", "\"Status\"\\s*:\\s*\"Equal\""]
+    },
+    {
+      "id": "workspace-target-exact-mapping",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "export_vci_block$",
+      "inputEquals": {"workspace-name": "OTT31_Workspace", "plc-name": "PLC_Main", "block-name": "OTT31_WorkspaceTarget", "block-type": "FC", "relative-directory": ".", "file-name": "OTT31_WorkspaceTarget", "file-format": "SCL"},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["Exported and mapped VCI block", "\"Status\"\\s*:\\s*\"Equal\""]
+    },
+    {
+      "id": "exact-two-mapping-inventory",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "list_vci_mappings$",
+      "inputEquals": {"workspace-name": "OTT31_Workspace"},
+      "minCount": 2,
+      "maxCount": 4,
+      "outputPatterns": [
+        "\"totalCount\"\\s*:\\s*2",
+        "OTT31_ProjectSource",
+        "OTT31_WorkspaceTarget",
+        "\"FileFormat\"\\s*:\\s*\"SCL\"",
+        "\"Status\"\\s*:\\s*\"Equal\""
+      ]
+    },
+    {
+      "id": "vci-capability-selected",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "inputEquals": {"plc-name": "PLC_Main", "object-name": "OTT31_WorkspaceTarget", "object-kind": "Block", "block-type": "FC", "operation": "Modify", "requested-format": "VCI", "requested-language": "SCL", "prefer-source-control": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"ExactIdentityResolved\"\\s*:\\s*true",
+        "\"WorkspaceName\"\\s*:\\s*\"OTT31_Workspace\"",
+        "\"ExactMappingFound\"\\s*:\\s*true",
+        "\"MappingFormat\"\\s*:\\s*\"SCL\"",
+        "\"SelectedRoute\"\\s*:\\s*\"VCI\""
+      ]
+    },
+    {
+      "id": "project-source-status-transition",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_vci_block_status$",
+      "inputEquals": {"workspace-name": "OTT31_Workspace", "plc-name": "PLC_Main", "block-name": "OTT31_ProjectSource", "block-type": "FC"},
+      "minCount": 2,
+      "maxCount": 4,
+      "outputPatterns": ["\"Status\"\\s*:\\s*\"Unequal\"", "\"Status\"\\s*:\\s*\"Equal\""]
+    },
+    {
+      "id": "workspace-target-status-transition",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "get_vci_block_status$",
+      "inputEquals": {"workspace-name": "OTT31_Workspace", "plc-name": "PLC_Main", "block-name": "OTT31_WorkspaceTarget", "block-type": "FC"},
+      "minCount": 2,
+      "maxCount": 4,
+      "outputPatterns": ["\"Status\"\\s*:\\s*\"Unequal\"", "\"Status\"\\s*:\\s*\"Equal\""]
+    },
+    {
+      "id": "workspace-target-validated",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "validate_plc_code_artifact$",
+      "inputEquals": {"code-format": "SCL"},
+      "minCount": 1,
+      "maxCount": 2,
+      "outputPatterns": [
+        "\"Valid\"\\s*:\\s*true",
+        "\"Format\"\\s*:\\s*\"SCL\"",
+        "\"Classification\"\\s*:\\s*\"verified\"",
+        "\"Name\"\\s*:\\s*\"OTT31_WorkspaceTarget\"",
+        "\"Errors\"\\s*:\\s*\\[\\s*\\]",
+        "\"Warnings\"\\s*:\\s*\\[\\s*\\]"
+      ]
+    },
+    {
+      "id": "mapped-target-validation-bound-to-import",
+      "type": "traceRegex",
+      "points": 2,
+      "critical": true,
+      "pattern": "(?is)opentia_validate-plc-code-artifact.*?artifacts.*?vci-repo.*?OTT31_WorkspaceTarget[.]scl.*?Valid.*?true.*?opentia_sync-vci-block.*?workspace-to-project"
+    },
+    {
+      "id": "exact-project-to-workspace-sync",
+      "type": "tool",
+      "points": 8,
+      "critical": true,
+      "namePattern": "sync_vci_block$",
+      "inputEquals": {"workspace-name": "OTT31_Workspace", "plc-name": "PLC_Main", "block-name": "OTT31_ProjectSource", "block-type": "FC", "direction": "project-to-workspace", "create-mapping": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["Synchronized", "\"MappingCreated\"\\s*:\\s*false", "\"Status\"\\s*:\\s*\"Equal\""]
+    },
+    {
+      "id": "exact-workspace-to-project-sync",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "sync_vci_block$",
+      "inputEquals": {"workspace-name": "OTT31_Workspace", "plc-name": "PLC_Main", "block-name": "OTT31_WorkspaceTarget", "block-type": "FC", "direction": "workspace-to-project", "create-mapping": false, "confirm": true},
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": ["Synchronized", "\"MappingCreated\"\\s*:\\s*false", "\"Status\"\\s*:\\s*\"Equal\""]
+    },
+    {
+      "id": "project-source-workspace-result",
+      "type": "workspaceFile",
+      "points": 6,
+      "critical": true,
+      "relativePath": "artifacts/vci-repo/OTT31_ProjectSource.scl",
+      "minBytes": 150,
+      "maxBytes": 2000,
+      "requireUtf8Bom": true,
+      "contentPatterns": ["FUNCTION\\s+\"OTT31_ProjectSource\"", "#Result\\s*:=\\s*#Value\\s*\\+\\s*10\\s*;"],
+      "forbiddenContentPatterns": ["#Result\\s*:=\\s*#Value\\s*\\+\\s*99\\s*;"]
+    },
+    {
+      "id": "workspace-target-workspace-result",
+      "type": "workspaceFile",
+      "points": 6,
+      "critical": true,
+      "relativePath": "artifacts/vci-repo/OTT31_WorkspaceTarget.scl",
+      "minBytes": 150,
+      "maxBytes": 2000,
+      "requireUtf8Bom": true,
+      "contentPatterns": ["FUNCTION\\s+\"OTT31_WorkspaceTarget\"", "#Result\\s*:=\\s*#Value\\s*\\+\\s*25\\s*;"],
+      "forbiddenContentPatterns": ["#Result\\s*:=\\s*#Value\\s*\\+\\s*20\\s*;"]
+    },
+    {
+      "id": "workspace-target-baseline-retained",
+      "type": "workspaceFile",
+      "points": 4,
+      "critical": true,
+      "relativePath": "artifacts/baseline/OTT31_WorkspaceTarget.scl",
+      "minBytes": 150,
+      "maxBytes": 2000,
+      "requireUtf8Bom": true,
+      "contentPatterns": ["FUNCTION\\s+\"OTT31_WorkspaceTarget\"", "#Result\\s*:=\\s*#Value\\s*\\+\\s*20\\s*;"],
+      "forbiddenContentPatterns": ["#Result\\s*:=\\s*#Value\\s*\\+\\s*25\\s*;"]
+    },
+    {
+      "id": "workspace-target-project-readback",
+      "type": "workspaceFile",
+      "points": 4,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT31_WorkspaceTarget.scl",
+      "minBytes": 150,
+      "maxBytes": 2000,
+      "requireUtf8Bom": true,
+      "contentPatterns": ["FUNCTION\\s+\"OTT31_WorkspaceTarget\"", "#Result\\s*:=\\s*#Value\\s*\\+\\s*25\\s*;"],
+      "forbiddenContentPatterns": ["#Result\\s*:=\\s*#Value\\s*\\+\\s*20\\s*;"]
+    },
+    {
+      "id": "distractor-project-readback",
+      "type": "workspaceFile",
+      "points": 3,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT31_Distractor.scl",
+      "minBytes": 150,
+      "maxBytes": 2000,
+      "requireUtf8Bom": true,
+      "contentPatterns": ["FUNCTION\\s+\"OTT31_Distractor\"", "#Result\\s*:=\\s*#Value\\s*\\+\\s*30\\s*;"],
+      "forbiddenContentPatterns": ["#Result\\s*:=\\s*#Value\\s*\\+\\s*(?:10|20|25|99)\\s*;"]
+    },
+    {
+      "id": "final-two-equal-mappings",
+      "type": "traceRegex",
+      "points": 2,
+      "critical": true,
+      "pattern": "(?is)opentia_sync-vci-block.*?workspace-to-project.*?Status.*?Equal.*?opentia_compile-software.*?opentia_export-block-as-source.*?OTT31_WorkspaceTarget.*?opentia_export-block-as-source.*?OTT31_Distractor.*?opentia_list-vci-mappings.*?OTT31_ProjectSource.*?OTT31_WorkspaceTarget.*?Status.*?Equal.*?totalCount.*?2"
+    },
+    {
+      "id": "fresh-clean-compile",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "inputEquals": {"plc-name": "PLC_Main"},
+      "minCount": 1,
+      "maxCount": 2,
+      "outputPatterns": ["Compilation successful", "\"errorCount\"\\s*:\\s*0", "\"warningCount\"\\s*:\\s*0"]
+    },
+    {
+      "id": "no-broad-bypass-or-save",
+      "type": "traceRegex",
+      "points": 0.5,
+      "critical": true,
+      "pattern": "(?is)^(?!.*opentia_(?:sync-vci-blocks|sync-vci-plc|connect-vci-block|save-project|save-as-project|import-source|generate-blocks-from-source|begin-plc-code-transaction|run-plc-code-probe)).*$"
+    },
+    {
+      "id": "no-distractor-mapping",
+      "type": "forbiddenTool",
+      "points": 0.5,
+      "critical": true,
+      "namePattern": "export_vci_block$",
+      "inputEquals": {"block-name": "OTT31_Distractor"}
+    },
+    {
+      "id": "final-summary",
+      "type": "finalRegex",
+      "points": 1,
+      "pattern": "(?is)(?=.*OTT31_ProjectSource)(?=.*OTT31_WorkspaceTarget)(?=.*OTT31_Distractor)(?=.*project-to-workspace)(?=.*workspace-to-project)(?=.*VCI)(?=.*Equal)(?=.*0\\s+errors)(?=.*0\\s+warnings)(?=.*(?:not saved|without saving|no save))"
+    }
+  ]
+}
