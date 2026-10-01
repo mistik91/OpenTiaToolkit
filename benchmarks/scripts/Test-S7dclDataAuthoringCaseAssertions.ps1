@@ -78,11 +78,11 @@ FUNCTION "OTT33_ReadRecipe" : Void
 
     { S7_Language := "SCL" }
     NETWORK
-        
+
             #Enabled := "OTT33_RecipeSettings".Enabled;
             #Mode := "OTT33_RecipeSettings".Mode;
             #Target := "OTT33_RecipeSettings".Target;
-        
+
     END_NETWORK
 END_FUNCTION
 '@
@@ -172,11 +172,11 @@ FUNCTION "OTT33_ReadRecipe" : Void
 
     { S7_Language := "SCL" }
     NETWORK
-        
+
             #Enabled := "OTT33_RecipeSettings".Enabled;
             #Mode := "OTT33_RecipeSettings".Mode;
             #Target := "OTT33_RecipeSettings".Target;
-        
+
     END_NETWORK
 END_FUNCTION
 '@
