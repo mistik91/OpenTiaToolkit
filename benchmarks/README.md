@@ -578,6 +578,18 @@ PLC scans or establish runtime timer behavior or safety-controller suitability.
 The first cohort is GLM-5.3 Flash High in three fresh, checkpointed trials;
 full GLM-5.3 High is reserved for audited capability failures.
 
+The first campaigns produced correct gold-matching LAD states in all six runs,
+but neither is a clean strict qualification: Flash High is 100/100/96 (one
+missing-BOM contract failure), and full GLM High is 100/100/98 after a
+single/bulk ordering-scorer correction (original 100/100/96). Its last trial
+hit a confirmed toolkit inconsistency: bulk export skips OBs locally while
+single-block Main SD export succeeds. Further campaigns and skill changes
+are paused for that toolkit correction; the full-model failure is not clean
+evidence of a LAD capability ceiling. The
+[`campaign audit`](reports/lad-brownfield-glm-high-20261001.md) records costs,
+effort, independent verification, immutable replay, the invalid server-error
+attempt, and cleanup.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when

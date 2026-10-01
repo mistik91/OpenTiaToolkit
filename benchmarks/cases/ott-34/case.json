@@ -353,7 +353,7 @@
       "type": "traceRegex",
       "points": 2,
       "critical": true,
-      "pattern": "(?is)opentia_export-block-as-docs(?:(?!opentia_begin-plc-code-transaction).)*baseline.*?Successfully exported block.*?opentia_begin-plc-code-transaction.*?opentia_add-plc-code-transaction-operation.*?opentia_plan-plc-code-transaction.*?opentia_apply-plc-code-transaction.*?opentia_export-block-as-docs.*?readback.*?opentia_compile-software"
+      "pattern": "(?is)opentia_export-blocks?-as-docs(?:(?!opentia_begin-plc-code-transaction).)*baseline.*?(?:Successfully exported block|Exported\\s+\\d+/\\d+\\s+blocks).*?opentia_begin-plc-code-transaction.*?opentia_add-plc-code-transaction-operation.*?opentia_plan-plc-code-transaction.*?opentia_apply-plc-code-transaction.*?opentia_export-blocks?-as-docs.*?readback.*?opentia_compile-software"
     },
     {
       "id": "no-bypass-save-or-unrelated-mutation",

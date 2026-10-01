@@ -22,7 +22,8 @@ function New-LadCaseEvents {
     $events.Add((New-LadCaseEvent 'opentia_get-project-info' @{} 'OTT_Benchmark'))
     $events.Add((New-LadCaseEvent 'opentia_open-plc' @{'plc-name'='PLC_Main'} 'opened'))
     $events.Add((New-LadCaseEvent 'opentia_discover-plc-code-capabilities' @{'plc-name'='PLC_Main';'object-name'='OTT34_Conveyor';operation='Modify';'requested-format'='S7DCL'} @{Exists=$true;ExactIdentityResolved=$true;SelectedRoute='DirectDocuments';ProgrammingLanguage='LAD'}))
-    foreach ($name in @('OTT34_Conveyor','OTT34_Conveyor_Backup','Main')) { $events.Add((New-LadCaseEvent 'opentia_export-block-as-docs' @{'plc-name'='PLC_Main';'block-name'=$name;'export-path'='C:/Bench/artifacts/baseline'} 'Successfully exported block as SIMATIC SD documents')) }
+    if($Variant -like 'bulk-export*') { $events.Add((New-LadCaseEvent 'opentia_export-blocks-as-docs' @{'plc-name'='PLC_Main';'export-path'='C:/Bench/artifacts/baseline'} 'Exported 3/3 blocks as SIMATIC SD documents')) }
+    else { foreach ($name in @('OTT34_Conveyor','OTT34_Conveyor_Backup','Main')) { $events.Add((New-LadCaseEvent 'opentia_export-block-as-docs' @{'plc-name'='PLC_Main';'block-name'=$name;'export-path'='C:/Bench/artifacts/baseline'} 'Successfully exported block as SIMATIC SD documents')) } }
     if ($Variant -ne 'no-validation') {
         $events.Add((New-LadCaseEvent 'opentia_validate-plc-documents' @{'file-name'='OTT34_Conveyor'} @{Valid=$true;HasUtf8Bom=($Variant -ne 'candidate-no-bom');ResourceRequired=$true;Classification='verified';Errors=@()}))
         $events.Add((New-LadCaseEvent 'opentia_validate-plc-code-artifact' @{'code-format'='s7dcl'} @{Valid=$true;Format='S7DCL-LAD';Classification='verified';Errors=@()}))
@@ -40,7 +41,8 @@ function New-LadCaseEvents {
     }
     $events.Add($apply)
     if ($Variant -eq 'duplicate-apply') { $events.Add($apply) }
-    foreach ($name in @('OTT34_Conveyor','OTT34_Conveyor_Backup','Main')) { $events.Add((New-LadCaseEvent 'opentia_export-block-as-docs' @{'plc-name'='PLC_Main';'block-name'=$name;'export-path'='C:/Bench/artifacts/readback'} 'Successfully exported block as SIMATIC SD documents')) }
+    if($Variant -like 'bulk-export*') { $events.Add((New-LadCaseEvent 'opentia_export-blocks-as-docs' @{'plc-name'='PLC_Main';'export-path'='C:/Bench/artifacts/readback'} 'Exported 3/3 blocks as SIMATIC SD documents')) }
+    else { foreach ($name in @('OTT34_Conveyor','OTT34_Conveyor_Backup','Main')) { $events.Add((New-LadCaseEvent 'opentia_export-block-as-docs' @{'plc-name'='PLC_Main';'block-name'=$name;'export-path'='C:/Bench/artifacts/readback'} 'Successfully exported block as SIMATIC SD documents')) } }
     $events.Add((New-LadCaseEvent 'opentia_export-block' @{'plc-name'='PLC_Main';'block-name'='OTT34_Conveyor';'export-path'='C:/Bench/artifacts/readback/OTT34_Conveyor.xml'} 'Successfully exported block: OTT34_Conveyor'))
     $events.Add((New-LadCaseEvent 'opentia_compile-software' @{'plc-name'='PLC_Main'} @{message='Compilation successful';errorCount=0;warningCount=$(if ($Variant -eq 'compile-warning') {1} else {0})}))
     if ($Variant -eq 'save') { $events.Add((New-LadCaseEvent 'opentia_save-project' @{confirm=$true} 'saved')) }
@@ -77,7 +79,7 @@ function Invoke-LadCaseTest {
         else {
             foreach ($name in @('OTT34_Conveyor.s7dcl','OTT34_Conveyor.s7res','OTT34_Conveyor_Backup.s7dcl')) { Copy-Item -LiteralPath (Join-Path $fixtureRoot $name) -Destination $dir }
             $main = '{ S7_Optimized := "TRUE"; S7_PreferredLanguage := "LAD"; S7_Version := "0.1" } ORGANIZATION_BLOCK "Main" { S7_Language := "LAD" } NETWORK RUNG wire#powerrail END_RUNG END_NETWORK END_ORGANIZATION_BLOCK'
-            [IO.File]::WriteAllText((Join-Path $dir 'Main.s7dcl'), $main, [Text.UTF8Encoding]::new($true))
+            if($Variant -ne 'bulk-export-no-main') { [IO.File]::WriteAllText((Join-Path $dir 'Main.s7dcl'), $main, [Text.UTF8Encoding]::new($true)) }
             if ($phase -eq 'readback') {
                 $path = Join-Path $dir 'OTT34_Conveyor.s7dcl'
                 $body = Get-Content -LiteralPath $path -Raw
@@ -119,6 +121,8 @@ try {
         if(($command.name -in $allowedMutators) -eq $blocked){ throw "Incorrect LAD mutation guard for catalog command '$($command.name)'." }
     }
     Invoke-LadCaseTest 'representative'
+    Invoke-LadCaseTest 'bulk-export' -Variant 'bulk-export'
+    Invoke-LadCaseTest 'bulk-export-no-main' 'main-baseline' -Variant 'bulk-export-no-main'
     Invoke-LadCaseTest 'jog-bypass' 'all-combinational-input-rows' -Variant 'jog-bypass'
     Invoke-LadCaseTest 'q-bypass' 'nonretentive-timer-wiring' -Variant 'q-bypass'
     Invoke-LadCaseTest 'identity' 'interface-and-unrelated-networks-preserved' -ChangedFile 'readback/OTT34_Conveyor.s7dcl' -From '"58434"' -To '"58436"'
@@ -134,7 +138,7 @@ try {
     Invoke-LadCaseTest 'candidate-no-bom' 'verified-document-pair' -Variant 'candidate-no-bom'
     foreach($variant in @('extra-delete-operation','add-device','multiuser-publish','connect-vci','disconnect','open-library','hmi-probe','behavior-probe')) { Invoke-LadCaseTest $variant 'no-bypass-save-or-unrelated-mutation' -Variant $variant }
     if ($GoldWorkspace) { Invoke-LadCaseTest 'independent-live-gold' -UseGold }
-    Write-Host 'Brownfield LAD scorer passed (1 synthetic positive, 32 negatives, catalog mutation coverage; optional independent live-gold replay).'
+    Write-Host 'Brownfield LAD scorer passed (2 synthetic positives, 33 negatives, catalog mutation coverage; optional independent live-gold replay).'
 }
 finally {
     $resolvedTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())

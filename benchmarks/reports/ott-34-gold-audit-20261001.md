@@ -98,6 +98,9 @@ post-cohort catalog audit expanded the full-case suite to 32 negatives and check
 every Mutating/Destructive/Online command against the prohibition guard; only
 the two reviewed PLC transaction mutation primitives remain allowed. This does
 not change the prompt, skills, point weights, or the engineering oracle.
+The final ordering assertion also accepts equivalent single/bulk exports:
+2 synthetic positives and 33 negatives, plus independent live-gold replay.
+Incomplete bulk preservation evidence still fails the critical file assertions.
 Negatives include jog bypass, reversed interlocks, wrong outputs, latching,
 cycles, invalid/duplicate connectors, unknown graph content, timer state/preset
 and Q bypass, interface/static/resource/distractor changes, overwritten baseline,
