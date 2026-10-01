@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "s7dcl-data-authoring-glm-5-3-flash-high-20261001",
+  "title": "GLM-5.3 Flash High structured S7DCL data authoring",
+  "caseIds": [
+    "ott-33"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "zai-coding-plan/glm-5.3-flash",
+      "reasoningEffort": "high",
+      "variant": "high",
+      "costClass": "subscription"
+    }
+  ]
+}

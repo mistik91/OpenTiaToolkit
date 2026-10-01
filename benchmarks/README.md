@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the first executable OpenTiaToolkit agent benchmark slice. It is intentionally small: twenty-four cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, bidirectional VCI synchronization, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
+This directory contains the executable OpenTiaToolkit agent benchmark slice. Twenty-six cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, structured S7DCL data authoring, bidirectional VCI synchronization, library reuse, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -749,6 +749,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-30` | Native SCL multi-object authoring | Author a UDT and stateful FB in one source and transaction, prove the source semantics mechanically, and verify exact generated identities and clean compilation |
 | `ott-31` | Bidirectional VCI block reconciliation | Create a workspace before format discovery, map two exact SCL blocks, prove both sync directions, validate the imported source, preserve an unmapped distractor, and verify Equal mappings plus a clean compile |
 | `ott-32` | Approved library reuse and type-version restraint | Select the exact approved PLC master among same-leaf distractors, preview and confirm one grouped copy, read back its XML and preserved objects, and report the retained outdated UDT without upgrading it |
+| `ott-33` | Structured S7DCL data authoring | Change four initializations without altering an address-sensitive DB layout, create a nested array/UDT-backed DB in the same atomic transaction, and prove complete canonical preservation and clean compilation |
 
 ## Adding a case
 

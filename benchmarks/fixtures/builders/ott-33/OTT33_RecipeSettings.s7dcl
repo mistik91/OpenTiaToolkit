@@ -1,0 +1,29 @@
+﻿{
+    S7_BlockNumber := "58033";
+    S7_Optimized := "FALSE";
+    S7_StandardRetain := "FALSE";
+    S7_Version := "0.1"
+}
+DATA_BLOCK OTT33_RecipeSettings
+    VAR
+        Enabled : Bool;
+        Mode : USInt;
+        RecipeId : DInt;
+        Target : Real;
+        RetryLimit : USInt;
+        Label : String[16];
+        Samples : Array[2..5] of Real;
+        Limits : STRUCT
+            Low : Real;
+            High : Real;
+        END_STRUCT;
+        RestartCount : DInt;
+    END_VAR
+    Enabled := FALSE;
+    Mode := 1;
+    RecipeId := 7001;
+    Target := 42.5;
+    RetryLimit := 3;
+    Label := 'Baseline';
+    RestartCount := 17;
+END_DATA_BLOCK
