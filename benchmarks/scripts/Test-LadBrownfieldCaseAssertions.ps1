@@ -24,7 +24,7 @@ function New-LadCaseEvents {
     $events.Add((New-LadCaseEvent 'opentia_discover-plc-code-capabilities' @{'plc-name'='PLC_Main';'object-name'='OTT34_Conveyor';operation='Modify';'requested-format'='S7DCL'} @{Exists=$true;ExactIdentityResolved=$true;SelectedRoute='DirectDocuments';ProgrammingLanguage='LAD'}))
     foreach ($name in @('OTT34_Conveyor','OTT34_Conveyor_Backup','Main')) { $events.Add((New-LadCaseEvent 'opentia_export-block-as-docs' @{'plc-name'='PLC_Main';'block-name'=$name;'export-path'='C:/Bench/artifacts/baseline'} 'Successfully exported block as SIMATIC SD documents')) }
     if ($Variant -ne 'no-validation') {
-        $events.Add((New-LadCaseEvent 'opentia_validate-plc-documents' @{'file-name'='OTT34_Conveyor'} @{Valid=$true;HasUtf8Bom=$true;ResourceRequired=$true;Classification='verified';Errors=@()}))
+        $events.Add((New-LadCaseEvent 'opentia_validate-plc-documents' @{'file-name'='OTT34_Conveyor'} @{Valid=$true;HasUtf8Bom=($Variant -ne 'candidate-no-bom');ResourceRequired=$true;Classification='verified';Errors=@()}))
         $events.Add((New-LadCaseEvent 'opentia_validate-plc-code-artifact' @{'code-format'='s7dcl'} @{Valid=$true;Format='S7DCL-LAD';Classification='verified';Errors=@()}))
     }
     $events.Add((New-LadCaseEvent 'opentia_begin-plc-code-transaction' @{'plc-name'='PLC_Main';'compile-policy'='CleanCompile';'maximum-new-warnings'=0} @{Target='OTT34_Conveyor';CapabilityRoute='DirectDocuments'}))
@@ -48,6 +48,13 @@ function New-LadCaseEvents {
     if ($Variant -eq 'unrelated-create') { $events.Add((New-LadCaseEvent 'opentia_create-device' @{confirm=$true} 'created')) }
     if ($Variant -eq 'hardware-apply') { $events.Add((New-LadCaseEvent 'opentia_apply-hardware-patch' @{confirm=$true} 'applied')) }
     if ($Variant -eq 'unrelated-write') { $events.Add((New-LadCaseEvent 'opentia_set-gsd-parameter-value' @{confirm=$true} 'changed')) }
+    $extraMutators=@{
+        'extra-delete-operation'='add-delete-plc-type-transaction-operation';'add-device'='add-device'
+        'multiuser-publish'='add-project-to-multiuser-server';'connect-vci'='connect-vci-block'
+        'disconnect'='disconnect-portal';'open-library'='open-global-library'
+        'hmi-probe'='probe-hmi-faceplate-interface';'behavior-probe'='run-plc-code-behavior-probe'
+    }
+    if($extraMutators.ContainsKey($Variant)){ $events.Add((New-LadCaseEvent ('opentia_'+$extraMutators[$Variant]) @{confirm=$true} 'changed')) }
     return @($events)
 }
 function New-LadCaseXml {
@@ -101,6 +108,16 @@ function Invoke-LadCaseTest {
     elseif ($result.passed -or $failed -notcontains $ExpectedFailure) { throw "Negative '$Label' escaped '$ExpectedFailure': $($failed -join ', ')" }
 }
 try {
+    # All current catalog mutations outside the two reviewed PLC transaction
+    # primitives must be prohibited. New command exposure fails this test closed.
+    $case=Get-Content (Join-Path $benchmarkRoot 'cases/ott-34/case.json') -Raw | ConvertFrom-Json
+    $guard=($case.assertions | Where-Object {$_.id -eq 'no-bypass-save-or-unrelated-mutation'}).namePattern
+    $catalog=Get-Content (Join-Path (Split-Path -Parent $benchmarkRoot) 'docs/generated/command-catalog.json') -Raw | ConvertFrom-Json
+    $allowedMutators=@('add-plc-code-transaction-operation','apply-plc-code-transaction')
+    foreach($command in @($catalog.commands | Where-Object {$_.risk -in @('Mutating','Destructive','Online')})) {
+        $blocked=('opentia_'+$command.name.Replace('-','_')) -match $guard
+        if(($command.name -in $allowedMutators) -eq $blocked){ throw "Incorrect LAD mutation guard for catalog command '$($command.name)'." }
+    }
     Invoke-LadCaseTest 'representative'
     Invoke-LadCaseTest 'jog-bypass' 'all-combinational-input-rows' -Variant 'jog-bypass'
     Invoke-LadCaseTest 'q-bypass' 'nonretentive-timer-wiring' -Variant 'q-bypass'
@@ -114,8 +131,10 @@ try {
     Invoke-LadCaseTest 'changed-backup' 'backup-preserved' -ChangedFile 'readback/OTT34_Conveyor_Backup.s7dcl' -From 'I_Contact' -To 'Contact'
     Invoke-LadCaseTest 'changed-main' 'main-preserved' -ChangedFile 'readback/Main.s7dcl' -From 'powerrail' -To 'other'
     foreach ($item in @(@('no-validation','verified-document-pair'),@('unguarded','implementation-only-baseline-bound-operation'),@('widened-contract','implementation-only-baseline-bound-operation'),@('no-plan','single-body-only-safe-plan'),@('rolled-back','single-verified-apply'),@('duplicate-apply','single-verified-apply'),@('compile-warning','fresh-clean-compile'),@('save','no-bypass-save-or-unrelated-mutation'),@('raw-import','no-bypass-save-or-unrelated-mutation'),@('unrelated-create','no-bypass-save-or-unrelated-mutation'),@('hardware-apply','no-bypass-save-or-unrelated-mutation'),@('unrelated-write','no-bypass-save-or-unrelated-mutation'))) { Invoke-LadCaseTest $item[0] $item[1] -Variant $item[0] }
+    Invoke-LadCaseTest 'candidate-no-bom' 'verified-document-pair' -Variant 'candidate-no-bom'
+    foreach($variant in @('extra-delete-operation','add-device','multiuser-publish','connect-vci','disconnect','open-library','hmi-probe','behavior-probe')) { Invoke-LadCaseTest $variant 'no-bypass-save-or-unrelated-mutation' -Variant $variant }
     if ($GoldWorkspace) { Invoke-LadCaseTest 'independent-live-gold' -UseGold }
-    Write-Host 'Brownfield LAD scorer passed (1 synthetic positive, 23 negatives; optional independent live-gold replay).'
+    Write-Host 'Brownfield LAD scorer passed (1 synthetic positive, 32 negatives, catalog mutation coverage; optional independent live-gold replay).'
 }
 finally {
     $resolvedTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())

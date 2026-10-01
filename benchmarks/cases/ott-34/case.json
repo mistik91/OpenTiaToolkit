@@ -360,7 +360,7 @@
       "type": "forbiddenTool",
       "points": 1,
       "critical": true,
-      "namePattern": "(?:opentia_)(?:create_|find_replace_|import_|generate_|delete_|modify_|sync_|save_|close_|archive_|retrieve_|download_|set_|copy_|ensure_|commit_|remove_|write_|recover_|open_project|open_tia_portal|apply_(?!plc_code_transaction$)|start_cpu|stop_cpu|run_plc_code_probe|begin_promoted_plc_code_transaction|add_scl_source_transaction_operation|add_simaticml_transaction_operation|plan_block_document_import|discard_plc_code_transaction)"
+      "namePattern": "(?:opentia_)(?:create_|find_replace_|import_|generate_|delete_|modify_|sync_|save_|close_|archive_|retrieve_|download_|set_|copy_|ensure_|commit_|remove_|write_|recover_|add_(?!plc_code_transaction_operation$)|connect_vci_|disconnect_|probe_|open_project|open_tia_portal|open_global_library|apply_(?!plc_code_transaction$)|start_cpu|stop_cpu|run_plc_code_(?:behavior_)?probe|begin_promoted_plc_code_transaction|plan_block_document_import|discard_plc_code_transaction)"
     },
     {
       "id": "final-summary",

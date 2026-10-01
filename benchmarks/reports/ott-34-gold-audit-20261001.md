@@ -92,8 +92,12 @@ independent XML oracle decides their circuit meaning. Neither a textual list
 of the right contacts nor the model's final claim is proof of correct wiring.
 
 Oracle unit controls cover 6 equivalent positives, 35 circuit/XML negatives,
-and 2 unsafe paths. Full-case controls cover 1 synthetic positive and 23
-negatives, plus optional replay against the independent live-gold artifacts.
+and 2 unsafe paths. Initial full-case controls covered 1 synthetic positive and
+23 negatives, plus replay against the independent live-gold artifacts. The
+post-cohort catalog audit expanded the full-case suite to 32 negatives and checks
+every Mutating/Destructive/Online command against the prohibition guard; only
+the two reviewed PLC transaction mutation primitives remain allowed. This does
+not change the prompt, skills, point weights, or the engineering oracle.
 Negatives include jog bypass, reversed interlocks, wrong outputs, latching,
 cycles, invalid/duplicate connectors, unknown graph content, timer state/preset
 and Q bypass, interface/static/resource/distractor changes, overwritten baseline,
