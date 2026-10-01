@@ -19,7 +19,7 @@ Keep this workflow read-first. Library commands can reveal company standards; mu
    - Use `library-scope=global` for an open global library.
 3. For global libraries:
    - Run `list-global-libraries` first when the available library name/path is unknown.
-   - Open user or default Siemens libraries with `open-global-library --path "<path>" --read-only=true`.
+   - Open user or default Siemens libraries with `open-global-library --path "<path>" --read-only=true --confirm=true`. Read-only protects the library file; opening it still changes the portal session and requires explicit confirmation through MCP.
    - Close user global libraries with `close-global-library` when finished.
 4. Browse before selecting:
    - `list-master-copies` for reusable objects.
@@ -41,6 +41,8 @@ Siemens System/Corporate global libraries may be returned by `list-global-librar
 
 Do not assume every master copy is PLC-compatible.
 
+A successful `copy-from-master-copy` dry run proves source-path and target-group resolution, not source-domain compatibility or collision safety. Establish compatibility independently and inspect existing target objects before applying; do not infer permission to overwrite from the dry-run success message.
+
 - PLC block/type master copies can be candidates for `copy-from-master-copy` into PLC block groups.
 - HMI graphics, controls, faceplates, and screen assets should not be applied to PLC block groups.
 - If a master copy looks HMI-oriented and the only available apply target is PLC software, stop after read-only discovery or dry-run and explain the mismatch.
@@ -56,6 +58,12 @@ Apply only after explicit approval:
 ```text
 copy-from-master-copy --library-scope=global --global-library="<name>" --master-copy-path="<folder/item>" --plc-name="<plc>" --dry-run=false --confirm=true
 ```
+
+## Grouped PLC Copy Verification
+
+For a copy into a PLC user group, verify the exact group and created identity with `get-software-tree`. Compile the newly copied PLC software before XML payload readback: TIA can reject XML export of a just-copied, not-yet-compiled block. Stop on compile errors; on success, use `export-block --block-name="<created leaf name>" --export-path="<xml path>"` for recursive XML readback and inspect its identity and implementation.
+
+Distinguish that compile prerequisite from lookup scope. Current flat `get-blocks`/`get-block-info` reads and the precheck in `export-block-as-source` inspect root blocks only, so a grouped block can be reported missing even after a successful copy. An XML export rejection before compilation does not prove grouped XML export is unsupported. Do not repeat the copy or pass a guessed group path as the block name; verify the tree and compile, then retry the same known leaf export if appropriate.
 
 ## UDT And Type Workflows
 
