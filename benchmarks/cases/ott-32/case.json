@@ -417,7 +417,7 @@
       "id": "final-summary",
       "type": "finalRegex",
       "points": 1,
-      "pattern": "(?is)(?=.*OTT32_Standards/Approved/PLC/Offset)(?=.*OTT32_ApprovedOffset)(?=.*OTT32_Reuse)(?=.*MyANALOG_LEVEL)(?=.*0[.]0[.]3)(?=.*0[.]0[.]4)(?=.*(?:out.?of.?date|outdated))(?=.*(?:not saved|unsaved|did not save))"
+      "pattern": "(?is)(?=.*OTT32_Standards/Approved/PLC/Offset)(?=.*OTT32_ApprovedOffset)(?=.*OTT32_Reuse)(?=.*MyANALOG_LEVEL)(?=.*0[.]0[.]3)(?=.*0[.]0[.]4)(?=.*(?:out.?of.?date|outdated))(?=.*(?:not[\\s*_]+saved|unsaved|did[\\s*_]+not[\\s*_]+save))"
     }
   ]
 }

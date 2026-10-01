@@ -532,11 +532,20 @@ without upgrading it. The fixture and positive/policy-denied gold paths are in
 hierarchy-plus-recursive-XML verification route for grouped copies; no toolkit
 runtime fix or fixture-specific skill recipe was introduced.
 
-The first campaign is frozen in
-`campaigns/library-reuse-glm-5-3-flash-high-20261001.json`, with three fresh
-subscription-backed GLM-5.3 Flash High trials.
+The original `campaigns/library-reuse-glm-5-3-flash-high-20261001.json` is an
+incomplete one-trial pilot (91, critical XML-readback failure), not a completed
+qualification. A controlled fresh-state test proved that newly copied PLC
+blocks need compilation before XML export; the generic skill was corrected.
+The separate
+`campaigns/library-compile-readback-glm-5-3-flash-high-20261001.json` cohort
+qualifies GLM-5.3 Flash High in 3/3 fresh trials: 100/100/100 after correcting
+one noncritical Markdown-summary false negative (original 99/100/100), mean
+355.368 seconds, and $0 reported incremental subscription cost. All trials
+had zero MCP errors, one reviewed copy, and unchanged preservation targets.
+Settings, original evidence, generic guidance, scope limits, and cleanup are in
+`reports/library-workflow-glm-5-3-flash-high-20261001.md`.
 `campaigns/library-reuse-glm-5-3-high-20261001.json` is the GLM-5.3 High
-capability fallback, not an automatic retry for infrastructure or skill errors.
+capability fallback; it was not needed or run.
 The intentional outdated-instance warning is accepted as baseline state:
 incremental compilation may report 0 or 1 warnings, while a fresh update check
 must still prove the old instance is retained.

@@ -120,3 +120,8 @@ explicit future toolkit issue, not a model failure or a claimed fix.
 
 The campaign is frozen before inference: GLM-5.3 Flash High first, three fresh
 archive restores, with GLM-5.3 High reserved for genuine capability failure.
+
+The later pilot exposed an additional compile-before-XML prerequisite,
+confirmed on another fresh restore. The generic correction and separate
+completed cohort are documented in
+[the verification report](library-workflow-glm-5-3-flash-high-20261001.md).

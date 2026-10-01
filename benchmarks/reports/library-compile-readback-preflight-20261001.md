@@ -56,3 +56,7 @@ payload rubric. Canonical skill validation, packaged-skill drift check,
 repository hygiene, `git diff --check`, and the full `npm test` suite passed
 (25 cases, 57 campaigns, 12 fixtures, including both positive and all 16
 negative library controls).
+
+The separate three-trial cohort subsequently completed. Its results and the
+post-cohort noncritical Markdown-summary adjudication are documented in
+[the verification report](library-workflow-glm-5-3-flash-high-20261001.md).

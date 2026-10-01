@@ -59,13 +59,13 @@ function New-LibraryEvents {
     $events.Add((New-ToolEvent 'opentia_get-software-tree' @{
         'plc-name' = 'PLC_Main'; 'output-path' = 'C:/Bench/artifacts/tree-after.json'
     } 'Software tree retrieved successfully.'))
+    $events.Add((New-ToolEvent 'opentia_compile-software' @{ 'plc-name' = 'PLC_Main' } '{"message":"Compilation successful: 0 errors, 1 warnings","errorCount":0,"warningCount":1}'))
     $events.Add((New-ToolEvent 'opentia_export-block' @{
         'plc-name' = 'PLC_Main'; 'block-name' = 'OTT32_ApprovedOffset'; 'export-path' = 'C:/Bench/artifacts/readback/OTT32_ApprovedOffset.xml'
     } 'Successfully exported block: OTT32_ApprovedOffset'))
     $events.Add((New-ToolEvent 'opentia_check-library-updates' @{
         'library-scope' = 'project'; 'output-path' = 'C:/Bench/artifacts/updates-after.json'
     } 'Library update check found 1 message(s).'))
-    $events.Add((New-ToolEvent 'opentia_compile-software' @{ 'plc-name' = 'PLC_Main' } '{"message":"Compilation successful: 0 errors, 1 warnings","errorCount":0,"warningCount":1}'))
     if ($SaveProject) { $events.Add((New-ToolEvent 'opentia_save-project' @{ confirm = $true } '{"saved":true}')) }
     if ($ImportType) { $events.Add((New-ToolEvent 'opentia_import-type' @{ confirm = $true } '{"success":true}')) }
     return @($events)
@@ -87,7 +87,7 @@ function Invoke-LibraryAssertionTest {
         [int]$ApprovedConstant = 10, [int]$LegacyConstant = 20, [int]$ExistingConstant = 30,
         [string]$ResultGroup = 'OTT32_Reuse', [string]$CurrentVersion = '0.0.3',
         [bool]$DefaultIsDefault = $true, [switch]$BaselineAlreadyContainsPayload, [switch]$ZeroWarningCompile,
-        [int]$CompileErrors = 0, [int]$CompileWarnings = 1)
+        [int]$CompileErrors = 0, [int]$CompileWarnings = 1, [switch]$MarkdownSummary)
     $workspace = Join-Path $testRoot "$Label-workspace"
     $artifacts = Join-Path $workspace 'artifacts'
     $readback = Join-Path $artifacts 'readback'
@@ -137,8 +137,10 @@ function Invoke-LibraryAssertionTest {
     }
     $tracePath = Join-Path $testRoot "$Label-events.jsonl"
     $metadataPath = Join-Path $testRoot "$Label-metadata.json"
+    $summaryText = 'Copied OTT32_Standards/Approved/PLC/Offset as OTT32_ApprovedOffset into OTT32_Reuse. MyANALOG_LEVEL retained 0.0.3, default 0.0.4, outdated and not upgraded. Existing objects preserved; project not saved.'
+    if ($MarkdownSummary) { $summaryText = $summaryText.Replace('not saved', '**not** saved') }
     @($Events) + @(
-        @{ type = 'text'; part = @{ text = 'Copied OTT32_Standards/Approved/PLC/Offset as OTT32_ApprovedOffset into OTT32_Reuse. MyANALOG_LEVEL retained 0.0.3, default 0.0.4, outdated and not upgraded. Existing objects preserved; project not saved.' } },
+        @{ type = 'text'; part = @{ text = $summaryText } },
         @{ type = 'step_finish'; part = @{ reason = 'stop'; tokens = @{ total = 10; input = 5; output = 5; reasoning = 0 }; cost = 0 } }
     ) | ForEach-Object { $_ | ConvertTo-Json -Depth 60 -Compress } | Set-Content -LiteralPath $tracePath -Encoding UTF8
     @{
@@ -164,6 +166,7 @@ function Invoke-LibraryAssertionTest {
 try {
     Invoke-LibraryAssertionTest 'representative' (New-LibraryEvents)
     Invoke-LibraryAssertionTest 'incremental-zero-warnings' (New-LibraryEvents) -ZeroWarningCompile
+    Invoke-LibraryAssertionTest 'markdown-summary' (New-LibraryEvents) -MarkdownSummary
     Invoke-LibraryAssertionTest 'missing-preview' (New-LibraryEvents -OmitPreview) 'approved-copy-preview'
     Invoke-LibraryAssertionTest 'apply-before-preview' (New-LibraryEvents -ReverseCopyOrder) 'reviewed-preview-before-apply'
     Invoke-LibraryAssertionTest 'wrong-master' (New-LibraryEvents -WrongMaster) 'approved-copy-apply'
@@ -180,7 +183,7 @@ try {
     Invoke-LibraryAssertionTest 'project-saved' (New-LibraryEvents -SaveProject) 'no-other-mutations-or-save'
     Invoke-LibraryAssertionTest 'compile-error' (New-LibraryEvents) 'error-free-compile' -CompileErrors 1
     Invoke-LibraryAssertionTest 'additional-compile-warnings' (New-LibraryEvents) 'error-free-compile' -CompileWarnings 10
-    Write-Host 'Library workflow assertion tests passed (2 positive traces and 16 negative controls).'
+    Write-Host 'Library workflow assertion tests passed (3 positive traces and 16 negative controls).'
 }
 finally {
     $resolvedTemp = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
