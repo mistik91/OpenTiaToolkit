@@ -147,5 +147,5 @@ full proof. This issue is documented, not patched or attributed to the model.
 A separate runtime hardening change would be preferable to adding a task recipe
 to the skill.
 
-All changes are local commits on the dedicated branch. No push, PR, or merge
-was performed for this slice.
+The qualification campaign completed on the dedicated branch before publication;
+no push, PR, or merge was performed during the campaign.
