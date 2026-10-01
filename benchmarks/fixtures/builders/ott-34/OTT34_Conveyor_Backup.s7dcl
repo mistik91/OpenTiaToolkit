@@ -1,0 +1,14 @@
+﻿{ S7_BlockNumber := "58435"; S7_Optimized := "TRUE"; S7_PreferredLanguage := "LAD"; S7_Version := "0.1" }
+FUNCTION "OTT34_Conveyor_Backup" : Void
+    VAR_INPUT
+        AutoStart : Bool;
+        Fault : Bool;
+    END_VAR
+    VAR_OUTPUT
+        RunRequest : Bool;
+    END_VAR
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail Contact( #AutoStart ) I_Contact( #Fault ) Coil( #RunRequest ) END_RUNG
+    END_NETWORK
+END_FUNCTION

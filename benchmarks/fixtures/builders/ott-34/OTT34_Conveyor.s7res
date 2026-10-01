@@ -1,0 +1,11 @@
+﻿MultiLingualTexts:
+  - id: MLC_Fault
+    en-US: Fault indication
+  - id: MLC_Request
+    en-US: Start request
+  - id: MLC_Delay
+    en-US: Run delay
+  - id: MLC_Seen
+    en-US: Request history
+  - id: MLC_Reset
+    en-US: Reset request history
