@@ -1,0 +1,13 @@
+﻿FUNCTION "OTT33_ReadRecipe" : Void
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+    VAR_OUTPUT
+        Enabled : Bool;
+        Mode : USInt;
+        Target : Real;
+    END_VAR
+BEGIN
+    #Enabled := "OTT33_RecipeSettings".Enabled;
+    #Mode := "OTT33_RecipeSettings".Mode;
+    #Target := "OTT33_RecipeSettings".Target;
+END_FUNCTION

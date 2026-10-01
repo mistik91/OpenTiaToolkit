@@ -200,6 +200,24 @@
         "Construction compiled with zero errors and one intentional non-default-version warning. An incremental gold compile after copying reported zero errors/warnings while update checks still proved the old instance was retained.",
         "The read-only archive was restored on a fresh TIA process. Exact dry-run and unconfirmed copy left the three-block baseline unchanged; confirmed grouped reuse and recursive XML readback succeeded. External source-library data hashes remained unchanged."
       ]
+    },
+    {
+      "id": "tia-v21-s7dcl-data-12",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_S7dclData_20261001.zap21",
+      "sha256": "A550A21C719511E7F019E4FBEEC1413EB8238762E8E38D9547EECF3E0B67D02E",
+      "sizeBytes": 5597695,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with non-optimized, non-retained global DB OTT33_RecipeSettings (58033), near-name backup OTT33_RecipeSettings_Backup (58035), FC OTT33_ReadRecipe, and UDT OTT33_BatchInfo.",
+        "Recipe baseline start values include Enabled=FALSE, Mode=1, RecipeId=7001, Target=42.5, RetryLimit=3, Label='Baseline', and RestartCount=17; array bounds are 2..5 and Limits contains Low/High Real members.",
+        "OTT33_QualitySnapshot is absent. The existing consumer reads Enabled, Mode, and Target; the backup carries Mode=9, RecipeId=9909, Target=-99.0, and RetryLimit=8.",
+        "The read-only archive was independently restored on a fresh TIA process and compiled with zero errors/warnings. Gold baseline-bound initialization update plus nested UDT-backed DB creation succeeded atomically; backup, consumer, Main, and complete UDT XML were unchanged.",
+        "A real second-operation Siemens import failure rolled back the already-applied existing-DB change, restored its exact canonical baseline, proved the new DB absent, and recovered zero-error/zero-warning compilation."
+      ]
     }
   ]
 }

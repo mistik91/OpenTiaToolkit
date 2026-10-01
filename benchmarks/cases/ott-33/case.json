@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-33",
+  "title": "Structured S7DCL data authoring with baseline preservation",
+  "description": "Initialization-only replacement of an address-sensitive DB plus a nested, existing-UDT-backed new DB in one atomic transaction, with complete canonical preservation checks.",
+  "fixtureId": "tia-v21-s7dcl-data-12",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1200,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "plc-code-engineering",
+    "s7dcl-data-authoring",
+    "plc-block-and-tag-workflow"
+  ],
+  "allowWorkspaceEdits": true,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 3,
+      "critical": true
+    },
+    {
+      "id": "data-skill-loaded",
+      "type": "tool",
+      "points": 2,
+      "critical": false,
+      "namePattern": "skill$",
+      "inputEquals": {
+        "name": "s7dcl-data-authoring"
+      },
+      "minCount": 1
+    },
+    {
+      "id": "tia-context-established",
+      "type": "traceRegex",
+      "points": 3,
+      "critical": true,
+      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?(?:opentia_get-project-info|opentia_list-projects).*?(?:opentia_open-plc|opentia_list-plcs|opentia_get-software-tree|opentia_discover-plc-code-capabilities)"
+    },
+    {
+      "id": "untouched-recipe-baseline",
+      "type": "workspaceFile",
+      "points": 7,
+      "critical": true,
+      "relativePath": "artifacts/baseline/OTT33_RecipeSettings.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58033\";\\s+S7_Optimized\\s+:=\\s+\"FALSE\";\\s+S7_StandardRetain\\s+:=\\s+\"FALSE\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+DATA_BLOCK\\s+OTT33_RecipeSettings\\s+VAR\\s+Enabled\\s+:\\s+Bool;\\s+Mode\\s+:\\s+USInt;\\s+RecipeId\\s+:\\s+DInt;\\s+Target\\s+:\\s+Real;\\s+RetryLimit\\s+:\\s+USInt;\\s+\"Label\"\\s+:\\s+String\\[16\\];\\s+Samples\\s+:\\s+Array\\[2\\.\\.5\\]\\s+of\\s+Real;\\s+Limits\\s+:\\s+STRUCT\\s+Low\\s+:\\s+Real;\\s+High\\s+:\\s+Real;\\s+END_STRUCT;\\s+RestartCount\\s+:\\s+DInt;\\s+END_VAR\\s+Enabled\\s+:=\\s+FALSE;\\s+Mode\\s+:=\\s+1;\\s+RecipeId\\s+:=\\s+7001;\\s+Target\\s+:=\\s+42\\.5;\\s+RetryLimit\\s+:=\\s+3;\\s+\"Label\"\\s+:=\\s+'Baseline';\\s+RestartCount\\s+:=\\s+17;\\s+END_DATA_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "backup-baseline",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/baseline/OTT33_RecipeSettings_Backup.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58035\";\\s+S7_Optimized\\s+:=\\s+\"FALSE\";\\s+S7_StandardRetain\\s+:=\\s+\"FALSE\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+DATA_BLOCK\\s+OTT33_RecipeSettings_Backup\\s+VAR\\s+Enabled\\s+:\\s+Bool;\\s+Mode\\s+:\\s+USInt;\\s+RecipeId\\s+:\\s+DInt;\\s+Target\\s+:\\s+Real;\\s+RetryLimit\\s+:\\s+USInt;\\s+END_VAR\\s+Enabled\\s+:=\\s+FALSE;\\s+Mode\\s+:=\\s+9;\\s+RecipeId\\s+:=\\s+9909;\\s+Target\\s+:=\\s+-99\\.0;\\s+RetryLimit\\s+:=\\s+8;\\s+END_DATA_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "consumer-baseline",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/baseline/OTT33_ReadRecipe.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_EditorMode\\s+:=\\s+\"SCL\";\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+FUNCTION\\s+\"OTT33_ReadRecipe\"\\s+:\\s+Void\\s+VAR_OUTPUT\\s+Enabled\\s+:\\s+Bool;\\s+Mode\\s+:\\s+USInt;\\s+Target\\s+:\\s+Real;\\s+END_VAR\\s+\\{\\s+S7_Language\\s+:=\\s+\"SCL\"\\s+\\}\\s+NETWORK\\s+#Enabled\\s+:=\\s+\"OTT33_RecipeSettings\"\\.Enabled;\\s+#Mode\\s+:=\\s+\"OTT33_RecipeSettings\"\\.Mode;\\s+#Target\\s+:=\\s+\"OTT33_RecipeSettings\"\\.Target;\\s+END_NETWORK\\s+END_FUNCTION\\s*\\z"
+      ]
+    },
+    {
+      "id": "main-baseline",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/baseline/Main.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_PreferredLanguage\\s+:=\\s+\"LAD\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+ORGANIZATION_BLOCK\\s+\"Main\"\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+END_RUNG\\s+END_NETWORK\\s+END_ORGANIZATION_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "existing-udt-baseline",
+      "type": "workspaceFile",
+      "points": 2,
+      "critical": true,
+      "relativePath": "artifacts/baseline/OTT33_BatchInfo.xml",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "contentPatterns": [
+        "<SW\\.Types\\.PlcStruct ID=\"0\">\\s*<AttributeList>\\s*<Interface>\\s*<Sections xmlns=\"http://www\\.siemens\\.com/automation/Openness/SW/Interface/v5\">\\s*<Section Name=\"None\">\\s*<Member Name=\"BatchId\" Datatype=\"DInt\" />\\s*<Member Name=\"ProductCode\" Datatype=\"USInt\" />\\s*<Member Name=\"Accepted\" Datatype=\"Bool\" />\\s*</Section>\\s*</Sections>\\s*</Interface>\\s*<Name>OTT33_BatchInfo</Name>\\s*<Namespace />\\s*</AttributeList>\\s*<ObjectList>\\s*<MultilingualText ID=\"1\" CompositionName=\"Comment\">\\s*<ObjectList>\\s*<MultilingualTextItem ID=\"2\" CompositionName=\"Items\">\\s*<AttributeList>\\s*<Culture>en-US</Culture>\\s*<Text />\\s*</AttributeList>\\s*</MultilingualTextItem>\\s*</ObjectList>\\s*</MultilingualText>\\s*<MultilingualText ID=\"3\" CompositionName=\"Title\">\\s*<ObjectList>\\s*<MultilingualTextItem ID=\"4\" CompositionName=\"Items\">\\s*<AttributeList>\\s*<Culture>en-US</Culture>\\s*<Text />\\s*</AttributeList>\\s*</MultilingualTextItem>\\s*</ObjectList>\\s*</MultilingualText>\\s*</ObjectList>\\s*</SW\\.Types\\.PlcStruct>"
+      ]
+    },
+    {
+      "id": "existing-udt-readback",
+      "type": "workspaceFile",
+      "points": 2,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT33_BatchInfo.xml",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "contentPatterns": [
+        "<SW\\.Types\\.PlcStruct ID=\"0\">\\s*<AttributeList>\\s*<Interface>\\s*<Sections xmlns=\"http://www\\.siemens\\.com/automation/Openness/SW/Interface/v5\">\\s*<Section Name=\"None\">\\s*<Member Name=\"BatchId\" Datatype=\"DInt\" />\\s*<Member Name=\"ProductCode\" Datatype=\"USInt\" />\\s*<Member Name=\"Accepted\" Datatype=\"Bool\" />\\s*</Section>\\s*</Sections>\\s*</Interface>\\s*<Name>OTT33_BatchInfo</Name>\\s*<Namespace />\\s*</AttributeList>\\s*<ObjectList>\\s*<MultilingualText ID=\"1\" CompositionName=\"Comment\">\\s*<ObjectList>\\s*<MultilingualTextItem ID=\"2\" CompositionName=\"Items\">\\s*<AttributeList>\\s*<Culture>en-US</Culture>\\s*<Text />\\s*</AttributeList>\\s*</MultilingualTextItem>\\s*</ObjectList>\\s*</MultilingualText>\\s*<MultilingualText ID=\"3\" CompositionName=\"Title\">\\s*<ObjectList>\\s*<MultilingualTextItem ID=\"4\" CompositionName=\"Items\">\\s*<AttributeList>\\s*<Culture>en-US</Culture>\\s*<Text />\\s*</AttributeList>\\s*</MultilingualTextItem>\\s*</ObjectList>\\s*</MultilingualText>\\s*</ObjectList>\\s*</SW\\.Types\\.PlcStruct>"
+      ]
+    },
+    {
+      "id": "modify-capability",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "inputEquals": {
+        "plc-name": "PLC_Main",
+        "object-name": "OTT33_RecipeSettings",
+        "operation": "Modify",
+        "requested-format": "S7DCL"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"Exists\"\\s*:\\s*true",
+        "\"ExactIdentityResolved\"\\s*:\\s*true",
+        "\"SelectedRoute\"\\s*:\\s*\"DirectDocuments\""
+      ]
+    },
+    {
+      "id": "create-capability",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "inputEquals": {
+        "plc-name": "PLC_Main",
+        "object-name": "OTT33_QualitySnapshot",
+        "operation": "Create",
+        "requested-format": "S7DCL"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"Exists\"\\s*:\\s*false",
+        "\"ExactIdentityResolved\"\\s*:\\s*true",
+        "\"SelectedRoute\"\\s*:\\s*\"DirectDocuments\""
+      ]
+    },
+    {
+      "id": "existing-consumer-check",
+      "type": "tool",
+      "points": 3,
+      "critical": true,
+      "namePattern": "get_cross_references$",
+      "inputEquals": {
+        "plc-name": "PLC_Main",
+        "name": "OTT33_RecipeSettings"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "Found 3 cross-reference"
+      ]
+    },
+    {
+      "id": "verified-recipe-document",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "validate_plc_documents$",
+      "inputEquals": {
+        "file-name": "OTT33_RecipeSettings"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"Valid\"\\s*:\\s*true",
+        "\"HasUtf8Bom\"\\s*:\\s*true",
+        "\"Classification\"\\s*:\\s*\"verified\"",
+        "\"Errors\"\\s*:\\s*\\[\\s*\\]"
+      ]
+    },
+    {
+      "id": "verified-new-document",
+      "type": "tool",
+      "points": 3,
+      "critical": true,
+      "namePattern": "validate_plc_documents$",
+      "inputEquals": {
+        "file-name": "OTT33_QualitySnapshot"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"Valid\"\\s*:\\s*true",
+        "\"HasUtf8Bom\"\\s*:\\s*true",
+        "\"Classification\"\\s*:\\s*\"verified\"",
+        "\"Errors\"\\s*:\\s*\\[\\s*\\]"
+      ]
+    },
+    {
+      "id": "one-clean-transaction",
+      "type": "tool",
+      "points": 6,
+      "critical": true,
+      "namePattern": "begin_plc_code_transaction$",
+      "inputEquals": {
+        "plc-name": "PLC_Main",
+        "compile-policy": "CleanCompile",
+        "maximum-new-warnings": 0
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "OTT33_RecipeSettings",
+        "OTT33_QualitySnapshot",
+        "\"CapabilityRoute\"\\s*:\\s*\"DirectDocuments\""
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "baseline-bound-initializations",
+      "type": "tool",
+      "points": 6,
+      "critical": true,
+      "namePattern": "add_plc_code_transaction_operation$",
+      "inputEquals": {
+        "file-name": "OTT33_RecipeSettings",
+        "target-mode": "baseline-bound",
+        "allowed-changes": "Implementation",
+        "confirm": true
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"TargetMode\"\\s*:\\s*\"BaselineBound\"",
+        "\"ChangedSections\"\\s*:\\s*\\[\\s*\"Implementation\"\\s*\\]"
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "create-only-structured-db",
+      "type": "tool",
+      "points": 6,
+      "critical": true,
+      "namePattern": "add_plc_code_transaction_operation$",
+      "inputEquals": {
+        "file-name": "OTT33_QualitySnapshot",
+        "target-mode": "create-only",
+        "confirm": true
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"TargetMode\"\\s*:\\s*\"CreateOnly\""
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "exactly-two-document-operations",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "add_plc_code_transaction_operation$",
+      "inputEquals": {},
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "single-safe-plan",
+      "type": "tool",
+      "points": 7,
+      "critical": true,
+      "namePattern": "plan_plc_code_transaction$",
+      "inputEquals": {},
+      "minCount": 1,
+      "outputPatterns": [
+        "\"State\"\\s*:\\s*\"Planned\"",
+        "\"Status\"\\s*:\\s*\"Safe\"",
+        "\"ChangeKind\"\\s*:\\s*\"BodyOnly\"",
+        "\"ChangeKind\"\\s*:\\s*\"Create\"",
+        "\"ApplyToken\"\\s*:\\s*\"[^\"]+\""
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "single-verified-apply",
+      "type": "tool",
+      "points": 8,
+      "critical": true,
+      "namePattern": "apply_plc_code_transaction$",
+      "inputEquals": {
+        "confirm": true
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"State\"\\s*:\\s*\"Succeeded\"",
+        "\"Applied\"\\s*:\\s*true",
+        "\"Verified\"\\s*:\\s*true",
+        "\"RollbackAttempted\"\\s*:\\s*false",
+        "\"RecoveryRequired\"\\s*:\\s*false",
+        "(?is)\"FinalCompilation\"\\s*:\\s*\\{.*?\"Success\"\\s*:\\s*true.*?\"ErrorCount\"\\s*:\\s*0.*?\"WarningCount\"\\s*:\\s*0",
+        "(?is)\"Name\"\\s*:\\s*\"OTT33_RecipeSettings\".*?\"CanonicalResultHash\"\\s*:\\s*\"[0-9a-f]{64}\"",
+        "(?is)\"Name\"\\s*:\\s*\"OTT33_QualitySnapshot\".*?\"CanonicalResultHash\"\\s*:\\s*\"[0-9a-f]{64}\""
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "recipe-exact-readback",
+      "type": "workspaceFile",
+      "points": 6,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT33_RecipeSettings.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58033\";\\s+S7_Optimized\\s+:=\\s+\"FALSE\";\\s+S7_StandardRetain\\s+:=\\s+\"FALSE\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+DATA_BLOCK\\s+OTT33_RecipeSettings\\s+VAR\\s+Enabled\\s+:\\s+Bool;\\s+Mode\\s+:\\s+USInt;\\s+RecipeId\\s+:\\s+DInt;\\s+Target\\s+:\\s+Real;\\s+RetryLimit\\s+:\\s+USInt;\\s+\"Label\"\\s+:\\s+String\\[16\\];\\s+Samples\\s+:\\s+Array\\[2\\.\\.5\\]\\s+of\\s+Real;\\s+Limits\\s+:\\s+STRUCT\\s+Low\\s+:\\s+Real;\\s+High\\s+:\\s+Real;\\s+END_STRUCT;\\s+RestartCount\\s+:\\s+DInt;\\s+END_VAR\\s+Enabled\\s+:=\\s+TRUE;\\s+Mode\\s+:=\\s+2;\\s+RecipeId\\s+:=\\s+7001;\\s+Target\\s+:=\\s+63\\.5;\\s+RetryLimit\\s+:=\\s+5;\\s+\"Label\"\\s+:=\\s+'Baseline';\\s+RestartCount\\s+:=\\s+17;\\s+END_DATA_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "structured-db-exact-readback",
+      "type": "workspaceFile",
+      "points": 6,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT33_QualitySnapshot.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58034\";\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_StandardRetain\\s+:=\\s+\"FALSE\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+DATA_BLOCK\\s+OTT33_QualitySnapshot\\s+VAR\\s+Valid\\s+:\\s+Bool;\\s+\"Sequence\"\\s+:\\s+UDInt;\\s+Batch\\s+:\\s+_\\.OTT33_BatchInfo;\\s+Samples\\s+:\\s+Array\\[1\\.\\.4\\]\\s+of\\s+Real;\\s+Envelope\\s+:\\s+STRUCT\\s+Limits\\s+:\\s+STRUCT\\s+Lower\\s+:\\s+Real;\\s+Upper\\s+:\\s+Real;\\s+END_STRUCT;\\s+Quality\\s+:\\s+STRUCT\\s+Good\\s+:\\s+Bool;\\s+FaultCode\\s+:\\s+UInt;\\s+END_STRUCT;\\s+END_STRUCT;\\s+Status\\s+:\\s+String\\[24\\];\\s+Mode\\s+:\\s+USInt;\\s+END_VAR\\s+Valid\\s+:=\\s+FALSE;\\s+\"Sequence\"\\s+:=\\s+0;\\s+Status\\s+:=\\s+'Awaiting sample';\\s+Mode\\s+:=\\s+3;\\s+END_DATA_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "backup-preserved",
+      "type": "workspaceFile",
+      "points": 2,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT33_RecipeSettings_Backup.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58035\";\\s+S7_Optimized\\s+:=\\s+\"FALSE\";\\s+S7_StandardRetain\\s+:=\\s+\"FALSE\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+DATA_BLOCK\\s+OTT33_RecipeSettings_Backup\\s+VAR\\s+Enabled\\s+:\\s+Bool;\\s+Mode\\s+:\\s+USInt;\\s+RecipeId\\s+:\\s+DInt;\\s+Target\\s+:\\s+Real;\\s+RetryLimit\\s+:\\s+USInt;\\s+END_VAR\\s+Enabled\\s+:=\\s+FALSE;\\s+Mode\\s+:=\\s+9;\\s+RecipeId\\s+:=\\s+9909;\\s+Target\\s+:=\\s+-99\\.0;\\s+RetryLimit\\s+:=\\s+8;\\s+END_DATA_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "consumer-preserved",
+      "type": "workspaceFile",
+      "points": 2,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT33_ReadRecipe.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_EditorMode\\s+:=\\s+\"SCL\";\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+FUNCTION\\s+\"OTT33_ReadRecipe\"\\s+:\\s+Void\\s+VAR_OUTPUT\\s+Enabled\\s+:\\s+Bool;\\s+Mode\\s+:\\s+USInt;\\s+Target\\s+:\\s+Real;\\s+END_VAR\\s+\\{\\s+S7_Language\\s+:=\\s+\"SCL\"\\s+\\}\\s+NETWORK\\s+#Enabled\\s+:=\\s+\"OTT33_RecipeSettings\"\\.Enabled;\\s+#Mode\\s+:=\\s+\"OTT33_RecipeSettings\"\\.Mode;\\s+#Target\\s+:=\\s+\"OTT33_RecipeSettings\"\\.Target;\\s+END_NETWORK\\s+END_FUNCTION\\s*\\z"
+      ]
+    },
+    {
+      "id": "main-preserved",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/readback/Main.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 20000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_PreferredLanguage\\s+:=\\s+\"LAD\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+ORGANIZATION_BLOCK\\s+\"Main\"\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+END_RUNG\\s+END_NETWORK\\s+END_ORGANIZATION_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "fresh-clean-compile",
+      "type": "tool",
+      "points": 3,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "inputEquals": {
+        "plc-name": "PLC_Main"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "Compilation successful",
+        "\"errorCount\"\\s*:\\s*0(?=\\s*[,}])",
+        "\"warningCount\"\\s*:\\s*0(?=\\s*[,}])"
+      ]
+    },
+    {
+      "id": "baseline-review-apply-readback-order",
+      "type": "traceRegex",
+      "points": 4,
+      "critical": true,
+      "pattern": "(?is)opentia_export-block-as-docs(?:(?!opentia_begin-plc-code-transaction).)*baseline.*?Successfully exported block.*?opentia_begin-plc-code-transaction.*?opentia_add-plc-code-transaction-operation.*?opentia_add-plc-code-transaction-operation.*?opentia_plan-plc-code-transaction.*?opentia_apply-plc-code-transaction.*?opentia_export-block-as-docs.*?readback.*?opentia_compile-software"
+    },
+    {
+      "id": "no-bypass-save-or-unrelated-mutation",
+      "type": "forbiddenTool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "(?:opentia_)(?:create_|find_replace_|import_|generate_|delete_|modify_|sync_|save_|close_|archive_|retrieve_|download_|start_cpu|stop_cpu|run_plc_code_probe|begin_promoted_plc_code_transaction|add_scl_source_transaction_operation|add_simaticml_transaction_operation|plan_block_document_import|apply_block_document_import|discard_plc_code_transaction)"
+    },
+    {
+      "id": "final-summary",
+      "type": "finalRegex",
+      "points": 1,
+      "pattern": "(?is)(?=.*OTT33_RecipeSettings)(?=.*OTT33_QualitySnapshot)(?=.*DirectDocuments)(?=.*Succeeded)(?=.*(?:not[\\s*_]+saved|nothing[\\s*_]+saved|unsaved|without saving|no\\s+(?:project\\s+)?save))"
+    }
+  ]
+}
