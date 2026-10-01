@@ -550,6 +550,18 @@ The intentional outdated-instance warning is accepted as baseline state:
 incremental compilation may report 0 or 1 warnings, while a fresh update check
 must still prove the old instance is retained.
 
+`ott-33` adds structured S7DCL data authoring on a dedicated fixture: four
+initialization-only changes to an address-sensitive existing DB plus a nested,
+array/UDT-backed new DB in one guarded transaction. The
+[`gold audit`](reports/ott-33-gold-audit-20261001.md) proves successful import,
+complete preservation, and exact rollback after a real second-operation failure.
+Unchanged skills yielded Flash High scores 100/97/100 (2/3 strict passes;
+one omitted instance-selection step), followed by full GLM-5.3 High qualification
+at 100/100/100 (original 100/99/100; one noncritical summary wording correction).
+All six engineering states matched independent gold and compiled cleanly.
+Exact effort, per-model/task cost, immutable replay, scope limits, and cleanup
+are in [`the qualification report`](reports/s7dcl-data-authoring-glm-high-20261001.md).
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when

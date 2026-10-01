@@ -87,12 +87,12 @@ preserve member order and reject extra declarations/initializations. Formatting
 whitespace and line endings outside quoted tokens are tolerated; string case and
 internal spaces remain significant. Full UDT engineering XML is checked.
 
-Synthetic scorer tests cover 2 positive traces and 26 negative controls,
+Synthetic scorer tests cover 3 positive traces and 28 negative controls,
 including altered unrelated values, identity, optimization/retention, nested
 layout, UDT, array bounds, distractor/consumer/Main, overwritten baseline,
 missing BOM, unguarded/widened replacement, skipped validation/plan/consumer
 review, rollback instead of success, duplicate apply, warnings, raw import, and
-save. These are scorer checks, not model trials or claims of exhaustive syntax
+save, unrelated creation, and direct find/replace. These are scorer checks, not model trials or claims of exhaustive syntax
 support.
 
 First qualification: GLM-5.3 Flash High, three fresh trials, one-trial

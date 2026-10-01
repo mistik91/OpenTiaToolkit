@@ -400,13 +400,13 @@
       "type": "forbiddenTool",
       "points": 2,
       "critical": true,
-      "namePattern": "(?:opentia_)(?:import_|generate_|delete_|modify_|sync_|save_|close_|archive_|retrieve_|download_|start_cpu|stop_cpu|run_plc_code_probe|begin_promoted_plc_code_transaction|add_scl_source_transaction_operation|add_simaticml_transaction_operation|plan_block_document_import|apply_block_document_import|discard_plc_code_transaction)"
+      "namePattern": "(?:opentia_)(?:create_|find_replace_|import_|generate_|delete_|modify_|sync_|save_|close_|archive_|retrieve_|download_|start_cpu|stop_cpu|run_plc_code_probe|begin_promoted_plc_code_transaction|add_scl_source_transaction_operation|add_simaticml_transaction_operation|plan_block_document_import|apply_block_document_import|discard_plc_code_transaction)"
     },
     {
       "id": "final-summary",
       "type": "finalRegex",
       "points": 1,
-      "pattern": "(?is)(?=.*OTT33_RecipeSettings)(?=.*OTT33_QualitySnapshot)(?=.*DirectDocuments)(?=.*Succeeded)(?=.*(?:not[\\s*_]+saved|unsaved|without saving|no\\s+(?:project\\s+)?save))"
+      "pattern": "(?is)(?=.*OTT33_RecipeSettings)(?=.*OTT33_QualitySnapshot)(?=.*DirectDocuments)(?=.*Succeeded)(?=.*(?:not[\\s*_]+saved|nothing[\\s*_]+saved|unsaved|without saving|no\\s+(?:project\\s+)?save))"
     }
   ]
 }

@@ -286,17 +286,20 @@ function New-DataEvents {
     }))
     if ($Variant -eq 'raw-import') { $events.Add((New-ToolEvent 'opentia_import-block-from-docs' @{ confirm = $true } 'success')) }
     if ($Variant -eq 'save') { $events.Add((New-ToolEvent 'opentia_save-project' @{ confirm = $true } 'saved')) }
+    if ($Variant -eq 'extra-create') { $events.Add((New-ToolEvent 'opentia_create-device' @{ confirm = $true; name = 'Unrequested' } 'created')) }
+    if ($Variant -eq 'find-replace') { $events.Add((New-ToolEvent 'opentia_find-replace-in-block' @{ confirm = $true } 'changed')) }
     return @($events)
 }
 function Invoke-DataAssertionTest {
     param([string]$Label, [string]$ExpectedFailure = '', [string]$Variant = '', [string]$ChangedFile = '',
-        [string]$From = '', [string]$To = '', [switch]$WithoutBom, [switch]$ChangedType)
+        [string]$From = '', [string]$To = '', [switch]$WithoutBom, [switch]$ChangedType, [switch]$UseCrLf)
     $workspace = Join-Path $testRoot ($Label + '-workspace')
     foreach ($key in $documents.Keys) {
         $path = Join-Path (Join-Path $workspace 'artifacts') $key
         New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null
-        $content = $documents[$key]
+        $content = $documents[$key].Replace("`r`n", "`n")
         if ($key -eq $ChangedFile -and $From.Length -gt 0) { $content = $content.Replace($From, $To) }
+        if ($UseCrLf -and $key -eq $ChangedFile) { $content = $content.Replace("`r`n", "`n").Replace("`n", "`r`n") }
         [IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new(-not ($WithoutBom -and $key -eq $ChangedFile)))
     }
     foreach ($phase in @('baseline', 'readback')) {
@@ -306,8 +309,10 @@ function Invoke-DataAssertionTest {
     }
     $trace = Join-Path $testRoot ($Label + '-events.jsonl')
     $metadata = Join-Path $testRoot ($Label + '-metadata.json')
+    $summary = 'OTT33_RecipeSettings and OTT33_QualitySnapshot applied via DirectDocuments. Succeeded; project not saved.'
+    if ($Variant -eq 'nothing-saved') { $summary = $summary.Replace('project not saved', 'nothing saved/closed/deleted') }
     @(New-DataEvents $Variant) + @(
-        @{ type = 'text'; part = @{ text = 'OTT33_RecipeSettings and OTT33_QualitySnapshot applied via DirectDocuments. Succeeded; project not saved.' } },
+        @{ type = 'text'; part = @{ text = $summary } },
         @{ type = 'step_finish'; part = @{ reason = 'stop'; tokens = @{ input = 5; output = 5; reasoning = 0; total = 10 }; cost = 0 } }
     ) | ForEach-Object { $_ | ConvertTo-Json -Depth 60 -Compress } | Set-Content -LiteralPath $trace -Encoding UTF8
     @{
@@ -326,7 +331,8 @@ function Invoke-DataAssertionTest {
 }
 try {
     Invoke-DataAssertionTest 'representative'
-    Invoke-DataAssertionTest 'line-ending-equivalence' -ChangedFile 'readback/OTT33_QualitySnapshot.s7dcl' -From "`r`n" -To "`n"
+    Invoke-DataAssertionTest 'line-ending-equivalence' -ChangedFile 'readback/OTT33_QualitySnapshot.s7dcl' -UseCrLf
+    Invoke-DataAssertionTest 'nothing-saved-summary' -Variant 'nothing-saved'
     Invoke-DataAssertionTest 'changed-unrequested-value' 'recipe-exact-readback' -ChangedFile 'readback/OTT33_RecipeSettings.s7dcl' -From 'RecipeId := 7001;' -To 'RecipeId := 7002;'
     Invoke-DataAssertionTest 'changed-string' 'recipe-exact-readback' -ChangedFile 'readback/OTT33_RecipeSettings.s7dcl' -From "'Baseline'" -To "'Changed'"
     Invoke-DataAssertionTest 'string-case-matters' 'recipe-exact-readback' -ChangedFile 'readback/OTT33_RecipeSettings.s7dcl' -From "'Baseline'" -To "'baseline'"
@@ -353,7 +359,9 @@ try {
     Invoke-DataAssertionTest 'compile-warning' 'fresh-clean-compile' -Variant 'compile-warning'
     Invoke-DataAssertionTest 'raw-import' 'no-bypass-save-or-unrelated-mutation' -Variant 'raw-import'
     Invoke-DataAssertionTest 'save' 'no-bypass-save-or-unrelated-mutation' -Variant 'save'
-    Write-Host 'S7DCL data assertions passed (2 positive traces and 26 negative controls).'
+    Invoke-DataAssertionTest 'extra-create' 'no-bypass-save-or-unrelated-mutation' -Variant 'extra-create'
+    Invoke-DataAssertionTest 'find-replace' 'no-bypass-save-or-unrelated-mutation' -Variant 'find-replace'
+    Write-Host 'S7DCL data assertions passed (3 positive traces and 28 negative controls).'
 }
 finally {
     $resolvedTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
