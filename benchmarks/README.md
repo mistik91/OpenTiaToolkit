@@ -582,13 +582,22 @@ The first campaigns produced correct gold-matching LAD states in all six runs,
 but neither is a clean strict qualification: Flash High is 100/100/96 (one
 missing-BOM contract failure), and full GLM High is 100/100/98 after a
 single/bulk ordering-scorer correction (original 100/100/96). Its last trial
-hit a confirmed toolkit inconsistency: bulk export skips OBs locally while
-single-block Main SD export succeeds. Further campaigns and skill changes
-are paused for that toolkit correction; the full-model failure is not clean
+hit a confirmed toolkit inconsistency: bulk export skipped OBs locally while
+single-block Main SD export succeeded. The full-model failure was not clean
 evidence of a LAD capability ceiling. The
 [`campaign audit`](reports/lad-brownfield-glm-high-20261001.md) records costs,
 effort, independent verification, immutable replay, the invalid server-error
 attempt, and cleanup.
+
+The generic bulk export path now uses the same per-target API as single export.
+A separate post-fix full GLM-5.3 High cohort passed 100/100/100, with no MCP
+rejections and three independent live audits. Its mean time was 382.096 seconds
+and reported incremental subscription cost was $0. The prompt, skills, and
+grader stayed unchanged; Flash was not rerun and retains its historical 2/3
+strict pass rate. The
+[`post-fix report`](reports/lad-brownfield-bulk-export-fix-20261001.md) records
+generic regression tests, direct bulk/single export controls, exact runtime
+hashes, reasoning effort, and the limits of the qualification claim.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:

@@ -1,4 +1,9 @@
-# OTT-34 LAD campaign audit — qualification not clean
+# OTT-34 LAD campaign audit — historical pre-fix results
+
+Follow-up: the bulk SD export defect was corrected and a separate full GLM High
+cohort passed 100/100/100. See the
+[post-fix qualification report](lad-brownfield-bulk-export-fix-20261001.md).
+The original results and findings below remain historical evidence.
 
 FAIL — strict qualification is not clean. The benchmark implementation,
 independent gold path, and real rollback proof passed. All six admitted model
