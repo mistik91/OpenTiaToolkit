@@ -14,7 +14,7 @@ $fixtureManifestPath = Join-Path $benchmarkRoot 'fixtures\manifest.json'
 $errors = [System.Collections.Generic.List[string]]::new()
 $fixtures = (Get-Content -LiteralPath $fixtureManifestPath -Raw | ConvertFrom-Json).fixtures
 $fixtureIds = @($fixtures | ForEach-Object { [string]$_.id })
-$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'workspaceFile', 'finalRegex', 'traceRegex', 'run')
+$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork', 'finalRegex', 'traceRegex', 'run')
 
 foreach ($fixture in $fixtures) {
     if ([string]::IsNullOrWhiteSpace([string]$fixture.id)) {
@@ -115,7 +115,7 @@ foreach ($caseFile in $caseFiles) {
                 $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' needs expectedOperations.")
             }
         }
-        if ($assertion.type -eq 'workspaceFile') {
+        if ($assertion.type -in @('workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork')) {
             $relativePath = [string]$assertion.relativePath
             if ([string]::IsNullOrWhiteSpace($relativePath) -or
                 [System.IO.Path]::IsPathRooted($relativePath) -or
@@ -137,6 +137,25 @@ foreach ($caseFile in $caseFiles) {
                     }
                     catch {
                         $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' has an invalid $patternProperty regex.")
+                    }
+                }
+            }
+        }
+        if ($assertion.type -in @('ladBooleanNetwork', 'ladTimerNetwork')) {
+            if ($null -eq $assertion.PSObject.Properties['networkIndex'] -or [int]$assertion.networkIndex -lt 1 -or
+                $null -eq $assertion.PSObject.Properties['outputName'] -or [string]::IsNullOrWhiteSpace([string]$assertion.outputName)) {
+                $errors.Add("$($caseFile.FullName): LAD assertion '$($assertion.id)' requires networkIndex and outputName.")
+            }
+            if ($assertion.type -eq 'ladBooleanNetwork') {
+                if ($null -eq $assertion.PSObject.Properties['inputNames'] -or @($assertion.inputNames).Count -lt 1 -or
+                    @($assertion.inputNames).Count -gt 10 -or $null -eq $assertion.PSObject.Properties['expectedTrueRows']) {
+                    $errors.Add("$($caseFile.FullName): Boolean assertion '$($assertion.id)' requires a bounded input list and explicit truth table.")
+                }
+            }
+            else {
+                foreach ($requiredLadProperty in @('inputName', 'timerInstance', 'presetMilliseconds')) {
+                    if ($null -eq $assertion.PSObject.Properties[$requiredLadProperty]) {
+                        $errors.Add("$($caseFile.FullName): timer assertion '$($assertion.id)' requires $requiredLadProperty.")
                     }
                 }
             }

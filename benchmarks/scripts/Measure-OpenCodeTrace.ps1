@@ -16,6 +16,8 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+. (Join-Path $PSScriptRoot 'LadAssertions.ps1')
+
 function Get-PropertyValue {
     param(
         [AllowNull()]
@@ -975,6 +977,16 @@ foreach ($assertion in $case.assertions) {
             if (-not [string]::IsNullOrWhiteSpace($artifactError)) {
                 $details += "; error=$artifactError"
             }
+        }
+        { $_ -in @('ladBooleanNetwork', 'ladTimerNetwork') } {
+            try {
+                $details = if ([string]$assertion.type -eq 'ladBooleanNetwork') {
+                    Test-BenchmarkLadBooleanNetwork -WorkspaceRoot $workspaceRoot -Assertion $assertion
+                }
+                else { Test-BenchmarkLadTimerNetwork -WorkspaceRoot $workspaceRoot -Assertion $assertion }
+                $passed = $true
+            }
+            catch { $details = "LAD analysis failed: $($_.Exception.Message)"; $passed = $false }
         }
         'finalRegex' {
             $passed = $finalText -match [string]$assertion.pattern

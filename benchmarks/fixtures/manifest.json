@@ -218,6 +218,25 @@
         "The read-only archive was independently restored on a fresh TIA process and compiled with zero errors/warnings. Gold baseline-bound initialization update plus nested UDT-backed DB creation succeeded atomically; backup, consumer, Main, and complete UDT XML were unchanged.",
         "A real second-operation Siemens import failure rolled back the already-applied existing-DB change, restored its exact canonical baseline, proved the new DB absent, and recovered zero-error/zero-warning compilation."
       ]
+    },
+    {
+      "id": "tia-v21-lad-brownfield-13",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_LadBrownfield_20261001.zap21",
+      "sha256": "952FC2C686BFA2C40D0D339340D8E6DDDEABF9B14E24367BF4BAAE796671EACC",
+      "sizeBytes": 5691086,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with LAD FB OTT34_Conveyor (58434), six Boolean request/interlock inputs, four outputs, one nonretained static RunDelay TON_TIME, and five titled networks with paired resources.",
+        "Baseline network 2 drives RunRequest from AutoStart alone; network 3 drives a 100 ms TON from AutoStart. Fault indication and set/reset request-history networks must remain untouched.",
+        "Near-name LAD FC OTT34_Conveyor_Backup (58435) uses AutoStart AND NOT Fault; Main remains the original empty LAD OB.",
+        "The read-only archive was restored in a fresh TIA process, compiled at zero errors/warnings, and its complete SD exports matched the seed byte-for-byte.",
+        "This disposable standard-LAD fixture is not a runtime safety controller. Independent gold body-only import proved common-interlocked Auto/Jog branching and a 750 ms nonretentive TON, with 64 combinational XML wiring rows and exact static IN/PT/Q checks.",
+        "A real final compile failure after both transaction operations applied restored every original SD hash, removed the deliberate failure FC, and recovered zero-error/zero-warning compilation."
+      ]
     }
   ]
 }

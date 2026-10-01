@@ -106,17 +106,11 @@ namespace OpenTiaToolkit.Core.Services
             result.TotalCount = blocks.Count;
             foreach (var block in blocks)
             {
-                if (block.Type.Equals("OB", StringComparison.OrdinalIgnoreCase)
-                    || block.Type.Equals("FOB", StringComparison.OrdinalIgnoreCase))
-                {
-                    result.FailedCount++;
-                    result.FailedItems.Add(block.Name);
-                    result.Errors.Add($"Skipped {block.Type} block '{block.Name}': SIMATIC SD export not supported for Organization Blocks");
-                    continue;
-                }
                 if (regex != null && !regex.IsMatch(block.Name)) continue;
                 try
                 {
+                    // Use the same per-target API as single export; block type alone
+                    // does not determine SIMATIC SD export support.
                     if (await ExportBlockAsync(block.Name, exportPath).ConfigureAwait(false))
                     {
                         result.SuccessCount++;

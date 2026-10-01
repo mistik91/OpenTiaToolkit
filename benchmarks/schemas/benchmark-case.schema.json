@@ -89,6 +89,8 @@
             "toolOperationSet",
             "forbiddenTool",
             "workspaceFile",
+            "ladBooleanNetwork",
+            "ladTimerNetwork",
             "finalRegex",
             "traceRegex",
             "run"
@@ -133,6 +135,13 @@
           "type": "string",
           "minLength": 1
         },
+        "networkIndex": { "type": "integer", "minimum": 1 },
+        "inputNames": { "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "expectedTrueRows": { "type": "array", "uniqueItems": true, "items": { "type": "integer", "minimum": 0, "maximum": 1023 } },
+        "inputName": { "type": "string", "minLength": 1 },
+        "outputName": { "type": "string", "minLength": 1 },
+        "timerInstance": { "type": "string", "minLength": 1 },
+        "presetMilliseconds": { "type": "number", "minimum": 0 },
         "minBytes": {
           "type": "integer",
           "minimum": 0

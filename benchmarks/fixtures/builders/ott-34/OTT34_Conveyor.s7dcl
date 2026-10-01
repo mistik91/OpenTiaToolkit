@@ -1,0 +1,51 @@
+﻿{
+    S7_BlockNumber := "58434";
+    S7_Optimized := "TRUE";
+    S7_PreferredLanguage := "LAD";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "OTT34_Conveyor"
+    VAR_INPUT
+        AutoStart : Bool;
+        JogRequest : Bool;
+        Permit : Bool;
+        GuardClosed : Bool;
+        Fault : Bool;
+        Reset : Bool;
+    END_VAR
+    VAR_OUTPUT
+        RunRequest : Bool;
+        DelayedRun : Bool;
+        FaultLamp : Bool;
+        RequestSeen : Bool;
+    END_VAR
+    VAR
+        RunDelay : TON_TIME;
+    END_VAR
+
+    { S7_Language := "LAD"; S7_NetworkTitle := "MLC_Fault" }
+    NETWORK
+        RUNG wire#powerrail Contact( #Fault ) Coil( #FaultLamp ) END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD"; S7_NetworkTitle := "MLC_Request" }
+    NETWORK
+        RUNG wire#powerrail Contact( #AutoStart ) Coil( #RunRequest ) END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD"; S7_NetworkTitle := "MLC_Delay" }
+    NETWORK
+        RUNG wire#powerrail
+            Contact( #AutoStart )
+            { S7_Templates := "time_type := Time" }
+            #RunDelay.TON( pt := T#100ms, et => )
+            Coil( #DelayedRun )
+        END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD"; S7_NetworkTitle := "MLC_Seen" }
+    NETWORK
+        RUNG wire#powerrail Contact( #AutoStart ) S_Coil( #RequestSeen ) END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD"; S7_NetworkTitle := "MLC_Reset" }
+    NETWORK
+        RUNG wire#powerrail Contact( #Reset ) R_Coil( #RequestSeen ) END_RUNG
+    END_NETWORK
+END_FUNCTION_BLOCK

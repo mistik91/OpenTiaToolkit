@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the executable OpenTiaToolkit agent benchmark slice. Twenty-six cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, structured S7DCL data authoring, bidirectional VCI synchronization, library reuse, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
+This directory contains the executable OpenTiaToolkit agent benchmark slice. Twenty-seven cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, structured S7DCL data authoring, brownfield LAD interlock and timer editing, bidirectional VCI synchronization, library reuse, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -561,6 +561,43 @@ at 100/100/100 (original 100/99/100; one noncritical summary wording correction)
 All six engineering states matched independent gold and compiled cleanly.
 Exact effort, per-model/task cost, immutable replay, scope limits, and cleanup
 are in [`the qualification report`](reports/s7dcl-data-authoring-glm-high-20261001.md).
+
+`ott-34` adds brownfield LAD editing on a dedicated five-network FB fixture.
+The task changes a shared-interlock Auto/Jog request and an existing static TON
+while preserving the interface, timer state, set/reset ordering, network resources,
+and unrelated blocks. One Implementation-only, baseline-bound BodyOnly transaction
+is required. The [`gold audit`](reports/ott-34-gold-audit-20261001.md) records the
+successful live edit and a deliberately failing compile with exact rollback.
+
+Two restricted, fail-closed XML assertions evaluate independently exported LAD:
+`ladBooleanNetwork` checks every combinational input row through actual power-flow
+wiring; `ladTimerNetwork` checks the static receiver, IN/Q wiring and typed PT.
+They accept ID renaming, commuted branches/guards and equivalent supported TIME
+literals, and reject unsupported or unconsumed graph content. They do not simulate
+PLC scans or establish runtime timer behavior or safety-controller suitability.
+The first cohort is GLM-5.3 Flash High in three fresh, checkpointed trials;
+full GLM-5.3 High is reserved for audited capability failures.
+
+The first campaigns produced correct gold-matching LAD states in all six runs,
+but neither is a clean strict qualification: Flash High is 100/100/96 (one
+missing-BOM contract failure), and full GLM High is 100/100/98 after a
+single/bulk ordering-scorer correction (original 100/100/96). Its last trial
+hit a confirmed toolkit inconsistency: bulk export skipped OBs locally while
+single-block Main SD export succeeded. The full-model failure was not clean
+evidence of a LAD capability ceiling. The
+[`campaign audit`](reports/lad-brownfield-glm-high-20261001.md) records costs,
+effort, independent verification, immutable replay, the invalid server-error
+attempt, and cleanup.
+
+The generic bulk export path now uses the same per-target API as single export.
+A separate post-fix full GLM-5.3 High cohort passed 100/100/100, with no MCP
+rejections and three independent live audits. Its mean time was 382.096 seconds
+and reported incremental subscription cost was $0. The prompt, skills, and
+grader stayed unchanged; Flash was not rerun and retains its historical 2/3
+strict pass rate. The
+[`post-fix report`](reports/lad-brownfield-bulk-export-fix-20261001.md) records
+generic regression tests, direct bulk/single export controls, exact runtime
+hashes, reasoning effort, and the limits of the qualification claim.
 
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
