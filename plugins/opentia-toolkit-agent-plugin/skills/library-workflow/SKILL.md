@@ -61,7 +61,9 @@ copy-from-master-copy --library-scope=global --global-library="<name>" --master-
 
 ## Grouped PLC Copy Verification
 
-For a copy into a PLC user group, verify the exact group and created identity with `get-software-tree`. Current flat `get-blocks`/`get-block-info` reads and the precheck in `export-block-as-source` inspect root blocks only, so a grouped block can be reported missing even after a successful copy. Use `export-block --block-name="<created leaf name>" --export-path="<xml path>"` for recursive XML readback; inspect its identity and implementation rather than retrying the copy or passing a guessed group path as the block name.
+For a copy into a PLC user group, verify the exact group and created identity with `get-software-tree`. Compile the newly copied PLC software before XML payload readback: TIA can reject XML export of a just-copied, not-yet-compiled block. Stop on compile errors; on success, use `export-block --block-name="<created leaf name>" --export-path="<xml path>"` for recursive XML readback and inspect its identity and implementation.
+
+Distinguish that compile prerequisite from lookup scope. Current flat `get-blocks`/`get-block-info` reads and the precheck in `export-block-as-source` inspect root blocks only, so a grouped block can be reported missing even after a successful copy. An XML export rejection before compilation does not prove grouped XML export is unsupported. Do not repeat the copy or pass a guessed group path as the block name; verify the tree and compile, then retry the same known leaf export if appropriate.
 
 ## UDT And Type Workflows
 

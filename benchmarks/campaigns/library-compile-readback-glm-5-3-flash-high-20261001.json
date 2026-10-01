@@ -1,0 +1,11 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "library-compile-readback-glm-5-3-flash-high-20261001",
+  "title": "GLM-5.3 Flash High library compile-before-XML skill verification",
+  "caseIds": ["ott-32"],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [{"model": "zai-coding-plan/glm-5.3-flash", "reasoningEffort": "high", "variant": "high", "costClass": "subscription"}]
+}
