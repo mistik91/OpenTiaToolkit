@@ -182,6 +182,24 @@
         "The read-only archive was independently restored on a fresh TIA process, compiled with zero errors and warnings, and verified against exact native-source hashes.",
         "The gold path proved an unconfirmed import is rejected without mutation, project-to-workspace restores a stale +99 file to +10, workspace-to-project imports +25, all exact mappings finish Equal, and the distractor remains +30."
       ]
+    },
+    {
+      "id": "tia-v21-library-11",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Library_20261001.zap21",
+      "sha256": "B749366ECD7CFD0564FEC06881526373BF0DBE14F9BE9ECCD1043D0071166749",
+      "sizeBytes": 5701716,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-vci-10 with three same-leaf Offset master copies in project-library Approved/PLC, Approved/HMI, and Legacy/PLC branches under OTT32_Standards.",
+        "Approved PLC payload OTT32_ApprovedOffset adds 10 and is absent from PLC software. OTT32_Reuse is empty; existing root FCs OTT32_ApprovedOffset_Legacy (+20) and OTT32_ExistingOffset (+30) must be preserved.",
+        "Project-library UDT/MyANALOG_LEVEL has Committed versions 0.0.3 and default 0.0.4. The PLC instance remains on 0.0.3 and the update check reports Out-of-date; no upgrade is authorized.",
+        "Construction compiled with zero errors and one intentional non-default-version warning. An incremental gold compile after copying reported zero errors/warnings while update checks still proved the old instance was retained.",
+        "The read-only archive was restored on a fresh TIA process. Exact dry-run and unconfirmed copy left the three-block baseline unchanged; confirmed grouped reuse and recursive XML readback succeeded. External source-library data hashes remained unchanged."
+      ]
     }
   ]
 }

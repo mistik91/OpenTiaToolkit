@@ -2,6 +2,11 @@
 
 Date: 2026-09-30
 
+Resolved on 2026-10-01: elevation was verified, the helper was registered, and
+construction plus independent gold verification completed. This historical
+preparation record is superseded for execution status by
+[the gold audit](ott-32-gold-audit-20261001.md).
+
 Branch: `codex/library-workflow-benchmark`, based on merged VCI slice `e27bd7c`.
 
 No library model campaign has run. The project-library fixture still requires

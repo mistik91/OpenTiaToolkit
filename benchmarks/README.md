@@ -523,6 +523,24 @@ safely. Pilot scorer corrections, exact settings, per-trial cost, independent
 verification, and cleanup are documented in
 `reports/vci-sync-glm-5-3-flash-high-20260930.md`.
 
+`ott-32` opens the library workflow on a dedicated, embedded project-library
+fixture. It selects approved PLC reuse among three same-leaf domain/legacy
+distractors, previews and confirms one grouped copy, independently reads its
+XML payload, preserves existing blocks, and reports an outdated UDT instance
+without upgrading it. The fixture and positive/policy-denied gold paths are in
+`reports/ott-32-gold-audit-20261001.md`. The audit also established the generic
+hierarchy-plus-recursive-XML verification route for grouped copies; no toolkit
+runtime fix or fixture-specific skill recipe was introduced.
+
+The first campaign is frozen in
+`campaigns/library-reuse-glm-5-3-flash-high-20261001.json`, with three fresh
+subscription-backed GLM-5.3 Flash High trials.
+`campaigns/library-reuse-glm-5-3-high-20261001.json` is the GLM-5.3 High
+capability fallback, not an automatic retry for infrastructure or skill errors.
+The intentional outdated-instance warning is accepted as baseline state:
+incremental compilation may report 0 or 1 warnings, while a fresh update check
+must still prove the old instance is retained.
+
 The campaign declares `trialCount: 3`. Each model/task pair is executed three
 times from a fresh fixture restore. Qualification status remains strict:
 runtime or critical failures take precedence, and a model qualifies only when
@@ -721,6 +739,7 @@ Use `-PrepareOnly` to test archive/session setup without launching a model.
 | `ott-29` | Unified trend-logging reconciliation | Interpret mixed reference safety, move and create two tag associations in one shared archive, retire one logging tag and three obsolete archives, and prove the final active and absent state |
 | `ott-30` | Native SCL multi-object authoring | Author a UDT and stateful FB in one source and transaction, prove the source semantics mechanically, and verify exact generated identities and clean compilation |
 | `ott-31` | Bidirectional VCI block reconciliation | Create a workspace before format discovery, map two exact SCL blocks, prove both sync directions, validate the imported source, preserve an unmapped distractor, and verify Equal mappings plus a clean compile |
+| `ott-32` | Approved library reuse and type-version restraint | Select the exact approved PLC master among same-leaf distractors, preview and confirm one grouped copy, read back its XML and preserved objects, and report the retained outdated UDT without upgrading it |
 
 ## Adding a case
 
