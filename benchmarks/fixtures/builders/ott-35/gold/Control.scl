@@ -1,0 +1,34 @@
+﻿FUNCTION_BLOCK "OTT35_Control"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+    VAR_INPUT
+        Request : Bool;
+        Permit : Bool;
+        Reset : Bool;
+    END_VAR
+    VAR_OUTPUT
+        Active : Bool;
+        ActivationCount : UDInt;
+    END_VAR
+    VAR
+        Delay : TON_TIME;
+        PreviousActive : Bool;
+    END_VAR
+BEGIN
+    #Delay.TON(IN := #Request AND #Permit AND NOT #Reset, PT := T#1s);
+    #Active := #Delay.Q AND #Request AND #Permit AND NOT #Reset;
+    IF #Reset THEN
+        #ActivationCount := 0;
+    ELSIF #Active AND NOT #PreviousActive THEN
+        #ActivationCount := #ActivationCount + 1;
+    END_IF;
+    #PreviousActive := #Active;
+END_FUNCTION_BLOCK
+
+DATA_BLOCK "OTT35_Instance"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+"OTT35_Control"
+BEGIN
+END_DATA_BLOCK
