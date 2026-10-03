@@ -119,6 +119,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
                 else AddTransactionOperation(transactionId, Path.GetDirectoryName(item.Validation.InputPath)!, Path.GetFileNameWithoutExtension(item.Validation.InputPath), item.Specification.GroupPath, "Override");
             }
             transaction = await PlanTransactionAsync(transactionId).ConfigureAwait(false);
+            evidence.BaselineCompilation = transaction.BaselineCompilation;
             if (transaction.State == "ImpactBlocked") throw new InvalidOperationException("Disposable behavior probe impact is blocked.");
             if (transaction.State == "ImpactReviewRequired")
             {
@@ -129,6 +130,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
             apply = await ApplyTransactionAsync(transactionId, transaction.ApplyToken!).ConfigureAwait(false);
             evidence.BaselineCompilation = apply.Transaction.BaselineCompilation;
             evidence.ProbeCompilation = apply.Transaction.FinalCompilation;
+            evidence.CleanupCompilation = apply.Transaction.RollbackCompilation;
             evidence.CanonicalResultHashes = apply.Transaction.Operations.SelectMany(EffectiveSnapshots).Select(snapshot => snapshot.CanonicalResultHash).Where(hash => !string.IsNullOrWhiteSpace(hash)).Cast<string>().ToArray();
             if (!apply.Applied || !apply.Verified) throw new InvalidOperationException(apply.Transaction.Failure ?? "The disposable probe did not apply and verify.");
             behavior.LifecycleState = "OfflineProbeVerified";

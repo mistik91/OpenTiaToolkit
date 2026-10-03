@@ -10,6 +10,15 @@ namespace OpenTiaToolkit.Core.Services;
 
 internal static class PlcWorkflowPrimitives
 {
+    internal static PlcCodeTransactionCompileEvidence CompileEvidence(CompilationResult result) => new PlcCodeTransactionCompileEvidence
+    {
+        Success = result.Success,
+        ErrorCount = result.ErrorCount,
+        WarningCount = result.WarningCount,
+        Message = result.Message ?? string.Empty,
+        Diagnostics = result.Diagnostics.ToArray()
+    };
+
     internal static string Hash(byte[] bytes)
     {
         using SHA256 sha = SHA256.Create();

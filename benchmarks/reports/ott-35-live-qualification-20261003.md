@@ -2,6 +2,10 @@
 
 ## Outcome: PASS for candidate and controls; model campaign paused for diagnostic feedback
 
+This is the historical pre-diagnostic-feedback cohort. The additive toolkit fix,
+independent qualification, and separately labeled fresh campaign are recorded in
+[ott-35-compiler-diagnostics-20261003.md](ott-35-compiler-diagnostics-20261003.md).
+
 Branch: `codex/ott-35-plcsim-behavior-benchmark`, continuing fix commit `4ed3c53`
 and scaffold `401c230`. No skills were edited or task-specific examples added.
 No original-project probe mutation, push, PR, or merge was performed.

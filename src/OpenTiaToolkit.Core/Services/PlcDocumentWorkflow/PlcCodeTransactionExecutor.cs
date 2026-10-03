@@ -183,7 +183,7 @@ internal sealed class PlcCodeTransactionExecutor
             AddJournal(transaction, null, "Verify", "Starting", "All operations applied; compiling and exporting canonical results.");
             SaveTransaction(transaction);
             CompilationResult compilation = await _plcService.CompileSoftwareAsync().ConfigureAwait(false);
-            transaction.FinalCompilation = ToEvidence(compilation);
+            transaction.FinalCompilation = PlcWorkflowPrimitives.CompileEvidence(compilation);
             int baselineErrors = transaction.BaselineCompilation?.ErrorCount ?? 0;
             int baselineWarnings = transaction.BaselineCompilation?.WarningCount ?? 0;
             bool compileAccepted = transaction.CompilePolicy == "CleanCompile"
@@ -349,14 +349,6 @@ internal sealed class PlcCodeTransactionExecutor
             throw new InvalidOperationException($"Transaction is bound to project '{transaction.ProjectName}', but the current project is '{projectName}'.");
         await EnsurePlcOpen(transaction.PlcName).ConfigureAwait(false);
     }
-
-    private static PlcCodeTransactionCompileEvidence ToEvidence(CompilationResult result) => new PlcCodeTransactionCompileEvidence
-    {
-        Success = result.Success,
-        ErrorCount = result.ErrorCount,
-        WarningCount = result.WarningCount,
-        Message = result.Message ?? string.Empty
-    };
 
     private static PlcCodeTransactionApplyResult Result(PlcCodeTransaction transaction, bool applied, bool verified, bool rollbackAttempted, bool rolledBack, bool recoveryRequired, string message) => new PlcCodeTransactionApplyResult
     {

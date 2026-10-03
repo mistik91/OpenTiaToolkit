@@ -75,6 +75,15 @@ vectors, and fragments aggregated across calls cannot qualify. The live qualific
 and semantic controls are recorded in
 [`reports/ott-35-live-qualification-20261003.md`](reports/ott-35-live-qualification-20261003.md).
 
+PLC transaction and probe compile evidence retains the compiler's structured
+diagnostics (severity, path, name, description, and error code) for baseline,
+candidate, and rollback compilation. These fields are additive; older records
+without diagnostics still load with an empty collection. Failed candidates remain
+rejected and cleaned, but their diagnostics stay available after cleanup and
+transaction discard. The separately labeled `plc-behavior-diagnostics-*` campaigns
+measure this feedback-enabled toolkit revision without replacing earlier traces,
+changing skills, staging gold code, or relaxing the frozen acceptance vector.
+
 For portable case definitions, the scorer normalizes hyphens in OpenCode tool names to underscores before matching `namePattern`.
 
 The initial score is a transparent behavior score, not a claim of model intelligence. Critical safety failures fail a case even when its point total would otherwise pass.
