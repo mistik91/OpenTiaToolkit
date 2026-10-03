@@ -35,6 +35,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         BehaviorPackageValidation package = ValidateBehaviorPackage(packagePath);
         PlcCodeArtifactValidationResult artifact = package.Composite;
         IReadOnlyList<PlcCodeCapabilityDiscovery> capabilities = await ValidateProbeCapabilitiesAsync(capabilityIds, artifact, plcName, requireDisposableCreate: false).ConfigureAwait(false);
+        RequirePackageCapabilities(package, capabilities, plcName);
         string[] owners = BehaviorOwners(artifact);
         PlcBehaviorVectorValidationResult vector = new PlcBehaviorVectorService().Validate(vectorPath, owners);
         if (!vector.Valid) throw new InvalidDataException("Behavior vector validation failed: " + string.Join("; ", vector.Errors));
@@ -54,6 +55,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         BehaviorPackageValidation package = ValidateBehaviorPackage(packagePath);
         PlcCodeArtifactValidationResult artifact = package.Composite;
         IReadOnlyList<PlcCodeCapabilityDiscovery> capabilities = await ValidateProbeCapabilitiesAsync(capabilityIds, artifact, plcName, requireDisposableCreate: true).ConfigureAwait(false);
+        RequirePackageCapabilities(package, capabilities, plcName);
         string[] owners = BehaviorOwners(artifact);
         PlcBehaviorVectorValidationResult vectorValidation = new PlcBehaviorVectorService().Validate(vectorPath, owners);
         if (!vectorValidation.Valid) throw new InvalidDataException("Behavior vector validation failed: " + string.Join("; ", vectorValidation.Errors));
@@ -119,6 +121,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
                 else AddTransactionOperation(transactionId, Path.GetDirectoryName(item.Validation.InputPath)!, Path.GetFileNameWithoutExtension(item.Validation.InputPath), item.Specification.GroupPath, "Override");
             }
             transaction = await PlanTransactionAsync(transactionId).ConfigureAwait(false);
+            evidence.BaselineCompilation = transaction.BaselineCompilation;
             if (transaction.State == "ImpactBlocked") throw new InvalidOperationException("Disposable behavior probe impact is blocked.");
             if (transaction.State == "ImpactReviewRequired")
             {
@@ -129,6 +132,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
             apply = await ApplyTransactionAsync(transactionId, transaction.ApplyToken!).ConfigureAwait(false);
             evidence.BaselineCompilation = apply.Transaction.BaselineCompilation;
             evidence.ProbeCompilation = apply.Transaction.FinalCompilation;
+            evidence.CleanupCompilation = apply.Transaction.RollbackCompilation;
             evidence.CanonicalResultHashes = apply.Transaction.Operations.SelectMany(EffectiveSnapshots).Select(snapshot => snapshot.CanonicalResultHash).Where(hash => !string.IsNullOrWhiteSpace(hash)).Cast<string>().ToArray();
             if (!apply.Applied || !apply.Verified) throw new InvalidOperationException(apply.Transaction.Failure ?? "The disposable probe did not apply and verify.");
             behavior.LifecycleState = "OfflineProbeVerified";
@@ -210,7 +214,13 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
             if (!string.IsNullOrWhiteSpace(evidence.TransactionId)) cleanup = await CleanupBehaviorTransactionAsync(evidence.TransactionId).ConfigureAwait(false);
             bool offlineClean = string.IsNullOrWhiteSpace(evidence.TransactionId) || cleanup?.RolledBackAndVerified == true || IsTransactionClean(evidence.TransactionId);
             if (!offlineClean) throw new InvalidOperationException("Offline transaction recovery was not proven.");
-            await ProveSimulatorCleanupAsync(evidence, behavior.Simulator!, owners, onlyChanges).ConfigureAwait(false);
+            // A retained, never-applied transaction cannot have reached a candidate download.
+            // Missing transactions are deliberately not accepted as proof of this condition.
+            bool neverApplied = !string.IsNullOrWhiteSpace(evidence.TransactionId) && _transactions.IsNeverApplied(evidence.TransactionId);
+            if (neverApplied && behavior.ProbeDownload == null && behavior.ProbeCompare == null && behavior.Execution == null)
+                behavior.SimulatorCleanupProven = true;
+            else
+                await ProveSimulatorCleanupAsync(evidence, behavior.Simulator!, owners, onlyChanges).ConfigureAwait(false);
             await RequireBehaviorOfflineAsync("after behavioral recovery verification").ConfigureAwait(false);
             CompleteBehaviorEvidence(evidence, "Failed", cleanup, "Interrupted behavioral run recovered; behavioral evidence was not promoted.");
             if (!string.IsNullOrWhiteSpace(evidence.TransactionId)) DiscardTransaction(evidence.TransactionId);
@@ -261,8 +271,8 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
 
     private bool IsTransactionClean(string transactionId)
     {
-        string state = GetTransaction(transactionId).State;
-        return string.Equals(state, "RolledBackAndVerified", StringComparison.Ordinal);
+        PlcCodeTransaction transaction = GetTransaction(transactionId);
+        return string.Equals(transaction.State, "RolledBackAndVerified", StringComparison.Ordinal) || _transactions.IsNeverApplied(transactionId);
     }
 
     private void CompleteBehaviorEvidence(PlcCodeEvidenceRecord evidence, string status, PlcCodeTransactionApplyResult? cleanup, string failure)
@@ -284,7 +294,8 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         if (owners.Length == 0) throw new InvalidOperationException("A behavioral probe must declare at least one disposable DATA_BLOCK that exclusively owns every stimulated and observed tag.");
         return owners;
     }
-    private static bool IsDataBlock(PlcCodeDeclaredObject item) => item.ObjectType.Equals("DB", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("DATA_BLOCK", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("GlobalDB", StringComparison.OrdinalIgnoreCase);
+    private static bool IsDataBlock(PlcCodeDeclaredObject item) => IsGlobalDataBlock(item) || item.ObjectType.Equals("InstanceDB", StringComparison.OrdinalIgnoreCase);
+    private static bool IsGlobalDataBlock(PlcCodeDeclaredObject item) => item.ObjectType.Equals("DB", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("DATA_BLOCK", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("GlobalDB", StringComparison.OrdinalIgnoreCase);
     private static bool SameSimulator(PlcSimulatorInstanceCapability left, PlcSimulatorInstanceCapability right) => left.Id == right.Id && left.Name.Equals(right.Name, StringComparison.OrdinalIgnoreCase) && left.ArticleNumber.Equals(right.ArticleNumber, StringComparison.OrdinalIgnoreCase);
     internal static bool HasNoNewCompareDifferences(PlcSoftwareCompareResult baseline, PlcSoftwareCompareResult current) => PlcBehaviorCompareAnalyzer.HasNoNewCompareDifferences(baseline, current);
     private static PlcSoftwareCompareResult CompactCompare(PlcSoftwareCompareResult result) => new PlcSoftwareCompareResult(result.Success, result.ComparedToOnline, result.Message, result.Entries.Where(item => item.HasDifference).ToArray());
@@ -318,7 +329,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         PlcCodeDeclaredObject[] objects = artifacts.SelectMany(item => item.Validation.DeclaredObjects).ToArray();
         string duplicate = objects.GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(group => group.Count() > 1)?.Key ?? string.Empty;
         if (duplicate.Length > 0) throw new InvalidDataException("Behavior probe package declares a duplicate object: " + duplicate);
-        if (!objects.Any(IsDataBlock)) throw new InvalidDataException("Behavior probe package requires a disposable DATA_BLOCK for its runtime contract.");
+        if (!objects.Any(IsGlobalDataBlock)) throw new InvalidDataException("Behavior probe package requires a disposable global DATA_BLOCK for its runtime contract.");
         if (!objects.Any(item => item.ObjectType.Equals("OB", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("Behavior probe package requires a disposable ORGANIZATION_BLOCK so the code is executed by the simulator scheduler.");
         string inputHash = BehaviorHash(Convert.ToBase64String(bytes) + "|" + string.Join("|", artifacts.Select(item => item.Validation.InputHash)));
         string signature = BehaviorHash(string.Join("|", artifacts.Select(item => item.Validation.Format + ":" + item.Validation.QualificationSignature).OrderBy(value => value, StringComparer.Ordinal)));
@@ -358,6 +369,12 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         public BehaviorPackageArtifact(PlcBehaviorProbeArtifact specification, PlcCodeArtifactValidationResult validation) { Specification = specification; Validation = validation; }
         public PlcBehaviorProbeArtifact Specification { get; }
         public PlcCodeArtifactValidationResult Validation { get; }
+    }
+
+    private void RequirePackageCapabilities(BehaviorPackageValidation package, IReadOnlyList<PlcCodeCapabilityDiscovery> capabilities, string plcName)
+    {
+        foreach (BehaviorPackageArtifact item in package.Artifacts)
+            _probes.RequireArtifactCapabilities(capabilities, item.Validation, plcName, item.Specification.GroupPath, item.Specification.TypeGroupPath);
     }
 
     private sealed class BehaviorPackageValidation

@@ -1,0 +1,22 @@
+﻿{
+    S7_Optimized := "TRUE";
+    S7_StandardRetain := "FALSE";
+    S7_Version := "0.1"
+}
+DATA_BLOCK OTT35_IO
+    VAR
+        Request : Bool;
+        Permit : Bool;
+        Reset : Bool;
+        Active : Bool;
+        ActivationCount : UDInt;
+        Heartbeat : UDInt;
+    END_VAR
+
+    Request := FALSE;
+    Permit := FALSE;
+    Reset := TRUE;
+    Active := FALSE;
+    ActivationCount := 0;
+    Heartbeat := 0;
+END_DATA_BLOCK

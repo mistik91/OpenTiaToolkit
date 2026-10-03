@@ -98,7 +98,7 @@ internal sealed class PlcCodeTransactionPlanner
             Cleanup(baselineRoot);
             throw;
         }
-        transaction.BaselineCompilation = ToEvidence(baseline);
+        transaction.BaselineCompilation = PlcWorkflowPrimitives.CompileEvidence(baseline);
         transaction.ImpactAnalysis = impact;
         transaction.ImpactAcknowledged = false;
         transaction.ImpactAcknowledgementFingerprint = null;
@@ -219,6 +219,8 @@ internal sealed class PlcCodeTransactionPlanner
             string baseline = "missing";
             if (existing != null)
             {
+                if (existing.Identity.BlockType.Equals("InstanceDB", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"Existing native SCL instance DB '{existing.Identity}' cannot be replaced: lossless instance DB rollback is not supported. Use a new uniquely named instance DB.");
                 string backup = TransactionSclTargetBaseline(transaction.TransactionId, source.Sequence, targetIndex);
                 Directory.CreateDirectory(backup);
                 if (!ExportExact(existing, backup)) throw new InvalidOperationException($"Existing SCL target '{existing.Identity}' could not be snapshotted as SIMATIC SD.");
@@ -371,14 +373,6 @@ internal sealed class PlcCodeTransactionPlanner
             throw new InvalidOperationException($"Transaction is bound to project '{transaction.ProjectName}', but the current project is '{projectName}'.");
         await EnsurePlcOpen(transaction.PlcName).ConfigureAwait(false);
     }
-
-    private static PlcCodeTransactionCompileEvidence ToEvidence(CompilationResult result) => new PlcCodeTransactionCompileEvidence
-    {
-        Success = result.Success,
-        ErrorCount = result.ErrorCount,
-        WarningCount = result.WarningCount,
-        Message = result.Message ?? string.Empty
-    };
 
     private static void RequireState(PlcCodeTransaction transaction, string state) => PlcCodeTransactionIntegrity.RequireState(transaction, state);
     private static IReadOnlyList<int> ParseDependencySequences(string? value) => PlcCodeTransactionIntegrity.ParseDependencySequences(value);

@@ -44,9 +44,11 @@ internal sealed class PlcCodeTargetRepository
 
     internal ResolvedBlock? ResolveExact(PlcBlockIdentity identity, bool allowMissing)
     {
-        IReadOnlyList<ResolvedBlock> matches = FindBlocks(identity.Name).Where(item => PlcWorkflowPrimitives.GroupEquals(item.Identity.GroupPath, identity.GroupPath) && BlockTypeEquals(item.Identity.BlockType, identity.BlockType)).ToArray();
+        IReadOnlyList<ResolvedBlock> matches = FindBlocks(identity.Name).Where(item => PlcWorkflowPrimitives.GroupEquals(item.Identity.GroupPath, identity.GroupPath)).ToArray();
         if (matches.Count > 1) throw Ambiguous(identity.Name, matches);
         if (matches.Count == 0) { if (allowMissing) return null; throw new InvalidOperationException($"Exact target '{identity}' was not found."); }
+        if (!BlockTypeEquals(matches[0].Identity.BlockType, identity.BlockType))
+            throw new InvalidOperationException($"Exact target '{identity}' collides with block type '{matches[0].Identity.BlockType}'. A same-name wrong-subtype target is not missing and cannot prove rollback absence.");
         if (!string.IsNullOrWhiteSpace(identity.Number) && !string.Equals(identity.Number, matches[0].Identity.Number, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"Exact target '{identity}' resolved with block number '{matches[0].Identity.Number ?? "<none>"}' instead of planned number '{identity.Number}'.");
         return matches[0];
@@ -71,6 +73,13 @@ internal sealed class PlcCodeTargetRepository
         string? directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
         return _documents.TryExportEngineeringObject(type.EngineeringObject, path, "None", out _);
+    }
+
+    internal bool ExportExactBlockXml(ResolvedBlock block, string path)
+    {
+        string? directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+        return _documents.TryExportEngineeringObject(block.EngineeringObject, path, "None", out _);
     }
 
     internal bool Delete(ResolvedBlock block) => _objects.TryDelete(block.EngineeringObject);

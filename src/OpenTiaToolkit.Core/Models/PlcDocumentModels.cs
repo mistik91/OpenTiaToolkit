@@ -246,10 +246,17 @@ public sealed class PlcCodeTransactionJournalEntry
 
 public sealed class PlcCodeTransactionCompileEvidence
 {
+    private IReadOnlyList<CompilationDiagnostic> _diagnostics = Array.Empty<CompilationDiagnostic>();
+
     public bool Success { get; set; }
     public int ErrorCount { get; set; }
     public int WarningCount { get; set; }
     public string Message { get; set; } = string.Empty;
+    public IReadOnlyList<CompilationDiagnostic> Diagnostics
+    {
+        get => _diagnostics;
+        set => _diagnostics = value ?? Array.Empty<CompilationDiagnostic>();
+    }
 }
 
 public sealed class PlcCodeTransactionApplyResult

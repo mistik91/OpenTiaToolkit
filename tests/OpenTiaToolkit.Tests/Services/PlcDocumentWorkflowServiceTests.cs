@@ -98,6 +98,17 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
+    public void ValidateBehaviorPackage_InstanceDbDoesNotReplaceGlobalContractDb()
+    {
+        WriteUtf8Bom("Stateful.scl", "FUNCTION_BLOCK \"Engine\"\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\nDATA_BLOCK \"State\"\r\n\"Engine\"\r\nBEGIN\r\nEND_DATA_BLOCK");
+        WriteUtf8Bom("Cycle.scl", "ORGANIZATION_BLOCK \"Cycle\"\r\nBEGIN\r\nEND_ORGANIZATION_BLOCK");
+        string package = Path.Combine(_directory, "package.json");
+        File.WriteAllText(package, "{\"schemaVersion\":\"1.0\",\"packageId\":\"stateful\",\"artifacts\":[{\"codeFormat\":\"scl\",\"inputPath\":\"Stateful.scl\"},{\"codeFormat\":\"scl\",\"inputPath\":\"Cycle.scl\"}]}");
+        InvalidDataException error = Assert.ThrowsException<InvalidDataException>(() => _service.ValidateBehaviorPackageArtifact(package));
+        StringAssert.Contains(error.Message, "global DATA_BLOCK");
+    }
+
+    [TestMethod]
     public void ValidateBehaviorPackage_RejectsArtifactOutsidePackageDirectory()
     {
         string package = Path.Combine(_directory, "package.json");
@@ -596,8 +607,8 @@ public class PlcDocumentWorkflowServiceTests
             });
         plc.SetupSequence(service => service.CompileSoftwareAsync(null))
             .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
-            .ReturnsAsync(new CompilationResult(false, 1, 0, "forced"))
-            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
+            .ReturnsAsync(new CompilationResult(false, 1, 0, "forced", new[] { new CompilationDiagnostic("Error", "Program/Created", "Created", "forced diagnostic", "E-1") }))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored", new[] { new CompilationDiagnostic("Information", null, null, "rollback diagnostic", null) }));
         var service = new PlcDocumentWorkflowService(plc.Object, context);
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "rollback all");
         service.AddTransactionOperation(draft.TransactionId, _directory, "Existing", null, "Override");
@@ -612,6 +623,9 @@ public class PlcDocumentWorkflowServiceTests
         Assert.IsFalse(software.BlockGroup.Blocks.Any(block => block.Name == "Created"));
         Assert.IsTrue(result.Transaction.Operations.All(operation => operation.RestorationVerified));
         CollectionAssert.AreEqual(new[] { "Existing", "Created", "Existing" }, importOrder);
+        var reloaded = new PlcDocumentWorkflowService(plc.Object, context).GetTransaction(plan.TransactionId);
+        Assert.AreEqual("forced diagnostic", reloaded.FinalCompilation!.Diagnostics.Single().Description);
+        Assert.AreEqual("rollback diagnostic", reloaded.RollbackCompilation!.Diagnostics.Single().Description);
         Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
     }
 
@@ -707,8 +721,7 @@ public class PlcDocumentWorkflowServiceTests
         plc.Setup(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), "Probe", "", "Override")).ReturnsAsync(false);
         plc.SetupSequence(service => service.CompileSoftwareAsync(null))
             .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
-            .ReturnsAsync(new CompilationResult(false, 1, 0, "forced"))
-            .ReturnsAsync(new CompilationResult(false, 1, 0, "not restored"));
+            .ReturnsAsync(new CompilationResult(false, 1, 0, "not restored", new[] { new CompilationDiagnostic("Error", "Program/Probe", "Probe", "cleanup remains broken", "E-2") }));
         var service = new PlcDocumentWorkflowService(plc.Object, context);
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "retain recovery");
         service.AddTransactionOperation(draft.TransactionId, _directory, "Probe", null, "Override");
@@ -719,6 +732,7 @@ public class PlcDocumentWorkflowServiceTests
         Assert.IsTrue(result.RecoveryRequired);
         Assert.AreEqual("RecoveryRequired", result.State);
         Assert.IsTrue(result.Transaction.RecoveryPackageRetained);
+        Assert.AreEqual("cleanup remains broken", service.GetTransaction(plan.TransactionId).RollbackCompilation!.Diagnostics.Single().Description);
         Assert.ThrowsException<InvalidOperationException>(() => service.DiscardTransaction(plan.TransactionId));
         string transactionDirectory = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", plan.TransactionId);
         Assert.IsTrue(File.Exists(Path.Combine(transactionDirectory, "recovery.json")));
@@ -806,6 +820,103 @@ public class PlcDocumentWorkflowServiceTests
         Assert.AreEqual(string.Empty, result.Transaction.Operations.Single().TypeGroupPath);
         Assert.IsTrue(result.Transaction.Operations.Single().TargetSnapshots.Any(snapshot => snapshot.Target.BlockType == "TYPE" && snapshot.CanonicalResultHash != null));
         Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclInstanceDb_UsesExactXmlCanonicalExport()
+    {
+        var fixture = await RunInstanceDbTransactionAsync();
+        Assert.IsTrue(fixture.Result.Verified, fixture.Result.Message);
+        var snapshot = fixture.Result.Transaction.Operations.Single().TargetSnapshots.Single(item => item.Target.Name == "State");
+        Assert.AreEqual("InstanceDB", snapshot.Target.BlockType);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(snapshot.CanonicalResultHash));
+        var instance = fixture.Software.BlockGroup.Blocks.Single(item => item.Name == "State");
+        Assert.AreEqual(0, instance.DocumentExports);
+        Assert.IsTrue(instance.XmlExports > 0);
+        Assert.IsTrue(fixture.Service.DiscardTransaction(fixture.Result.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclInstanceDbReplacement_IsRejectedBeforeImport()
+    {
+        string sourcePath = Path.Combine(_directory, "Replacement.scl");
+        File.WriteAllText(sourcePath, "FUNCTION_BLOCK \"Engine\"\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\nDATA_BLOCK \"State\"\r\n\"Engine\"\r\nBEGIN\r\nEND_DATA_BLOCK", new UTF8Encoding(true));
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        var context = ContextWithGroups(("", new FakeBlock { Name = "State", Type = "InstanceDB" }));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        var draft = await service.BeginTransactionAsync("PLC_1", "unsupported replacement guard");
+        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(draft.TransactionId));
+        StringAssert.Contains(error.Message, "lossless instance DB rollback");
+        plc.Verify(item => item.ImportSourceAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
+    }
+
+    [DataTestMethod]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    public async Task Transaction_SclInstanceDb_FailedCompileOrXmlExport_CleansInstanceBeforeFb(bool failCompile, bool failXml)
+    {
+        var fixture = await RunInstanceDbTransactionAsync(failCompile: failCompile, failXml: failXml);
+        Assert.IsTrue(fixture.Result.RolledBackAndVerified, fixture.Result.Message);
+        CollectionAssert.AreEqual(new[] { "State", "Engine" }, fixture.Deletions.ToArray());
+        Assert.AreEqual(0, fixture.Software.BlockGroup.Blocks.Count);
+        Assert.IsTrue(fixture.Result.Transaction.Operations.Single().TargetSnapshots.All(item => item.RestorationVerified));
+        Assert.IsTrue(fixture.Service.DiscardTransaction(fixture.Result.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclWrongSubtype_RequiresRecoveryEvenWhenCompileIsClean()
+    {
+        var fixture = await RunInstanceDbTransactionAsync(wrongSubtype: true);
+        Assert.IsTrue(fixture.Result.RecoveryRequired, fixture.Result.Message);
+        Assert.IsFalse(fixture.Result.RolledBackAndVerified);
+        StringAssert.Contains(fixture.Result.Transaction.Failure!, "wrong-subtype");
+        Assert.IsFalse(fixture.Result.Transaction.Operations.Single().RestorationVerified);
+        Assert.IsTrue(fixture.Software.BlockGroup.Blocks.Any(item => item.Name == "State"));
+        Assert.IsFalse(fixture.Deletions.Contains("State"), "Never delete an object whose exact type is not proven.");
+        // Manual removal is only a fake test fixture action. Supported recovery
+        // must still freshly prove every planned target and compilation condition.
+        fixture.Software.BlockGroup.Blocks.RemoveAll(item => item.Name == "State");
+        var recovered = await fixture.Service.RecoverTransactionAsync(fixture.Result.TransactionId);
+        Assert.IsTrue(recovered.RolledBackAndVerified, recovered.Message);
+        Assert.AreEqual(0, fixture.Software.BlockGroup.Blocks.Count);
+        Assert.IsTrue(fixture.Service.DiscardTransaction(fixture.Result.TransactionId));
+    }
+
+    private async Task<(PlcDocumentWorkflowService Service, FakePlcSoftware Software, PlcCodeTransactionApplyResult Result, List<string> Deletions)> RunInstanceDbTransactionAsync(bool failCompile = false, bool failXml = false, bool wrongSubtype = false)
+    {
+        string sourcePath = Path.Combine(_directory, "Stateful.scl");
+        File.WriteAllText(sourcePath, "FUNCTION_BLOCK \"Engine\"\r\nVAR Value : Int; END_VAR\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\nDATA_BLOCK \"State\"\r\n\"Engine\"\r\nBEGIN\r\nEND_DATA_BLOCK", new UTF8Encoding(true));
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var deletions = new List<string>();
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        plc.Setup(item => item.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "Stateful"));
+        plc.Setup(item => item.GenerateBlocksFromSourceAsync("Stateful", false, true)).ReturnsAsync(() =>
+        {
+            var fb = new FakeBlock { Name = "Engine", Type = "FB", ExportContent = "FUNCTION_BLOCK \"Engine\"\r\nVAR Value : Int; END_VAR\r\nEND_FUNCTION_BLOCK" };
+            var db = new FakeBlock { Name = "State", Type = wrongSubtype ? "GlobalDB" : "InstanceDB", XmlExportFails = failXml,
+                ExportContent = "<?xml version=\"1.0\"?><Document><SW.Blocks.InstanceDB ID=\"0\"><AttributeList><Name>State</Name><Interface xmlns=\"urn:siemens:test\"/></AttributeList></SW.Blocks.InstanceDB></Document>" };
+            foreach (var block in new[] { fb, db })
+            {
+                block.OnDelete = () => { deletions.Add(block.Name); software.BlockGroup.Blocks.Remove(block); };
+                software.BlockGroup.Blocks.Add(block);
+            }
+            return new PlcSourceOperationResult(true, true, "generated", "Stateful");
+        });
+        plc.Setup(item => item.DeleteExternalSourceAsync("Stateful", true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "deleted", "Stateful"));
+        int compile = 0;
+        plc.Setup(item => item.CompileSoftwareAsync(null)).ReturnsAsync(() => ++compile == 2 && failCompile
+            ? new CompilationResult(false, 1, 0, "forced mid-transaction compile failure") : new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        var draft = await service.BeginTransactionAsync("PLC_1", "generic source-owned instance DB");
+        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+        var plan = await service.PlanTransactionAsync(draft.TransactionId);
+        var result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+        return (service, software, result, deletions);
     }
 
     [TestMethod]
@@ -1308,6 +1419,201 @@ public class PlcDocumentWorkflowServiceTests
         File.WriteAllText(Path.Combine(_directory, fileName), content, new UTF8Encoding(true));
     }
 
+    [DataTestMethod]
+    [DataRow("route")]
+    [DataRow("group")]
+    [DataRow("type")]
+    [DataRow("assembly")]
+    [DataRow("planning")]
+    [DataRow("review")]
+    public async Task BehaviorProbe_PreApplyFailure_DoesNotQuarantineUntouchedDraft(string scenario)
+    {
+        WriteUtf8Bom("PreIO.s7dcl", "DATA_BLOCK \"PreIO\"\r\nVAR Value : DInt; END_VAR\r\nValue := 0;\r\nEND_DATA_BLOCK");
+        WriteUtf8Bom("PreCycle.s7dcl", "ORGANIZATION_BLOCK \"PreCycle\"\r\nBEGIN\r\nEND_ORGANIZATION_BLOCK");
+        if (scenario == "review") WriteUtf8Bom("PreCycle.s7dcl", "ORGANIZATION_BLOCK \"PreCycle\"\r\nBEGIN\r\n\"UnresolvedConsumer\"();\r\nEND_ORGANIZATION_BLOCK");
+        string package = Path.Combine(_directory, "package.json");
+        File.WriteAllText(package, "{\"schemaVersion\":\"1.0\",\"packageId\":\"pre-apply\",\"artifacts\":[{\"codeFormat\":\"s7dcl\",\"inputPath\":\"PreIO.s7dcl\"},{\"codeFormat\":\"s7dcl\",\"inputPath\":\"PreCycle.s7dcl\"}]}");
+        string vector = Path.Combine(_directory, "vector.json");
+        File.WriteAllText(vector, "{\"schemaVersion\":\"1.0\",\"vectorId\":\"pre-apply\",\"reset\":[{\"tag\":\"PreIO.Value\",\"type\":\"Int32\",\"value\":0}],\"steps\":[{\"name\":\"check\",\"assertions\":[{\"tag\":\"PreIO.Value\",\"type\":\"Int32\",\"expected\":0}]}],\"cleanup\":[{\"tag\":\"PreIO.Value\",\"type\":\"Int32\",\"value\":0}]}");
+        var context = ContextWithGroups();
+        context.AttachedPortalProcessId = 42;
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<BlockInfo>());
+        plc.Setup(item => item.GetCrossReferencesAsync(It.IsAny<string>())).ReturnsAsync(new PlcCrossReferenceResult(false, "pre-apply", "Unknown consumers"));
+        if (scenario == "planning") plc.Setup(item => item.CompileSoftwareAsync(null)).ThrowsAsync(new InvalidOperationException("Planning compile unavailable"));
+        else plc.Setup(item => item.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        plc.Setup(item => item.DownloadSoftwareAsync(true, true, false, true)).ReturnsAsync(new PlcSoftwareDownloadResult(true, true, true, false, "preflight"));
+        plc.Setup(item => item.GetOnlineStatusAsync(true)).ReturnsAsync(new PlcOnlineStatusResult(true, "Online", true, "online"));
+        plc.Setup(item => item.CompareSoftwareToOnlineAsync()).ReturnsAsync(new PlcSoftwareCompareResult(true, true, "baseline"));
+        plc.Setup(item => item.GoOfflineAsync()).ReturnsAsync(() =>
+        {
+            if (scenario == "assembly") File.Delete(Path.Combine(_directory, "PreCycle.s7dcl"));
+            return new PlcOnlineStatusResult(true, "Offline", false, "offline");
+        });
+        var discovery = new PlcCodeCapabilityDiscoveryService(plc.Object, new Mock<IVciService>().Object, context,
+            environmentProvider: name => Task.FromResult(new PlcCodeEnvironmentEvidence { TiaProcessId = 42, TiaVersion = "V21 Update 2", TiaBuild = "21.0.2", PlcName = name, PlcFamily = "S7-1500", PlcTypeIdentifier = "CPU 1511" }),
+            safetyProvider: target => new PlcCodeSafetyEvidence());
+        var ids = new List<string>();
+        foreach (var target in new[] { (Name: "PreIO", Type: "GlobalDB"), (Name: "PreCycle", Type: "OB") })
+        {
+            ids.Add((await discovery.DiscoverAsync(new PlcCodeCapabilityRequest
+            {
+                PlcName = "PLC_1", ObjectKind = "Block", ObjectName = target.Name, Operation = "Create",
+                BlockType = scenario == "type" ? "FB" : target.Type,
+                RequestedFormat = scenario == "route" ? "SCL" : "S7DCL",
+                GroupPath = scenario == "group" ? "WrongGroup" : ""
+            })).CapabilityId);
+        }
+        string registryPath = Path.Combine(_directory, "pre-evidence");
+        var registry = new PlcCodeEvidenceRegistry(registryPath);
+        var runtime = new Mock<IPlcSimulationRuntime>(MockBehavior.Strict);
+        runtime.Setup(item => item.Discover("PLC_1", "TestSim", false)).Returns(new PlcSimulatorCapabilityDiscovery
+        {
+            Available = true, SelectedInstance = new PlcSimulatorInstanceCapability { Name = "TestSim", ControllerName = "PLC_1", OperatingState = "Run", Fingerprint = "test-simulator" }
+        });
+        var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, registry, runtime.Object);
+        if (scenario == "route" || scenario == "group" || scenario == "type")
+        {
+            var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.RunBehaviorProbeAsync("PLC_1", string.Join(",", ids), package, vector, "TestSim", "CleanCompile", 0, false, true, true));
+            StringAssert.Contains(error.Message, scenario == "route" ? "DirectDocuments" : scenario == "group" ? "group" : "object type");
+            await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.QueryBehaviorEvidenceAsync("PLC_1", string.Join(",", ids), package, vector, "TestSim"));
+            Assert.IsFalse(Directory.Exists(registryPath));
+            plc.Verify(item => item.DownloadSoftwareAsync(It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+            runtime.Verify(item => item.Discover(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        }
+        else
+        {
+            var result = await service.RunBehaviorProbeAsync("PLC_1", string.Join(",", ids), package, vector, "TestSim", "CleanCompile", 0, false, true, true);
+            Assert.AreEqual("Failed", result.Evidence.Status, result.Evidence.Failure);
+            Assert.IsTrue(result.Evidence.CleanupProven, result.Evidence.Failure);
+            Assert.IsNull(result.ApplyResult);
+            Assert.IsNull(result.CleanupResult); // No fictitious rollback or cleanup compilation.
+            StringAssert.Contains(result.Evidence.Failure, scenario == "assembly" ? "invalid" : scenario == "planning" ? "Planning compile unavailable" : "impact is Unknown");
+            Assert.IsTrue(new PlcCodeEvidenceRegistry(registryPath).Get(result.Evidence.EvidenceId).CleanupProven);
+            Assert.IsFalse(Directory.Exists(Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", result.Evidence.TransactionId)));
+        }
+        plc.Verify(item => item.ImportBlockFromDocumentsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        plc.Verify(item => item.DownloadSoftwareAsync(true, false, true, It.IsAny<bool>()), Times.Never);
+        runtime.Verify(item => item.Execute(It.IsAny<PlcBehaviorVector>(), It.IsAny<PlcSimulatorCapabilityDiscovery>(), It.IsAny<IReadOnlyList<string>>()), Times.Never);
+        Assert.AreEqual(0, ((FakePlcSoftware)context.PlcSoftware!).BlockGroup.Blocks.Count);
+    }
+
+    [DataTestMethod]
+    [DataRow("Draft", true)]
+    [DataRow("ImpactReviewRequired", true)]
+    [DataRow("ImpactBlocked", true)]
+    [DataRow("Expired", true)]
+    [DataRow("missing", false)]
+    [DataRow("inconsistent", false)]
+    [DataRow("journal-ahead", false)]
+    public async Task BehaviorRecovery_NeverAppliedProofOrQuarantine_NoSimulatorWrites(string scenario, bool clean)
+    {
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.GoOfflineAsync()).ReturnsAsync(new PlcOnlineStatusResult(true, "Offline", false, "offline"));
+        var context = ContextWithGroups();
+        var registryPath = Path.Combine(_directory, "recover-evidence");
+        var registry = new PlcCodeEvidenceRegistry(registryPath);
+        var runtime = new Mock<IPlcSimulationRuntime>(MockBehavior.Strict);
+        var service = new PlcDocumentWorkflowService(plc.Object, context, capabilityDiscovery: null, evidenceRegistry: registry, simulationRuntime: runtime.Object);
+        var draft = await service.BeginTransactionAsync("PLC_1", "interrupted assembly");
+        var store = new PlcCodeTransactionStore();
+        if (clean) { draft.State = scenario; store.Save(draft); }
+        else if (scenario == "missing") service.DiscardTransaction(draft.TransactionId);
+        else if (scenario == "inconsistent") { draft.Operations = new[] { new PlcCodeTransactionOperation { ApplyState = "Applied" } }; store.Save(draft); }
+        else store.AddJournal(draft, null, "Apply", "Starting", "write-ahead crash");
+        var evidence = new PlcCodeEvidenceRecord
+        {
+            EvidenceId = Guid.NewGuid().ToString("N"), EvidenceKind = "Behavior", Status = "Quarantined", TransactionId = draft.TransactionId,
+            Behavior = new PlcCodeBehaviorEvidence { PlcName = "PLC_1", Simulator = new PlcSimulatorCapabilityDiscovery { SelectedInstance = new PlcSimulatorInstanceCapability { Name = "TestSim" } } }
+        };
+        registry.Save(evidence);
+        var result = await service.RecoverBehaviorProbeAsync(evidence.EvidenceId, true);
+        Assert.AreEqual(clean ? "Failed" : "Quarantined", result.Evidence.Status, result.Evidence.Failure);
+        Assert.AreEqual(clean, result.Evidence.CleanupProven);
+        Assert.AreEqual(clean, new PlcCodeEvidenceRegistry(registryPath).Get(evidence.EvidenceId).CleanupProven);
+        Assert.IsNull(result.CleanupResult);
+        plc.Verify(item => item.DownloadSoftwareAsync(It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+        plc.Verify(item => item.CompileSoftwareAsync(It.IsAny<string>()), Times.Never);
+        if (!clean && scenario != "missing")
+        {
+            Assert.IsTrue(File.Exists(store.ManifestPath(draft.TransactionId)));
+            // Test-owned retained evidence only; do not turn this into a public recovery bypass.
+            Directory.Delete(store.DirectoryPath(draft.TransactionId), true);
+        }
+    }
+
+    [DataTestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task BehaviorProbe_RejectedCompile_RetainsAllPhaseDiagnosticsAfterRollbackAndDiscard(bool compilerError)
+    {
+        WriteUtf8Bom("DiagnosticIO.s7dcl", "DATA_BLOCK \"DiagnosticIO\"\r\nVAR Value : DInt; END_VAR\r\nValue := 0;\r\nEND_DATA_BLOCK");
+        WriteUtf8Bom("DiagnosticCycle.s7dcl", "ORGANIZATION_BLOCK \"DiagnosticCycle\"\r\nBEGIN\r\nEND_ORGANIZATION_BLOCK");
+        string package = Path.Combine(_directory, "package.json");
+        File.WriteAllText(package, "{\"schemaVersion\":\"1.0\",\"packageId\":\"diagnostics\",\"artifacts\":[{\"codeFormat\":\"s7dcl\",\"inputPath\":\"DiagnosticIO.s7dcl\"},{\"codeFormat\":\"s7dcl\",\"inputPath\":\"DiagnosticCycle.s7dcl\"}]}");
+        string vector = Path.Combine(_directory, "vector.json");
+        File.WriteAllText(vector, "{\"schemaVersion\":\"1.0\",\"vectorId\":\"diagnostics\",\"reset\":[{\"tag\":\"DiagnosticIO.Value\",\"type\":\"Int32\",\"value\":0}],\"steps\":[{\"name\":\"check\",\"assertions\":[{\"tag\":\"DiagnosticIO.Value\",\"type\":\"Int32\",\"expected\":0}]}],\"cleanup\":[{\"tag\":\"DiagnosticIO.Value\",\"type\":\"Int32\",\"value\":0}]}");
+        var context = ContextWithGroups();
+        context.AttachedPortalProcessId = 42;
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var plc = OpenPlcMock();
+        plc.Setup(service => service.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<BlockInfo>());
+        plc.Setup(service => service.GetCrossReferencesAsync(It.IsAny<string>())).ReturnsAsync(new PlcCrossReferenceResult(true, "diagnostics", "No external consumers."));
+        plc.Setup(service => service.ImportBlockFromDocumentsAsync(It.IsAny<string>(), It.IsAny<string>(), "", "Override"))
+            .ReturnsAsync((string directory, string name, string group, string option) =>
+            {
+                var block = new FakeBlock { Name = name, Type = name == "DiagnosticIO" ? "GlobalDB" : "OB", ExportContent = File.ReadAllText(Path.Combine(directory, name + ".s7dcl")) };
+                block.OnDelete = () => software.BlockGroup.Blocks.Remove(block);
+                software.BlockGroup.Blocks.Add(block);
+                return true;
+            });
+        var baseline = new CompilationDiagnostic("Information", "PLC/Baseline", "Main", "baseline detail", null);
+        var candidate = new CompilationDiagnostic(compilerError ? "Error" : "Warning", "PLC/DiagnosticCycle", "DiagnosticCycle", "candidate detail", "C-17");
+        var rollback = new CompilationDiagnostic("Information", "PLC/Cleanup", "Main", "rollback detail", null);
+        plc.SetupSequence(service => service.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline", new[] { baseline }))
+            .ReturnsAsync(new CompilationResult(!compilerError, compilerError ? 1 : 0, compilerError ? 0 : 1, "candidate", new[] { candidate }))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "rollback", new[] { rollback }));
+        plc.Setup(service => service.DownloadSoftwareAsync(true, true, false, true)).ReturnsAsync(new PlcSoftwareDownloadResult(true, true, true, false, "preflight"));
+        plc.Setup(service => service.GetOnlineStatusAsync(true)).ReturnsAsync(new PlcOnlineStatusResult(true, "Online", true, "online"));
+        plc.Setup(service => service.GoOfflineAsync()).ReturnsAsync(new PlcOnlineStatusResult(true, "Offline", false, "offline"));
+        plc.Setup(service => service.CompareSoftwareToOnlineAsync()).ReturnsAsync(new PlcSoftwareCompareResult(true, true, "baseline"));
+        var discovery = new PlcCodeCapabilityDiscoveryService(plc.Object, new Mock<IVciService>().Object, context,
+            environmentProvider: name => Task.FromResult(new PlcCodeEnvironmentEvidence { TiaProcessId = 42, TiaVersion = "V21 Update 2", TiaBuild = "21.0.2", PlcName = name, PlcFamily = "S7-1500", PlcTypeIdentifier = "CPU 1511" }),
+            safetyProvider: target => new PlcCodeSafetyEvidence());
+        var capabilities = new List<string>();
+        foreach (var target in new[] { (Name: "DiagnosticIO", Type: "GlobalDB"), (Name: "DiagnosticCycle", Type: "OB") })
+        {
+            var capability = await discovery.DiscoverAsync(new PlcCodeCapabilityRequest { PlcName = "PLC_1", ObjectKind = "Block", ObjectName = target.Name, Operation = "Create", BlockType = target.Type, RequestedFormat = "S7DCL" });
+            capabilities.Add(capability.CapabilityId);
+        }
+        string registryPath = Path.Combine(_directory, "behavior-evidence");
+        var registry = new PlcCodeEvidenceRegistry(registryPath);
+        var runtime = new Mock<IPlcSimulationRuntime>(MockBehavior.Strict);
+        runtime.Setup(service => service.Discover("PLC_1", "TestSim", false)).Returns(new PlcSimulatorCapabilityDiscovery
+        {
+            Available = true, SelectedInstance = new PlcSimulatorInstanceCapability { Name = "TestSim", ControllerName = "PLC_1", OperatingState = "Run", Fingerprint = "test-simulator" }
+        });
+        var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, registry, runtime.Object);
+
+        PlcCodeBehaviorProbeRunResult result = await service.RunBehaviorProbeAsync("PLC_1", string.Join(",", capabilities), package, vector, "TestSim", "CleanCompile", 0, true, true, true);
+
+        Assert.AreEqual("Failed", result.Evidence.Status, result.Evidence.Failure);
+        Assert.IsTrue(result.ApplyResult?.RolledBackAndVerified, result.Evidence.Failure);
+        Assert.IsTrue(result.Evidence.CleanupProven);
+        Assert.AreEqual(0, software.BlockGroup.Blocks.Count);
+        Assert.IsFalse(Directory.Exists(Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", result.Evidence.TransactionId)));
+        var persisted = new PlcCodeEvidenceRegistry(registryPath).Get(result.Evidence.EvidenceId);
+        Assert.AreEqual("baseline detail", persisted.BaselineCompilation!.Diagnostics.Single().Description);
+        Assert.AreEqual("candidate detail", persisted.ProbeCompilation!.Diagnostics.Single().Description);
+        Assert.AreEqual(candidate.Severity, persisted.ProbeCompilation.Diagnostics.Single().Severity);
+        Assert.AreEqual("PLC/DiagnosticCycle", persisted.ProbeCompilation.Diagnostics.Single().Path);
+        Assert.AreEqual("C-17", persisted.ProbeCompilation.Diagnostics.Single().ErrorCode);
+        Assert.AreEqual("rollback detail", persisted.CleanupCompilation!.Diagnostics.Single().Description);
+        plc.Verify(service => service.DownloadSoftwareAsync(true, false, true, It.IsAny<bool>()), Times.Never);
+        runtime.Verify(service => service.Execute(It.IsAny<PlcBehaviorVector>(), It.IsAny<PlcSimulatorCapabilityDiscovery>(), It.IsAny<IReadOnlyList<string>>()), Times.Never);
+    }
+
     [TestMethod]
     public async Task ProbeRunner_VerifiesThenRemovesExactTargetAndPromotesEvidence()
     {
@@ -1328,7 +1634,6 @@ public class PlcDocumentWorkflowServiceTests
                 software.BlockGroup.Blocks.Add(created);
                 return true;
             });
-        plc.Setup(service => service.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
         var discovery = new PlcCodeCapabilityDiscoveryService(
             plc.Object,
             new Mock<IVciService>().Object,
@@ -1338,6 +1643,10 @@ public class PlcDocumentWorkflowServiceTests
         PlcCodeCapabilityDiscovery capability = await discovery.DiscoverAsync(new PlcCodeCapabilityRequest { PlcName = "PLC_1", ObjectKind = "Block", ObjectName = "DisposableProbe", Operation = "Create", BlockType = "FC", RequestedLanguage = "LAD" });
         var registry = new PlcCodeEvidenceRegistry(Path.Combine(_directory, "evidence"));
         var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, registry);
+        plc.SetupSequence(item => item.CompileSoftwareAsync(null))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline", new[] { new CompilationDiagnostic("Information", null, null, "baseline diagnostic", null) }))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "candidate", new[] { new CompilationDiagnostic("Information", null, null, "candidate diagnostic", null) }))
+            .ReturnsAsync(new CompilationResult(true, 0, 0, "cleanup", new[] { new CompilationDiagnostic("Information", null, null, "cleanup diagnostic", null) }));
 
         PlcCodeProbeRunResult result = await service.RunProbeAsync("PLC_1", capability.CapabilityId, "s7dcl", Path.Combine(_directory, "DisposableProbe.s7dcl"), null, null, "NoNewErrors", null, false, true);
 
@@ -1346,6 +1655,10 @@ public class PlcDocumentWorkflowServiceTests
         Assert.IsTrue(result.CleanupProven);
         Assert.AreEqual(0, software.BlockGroup.Blocks.Count);
         Assert.IsTrue(result.Evidence.CleanupCompilation?.Success);
+        var persisted = registry.Get(result.Evidence.EvidenceId);
+        Assert.AreEqual("baseline diagnostic", persisted.BaselineCompilation!.Diagnostics.Single().Description);
+        Assert.AreEqual("candidate diagnostic", persisted.ProbeCompilation!.Diagnostics.Single().Description);
+        Assert.AreEqual("cleanup diagnostic", persisted.CleanupCompilation!.Diagnostics.Single().Description);
         Assert.AreEqual(1, registry.FindVerified(result.Evidence.Compatibility.Fingerprint, result.Evidence.QualificationSignature).Count);
         Assert.IsFalse(Directory.Exists(Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "plc-code-transactions", result.Evidence.TransactionId)));
     }
@@ -1554,11 +1867,22 @@ public class PlcDocumentWorkflowServiceTests
         public string ExportContent { get; set; } = string.Empty;
         public Action? OnDelete { get; set; }
         public string ExportState { get; set; } = "Success";
+        public int DocumentExports { get; private set; }
+        public int XmlExports { get; private set; }
+        public bool XmlExportFails { get; set; }
         public FakeDocumentExportResult ExportAsDocuments(DirectoryInfo directory, string baseName)
         {
+            DocumentExports++;
             directory.Create();
             File.WriteAllText(Path.Combine(directory.FullName, baseName + ".s7dcl"), ExportContent, new UTF8Encoding(true));
             return new FakeDocumentExportResult { State = ExportState };
+        }
+        public void Export(FileInfo file)
+        {
+            XmlExports++;
+            if (XmlExportFails) throw new InvalidOperationException("forced XML export failure");
+            file.Directory?.Create();
+            File.WriteAllText(file.FullName, ExportContent, new UTF8Encoding(true));
         }
         public void Delete() => OnDelete?.Invoke();
     }

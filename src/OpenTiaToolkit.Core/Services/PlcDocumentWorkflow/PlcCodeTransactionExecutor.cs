@@ -183,7 +183,7 @@ internal sealed class PlcCodeTransactionExecutor
             AddJournal(transaction, null, "Verify", "Starting", "All operations applied; compiling and exporting canonical results.");
             SaveTransaction(transaction);
             CompilationResult compilation = await _plcService.CompileSoftwareAsync().ConfigureAwait(false);
-            transaction.FinalCompilation = ToEvidence(compilation);
+            transaction.FinalCompilation = PlcWorkflowPrimitives.CompileEvidence(compilation);
             int baselineErrors = transaction.BaselineCompilation?.ErrorCount ?? 0;
             int baselineWarnings = transaction.BaselineCompilation?.WarningCount ?? 0;
             bool compileAccepted = transaction.CompilePolicy == "CleanCompile"
@@ -318,9 +318,20 @@ internal sealed class PlcCodeTransactionExecutor
                 ResolvedBlock resolved = ResolveExact(RequireBlockRoot(), snapshot.Target, allowMissing: false)!;
                 if (!IdentityMatches(snapshot.Target, resolved.Identity, requireNumber: !string.IsNullOrWhiteSpace(snapshot.Target.Number))) throw new InvalidOperationException($"Operation {operation.Sequence} canonical identity verification failed for '{snapshot.Target}'.");
                 string output = Path.Combine(resultRoot, operation.Sequence + "-" + targetIndex);
-                Directory.CreateDirectory(output);
-                if (!ExportExact(resolved, output)) throw new InvalidOperationException($"Operation {operation.Sequence} canonical export failed for '{snapshot.Target}'.");
-                snapshot.CanonicalResultHash = HashDocumentPair(output, resolved.Identity.Name);
+                if (snapshot.BaselineHash == "missing" && resolved.Identity.BlockType.Equals("InstanceDB", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Instance DB documents are not a supported recreate route. Use
+                    // the exact Siemens XML export for canonical creation evidence.
+                    string xml = output + ".xml";
+                    if (!_targets.ExportExactBlockXml(resolved, xml)) throw new InvalidOperationException($"Operation {operation.Sequence} canonical instance DB XML export failed for '{snapshot.Target}'.");
+                    snapshot.CanonicalResultHash = _formats.ComputeSimaticMlContentHash(xml);
+                }
+                else
+                {
+                    Directory.CreateDirectory(output);
+                    if (!ExportExact(resolved, output)) throw new InvalidOperationException($"Operation {operation.Sequence} canonical export failed for '{snapshot.Target}'.");
+                    snapshot.CanonicalResultHash = HashDocumentPair(output, resolved.Identity.Name);
+                }
                 if (operation.TargetSnapshots.Count == 0) operation.CanonicalResultHash = snapshot.CanonicalResultHash;
             }
             operation.CanonicalResultHash = operation.TargetSnapshots.Count == 1 ? operation.TargetSnapshots[0].CanonicalResultHash : operation.TargetSnapshots.Count > 1 ? Hash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", operation.TargetSnapshots.Select(item => item.CanonicalResultHash)))) : operation.CanonicalResultHash;
@@ -338,14 +349,6 @@ internal sealed class PlcCodeTransactionExecutor
             throw new InvalidOperationException($"Transaction is bound to project '{transaction.ProjectName}', but the current project is '{projectName}'.");
         await EnsurePlcOpen(transaction.PlcName).ConfigureAwait(false);
     }
-
-    private static PlcCodeTransactionCompileEvidence ToEvidence(CompilationResult result) => new PlcCodeTransactionCompileEvidence
-    {
-        Success = result.Success,
-        ErrorCount = result.ErrorCount,
-        WarningCount = result.WarningCount,
-        Message = result.Message ?? string.Empty
-    };
 
     private static PlcCodeTransactionApplyResult Result(PlcCodeTransaction transaction, bool applied, bool verified, bool rollbackAttempted, bool rolledBack, bool recoveryRequired, string message) => new PlcCodeTransactionApplyResult
     {

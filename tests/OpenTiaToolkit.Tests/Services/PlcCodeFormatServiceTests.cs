@@ -61,6 +61,36 @@ public sealed class PlcCodeFormatServiceTests
     }
 
     [TestMethod]
+    public void ValidateScl_BundledInstanceAsset_ProvesExactFbAndInstanceDb()
+    {
+        string path = Path.Combine(FindRepositoryRoot(), "skills", "scl-source-authoring", "assets", "Codex_SCL_Instance_Probe.scl");
+        var result = _service.ValidateScl(path);
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.IsTrue(result.HasUtf8Bom, "The shipped source must retain its Siemens import BOM.");
+        Assert.AreEqual("verified", result.Classification);
+        Assert.AreEqual(0, result.Dependencies.Count);
+        Assert.AreEqual(2, result.DeclaredObjects.Count);
+        Assert.AreEqual("FB", result.DeclaredObjects.Single(item => item.Name == "Codex_SCL_Instance_Probe_FB").ObjectType);
+        Assert.AreEqual("InstanceDB", result.DeclaredObjects.Single(item => item.Name == "Codex_SCL_Instance_Probe_DB").ObjectType);
+    }
+
+    [TestMethod]
+    public void ValidateScl_BundledInstanceAssetWithoutItsFb_IsRejected()
+    {
+        string asset = Path.Combine(FindRepositoryRoot(), "skills", "scl-source-authoring", "assets", "Codex_SCL_Instance_Probe.scl");
+        string source = File.ReadAllText(asset);
+        string instanceOnly = Write("InstanceOnly.scl", source.Substring(source.IndexOf("DATA_BLOCK", StringComparison.Ordinal)));
+        var result = _service.ValidateScl(instanceOnly);
+
+        Assert.IsFalse(result.Valid);
+        Assert.AreEqual("known-unsupported", result.Classification);
+        Assert.AreEqual(1, result.DeclaredObjects.Count);
+        CollectionAssert.Contains(result.Dependencies.ToArray(), "Codex_SCL_Instance_Probe_FB");
+        StringAssert.Contains(string.Join("; ", result.Errors), "same source");
+    }
+
+    [TestMethod]
     public void ValidateScl_StatefulTempAndMissingBoundary_AreRejected()
     {
         string path = Write("Bad.scl", "FUNCTION \"Bad\" : Void\r\nVAR_TEMP T : TON; END_VAR\r\nBEGIN\r\n#T(IN := TRUE, PT := T#1S);\r\n");
@@ -105,6 +135,69 @@ public sealed class PlcCodeFormatServiceTests
         Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
         Assert.AreEqual("verified", result.Classification);
         Assert.AreEqual(0, result.Dependencies.Count);
+    }
+
+    [DataTestMethod]
+    [DataRow("\"Reusable control\"")]
+    [DataRow("ReusableControl")]
+    [DataRow("\"VAR motor\"")]
+    public void ValidateScl_SourceBoundInstanceDb_PreservesExactSubtype(string binding)
+    {
+        string path = Write("Instance.scl", $"FUNCTION_BLOCK {binding}\r\nVAR Value : Int; END_VAR\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\nDATA_BLOCK \"Instance\"\r\n{{ S7_Optimized_Access := 'TRUE' }}\r\nVERSION : 0.1\r\nNON_RETAIN\r\n(* FB binding, not an executable call *)\r\n{binding}\r\nBEGIN\r\nEND_DATA_BLOCK\r\n");
+        var result = _service.ValidateScl(path);
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("InstanceDB", result.DeclaredObjects.Single(item => item.Name == "Instance").ObjectType);
+        Assert.AreEqual(0, result.Dependencies.Count);
+        Assert.IsTrue(_service.DescribeFormats().Single(item => item.Format == "SCL").SupportedObjects.Contains("InstanceDB"));
+    }
+
+    [TestMethod]
+    public void ValidateScl_TypeBoundGlobalDb_IsNotAnInstanceDb()
+    {
+        string path = Write("TypeDb.scl", "TYPE \"Record\"\r\nSTRUCT Value : Int; END_STRUCT;\r\nEND_TYPE\r\nDATA_BLOCK \"Records\"\r\n\"Record\"\r\nBEGIN\r\nEND_DATA_BLOCK\r\n");
+        var result = _service.ValidateScl(path);
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("GlobalDB", result.DeclaredObjects.Single(item => item.Name == "Records").ObjectType);
+    }
+
+    [TestMethod]
+    public void ValidateScl_ExternalNamedDbBinding_FailsClosedAndRecordsDependency()
+    {
+        string path = Write("External.scl", "DATA_BLOCK \"External\"\r\n\"ProjectDefinition\"\r\nBEGIN\r\nEND_DATA_BLOCK\r\n");
+        var result = _service.ValidateScl(path);
+        Assert.IsFalse(result.Valid);
+        Assert.AreEqual("known-unsupported", result.Classification);
+        CollectionAssert.Contains(result.Dependencies.ToArray(), "ProjectDefinition");
+        StringAssert.Contains(string.Join("; ", result.Errors), "does not distinguish");
+    }
+
+    [TestMethod]
+    public void ValidateScl_CommentDeclarations_DoNotProveDbBinding()
+    {
+        string path = Write("Commented.scl", "(*\r\nFUNCTION_BLOCK \"NotARealFB\"\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\n*)\r\nDATA_BLOCK \"Instance\"\r\n\"NotARealFB\"\r\nBEGIN\r\nEND_DATA_BLOCK\r\n");
+        var result = _service.ValidateScl(path);
+        Assert.IsFalse(result.Valid);
+        Assert.AreEqual(1, result.DeclaredObjects.Count);
+        Assert.AreEqual(6, result.DeclaredObjects.Single().Line);
+    }
+
+    [TestMethod]
+    public void ValidateScl_StructGlobalDbAndQuotedInitialValue_AreNotFbBindings()
+    {
+        string path = Write("Global.scl", "DATA_BLOCK \"Global\"\r\nVERSION : 0.1\r\nSTRUCT Text : String[30]; END_STRUCT;\r\nBEGIN\r\nText := '// not a comment';\r\nEND_DATA_BLOCK\r\n");
+        var result = _service.ValidateScl(path);
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.AreEqual("GlobalDB", result.DeclaredObjects.Single().ObjectType);
+    }
+
+    [TestMethod]
+    public void ValidateScl_AmbiguousDbHeaderAndCrossSubtypeDuplicate_AreRejected()
+    {
+        string path = Write("Ambiguous.scl", "FUNCTION_BLOCK \"Duplicate\"\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\nDATA_BLOCK \"Duplicate\"\r\nFB 123\r\nBEGIN\r\nEND_DATA_BLOCK\r\n");
+        var result = _service.ValidateScl(path);
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(string.Join("; ", result.Errors), "ambiguous header");
+        StringAssert.Contains(string.Join("; ", result.Errors), "more than once");
     }
 
     [TestMethod]

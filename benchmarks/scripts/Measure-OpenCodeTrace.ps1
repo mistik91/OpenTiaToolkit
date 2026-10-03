@@ -17,6 +17,8 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot 'LadAssertions.ps1')
+. (Join-Path $PSScriptRoot 'PlcBehaviorAssertions.ps1')
+. (Join-Path $PSScriptRoot 'OpenCodeToolOutputs.ps1')
 
 function Get-PropertyValue {
     param(
@@ -593,6 +595,9 @@ if (-not [string]::IsNullOrWhiteSpace($rawTrace)) {
 }
 
 $toolEvents = @($events | Where-Object { $_.type -eq 'tool_use' -and $null -ne $_.part })
+$toolOutputCaptureFailure = $null
+try { Restore-BenchmarkToolOutputs -Events $events -Metadata $metadata -ArtifactDirectory (Split-Path -Parent $MetadataPath) }
+catch { $toolOutputCaptureFailure = $_.Exception.Message }
 $skillCalls = @($toolEvents | Where-Object {
         ([string]$_.part.tool -replace '-', '_') -ceq 'skill'
     } | ForEach-Object {
@@ -688,7 +693,13 @@ if ($null -ne $workspaceProperty -and
     }
 }
 $executionFailure = $null
-if ($null -ne $workspacePolicyFailure) {
+if ($null -ne $toolOutputCaptureFailure) {
+    $executionFailure = [pscustomobject][ordered]@{
+        kind = 'harness-error'; statusCode = $null
+        message = "Full native OpenCode tool output could not be verified: $toolOutputCaptureFailure"
+    }
+}
+elseif ($null -ne $workspacePolicyFailure) {
     $executionFailure = [pscustomobject][ordered]@{
         kind       = 'harness-error'
         statusCode = $null
@@ -794,6 +805,14 @@ foreach ($assertion in $case.assertions) {
     }
 
     switch ([string]$assertion.type) {
+        'plcBehaviorEvidence' {
+            try {
+                $details = Test-BenchmarkPlcBehaviorEvidence -ToolEvents $toolEvents `
+                    -Metadata $metadata -WorkspaceRoot $workspaceRoot -Assertion $assertion
+                $passed = $true
+            }
+            catch { $details = $_.Exception.Message; $passed = $false }
+        }
         'run' {
             $passed = (-not [bool]$metadata.timedOut) -and ([int]$metadata.exitCode -eq 0) -and $hasStop
             $details = "exitCode=$($metadata.exitCode); timedOut=$($metadata.timedOut); finalStop=$hasStop"

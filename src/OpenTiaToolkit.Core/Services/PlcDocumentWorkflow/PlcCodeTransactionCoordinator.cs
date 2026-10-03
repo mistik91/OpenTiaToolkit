@@ -45,6 +45,7 @@ internal sealed class PlcCodeTransactionCoordinator
     public Task<PlcCodeTransaction> ApproveTransactionImpactAsync(string transactionId, string impactFingerprint, bool acceptUnknown) => _executor.ApproveImpactAsync(transactionId, impactFingerprint, acceptUnknown);
 
     internal PlcCodeTransaction LoadForRecovery(string transactionId) => _store.Load(transactionId, updateExpiry: false);
+    internal bool IsNeverApplied(string transactionId) => _store.IsNeverApplied(transactionId);
     internal void SaveState(PlcCodeTransaction transaction) => _store.Save(transaction);
     internal void Journal(PlcCodeTransaction transaction, int? operation, string phase, string state, string message) => _store.AddJournal(transaction, operation, phase, state, message);
     internal Task<PlcCodeTransactionApplyResult> RollbackAsync(PlcCodeTransaction transaction, string reason) => _rollback.RollbackAsync(transaction, reason);

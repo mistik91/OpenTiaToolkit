@@ -1,0 +1,23 @@
+﻿FUNCTION_BLOCK "Codex_SCL_Instance_Probe_FB"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+VAR_INPUT
+    Value : Int;
+END_VAR
+VAR_OUTPUT
+    Previous : Int;
+END_VAR
+VAR
+    LastValue : Int;
+END_VAR
+BEGIN
+    #Previous := #LastValue;
+    #LastValue := #Value;
+END_FUNCTION_BLOCK
+
+DATA_BLOCK "Codex_SCL_Instance_Probe_DB"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+"Codex_SCL_Instance_Probe_FB"
+BEGIN
+END_DATA_BLOCK

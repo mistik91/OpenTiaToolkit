@@ -450,6 +450,8 @@ foreach ($requestedCaseId in $CaseId) {
     New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
     New-Item -ItemType Directory -Path $workspace -Force | Out-Null
     $benchmarkMcpAllowedRoots = Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspace
+    $workspaceInputs = @(Copy-BenchmarkWorkspaceInputs -Case $case `
+            -CaseDirectory (Split-Path -Parent $casePath) -WorkspacePath $workspace)
 
     if (-not $SkipFixtureRestore) {
         $instanceId = Get-OnlyTiaInstanceId -CliExecutable $cliExecutable -RequestedId $TiaInstanceId
@@ -487,6 +489,17 @@ foreach ($requestedCaseId in $CaseId) {
             -VisibleSkills @($visibleSkills))
     Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $casePath) $case.promptFile) `
         -Destination (Join-Path $workspace 'task.md')
+    if (-not $SkipFixtureRestore) {
+        $fixtureContext = @(
+            '',
+            'Harness-selected fixture context (verify independently before engineering):',
+            "- TIA process ID: $instanceId",
+            "- Fixture ID: $($fixture.id)",
+            "- Disposable restore root: $(Join-Path $executionDirectory 'restored')",
+            '- Do not select another project or TIA instance merely because its project name matches.'
+        ) -join "`r`n"
+        Add-Content -LiteralPath (Join-Path $workspace 'task.md') -Value $fixtureContext -Encoding UTF8
+    }
 
     $skillPermissions = [ordered]@{ '*' = 'deny' }
     foreach ($skill in $copiedSkills) {
@@ -618,6 +631,16 @@ foreach ($requestedCaseId in $CaseId) {
         }
     }
 
+    $capturedToolOutputs = @()
+    $toolOutputCaptureError = $null
+    try {
+        $capturedToolOutputs = @(Copy-BenchmarkToolOutputs -TracePath $tracePath `
+                -WorkspacePath $workspace -ArtifactDirectory $runDirectory)
+    }
+    catch {
+        # Retain the trace/metadata and produce a harness-invalid result, not a model failure.
+        $toolOutputCaptureError = $_.Exception.Message
+    }
     $metadata = [ordered]@{
         model           = $Model
         trialIndex      = $TrialIndex
@@ -642,6 +665,9 @@ foreach ($requestedCaseId in $CaseId) {
         exitCode        = [int]$execution.ExitCode
         timedOut        = [bool]$execution.TimedOut
         workspacePath   = $workspace
+        workspaceInputs = @($workspaceInputs | Select-Object RelativePath, Sha256, Bytes)
+        toolOutputs     = $capturedToolOutputs
+        toolOutputCaptureError = $toolOutputCaptureError
         mcpAllowedRoots = $benchmarkMcpAllowedRoots
         mcpWorkspacePolicyPreflight = 'passed'
         skillEvaluation = if ($SkillEvaluationArm -eq 'standard') {

@@ -81,6 +81,17 @@ internal sealed class PlcCodeTransactionStore
         return !Directory.Exists(directory);
     }
 
+    internal bool IsNeverApplied(string id)
+    {
+        PlcCodeTransaction transaction = Load(id, updateExpiry: false);
+        if (!PlcCodeTransactionIntegrity.IsNeverApplied(transaction)) return false;
+        // Journal is persisted before the manifest. An interrupted Apply/Save can leave
+        // a pre-apply manifest plus a newer mutation journal; that is not safe to discard.
+        string journal = JournalPath(id);
+        return File.Exists(journal) && string.Equals(File.ReadAllText(journal),
+            string.Concat(transaction.Journal.Select(entry => JsonSerializer.Serialize(entry, JsonOptions) + Environment.NewLine)), StringComparison.Ordinal);
+    }
+
     internal static string ValidateId(string id)
     {
         if (!Guid.TryParseExact(id, "N", out _)) throw new InvalidOperationException("Transaction id is invalid.");

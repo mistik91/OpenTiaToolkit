@@ -47,7 +47,7 @@ internal sealed class PlcCodeRollbackCoordinator
             catch (Exception ex) { allRestored = false; operation.ApplyState = "RecoveryRequired"; Journal(transaction, operation.Sequence, "Rollback", "Failed", PlcWorkflowPrimitives.Message(ex)); Save(transaction); }
         }
         bool compileRestored = false;
-        try { CompilationResult compilation = await _plc.CompileSoftwareAsync().ConfigureAwait(false); transaction.RollbackCompilation = Evidence(compilation); int baselineErrors = transaction.BaselineCompilation?.ErrorCount ?? 0; compileRestored = compilation.ErrorCount <= baselineErrors && (baselineErrors > 0 || compilation.Success); }
+        try { CompilationResult compilation = await _plc.CompileSoftwareAsync().ConfigureAwait(false); transaction.RollbackCompilation = PlcWorkflowPrimitives.CompileEvidence(compilation); int baselineErrors = transaction.BaselineCompilation?.ErrorCount ?? 0; compileRestored = compilation.ErrorCount <= baselineErrors && (baselineErrors > 0 || compilation.Success); }
         catch (Exception ex) { Journal(transaction, null, "RollbackCompile", "Failed", PlcWorkflowPrimitives.Message(ex)); }
         bool proven = allRestored && compileRestored; transaction.State = proven ? "RolledBackAndVerified" : "RecoveryRequired"; transaction.RecoveryPackageRetained = !proven;
         Journal(transaction, null, "Rollback", transaction.State, proven ? "All original hashes or missing targets were restored and the baseline compile condition was recovered." : "Rollback remains unverified. The baseline package is retained for explicit recovery or manual inspection."); Save(transaction);
@@ -78,6 +78,5 @@ internal sealed class PlcCodeRollbackCoordinator
 
     private void Save(PlcCodeTransaction transaction) => _store.Save(transaction);
     private void Journal(PlcCodeTransaction transaction, int? operation, string phase, string state, string message) => _store.AddJournal(transaction, operation, phase, state, message);
-    private static PlcCodeTransactionCompileEvidence Evidence(CompilationResult value) => new PlcCodeTransactionCompileEvidence { Success = value.Success, ErrorCount = value.ErrorCount, WarningCount = value.WarningCount, Message = value.Message ?? string.Empty };
     private static PlcCodeTransactionApplyResult Result(PlcCodeTransaction transaction, string message) => new PlcCodeTransactionApplyResult { TransactionId = transaction.TransactionId, State = transaction.State, RollbackAttempted = true, RolledBackAndVerified = transaction.State == "RolledBackAndVerified", RecoveryRequired = transaction.State == "RecoveryRequired", Message = message, Transaction = transaction };
 }

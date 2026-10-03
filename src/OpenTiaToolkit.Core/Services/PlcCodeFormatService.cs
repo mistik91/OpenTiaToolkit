@@ -13,7 +13,7 @@ namespace OpenTiaToolkit.Core.Services;
 
 public sealed class PlcCodeFormatService
 {
-    public const string ValidatorCatalogVersion = "plc-code-formats/1.4";
+    public const string ValidatorCatalogVersion = "plc-code-formats/1.5";
     private static readonly Regex SclDeclarationRegex = new Regex(@"(?im)^\s*(FUNCTION_BLOCK|FUNCTION|ORGANIZATION_BLOCK|DATA_BLOCK|TYPE)\s+(?:""(?<quoted>[^""]+)""|(?<plain>[^\s:]+))", RegexOptions.Compiled);
     private static readonly Regex SclCallRegex = new Regex(@"(?im)(?<![#\w])(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*\(", RegexOptions.Compiled);
     private static readonly Regex StatefulTypeRegex = new Regex(@"\b(TON|TOF|TP|TON_TIME|TOF_TIME|TP_TIME|IEC_TIMER|R_TRIG|F_TRIG|CTU|CTD|CTUD|IEC_COUNTER)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -32,8 +32,8 @@ public sealed class PlcCodeFormatService
             new[] { "GlobalDB" }, new[] { "layout impact", "exact identity", "canonical export", "compile" },
             new[] { "instance DB recreation unsupported", "UDT existence requires project discovery" }),
         Capability("SCL", new[] { ".scl" }, "verified-subset", "guarded-scl-source", true, true,
-            new[] { "FC", "FB", "OB", "GlobalDB", "TYPE" }, new[] { "declared object set", "dependency order", "generated identities", "compile", "source/block/type rollback" },
-            new[] { "safety source unsupported", "indirect/project calls require live compile" }),
+            new[] { "FC", "FB", "OB", "GlobalDB", "InstanceDB", "TYPE" }, new[] { "declared object set", "dependency order", "generated identities", "compile", "source/block/type rollback" },
+            new[] { "safety source unsupported", "indirect/project calls require live compile", "named DB bindings require an FB or TYPE declaration in the same source to prove the exact subtype", "native instance DB generation is create-only; lossless replacement rollback is not supported" }),
         Capability("SimaticML", new[] { ".xml" }, "patch-only", "guarded-simaticml-import", true, true,
             new[] { "exported PLC block XML", "exported PLC type XML" }, new[] { "namespace", "identity", "ID graph", "canonical export", "compile", "XML rollback" },
             new[] { "transactional apply requires an existing baseline-bound object", "general FlgNet generation unsupported", "baseline export required for mutation" }),
@@ -110,23 +110,41 @@ public sealed class PlcCodeFormatService
         byte[] bytes = File.Exists(path) ? File.ReadAllBytes(path) : Array.Empty<byte>();
         if (!File.Exists(path)) errors.Add($"SCL source was not found: {path}");
         bool bom = bytes.Length >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf;
-        string text = DecodeUtf8(bytes, errors, "SCL");
+        string text = MaskSclComments(DecodeUtf8(bytes, errors, "SCL"));
         if (bytes.Length > 0 && !bom) warnings.Add("SCL is UTF-8 without BOM. UTF-8 BOM is required for reliable Siemens source import.");
         if (Path.GetExtension(path).Equals(".awl", StringComparison.OrdinalIgnoreCase)) errors.Add("AWL/STL is known-unsupported by the SCL authoring workflow.");
         if (Regex.IsMatch(text, @"\bF_(?:FUNCTION|FUNCTION_BLOCK|ORGANIZATION_BLOCK)\b|S7_F", RegexOptions.IgnoreCase)) errors.Add("Fail-safe SCL authoring is known-unsupported by this standard-code workflow.");
 
         var objects = new List<PlcCodeDeclaredObject>();
-        foreach (Match match in SclDeclarationRegex.Matches(text))
+        Match[] declarations = SclDeclarationRegex.Matches(text).Cast<Match>().ToArray();
+        var dbBindings = new List<string>();
+        foreach (Match match in declarations)
         {
             string keyword = match.Groups[1].Value.ToUpperInvariant();
             string name = !string.IsNullOrWhiteSpace(match.Groups["quoted"].Value) ? match.Groups["quoted"].Value : match.Groups["plain"].Value;
             string type = keyword == "FUNCTION" ? "FC" : keyword == "FUNCTION_BLOCK" ? "FB" : keyword == "ORGANIZATION_BLOCK" ? "OB" : keyword == "DATA_BLOCK" ? "GlobalDB" : "TYPE";
-            objects.Add(new PlcCodeDeclaredObject { Name = name, ObjectType = type, Line = LineOf(text, match.Index) });
+            if (keyword == "DATA_BLOCK")
+            {
+                int next = Array.IndexOf(declarations, match) + 1;
+                string body = text.Substring(match.Index + match.Length, (next < declarations.Length ? declarations[next].Index : text.Length) - match.Index - match.Length);
+                string? binding = SclDataBlockBinding(body, out bool recognizedHeader);
+                if (!recognizedHeader) errors.Add($"DATA_BLOCK '{name}' has an unsupported or ambiguous header; its exact DB subtype cannot be proven offline.");
+                if (binding != null)
+                {
+                    dbBindings.Add(binding);
+                    Match[] definitions = declarations.Where(item => SclDeclarationName(item).Equals(binding, StringComparison.OrdinalIgnoreCase) &&
+                        (item.Groups[1].Value.Equals("FUNCTION_BLOCK", StringComparison.OrdinalIgnoreCase) || item.Groups[1].Value.Equals("TYPE", StringComparison.OrdinalIgnoreCase))).ToArray();
+                    if (definitions.Length != 1)
+                        errors.Add($"DATA_BLOCK '{name}' binds '{binding}', whose FB/TYPE identity cannot be proven offline. Include its unique FB or TYPE declaration in the same source; a named binding alone does not distinguish an instance DB from a UDT-based global DB.");
+                    else if (definitions[0].Groups[1].Value.Equals("FUNCTION_BLOCK", StringComparison.OrdinalIgnoreCase)) type = "InstanceDB";
+                }
+            }
+            objects.Add(new PlcCodeDeclaredObject { Name = name, ObjectType = type, Line = LineOf(text, match.Groups[1].Index) });
             string end = keyword == "FUNCTION" ? "END_FUNCTION" : keyword == "FUNCTION_BLOCK" ? "END_FUNCTION_BLOCK" : keyword == "ORGANIZATION_BLOCK" ? "END_ORGANIZATION_BLOCK" : keyword == "DATA_BLOCK" ? "END_DATA_BLOCK" : "END_TYPE";
             if (!Regex.IsMatch(text.Substring(match.Index), @"(?im)^\s*" + end + @"\s*;?\s*$")) errors.Add($"{keyword} '{name}' is missing {end}.");
         }
         if (objects.Count == 0 && bytes.Length > 0) errors.Add("No FUNCTION, FUNCTION_BLOCK, ORGANIZATION_BLOCK, DATA_BLOCK, or TYPE declaration was found.");
-        foreach (IGrouping<string, PlcCodeDeclaredObject> duplicate in objects.GroupBy(item => item.ObjectType + ":" + item.Name, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1)) errors.Add($"SCL declares '{duplicate.Key}' more than once.");
+        foreach (IGrouping<string, PlcCodeDeclaredObject> duplicate in objects.GroupBy(item => (item.ObjectType == "TYPE" ? "TYPE:" : "Block:") + item.Name, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1)) errors.Add($"SCL declares '{duplicate.Key}' more than once.");
 
         foreach (Match block in SclDeclarationRegex.Matches(text))
         {
@@ -151,12 +169,35 @@ public sealed class PlcCodeFormatService
         var declaredNames = new HashSet<string>(objects.Select(item => item.Name), StringComparer.OrdinalIgnoreCase);
         string[] dependencies = SclCallRegex.Matches(text).Cast<Match>()
             .Select(match => !string.IsNullOrWhiteSpace(match.Groups["quoted"].Value) ? match.Groups["quoted"].Value : match.Groups["plain"].Value)
+            .Concat(dbBindings)
             .Where(name => !IsSclBuiltin(name) && !declaredNames.Contains(name))
             .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray();
         foreach (string dependency in dependencies) findings.Add(new PlcCodeValidationFinding { Construct = dependency, Classification = "unknown-requires-live-probe", Message = "Project or library call must resolve and compile in the bound PLC." });
         string classification = errors.Count > 0 ? "known-unsupported" : dependencies.Length > 0 || findings.Any(item => item.Classification == "unknown-requires-live-probe") ? "unknown-requires-live-probe" : "verified";
         return new PlcCodeArtifactValidationResult { Valid = errors.Count == 0, Format = "SCL", Classification = classification, InputPath = path, InputHash = Hash(bytes), HasUtf8Bom = bom, DeclaredObjects = objects, Findings = findings, Dependencies = dependencies, Errors = errors, Warnings = warnings };
     }
+
+    private static string SclDeclarationName(Match match) => match.Groups["quoted"].Success ? match.Groups["quoted"].Value : match.Groups["plain"].Value;
+
+    private static string? SclDataBlockBinding(string body, out bool recognized)
+    {
+        // A named FB and a named UDT use the same DB header syntax. Never infer
+        // InstanceDB from the presence of a quoted name alone, or from BEGIN data.
+        Match boundary = Regex.Match(body, @"(?im)^\s*(?:BEGIN|END_DATA_BLOCK)\b");
+        string header = boundary.Success ? body.Substring(0, boundary.Index) : body;
+        header = Regex.Replace(header, @"(?s)\{.*?\}", string.Empty);
+        header = Regex.Replace(header, @"(?im)^\s*(?:TITLE|AUTHOR|FAMILY|NAME|VERSION)\s*:.*$|^\s*(?:NON_RETAIN|RETAIN)\s*;?\s*$", string.Empty);
+        // VAR/STRUCT declarations belong to global DBs, not a named FB binding.
+        if (Regex.IsMatch(header, @"(?i)\A\s*(?:VAR|STRUCT)\b")) { recognized = true; return null; }
+        Match binding = Regex.Match(header, @"\A\s*(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*;?\s*\z");
+        recognized = binding.Success || string.IsNullOrWhiteSpace(header);
+        return binding.Success ? SclDeclarationName(binding) : null;
+    }
+
+    private static string MaskSclComments(string text) => Regex.Replace(text,
+        @"'(?:(?:'')|[^'])*'|""(?:(?:"""")|[^""])*""|//[^\r\n]*|\(\*[\s\S]*?\*\)",
+        match => match.Value.StartsWith("//", StringComparison.Ordinal) || match.Value.StartsWith("(*", StringComparison.Ordinal)
+            ? Regex.Replace(match.Value, @"[^\r\n]", " ") : match.Value);
 
     public PlcCodeArtifactValidationResult ValidateSimaticMl(string inputPath, string? baselinePath, bool allowFlgNetTopology, string? allowedChangePaths = null)
     {

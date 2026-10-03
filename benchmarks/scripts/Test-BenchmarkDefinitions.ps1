@@ -4,6 +4,8 @@ param()
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+. (Join-Path $PSScriptRoot 'BenchmarkWorkspaceInputs.ps1')
+
 $benchmarkRoot = Split-Path -Parent $PSScriptRoot
 $repoRoot = Split-Path -Parent $benchmarkRoot
 $casesRoot = Join-Path $benchmarkRoot 'cases'
@@ -14,7 +16,7 @@ $fixtureManifestPath = Join-Path $benchmarkRoot 'fixtures\manifest.json'
 $errors = [System.Collections.Generic.List[string]]::new()
 $fixtures = (Get-Content -LiteralPath $fixtureManifestPath -Raw | ConvertFrom-Json).fixtures
 $fixtureIds = @($fixtures | ForEach-Object { [string]$_.id })
-$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork', 'finalRegex', 'traceRegex', 'run')
+$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork', 'plcBehaviorEvidence', 'finalRegex', 'traceRegex', 'run')
 
 foreach ($fixture in $fixtures) {
     if ([string]::IsNullOrWhiteSpace([string]$fixture.id)) {
@@ -78,6 +80,13 @@ foreach ($caseFile in $caseFiles) {
         }
     }
 
+    try {
+        [void]@(Get-BenchmarkWorkspaceInputPlan -Case $case `
+                -CaseDirectory (Split-Path -Parent $caseFile.FullName) `
+                -WorkspacePath (Join-Path ([IO.Path]::GetTempPath()) 'OpenTiaBenchmarkDefinitionValidation'))
+    }
+    catch { $errors.Add("$($caseFile.FullName): $($_.Exception.Message)") }
+
     $assertionIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $points = 0.0
     foreach ($assertion in $case.assertions) {
@@ -115,7 +124,7 @@ foreach ($caseFile in $caseFiles) {
                 $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' needs expectedOperations.")
             }
         }
-        if ($assertion.type -in @('workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork')) {
+        if ($assertion.type -in @('workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork', 'plcBehaviorEvidence')) {
             $relativePath = [string]$assertion.relativePath
             if ([string]::IsNullOrWhiteSpace($relativePath) -or
                 [System.IO.Path]::IsPathRooted($relativePath) -or
@@ -139,6 +148,17 @@ foreach ($caseFile in $caseFiles) {
                         $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' has an invalid $patternProperty regex.")
                     }
                 }
+            }
+        }
+        if ($assertion.type -eq 'plcBehaviorEvidence') {
+            if ($null -eq $assertion.PSObject.Properties['vectorSha256'] -or [string]$assertion.vectorSha256 -notmatch '^[A-Fa-f0-9]{64}$') {
+                $errors.Add("$($caseFile.FullName): behavior assertion '$($assertion.id)' requires vectorSha256.")
+            }
+            $inputsProperty = $case.PSObject.Properties['workspaceInputs']
+            if ($null -eq $inputsProperty -or @($inputsProperty.Value | Where-Object {
+                        $_.targetPath -ceq $assertion.relativePath -and $_.sha256 -ieq $assertion.vectorSha256
+                    }).Count -ne 1) {
+                $errors.Add("$($caseFile.FullName): behavior assertion '$($assertion.id)' must bind one frozen workspace input.")
             }
         }
         if ($assertion.type -in @('ladBooleanNetwork', 'ladTimerNetwork')) {

@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the executable OpenTiaToolkit agent benchmark slice. Twenty-seven cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, structured S7DCL data authoring, brownfield LAD interlock and timer editing, bidirectional VCI synchronization, library reuse, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
+This directory contains the executable OpenTiaToolkit agent benchmark slice. Twenty-eight cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, structured S7DCL data authoring, brownfield LAD interlock and timer editing, independent PLCSIM Advanced temporal behavior, bidirectional VCI synchronization, library reuse, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -64,7 +64,25 @@ The implementation, compatibility rules, immutable V4 trace replay, and test
 evidence are recorded in
 `reports/harness-validity-and-validator-telemetry-20260803.md`.
 
-Cases contain no hidden answers in the model workspace. The runner copies only the OpenCode plugin bundle and the selected prompt into an isolated directory outside the Git worktree. Evaluation happens after OpenCode exits.
+Cases contain no hidden answers in the model workspace. The runner copies the OpenCode plugin bundle, selected prompt, and any explicitly declared public `workspaceInputs` into an isolated directory outside the Git worktree. Inputs are case-relative, SHA-256-bound, limited to 20 files / 1 MiB each / 4 MiB total, and cannot overwrite reserved harness paths or traverse junctions. The selected TIA process and disposable restore root are appended as context. Gold implementations are never staged. Evaluation happens after OpenCode exits.
+
+OTT-35 stages a frozen public acceptance vector, not a solution. Its structured
+`plcBehaviorEvidence` oracle requires one authentic fresh Verified probe result
+matching that vector's raw hash, complete ordered scenarios and typed observations,
+canonical object coverage, clean compilation, actual simulator downloads, and both
+offline and simulator cleanup. Reused evidence, model-authored proof files, modified
+vectors, and fragments aggregated across calls cannot qualify. The live qualification
+and semantic controls are recorded in
+[`reports/ott-35-live-qualification-20261003.md`](reports/ott-35-live-qualification-20261003.md).
+
+PLC transaction and probe compile evidence retains the compiler's structured
+diagnostics (severity, path, name, description, and error code) for baseline,
+candidate, and rollback compilation. These fields are additive; older records
+without diagnostics still load with an empty collection. Failed candidates remain
+rejected and cleaned, but their diagnostics stay available after cleanup and
+transaction discard. The separately labeled `plc-behavior-diagnostics-*` campaigns
+measure this feedback-enabled toolkit revision without replacing earlier traces,
+changing skills, staging gold code, or relaxing the frozen acceptance vector.
 
 For portable case definitions, the scorer normalizes hyphens in OpenCode tool names to underscores before matching `namePattern`.
 
@@ -77,6 +95,10 @@ The initial score is a transparent behavior score, not a claim of model intellig
 - Node.js and npm.
 - The external fixture archive described by `fixtures/manifest.json`.
 - One visible TIA Portal instance. The runner attaches to it, verifies that any open project is a declared benchmark fixture, closes that project without saving, and restores a fresh copy from the fixture archive. It refuses to close unrelated projects.
+- When a user's project is open, create a separate campaign TIA instance and pass
+  its exact `-TiaInstanceId`; a matching benchmark project name is not permission
+  to use or close the user's instance. OTT-35 additionally requires an explicitly
+  owned, powered PLCSIM Advanced fixture; see `fixtures/builders/ott-35/`.
 
 Install the pinned harness dependency:
 
@@ -678,6 +700,16 @@ raw MCP policy probe validates a workspace artifact. A rejection of that exact
 workspace is classified as `harness-error`, excluded from model comparison,
 and pauses a checkpoint batch as `paused-harness-error`; a model-selected path
 outside the declared workspace remains an ordinary model outcome.
+
+OpenCode may truncate a large tool result in its JSON event stream while retaining
+the native full output in the execution's isolated data directory. The harness
+captures only those native files named by structured truncation metadata, binds
+them to the exact tool/call ID and original preview, and retains size/SHA-256
+records under each trial's `tool-output/`. The scorer verifies and expands these
+captures in memory; `events.jsonl` remains unchanged. Arbitrary workspace proof
+files, paths outside that native root, junctions, changed bytes, and missing
+captures are rejected. Capture failures are `harness-error` and pause batching,
+not model failures. Each native output is limited to 16 MiB.
 
 Use `-CaseId` for an ordered subset during a smoke or continuation run. A
 skill-evaluation definition still retains all four routing buckets; filtering
