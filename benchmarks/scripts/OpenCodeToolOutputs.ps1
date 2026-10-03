@@ -1,6 +1,36 @@
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'BenchmarkWorkspaceInputs.ps1')
 
+function Test-BenchmarkRequestedReadSlice {
+    param([object]$Event)
+    $state = $Event.part.state
+    if ($null -eq $state.PSObject.Properties['input'] -or $null -eq $state.input -or
+        $null -eq $state.input.PSObject.Properties['filePath'] -or
+        $null -eq $state.input.PSObject.Properties['limit'] -or
+        $null -eq $state.metadata.PSObject.Properties['display'] -or $null -eq $state.metadata.display) { return $false }
+    $display = $state.metadata.display
+    foreach ($name in @('type','path','truncated','lineStart','lineEnd','totalLines')) {
+        if ($null -eq $display.PSObject.Properties[$name]) { return $false }
+    }
+    if ($display.type -cne 'file' -or $display.truncated -isnot [bool] -or -not $display.truncated -or
+        $display.path -isnot [string] -or $display.path -cne $state.input.filePath -or
+        [string]::IsNullOrWhiteSpace($display.path)) { return $false }
+    foreach ($number in @($display.lineStart,$display.lineEnd,$display.totalLines,$state.input.limit)) {
+        if (($number -isnot [int] -and $number -isnot [long]) -or $number -lt 1) { return $false }
+    }
+    $offset = 1
+    if ($null -ne $state.input.PSObject.Properties['offset']) {
+        $offset = $state.input.offset
+        if (($offset -isnot [int] -and $offset -isnot [long]) -or $offset -lt 1) { return $false }
+    }
+    if ($display.lineStart -ne $offset -or $display.lineEnd -ge $display.totalLines -or
+        ([long]$display.lineEnd - [long]$display.lineStart + 1) -ne $state.input.limit) { return $false }
+    $output = $state.output.Replace("`r`n", "`n")
+    $prefix = '<path>' + $display.path + "</path>`n<type>file</type>`n<content>`n"
+    $suffix = '(Showing lines ' + $display.lineStart + '-' + $display.lineEnd + ' of ' + $display.totalLines + '. Use offset=' + ([long]$display.lineEnd + 1) + " to continue.)`n</content>"
+    return $output.StartsWith($prefix, [StringComparison]::Ordinal) -and $output.EndsWith($suffix, [StringComparison]::Ordinal)
+}
+
 function Test-BenchmarkNativeOutputTruncated {
     param([object]$Event)
     if ($Event.type -ne 'tool_use' -or $null -eq $Event.PSObject.Properties['part'] -or
@@ -9,17 +39,20 @@ function Test-BenchmarkNativeOutputTruncated {
         $null -eq $Event.part.state.metadata -or
         $null -eq $Event.part.state.metadata.PSObject.Properties['truncated']) { return $false }
     if ($Event.part.state.metadata.truncated -isnot [bool]) { throw 'Invalid native truncation metadata.' }
-    # OpenCode glob caps its result set; it does not create a full-output file for that cap.
-    # Keep this exception narrow: MCP/unknown tools and byte-truncated previews still require capture.
+    # Native semantic caps/slices are not the full-output-file truncation protocol.
+    # Keep exceptions narrow: MCP/unknown tools and byte-truncated previews require capture.
     $meta = $Event.part.state.metadata
     if ($meta.truncated -and $null -eq $meta.PSObject.Properties['outputPath'] -and
-        $null -ne $Event.part.PSObject.Properties['tool'] -and $Event.part.tool -ceq 'glob' -and
+        $null -ne $Event.part.PSObject.Properties['tool'] -and
+        $null -ne $Event.part.PSObject.Properties['callID'] -and -not [string]::IsNullOrWhiteSpace([string]$Event.part.callID) -and
         $null -ne $Event.part.state.PSObject.Properties['status'] -and $Event.part.state.status -ceq 'completed' -and
-        $null -ne $meta.PSObject.Properties['count'] -and
-        ($meta.count -is [int] -or $meta.count -is [long]) -and $meta.count -eq 100 -and
-        $null -ne $Event.part.state.PSObject.Properties['output'] -and
+        $null -ne $Event.part.state.PSObject.Properties['output'] -and $Event.part.state.output -is [string] -and
         [string]$Event.part.state.output -notmatch '(?m)^\.\.\.\d+ bytes truncated\.\.\.\r?$' -and
-        [string]$Event.part.state.output -notmatch 'Full output saved to:') { return $false }
+        [string]$Event.part.state.output -notmatch 'Full output saved to:') {
+        if ($Event.part.tool -ceq 'glob' -and $null -ne $meta.PSObject.Properties['count'] -and
+            ($meta.count -is [int] -or $meta.count -is [long]) -and $meta.count -eq 100) { return $false }
+        if ($Event.part.tool -ceq 'read' -and (Test-BenchmarkRequestedReadSlice -Event $Event)) { return $false }
+    }
     return $Event.part.state.metadata.truncated
 }
 

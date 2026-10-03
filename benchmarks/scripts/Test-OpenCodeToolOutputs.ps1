@@ -81,6 +81,60 @@ $byteGlobMeta = Copy-TestObject $metadata
 $byteGlobMeta.toolOutputs[0].tool='glob'
 Restore-BenchmarkToolOutputs -Events @($byteGlob) -Metadata $byteGlobMeta -ArtifactDirectory $artifacts
 if ($byteGlob.part.state.output -cne $full) { throw 'File-backed glob did not use durable capture.' }
+$readPath = Join-Path $workspace 'candidate.scl'
+$slice = [pscustomobject]@{type='tool_use';part=[pscustomobject]@{callID='read_1';tool='read';state=[pscustomobject]@{
+    status='completed';input=[pscustomobject]@{filePath=$readPath;limit=3}
+    output="<path>$readPath</path>`n<type>file</type>`n<content>`n1: first`n2: second`n3: third`n`n(Showing lines 1-3 of 38. Use offset=4 to continue.)`n</content>"
+    metadata=[pscustomobject]@{truncated=$true;display=[pscustomobject]@{type='file';path=$readPath;lineStart=1;lineEnd=3;totalLines=38;truncated=$true}}
+}}}
+$readTrace = Join-Path $testRoot 'read-slice.jsonl'
+[IO.File]::WriteAllLines($readTrace, [string[]]@(($slice | ConvertTo-Json -Depth 50 -Compress),($stop | ConvertTo-Json -Depth 50 -Compress)), $utf8)
+if (@(Copy-BenchmarkToolOutputs -TracePath $readTrace -WorkspacePath $workspace -ArtifactDirectory $artifacts).Count -ne 0) { throw 'Requested read slice was captured as a byte-truncated output.' }
+$sliceOutput = $slice.part.state.output
+Restore-BenchmarkToolOutputs -Events @($slice) -Metadata ([pscustomobject]@{}) -ArtifactDirectory $artifacts
+if ($slice.part.state.output -cne $sliceOutput) { throw 'Requested read slice was rewritten.' }
+# Explicit offsets and CRLF output use the same requested-slice protocol.
+$offsetSlice = Copy-TestObject $slice
+$offsetSlice.part.state.input | Add-Member offset 4
+$offsetSlice.part.state.metadata.display.lineStart=4
+$offsetSlice.part.state.metadata.display.lineEnd=6
+$offsetSlice.part.state.output=$sliceOutput.Replace('1: first', '4: first').Replace('2: second', '5: second').Replace('3: third', '6: third').Replace('1-3', '4-6').Replace('offset=4', 'offset=7').Replace("`n", "`r`n")
+$offsetOutput = $offsetSlice.part.state.output
+Restore-BenchmarkToolOutputs -Events @($offsetSlice) -Metadata ([pscustomobject]@{}) -ArtifactDirectory $artifacts
+if ($offsetSlice.part.state.output -cne $offsetOutput) { throw 'Offset/CRLF requested read slice was rewritten.' }
+# A read with explicit file-backed truncation is never a semantic slice exception.
+$byteRead = Copy-TestObject $template
+$byteRead.part.tool='read'
+$byteReadMeta = Copy-TestObject $metadata
+$byteReadMeta.toolOutputs[0].tool='read'
+Restore-BenchmarkToolOutputs -Events @($byteRead) -Metadata $byteReadMeta -ArtifactDirectory $artifacts
+if ($byteRead.part.state.output -cne $full) { throw 'File-backed read did not use durable capture.' }
+$sliceRejected = 0
+foreach ($scenario in @('mcp','missing-identity','missing-display','display-type','display-path','display-flag','display-string-flag','range','total','string-range','limit','missing-limit','offset','wrong-preview-path','wrong-continuation','byte-marker','explicit-empty-path')) {
+    $event = Copy-TestObject $slice
+    switch ($scenario) {
+        'mcp' { $event.part.tool='opentia_read' }
+        'missing-identity' { $event.part.PSObject.Properties.Remove('callID') }
+        'missing-display' { $event.part.state.metadata.PSObject.Properties.Remove('display') }
+        'display-type' { $event.part.state.metadata.display.type='other' }
+        'display-path' { $event.part.state.metadata.display.path='other' }
+        'display-flag' { $event.part.state.metadata.display.truncated=$false }
+        'display-string-flag' { $event.part.state.metadata.display.truncated='true' }
+        'range' { $event.part.state.metadata.display.lineEnd=2 }
+        'total' { $event.part.state.metadata.display.totalLines=3 }
+        'string-range' { $event.part.state.metadata.display.lineStart='1' }
+        'limit' { $event.part.state.input.limit=2 }
+        'missing-limit' { $event.part.state.input.PSObject.Properties.Remove('limit') }
+        'offset' { $event.part.state.input | Add-Member offset 2 }
+        'wrong-preview-path' { $event.part.state.output=$sliceOutput.Replace('<path>', '<path>OTHER') }
+        'wrong-continuation' { $event.part.state.output=$sliceOutput.Replace('offset=4', 'offset=5') }
+        'byte-marker' { $event.part.state.output=$preview }
+        'explicit-empty-path' { $event.part.state.metadata | Add-Member outputPath '' }
+    }
+    try { Restore-BenchmarkToolOutputs -Events @($event) -Metadata ([pscustomobject]@{workspacePath=$workspace}) -ArtifactDirectory $artifacts }
+    catch { $sliceRejected++;continue }
+    throw "Missing full-output evidence was silently accepted as a read slice: $scenario"
+}
 foreach ($scenario in @('missing-manifest','wrong-call','wrong-tool','duplicate-record','wrong-root','relative-native-path','invalid-native-leaf','wrong-source-identity','path-traversal','wrong-hash','wrong-size','wrong-prefix','missing-marker','nonbool-truncated','capture-error','missing-durable-file')) {
     $event = Copy-TestObject $template
     $meta = Copy-TestObject $metadata
@@ -167,4 +221,10 @@ $case.assertions[0].outputPatterns=@('file1')
 [IO.File]::WriteAllText($metaPath, ($scorerMetadata | ConvertTo-Json -Depth 30), $utf8)
 $globResult = & (Join-Path $PSScriptRoot 'Measure-OpenCodeTrace.ps1') -CasePath $casePath -TracePath $globTrace -MetadataPath $metaPath -OutputPath $resultPath
 if (-not $globResult.passed -or -not $globResult.validForModelComparison -or (Get-FileHash -LiteralPath $globTrace).Hash -cne $globHash) { throw 'Semantic glob cap scorer integration failed or rewrote its trace.' }
-Write-Host "PASS: durable native output/replay, unchanged raw trace, semantic glob cap, scorer pass/harness-invalid; $rejected adversarial captures + $semanticRejected semantic-cap controls. Temporary evidence: $testRoot"
+$readHash = (Get-FileHash -LiteralPath $readTrace).Hash
+$case.assertions[0].namePattern='^read$'
+$case.assertions[0].outputPatterns=@('1: first')
+[IO.File]::WriteAllText($casePath, ($case | ConvertTo-Json -Depth 30), $utf8)
+$readResult = & (Join-Path $PSScriptRoot 'Measure-OpenCodeTrace.ps1') -CasePath $casePath -TracePath $readTrace -MetadataPath $metaPath -OutputPath $resultPath
+if (-not $readResult.passed -or -not $readResult.validForModelComparison -or (Get-FileHash -LiteralPath $readTrace).Hash -cne $readHash) { throw 'Read slice scorer integration failed or rewrote its trace.' }
+Write-Host "PASS: durable native output/replay, unchanged raw trace, semantic glob/read, scorer pass/harness-invalid; $rejected adversarial captures + $semanticRejected glob + $sliceRejected read controls. Temporary evidence: $testRoot"
