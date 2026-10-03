@@ -1,6 +1,6 @@
 # OTT-35 generic native instance-DB guidance — 2026-10-03
 
-## Checkpoint: skill qualified; two verified trials, third pending
+## PASS: skill qualified; Flash High 3/3 verified passes
 
 Branch `codex/ott-35-plcsim-behavior-benchmark`, following `49c9770`.
 No push, PR, or merge. Historical campaigns and the append-only 15/100 timeout
@@ -32,6 +32,8 @@ copy, were synchronized and checked. No invocation or UI metadata changed.
   source BOM, zero external dependencies, and rejection when the FB declaration
   is removed from the same shipped asset.
 - Full vendor-free suite: 733 unit and 54 architecture tests passed.
+- Release build passed with zero errors/warnings. Modern and legacy MCP startup
+  smoke checks passed with 186 commands/189 tools using the qualified worker.
 - Full benchmark regressions passed: 28 cases, 70 campaigns, 15 fixtures.
 - Generated references current under Windows PowerShell 5.1, 186 commands.
 - No runtime/Core code, harness oracle, case prompt, gold code, or frozen vector
@@ -63,7 +65,7 @@ to model workspaces. The simulator is an owned bounded lease, not real hardware.
 
 Fresh three-trial Flash High definition:
 `plc-behavior-instance-guidance-glm-5-3-flash-high-20261003`.
-Full GLM High fallback is separately defined, not launched at this checkpoint.
+Full GLM High fallback is separately defined, but was not needed or launched.
 Use single-trial batches with durable checkpoints and cleanup inspection between
 trials. Provider throttling or harness-invalid evidence pauses the batch; neither
 counts as a model failure. Stop for another demonstrated generic skill gap
@@ -74,27 +76,30 @@ Only the unchanged public vector is staged as an exact frozen input, SHA-256
 Immutable behavior archive SHA-256 remains
 `D2A66124EC3269132DAD9FF5149DA0E73E8C6EA2897E9A62DDA80F7E9F3017FE`.
 The original preflight project remains open in protected TIA PID 15780; its
-children and unrelated Debug MCP/worker remain out of scope. New model TIA PID
+children and unrelated Debug MCP/worker remain out of scope. Model TIA PID
 26952 was created for this campaign and independently confirmed empty. Simulator
-lease PID 44424 owns `OTT35_Bench`; do not end it during a probe or recovery.
+lease PID 44424 owned `OTT35_Bench`; both owned resources were removed only after
+the final trial, explicit unsaved close, and independent health verification.
 
 ## Flash High trials and capture correction
 
-Both executions used the clean skill commit `dab1768`, OpenCode 1.18.10 and
+Trials 1/2 used the clean skill commit `dab1768`, OpenCode 1.18.10 and
 `zai-coding-plan/glm-5.3-flash`, with variant and reasoning effort explicitly
 `high`. Skills tree: `3319b3ea35963f1f7ea985033fe4b0c1e3a8952a`.
 
-| Trial | Qualified score | Duration | Fresh Verified evidence |
-| --- | --- | --- | --- |
-| 1 | 100/100, original result | 729.377 s | `fe883b3917674c7cb04b868746a5bb01` |
-| 2 | 100/100, append-only capture replay | 864.937 s | `449c12d1becf48e6b3e052a02ca8cd8e` |
+| Trial | Qualified score | Duration | Reported reasoning tokens | Request USD | Fresh Verified evidence |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 100/100, original result | 729.377 s | 14,030 | 0 | `fe883b3917674c7cb04b868746a5bb01` |
+| 2 | 100/100, append-only capture replay | 864.937 s | 15,595 | 0 | `449c12d1becf48e6b3e052a02ca8cd8e` |
+| 3 | 100/100, original result | 945.043 s | 17,038 | 0 | `ead845a6d1dc495093e8c1cd97acb8f0` |
 
-Both loaded the new neutral asset; trial 2 also read the declaration catalog.
+All three loaded the new neutral asset; trials 2/3 also read the declaration catalog.
 The FB/instance-DB declarations were valid in every guarded attempt. Trial 1
 self-corrected a global-DB declaration error and then a compiler warning; trial
-2 self-corrected a compiler warning. The final proofs independently verify all
+2 self-corrected a compiler warning. Trial 3 self-corrected a missing BOM and a
+compiler warning. The final proofs independently verify all
 15 vector steps/26 assertions, offline and simulator cleanup. No forbidden
-standalone mutation/save occurred. These two observations are encouraging, not
+standalone mutation/save occurred. These three observations are encouraging, not
 a controlled statistical estimate of the skill's causal effect.
 
 Trial 2's original result is **25/100, harness-invalid**, not a model failure.
@@ -143,7 +148,48 @@ the short owned root `C:/OTT/Bench/ott35-guidance/`. No provider throttling was
 observed. Reported per-task request cost is $0 through the z.ai subscription;
 this excludes subscription amortization and does not mean the provider is free.
 
-The original batch remains paused after its capture error. Trial 3 will run as
-an explicitly separate segment after the harness-only commit, not by rewriting
-that checkpoint. Skill payload, case, archive, vector and runtime/oracle remain
-identical, while exact Git provenance for the harness change stays visible.
+The original batch remains paused after its capture error. Trial 3 ran as an
+explicitly separate selected-trial segment at clean commit `cdb1057`, not by
+rewriting that checkpoint. Its original score/capture is valid. Skill payload,
+case, archive, vector and runtime/oracle remain identical; exact Git provenance
+for the harness change stays visible. No fallback model or metered OpenRouter
+endpoint was used, and no further skill correction was made during the cohort.
+
+## Completed rollup and final health
+
+`flash-qualified-3-trials.json` combines exactly trial 1's preserved result,
+trial 2's verified capture replay and trial 3's original segment through the
+existing campaign recovery/merge scripts. The intermediate two-trial report is
+retained as incomplete; neither it nor the original paused checkpoint is
+presented as a complete campaign. Accepted rollup: **qualified, 3/3 valid passes,
+mean score 100, mean duration 846.452 s (14.1 min), median 864.937 s**. Reported
+request cost remains $0 per trial, excluding the subscription.
+
+`cohort-audit.json` independently confirms the accepted indexes are exactly
+1/2/3; all have the same skills, runtime-source and frozen-case Git trees;
+archive/vector/qualified worker hashes are unchanged; and all trial plus failed
+fixture provider-auth copies are absent. It records each trace/result hash and
+which result is a capture replay. The harness commit is intentionally not
+hidden or described as an identical Git revision.
+
+Trial 3 independent `flash-t3-health/` checks passed: reopened offline project,
+Main-only inventory, zero sources, zero compile errors/warnings, exact original
+Main hash, zero online differences, then explicit unsaved close and no open
+owned projects. `cleanup-audit.json` proves `OTT35_Bench` was powered off and
+unregistered and the exact owned TIA/children/lease/runtime-manager processes
+exited. All five protected original TIA/helper and unrelated Debug MCP/worker
+process identities are unchanged, and the original preflight project remains
+open at its original path. Final cohort audit found no orphaned Release hosts
+or workers. Archive, projects and evidence files were retained; no recursive
+filesystem deletion or original-project save occurred.
+
+Generated references were checked again after completion: 186 commands current.
+All code and qualification reports are committed locally on the feature branch;
+no push, pull request, merge, or default-branch modification was performed.
+
+Conclusion: the generic declaration guidance is useful enough to retain. It
+removes the observed FB/instance-DB authoring blocker without embedding the
+benchmark's control logic. Compilation warnings still required model retries,
+but all three executions eventually earned genuine runtime acceptance
+under the unchanged clean-compile and restoration gates. This small unpaired
+cohort does not prove general model superiority or benchmark saturation.
