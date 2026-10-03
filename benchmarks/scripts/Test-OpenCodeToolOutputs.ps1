@@ -81,6 +81,60 @@ $byteGlobMeta = Copy-TestObject $metadata
 $byteGlobMeta.toolOutputs[0].tool='glob'
 Restore-BenchmarkToolOutputs -Events @($byteGlob) -Metadata $byteGlobMeta -ArtifactDirectory $artifacts
 if ($byteGlob.part.state.output -cne $full) { throw 'File-backed glob did not use durable capture.' }
+# Native grep's complete capped search response is not a file-backed byte preview.
+$grepRows = (1..100 | ForEach-Object { '  Line ' + $_ + ': match' }) -join "`n"
+$grep = [pscustomobject]@{type='tool_use';part=[pscustomobject]@{callID='grep_1';tool='grep';state=[pscustomobject]@{
+    status='completed';input=[pscustomobject]@{path=$workspace;pattern='match'}
+    output="Found 100 matches (more matches available)`n$workspace/candidate.scl`:`n$grepRows`n`n(Results truncated. Consider using a more specific path or pattern.)"
+    metadata=[pscustomobject]@{matches=100;truncated=$true}
+}}}
+$grepTrace = Join-Path $testRoot 'grep-cap.jsonl'
+[IO.File]::WriteAllLines($grepTrace, [string[]]@(($grep | ConvertTo-Json -Depth 50 -Compress),($stop | ConvertTo-Json -Depth 50 -Compress)), $utf8)
+if (@(Copy-BenchmarkToolOutputs -TracePath $grepTrace -WorkspacePath $workspace -ArtifactDirectory $artifacts).Count -ne 0) { throw 'Native grep cap was captured as a byte-truncated output.' }
+$grepOutput = $grep.part.state.output
+foreach ($crlf in @($false,$true)) {
+    $event = Copy-TestObject $grep
+    if ($crlf) { $event.part.state.output=$event.part.state.output.Replace("`n", "`r`n") }
+    $unchanged = $event.part.state.output
+    Restore-BenchmarkToolOutputs -Events @($event) -Metadata ([pscustomobject]@{}) -ArtifactDirectory $artifacts
+    if ($event.part.state.output -cne $unchanged) { throw 'Native grep cap was rewritten.' }
+}
+$grepRejected = 0
+foreach ($scenario in @('mcp','unknown','missing-identity','failed','wrong-count','string-count','missing-count','missing-input','missing-pattern','blank-pattern','missing-path','numeric-path','wrong-header','wrong-footer','short-rows','extra-rows','invalid-line','byte-marker','file-marker','empty-output-path')) {
+    $event = Copy-TestObject $grep
+    switch ($scenario) {
+        'mcp' { $event.part.tool='opentia_grep' }
+        'unknown' { $event.part.tool='unknown' }
+        'missing-identity' { $event.part.PSObject.Properties.Remove('callID') }
+        'failed' { $event.part.state.status='error' }
+        'wrong-count' { $event.part.state.metadata.matches=99 }
+        'string-count' { $event.part.state.metadata.matches='100' }
+        'missing-count' { $event.part.state.metadata.PSObject.Properties.Remove('matches') }
+        'missing-input' { $event.part.state.PSObject.Properties.Remove('input') }
+        'missing-pattern' { $event.part.state.input.PSObject.Properties.Remove('pattern') }
+        'blank-pattern' { $event.part.state.input.pattern=' ' }
+        'missing-path' { $event.part.state.input.PSObject.Properties.Remove('path') }
+        'numeric-path' { $event.part.state.input.path=123 }
+        'wrong-header' { $event.part.state.output=$grepOutput.Replace('Found 100', 'Found 99') }
+        'wrong-footer' { $event.part.state.output=$grepOutput.Replace('Results truncated.', 'Other truncation.') }
+        'short-rows' { $event.part.state.output=$grepOutput.Replace("  Line 100: match`n", '') }
+        'extra-rows' { $event.part.state.output=$grepOutput.Replace('  Line 100: match', "  Line 100: match`n  Line 101: match") }
+        'invalid-line' { $event.part.state.output=$grepOutput.Replace('  Line 100:', '  Line 0:') }
+        'byte-marker' { $event.part.state.output=$grepOutput + "`n...100 bytes truncated..." }
+        'file-marker' { $event.part.state.output=$grepOutput + "`nFull output saved to: missing" }
+        'empty-output-path' { $event.part.state.metadata | Add-Member outputPath '' }
+    }
+    try { Restore-BenchmarkToolOutputs -Events @($event) -Metadata ([pscustomobject]@{workspacePath=$workspace}) -ArtifactDirectory $artifacts }
+    catch { $grepRejected++;continue }
+    throw "Missing full-output evidence was silently accepted as a grep cap: $scenario"
+}
+$byteGrep = Copy-TestObject $template
+$byteGrep.part.tool='grep'
+$byteGrep.part.state.metadata | Add-Member matches 100
+$byteGrepMeta = Copy-TestObject $metadata
+$byteGrepMeta.toolOutputs[0].tool='grep'
+Restore-BenchmarkToolOutputs -Events @($byteGrep) -Metadata $byteGrepMeta -ArtifactDirectory $artifacts
+if ($byteGrep.part.state.output -cne $full) { throw 'File-backed grep did not use durable capture.' }
 $readPath = Join-Path $workspace 'candidate.scl'
 $slice = [pscustomobject]@{type='tool_use';part=[pscustomobject]@{callID='read_1';tool='read';state=[pscustomobject]@{
     status='completed';input=[pscustomobject]@{filePath=$readPath;limit=3}
@@ -227,4 +281,10 @@ $case.assertions[0].outputPatterns=@('1: first')
 [IO.File]::WriteAllText($casePath, ($case | ConvertTo-Json -Depth 30), $utf8)
 $readResult = & (Join-Path $PSScriptRoot 'Measure-OpenCodeTrace.ps1') -CasePath $casePath -TracePath $readTrace -MetadataPath $metaPath -OutputPath $resultPath
 if (-not $readResult.passed -or -not $readResult.validForModelComparison -or (Get-FileHash -LiteralPath $readTrace).Hash -cne $readHash) { throw 'Read slice scorer integration failed or rewrote its trace.' }
-Write-Host "PASS: durable native output/replay, unchanged raw trace, semantic glob/read, scorer pass/harness-invalid; $rejected adversarial captures + $semanticRejected glob + $sliceRejected read controls. Temporary evidence: $testRoot"
+$grepHash = (Get-FileHash -LiteralPath $grepTrace).Hash
+$case.assertions[0].namePattern='^grep$'
+$case.assertions[0].outputPatterns=@('Line 100: match')
+[IO.File]::WriteAllText($casePath, ($case | ConvertTo-Json -Depth 30), $utf8)
+$grepResult = & (Join-Path $PSScriptRoot 'Measure-OpenCodeTrace.ps1') -CasePath $casePath -TracePath $grepTrace -MetadataPath $metaPath -OutputPath $resultPath
+if (-not $grepResult.passed -or -not $grepResult.validForModelComparison -or (Get-FileHash -LiteralPath $grepTrace).Hash -cne $grepHash) { throw 'Native grep cap scorer integration failed or rewrote its trace.' }
+Write-Host "PASS: durable native output/replay, unchanged raw trace, semantic glob/read/grep, scorer pass/harness-invalid; $rejected adversarial captures + $semanticRejected glob + $sliceRejected read + $grepRejected grep controls. Temporary evidence: $testRoot"

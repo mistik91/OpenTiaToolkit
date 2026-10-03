@@ -31,6 +31,24 @@ function Test-BenchmarkRequestedReadSlice {
     return $output.StartsWith($prefix, [StringComparison]::Ordinal) -and $output.EndsWith($suffix, [StringComparison]::Ordinal)
 }
 
+function Test-BenchmarkNativeGrepCap {
+    param([object]$Event)
+    $state = $Event.part.state
+    if ($null -eq $state.metadata.PSObject.Properties['matches'] -or
+        ($state.metadata.matches -isnot [int] -and $state.metadata.matches -isnot [long]) -or
+        $state.metadata.matches -ne 100 -or
+        $null -eq $state.PSObject.Properties['input'] -or $null -eq $state.input) { return $false }
+    foreach ($name in @('path','pattern')) {
+        if ($null -eq $state.input.PSObject.Properties[$name] -or $state.input.$name -isnot [string] -or
+            [string]::IsNullOrWhiteSpace($state.input.$name)) { return $false }
+    }
+    $output = $state.output.Replace("`r`n", "`n")
+    return $output.StartsWith("Found 100 matches (more matches available)`n", [StringComparison]::Ordinal) -and
+        $output.EndsWith('(Results truncated. Consider using a more specific path or pattern.)', [StringComparison]::Ordinal) -and
+        [regex]::Matches($output, '(?m)^  Line [1-9][0-9]*: ').Count -eq 100 -and
+        [regex]::Matches($output, '(?m)^  Line ').Count -eq 100
+}
+
 function Test-BenchmarkNativeOutputTruncated {
     param([object]$Event)
     if ($Event.type -ne 'tool_use' -or $null -eq $Event.PSObject.Properties['part'] -or
@@ -52,6 +70,7 @@ function Test-BenchmarkNativeOutputTruncated {
         if ($Event.part.tool -ceq 'glob' -and $null -ne $meta.PSObject.Properties['count'] -and
             ($meta.count -is [int] -or $meta.count -is [long]) -and $meta.count -eq 100) { return $false }
         if ($Event.part.tool -ceq 'read' -and (Test-BenchmarkRequestedReadSlice -Event $Event)) { return $false }
+        if ($Event.part.tool -ceq 'grep' -and (Test-BenchmarkNativeGrepCap -Event $Event)) { return $false }
     }
     return $Event.part.state.metadata.truncated
 }

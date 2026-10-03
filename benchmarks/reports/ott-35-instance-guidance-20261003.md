@@ -1,6 +1,6 @@
 # OTT-35 generic native instance-DB guidance — 2026-10-03
 
-## Checkpoint: skill qualified; fresh model cohort pending
+## Checkpoint: skill qualified; two verified trials, third pending
 
 Branch `codex/ott-35-plcsim-behavior-benchmark`, following `49c9770`.
 No push, PR, or merge. Historical campaigns and the append-only 15/100 timeout
@@ -77,3 +77,73 @@ The original preflight project remains open in protected TIA PID 15780; its
 children and unrelated Debug MCP/worker remain out of scope. New model TIA PID
 26952 was created for this campaign and independently confirmed empty. Simulator
 lease PID 44424 owns `OTT35_Bench`; do not end it during a probe or recovery.
+
+## Flash High trials and capture correction
+
+Both executions used the clean skill commit `dab1768`, OpenCode 1.18.10 and
+`zai-coding-plan/glm-5.3-flash`, with variant and reasoning effort explicitly
+`high`. Skills tree: `3319b3ea35963f1f7ea985033fe4b0c1e3a8952a`.
+
+| Trial | Qualified score | Duration | Fresh Verified evidence |
+| --- | --- | --- | --- |
+| 1 | 100/100, original result | 729.377 s | `fe883b3917674c7cb04b868746a5bb01` |
+| 2 | 100/100, append-only capture replay | 864.937 s | `449c12d1becf48e6b3e052a02ca8cd8e` |
+
+Both loaded the new neutral asset; trial 2 also read the declaration catalog.
+The FB/instance-DB declarations were valid in every guarded attempt. Trial 1
+self-corrected a global-DB declaration error and then a compiler warning; trial
+2 self-corrected a compiler warning. The final proofs independently verify all
+15 vector steps/26 assertions, offline and simulator cleanup. No forbidden
+standalone mutation/save occurred. These two observations are encouraging, not
+a controlled statistical estimate of the skill's causal effect.
+
+Trial 2's original result is **25/100, harness-invalid**, not a model failure.
+Its native `grep` call produced the complete 100-match capped search response:
+`matches=100`, `truncated=true`, no outputPath. The output-capture classifier
+incorrectly demanded a full-output file for this semantic cap. The actual MCP
+behavior proof and exact evidence read were genuinely byte-truncated and each
+had its own native full-output file.
+
+The surgical harness correction accepts only the completed built-in `grep`
+protocol with exact call identity, integer 100-match metadata, nonempty path and
+pattern, exact native header/footer, exactly 100 positive-numbered result rows,
+and no outputPath or byte/full-file markers. It leaves the capped search text
+unchanged. MCP, unknown tools, malformed grep protocols, and file-backed grep
+still require authenticated full-output capture; runtime scoring is unchanged.
+Focused tests passed in Windows PowerShell 5.1 and PowerShell 7, including 20
+new negative grep controls, CRLF preservation, file-backed grep, and scorer
+integration, alongside 22 existing adversarial captures, 10 glob and 17 read
+controls.
+
+The full `npm test` benchmark regression suite also passed after this harness
+correction (28 cases, 70 campaigns, 15 fixtures). Compiled hosts, worker, command
+surface and skill payload were untouched; the previously qualified Release
+worker remains SHA-256
+`9C6C2BF37A4E49468232537D4336B16B5AE748B506E1B588E47F9AF1AED12C23`.
+
+Append-only `flash-t2-capture-replay/` contains the identical raw trace and
+frozen case, the two authentic call/path/prefix/hash-verified MCP full outputs,
+and explicit source-file hashes/provenance. Its score is 100/100 and valid for
+model comparison. Original trace, metadata, result and paused batch checkpoint
+are preserved; the replay is not a new model execution.
+
+Independent trial 2 health passed: Main-only block inventory, zero external
+sources, zero compile errors/warnings, unchanged Main hash, zero online
+differences, provider auth removed, and explicit unsaved close. Evidence is
+under `flash-t2-health/`. Trial 1 had two health-wrapper failures (incorrect
+response-field access, then compile while online); neither is reported as a
+pass. The first wrapper retained clean reads and online comparison; subsequent
+fresh owned headless reopen passed offline inventory/compile/Main checks under
+`flash-t1-independent-health/`, and the next fixture explicitly closed trial 1
+without saving.
+
+An initial archive retrieval exceeded Siemens' 143-character path limit before
+any model request. Its failed fixture evidence is retained, and executions used
+the short owned root `C:/OTT/Bench/ott35-guidance/`. No provider throttling was
+observed. Reported per-task request cost is $0 through the z.ai subscription;
+this excludes subscription amortization and does not mean the provider is free.
+
+The original batch remains paused after its capture error. Trial 3 will run as
+an explicitly separate segment after the harness-only commit, not by rewriting
+that checkpoint. Skill payload, case, archive, vector and runtime/oracle remain
+identical, while exact Git provenance for the harness change stays visible.
