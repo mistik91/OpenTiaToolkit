@@ -98,6 +98,17 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
+    public void ValidateBehaviorPackage_InstanceDbDoesNotReplaceGlobalContractDb()
+    {
+        WriteUtf8Bom("Stateful.scl", "FUNCTION_BLOCK \"Engine\"\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\nDATA_BLOCK \"State\"\r\n\"Engine\"\r\nBEGIN\r\nEND_DATA_BLOCK");
+        WriteUtf8Bom("Cycle.scl", "ORGANIZATION_BLOCK \"Cycle\"\r\nBEGIN\r\nEND_ORGANIZATION_BLOCK");
+        string package = Path.Combine(_directory, "package.json");
+        File.WriteAllText(package, "{\"schemaVersion\":\"1.0\",\"packageId\":\"stateful\",\"artifacts\":[{\"codeFormat\":\"scl\",\"inputPath\":\"Stateful.scl\"},{\"codeFormat\":\"scl\",\"inputPath\":\"Cycle.scl\"}]}");
+        InvalidDataException error = Assert.ThrowsException<InvalidDataException>(() => _service.ValidateBehaviorPackageArtifact(package));
+        StringAssert.Contains(error.Message, "global DATA_BLOCK");
+    }
+
+    [TestMethod]
     public void ValidateBehaviorPackage_RejectsArtifactOutsidePackageDirectory()
     {
         string package = Path.Combine(_directory, "package.json");
@@ -806,6 +817,103 @@ public class PlcDocumentWorkflowServiceTests
         Assert.AreEqual(string.Empty, result.Transaction.Operations.Single().TypeGroupPath);
         Assert.IsTrue(result.Transaction.Operations.Single().TargetSnapshots.Any(snapshot => snapshot.Target.BlockType == "TYPE" && snapshot.CanonicalResultHash != null));
         Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclInstanceDb_UsesExactXmlCanonicalExport()
+    {
+        var fixture = await RunInstanceDbTransactionAsync();
+        Assert.IsTrue(fixture.Result.Verified, fixture.Result.Message);
+        var snapshot = fixture.Result.Transaction.Operations.Single().TargetSnapshots.Single(item => item.Target.Name == "State");
+        Assert.AreEqual("InstanceDB", snapshot.Target.BlockType);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(snapshot.CanonicalResultHash));
+        var instance = fixture.Software.BlockGroup.Blocks.Single(item => item.Name == "State");
+        Assert.AreEqual(0, instance.DocumentExports);
+        Assert.IsTrue(instance.XmlExports > 0);
+        Assert.IsTrue(fixture.Service.DiscardTransaction(fixture.Result.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclInstanceDbReplacement_IsRejectedBeforeImport()
+    {
+        string sourcePath = Path.Combine(_directory, "Replacement.scl");
+        File.WriteAllText(sourcePath, "FUNCTION_BLOCK \"Engine\"\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\nDATA_BLOCK \"State\"\r\n\"Engine\"\r\nBEGIN\r\nEND_DATA_BLOCK", new UTF8Encoding(true));
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        var context = ContextWithGroups(("", new FakeBlock { Name = "State", Type = "InstanceDB" }));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        var draft = await service.BeginTransactionAsync("PLC_1", "unsupported replacement guard");
+        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(draft.TransactionId));
+        StringAssert.Contains(error.Message, "lossless instance DB rollback");
+        plc.Verify(item => item.ImportSourceAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
+    }
+
+    [DataTestMethod]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    public async Task Transaction_SclInstanceDb_FailedCompileOrXmlExport_CleansInstanceBeforeFb(bool failCompile, bool failXml)
+    {
+        var fixture = await RunInstanceDbTransactionAsync(failCompile: failCompile, failXml: failXml);
+        Assert.IsTrue(fixture.Result.RolledBackAndVerified, fixture.Result.Message);
+        CollectionAssert.AreEqual(new[] { "State", "Engine" }, fixture.Deletions.ToArray());
+        Assert.AreEqual(0, fixture.Software.BlockGroup.Blocks.Count);
+        Assert.IsTrue(fixture.Result.Transaction.Operations.Single().TargetSnapshots.All(item => item.RestorationVerified));
+        Assert.IsTrue(fixture.Service.DiscardTransaction(fixture.Result.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclWrongSubtype_RequiresRecoveryEvenWhenCompileIsClean()
+    {
+        var fixture = await RunInstanceDbTransactionAsync(wrongSubtype: true);
+        Assert.IsTrue(fixture.Result.RecoveryRequired, fixture.Result.Message);
+        Assert.IsFalse(fixture.Result.RolledBackAndVerified);
+        StringAssert.Contains(fixture.Result.Transaction.Failure!, "wrong-subtype");
+        Assert.IsFalse(fixture.Result.Transaction.Operations.Single().RestorationVerified);
+        Assert.IsTrue(fixture.Software.BlockGroup.Blocks.Any(item => item.Name == "State"));
+        Assert.IsFalse(fixture.Deletions.Contains("State"), "Never delete an object whose exact type is not proven.");
+        // Manual removal is only a fake test fixture action. Supported recovery
+        // must still freshly prove every planned target and compilation condition.
+        fixture.Software.BlockGroup.Blocks.RemoveAll(item => item.Name == "State");
+        var recovered = await fixture.Service.RecoverTransactionAsync(fixture.Result.TransactionId);
+        Assert.IsTrue(recovered.RolledBackAndVerified, recovered.Message);
+        Assert.AreEqual(0, fixture.Software.BlockGroup.Blocks.Count);
+        Assert.IsTrue(fixture.Service.DiscardTransaction(fixture.Result.TransactionId));
+    }
+
+    private async Task<(PlcDocumentWorkflowService Service, FakePlcSoftware Software, PlcCodeTransactionApplyResult Result, List<string> Deletions)> RunInstanceDbTransactionAsync(bool failCompile = false, bool failXml = false, bool wrongSubtype = false)
+    {
+        string sourcePath = Path.Combine(_directory, "Stateful.scl");
+        File.WriteAllText(sourcePath, "FUNCTION_BLOCK \"Engine\"\r\nVAR Value : Int; END_VAR\r\nBEGIN\r\nEND_FUNCTION_BLOCK\r\nDATA_BLOCK \"State\"\r\n\"Engine\"\r\nBEGIN\r\nEND_DATA_BLOCK", new UTF8Encoding(true));
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var deletions = new List<string>();
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        plc.Setup(item => item.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "Stateful"));
+        plc.Setup(item => item.GenerateBlocksFromSourceAsync("Stateful", false, true)).ReturnsAsync(() =>
+        {
+            var fb = new FakeBlock { Name = "Engine", Type = "FB", ExportContent = "FUNCTION_BLOCK \"Engine\"\r\nVAR Value : Int; END_VAR\r\nEND_FUNCTION_BLOCK" };
+            var db = new FakeBlock { Name = "State", Type = wrongSubtype ? "GlobalDB" : "InstanceDB", XmlExportFails = failXml,
+                ExportContent = "<?xml version=\"1.0\"?><Document><SW.Blocks.InstanceDB ID=\"0\"><AttributeList><Name>State</Name><Interface xmlns=\"urn:siemens:test\"/></AttributeList></SW.Blocks.InstanceDB></Document>" };
+            foreach (var block in new[] { fb, db })
+            {
+                block.OnDelete = () => { deletions.Add(block.Name); software.BlockGroup.Blocks.Remove(block); };
+                software.BlockGroup.Blocks.Add(block);
+            }
+            return new PlcSourceOperationResult(true, true, "generated", "Stateful");
+        });
+        plc.Setup(item => item.DeleteExternalSourceAsync("Stateful", true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "deleted", "Stateful"));
+        int compile = 0;
+        plc.Setup(item => item.CompileSoftwareAsync(null)).ReturnsAsync(() => ++compile == 2 && failCompile
+            ? new CompilationResult(false, 1, 0, "forced mid-transaction compile failure") : new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        var draft = await service.BeginTransactionAsync("PLC_1", "generic source-owned instance DB");
+        service.AddSclTransactionOperation(draft.TransactionId, sourcePath, null);
+        var plan = await service.PlanTransactionAsync(draft.TransactionId);
+        var result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+        return (service, software, result, deletions);
     }
 
     [TestMethod]
@@ -1554,11 +1662,22 @@ public class PlcDocumentWorkflowServiceTests
         public string ExportContent { get; set; } = string.Empty;
         public Action? OnDelete { get; set; }
         public string ExportState { get; set; } = "Success";
+        public int DocumentExports { get; private set; }
+        public int XmlExports { get; private set; }
+        public bool XmlExportFails { get; set; }
         public FakeDocumentExportResult ExportAsDocuments(DirectoryInfo directory, string baseName)
         {
+            DocumentExports++;
             directory.Create();
             File.WriteAllText(Path.Combine(directory.FullName, baseName + ".s7dcl"), ExportContent, new UTF8Encoding(true));
             return new FakeDocumentExportResult { State = ExportState };
+        }
+        public void Export(FileInfo file)
+        {
+            XmlExports++;
+            if (XmlExportFails) throw new InvalidOperationException("forced XML export failure");
+            file.Directory?.Create();
+            File.WriteAllText(file.FullName, ExportContent, new UTF8Encoding(true));
         }
         public void Delete() => OnDelete?.Invoke();
     }

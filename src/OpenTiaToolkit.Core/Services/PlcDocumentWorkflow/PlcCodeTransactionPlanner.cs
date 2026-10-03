@@ -219,6 +219,8 @@ internal sealed class PlcCodeTransactionPlanner
             string baseline = "missing";
             if (existing != null)
             {
+                if (existing.Identity.BlockType.Equals("InstanceDB", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"Existing native SCL instance DB '{existing.Identity}' cannot be replaced: lossless instance DB rollback is not supported. Use a new uniquely named instance DB.");
                 string backup = TransactionSclTargetBaseline(transaction.TransactionId, source.Sequence, targetIndex);
                 Directory.CreateDirectory(backup);
                 if (!ExportExact(existing, backup)) throw new InvalidOperationException($"Existing SCL target '{existing.Identity}' could not be snapshotted as SIMATIC SD.");

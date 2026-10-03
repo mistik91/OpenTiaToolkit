@@ -284,7 +284,8 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         if (owners.Length == 0) throw new InvalidOperationException("A behavioral probe must declare at least one disposable DATA_BLOCK that exclusively owns every stimulated and observed tag.");
         return owners;
     }
-    private static bool IsDataBlock(PlcCodeDeclaredObject item) => item.ObjectType.Equals("DB", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("DATA_BLOCK", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("GlobalDB", StringComparison.OrdinalIgnoreCase);
+    private static bool IsDataBlock(PlcCodeDeclaredObject item) => IsGlobalDataBlock(item) || item.ObjectType.Equals("InstanceDB", StringComparison.OrdinalIgnoreCase);
+    private static bool IsGlobalDataBlock(PlcCodeDeclaredObject item) => item.ObjectType.Equals("DB", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("DATA_BLOCK", StringComparison.OrdinalIgnoreCase) || item.ObjectType.Equals("GlobalDB", StringComparison.OrdinalIgnoreCase);
     private static bool SameSimulator(PlcSimulatorInstanceCapability left, PlcSimulatorInstanceCapability right) => left.Id == right.Id && left.Name.Equals(right.Name, StringComparison.OrdinalIgnoreCase) && left.ArticleNumber.Equals(right.ArticleNumber, StringComparison.OrdinalIgnoreCase);
     internal static bool HasNoNewCompareDifferences(PlcSoftwareCompareResult baseline, PlcSoftwareCompareResult current) => PlcBehaviorCompareAnalyzer.HasNoNewCompareDifferences(baseline, current);
     private static PlcSoftwareCompareResult CompactCompare(PlcSoftwareCompareResult result) => new PlcSoftwareCompareResult(result.Success, result.ComparedToOnline, result.Message, result.Entries.Where(item => item.HasDifference).ToArray());
@@ -318,7 +319,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         PlcCodeDeclaredObject[] objects = artifacts.SelectMany(item => item.Validation.DeclaredObjects).ToArray();
         string duplicate = objects.GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(group => group.Count() > 1)?.Key ?? string.Empty;
         if (duplicate.Length > 0) throw new InvalidDataException("Behavior probe package declares a duplicate object: " + duplicate);
-        if (!objects.Any(IsDataBlock)) throw new InvalidDataException("Behavior probe package requires a disposable DATA_BLOCK for its runtime contract.");
+        if (!objects.Any(IsGlobalDataBlock)) throw new InvalidDataException("Behavior probe package requires a disposable global DATA_BLOCK for its runtime contract.");
         if (!objects.Any(item => item.ObjectType.Equals("OB", StringComparison.OrdinalIgnoreCase))) throw new InvalidDataException("Behavior probe package requires a disposable ORGANIZATION_BLOCK so the code is executed by the simulator scheduler.");
         string inputHash = BehaviorHash(Convert.ToBase64String(bytes) + "|" + string.Join("|", artifacts.Select(item => item.Validation.InputHash)));
         string signature = BehaviorHash(string.Join("|", artifacts.Select(item => item.Validation.Format + ":" + item.Validation.QualificationSignature).OrderBy(value => value, StringComparer.Ordinal)));

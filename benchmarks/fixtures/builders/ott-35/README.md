@@ -2,6 +2,8 @@
 
 Status: **not qualified; no model campaign is enabled**. See
 [the live preflight report](../../../reports/ott-35-behavior-preflight-20261003.md).
+The generic source-bound instance-DB correction is implemented and locally tested;
+[fresh live validation is pending allow-list refresh](../../../reports/ott-35-instance-db-fix-20261003.md).
 
 `Initialize-Simulator.ps1` owns a bounded PLCSIM Advanced instance. It must remain
 alive during qualification; do not terminate it while a probe or recovery is active.

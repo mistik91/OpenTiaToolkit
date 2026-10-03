@@ -318,9 +318,20 @@ internal sealed class PlcCodeTransactionExecutor
                 ResolvedBlock resolved = ResolveExact(RequireBlockRoot(), snapshot.Target, allowMissing: false)!;
                 if (!IdentityMatches(snapshot.Target, resolved.Identity, requireNumber: !string.IsNullOrWhiteSpace(snapshot.Target.Number))) throw new InvalidOperationException($"Operation {operation.Sequence} canonical identity verification failed for '{snapshot.Target}'.");
                 string output = Path.Combine(resultRoot, operation.Sequence + "-" + targetIndex);
-                Directory.CreateDirectory(output);
-                if (!ExportExact(resolved, output)) throw new InvalidOperationException($"Operation {operation.Sequence} canonical export failed for '{snapshot.Target}'.");
-                snapshot.CanonicalResultHash = HashDocumentPair(output, resolved.Identity.Name);
+                if (snapshot.BaselineHash == "missing" && resolved.Identity.BlockType.Equals("InstanceDB", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Instance DB documents are not a supported recreate route. Use
+                    // the exact Siemens XML export for canonical creation evidence.
+                    string xml = output + ".xml";
+                    if (!_targets.ExportExactBlockXml(resolved, xml)) throw new InvalidOperationException($"Operation {operation.Sequence} canonical instance DB XML export failed for '{snapshot.Target}'.");
+                    snapshot.CanonicalResultHash = _formats.ComputeSimaticMlContentHash(xml);
+                }
+                else
+                {
+                    Directory.CreateDirectory(output);
+                    if (!ExportExact(resolved, output)) throw new InvalidOperationException($"Operation {operation.Sequence} canonical export failed for '{snapshot.Target}'.");
+                    snapshot.CanonicalResultHash = HashDocumentPair(output, resolved.Identity.Name);
+                }
                 if (operation.TargetSnapshots.Count == 0) operation.CanonicalResultHash = snapshot.CanonicalResultHash;
             }
             operation.CanonicalResultHash = operation.TargetSnapshots.Count == 1 ? operation.TargetSnapshots[0].CanonicalResultHash : operation.TargetSnapshots.Count > 1 ? Hash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", operation.TargetSnapshots.Select(item => item.CanonicalResultHash)))) : operation.CanonicalResultHash;
