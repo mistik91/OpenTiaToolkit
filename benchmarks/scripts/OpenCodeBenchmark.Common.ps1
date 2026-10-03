@@ -1,5 +1,7 @@
 Set-StrictMode -Version Latest
 
+. (Join-Path $PSScriptRoot 'BenchmarkWorkspaceInputs.ps1')
+
 function Resolve-ExistingFile {
     param(
         [string]$ExplicitPath,

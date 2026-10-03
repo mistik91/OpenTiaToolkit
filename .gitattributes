@@ -1,0 +1,2 @@
+# Frozen benchmark vectors are hashed as raw bytes, including line endings.
+benchmarks/cases/ott-35/acceptance-vector.json text eol=lf

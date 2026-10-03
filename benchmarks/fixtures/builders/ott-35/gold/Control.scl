@@ -13,15 +13,17 @@ VERSION : 0.1
     VAR
         Delay : TON_TIME;
         PreviousActive : Bool;
+        InternalCount : UDInt := 0;
     END_VAR
 BEGIN
     #Delay.TON(IN := #Request AND #Permit AND NOT #Reset, PT := T#1s);
     #Active := #Delay.Q AND #Request AND #Permit AND NOT #Reset;
     IF #Reset THEN
-        #ActivationCount := 0;
+        #InternalCount := 0;
     ELSIF #Active AND NOT #PreviousActive THEN
-        #ActivationCount := #ActivationCount + 1;
+        #InternalCount := #InternalCount + 1;
     END_IF;
+    #ActivationCount := #InternalCount;
     #PreviousActive := #Active;
 END_FUNCTION_BLOCK
 

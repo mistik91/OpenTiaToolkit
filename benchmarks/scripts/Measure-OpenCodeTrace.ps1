@@ -17,6 +17,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot 'LadAssertions.ps1')
+. (Join-Path $PSScriptRoot 'PlcBehaviorAssertions.ps1')
 
 function Get-PropertyValue {
     param(
@@ -794,6 +795,14 @@ foreach ($assertion in $case.assertions) {
     }
 
     switch ([string]$assertion.type) {
+        'plcBehaviorEvidence' {
+            try {
+                $details = Test-BenchmarkPlcBehaviorEvidence -ToolEvents $toolEvents `
+                    -Metadata $metadata -WorkspaceRoot $workspaceRoot -Assertion $assertion
+                $passed = $true
+            }
+            catch { $details = $_.Exception.Message; $passed = $false }
+        }
         'run' {
             $passed = (-not [bool]$metadata.timedOut) -and ([int]$metadata.exitCode -eq 0) -and $hasStop
             $details = "exitCode=$($metadata.exitCode); timedOut=$($metadata.timedOut); finalStop=$hasStop"

@@ -237,6 +237,23 @@
         "This disposable standard-LAD fixture is not a runtime safety controller. Independent gold body-only import proved common-interlocked Auto/Jog branching and a 750 ms nonretentive TON, with 64 combinational XML wiring rows and exact static IN/PT/Q checks.",
         "A real final compile failure after both transaction operations applied restored every original SD hash, removed the deliberate failure FC, and recovered zero-error/zero-warning compilation."
       ]
+    },
+    {
+      "id": "tia-v21-behavior-14",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Behavior_20261003.zap21",
+      "sha256": "D2A66124EC3269132DAD9FF5149DA0E73E8C6EA2897E9A62DDA80F7E9F3017FE",
+      "sizeBytes": 5633615,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_Main",
+      "notes": [
+        "Derived from the baseline project with user-provisioned anonymous access, simulation compilation, and virtual S7-1500 support. Only original empty LAD Main exists in PLC software; no candidate blocks or external sources are archived.",
+        "Requires an explicitly owned powered PLCSIM Advanced OTT35_Bench instance with controller PLC_Main and CPU article 6ES7 511-1AL03-0AB0. Never use real hardware or another simulator identity.",
+        "Independent fresh gold restores passed all 15 temporal scenarios and 26 typed assertions at zero compile errors/warnings; offline inventories, original Main hash, and simulator cleanup/online comparison were proven.",
+        "Independent semantic controls rejected a 100 ms timer, ignored Permit, ignored Reset, and per-scan counting. A real final compile failure after preceding operations applied proved exact instance-before-FB rollback and baseline restoration."
+      ]
     }
   ]
 }

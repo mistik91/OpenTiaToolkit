@@ -2,6 +2,11 @@
 
 ## Outcome: BLOCKED at fresh live validation
 
+Historical checkpoint at commit `4ed3c53`. The registration gate was subsequently
+resolved and fresh live validation passed; see the
+[continuation report](ott-35-live-qualification-20261003.md). The details below
+describe the state at that checkpoint, not the current qualification outcome.
+
 The generic correction is implemented and local validation passes. No new live
 probe or model campaign has run with the rebuilt worker. Its Siemens allow-list
 identity changed, and the current Codex session is not elevated. The user has been

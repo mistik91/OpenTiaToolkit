@@ -1,9 +1,10 @@
 # OTT-35 runtime behavior qualification checkpoint
 
-Status: **not qualified; no model campaign is enabled**. See
-[the live preflight report](../../../reports/ott-35-behavior-preflight-20261003.md).
-The generic source-bound instance-DB correction is implemented and locally tested;
-[fresh live validation is pending allow-list refresh](../../../reports/ott-35-instance-db-fix-20261003.md).
+Status: **live gold and semantic controls qualified**. See
+[the qualification report](../../../reports/ott-35-live-qualification-20261003.md).
+The historical [preflight](../../../reports/ott-35-behavior-preflight-20261003.md)
+and [instance-DB fix checkpoint](../../../reports/ott-35-instance-db-fix-20261003.md)
+retain the earlier failure and registration pause; those are not the current outcome.
 
 `Initialize-Simulator.ps1` owns a bounded PLCSIM Advanced instance. It must remain
 alive during qualification; do not terminate it while a probe or recovery is active.
@@ -30,11 +31,13 @@ The `gold/` candidate implements a 1-second, non-accumulating interlocked delay,
 reset priority, and one activation count per rising active edge. It uses a native
 SCL FB and instance DB, a global I/O DB, and a separate cyclic OB so the original
 Main is preserved. The candidate acceptance vector in `cases/ott-35/` has 15 steps
-and 26 assertions. It is independent of model output but has **not yet executed
-successfully against this candidate**; timer margins still need live qualification.
+and 26 assertions. Independent fresh gold restores passed every assertion at zero
+compile errors/warnings. The FB keeps its counter in static state and assigns its
+public output each scan, avoiding TIA's potentially-uninitialized output warning.
 
-Before publishing a case or campaigns: fix and independently verify generic native
-instance-DB handling and rollback, rerun the gold package on a fresh restore, prove
-semantic negative controls, then add bounded input staging and a structured behavior
-evidence oracle to the harness. The intended campaign order remains GLM-5.3 Flash
-High first, with GLM-5.3 High only for genuine model failures.
+The case and campaigns use bounded frozen-vector staging and a structured behavior
+oracle. Semantic controls rejected a fast timer, ignored interlock, ignored reset,
+and per-scan counting; a real final compile failure proved exact rollback after
+earlier operations applied. The campaign order remains GLM-5.3 Flash High first,
+with GLM-5.3 High only for genuine model failures. Run checkpointed single-trial
+batches and inspect cleanup before restoring the next trial.

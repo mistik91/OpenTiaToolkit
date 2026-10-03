@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-35",
+  "title": "PLCSIM stateful interlock and temporal behavior",
+  "description": "Native FB/instance-DB engineering verified by an independent frozen simulator vector, exact evidence and complete cleanup; compile-only or self-authored vectors do not qualify.",
+  "fixtureId": "tia-v21-behavior-14",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1800,
+  "passScore": 95,
+  "allowedSkills": ["opentia-toolkit-workflow", "basic-tia-interaction", "plc-code-engineering", "scl-source-authoring", "s7dcl-data-authoring", "plc-block-and-tag-workflow", "plc-behavior-verification"],
+  "allowWorkspaceEdits": true,
+  "workspaceInputs": [
+    { "sourcePath": "acceptance-vector.json", "targetPath": "inputs/acceptance-vector.json", "sha256": "1d6ef01bfd7c8b8ff2bfacb7136aeab3b80de08cf2247a5c2be48455ece66724" }
+  ],
+  "assertions": [
+    { "id": "run-completed", "type": "run", "points": 5, "critical": true },
+    { "id": "behavior-skill-loaded", "type": "tool", "points": 5, "namePattern": "skill$", "inputEquals": { "name": "plc-behavior-verification" }, "minCount": 1 },
+    { "id": "native-scl-skill-loaded", "type": "tool", "points": 5, "namePattern": "skill$", "inputEquals": { "name": "scl-source-authoring" }, "minCount": 1 },
+    { "id": "frozen-runtime-acceptance", "type": "plcBehaviorEvidence", "points": 75, "critical": true, "relativePath": "inputs/acceptance-vector.json", "vectorSha256": "1d6ef01bfd7c8b8ff2bfacb7136aeab3b80de08cf2247a5c2be48455ece66724", "requiredObjectTypes": ["FB", "InstanceDB", "GlobalDB", "OB"] },
+    { "id": "no-standalone-mutation-or-save", "type": "forbiddenTool", "points": 5, "critical": true, "namePattern": "^opentia_(?:import_|generate_|delete_|modify_|find_replace_|sync_|save_|close_|archive_|retrieve_|download_|set_|copy_|ensure_|commit_|remove_|write_|add_|apply_|begin_|plan_|approve_|discard_|start_cpu$|stop_cpu$|open_project$|open_tia_portal$|run_plc_code_probe$)" },
+    { "id": "final-evidence-summary", "type": "finalRegex", "points": 5, "pattern": "(?is)(?=.*Verified)(?=.*(?:cleanup|cleaned|restor))(?=.*(?:not saved|unsaved|without saving|no.*save))" }
+  ]
+}
