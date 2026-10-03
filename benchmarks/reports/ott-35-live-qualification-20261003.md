@@ -1,6 +1,6 @@
 # OTT-35 live qualification — 2026-10-03
 
-## Outcome: PASS for candidate and controls; first model trial passed
+## Outcome: PASS for candidate and controls; model campaign paused for diagnostic feedback
 
 Branch: `codex/ott-35-plcsim-behavior-benchmark`, continuing fix commit `4ed3c53`
 and scaffold `401c230`. No skills were edited or task-specific examples added.
@@ -139,3 +139,60 @@ controls, Unicode output preservation, durable replay after native-file removal,
 immutable trace checks, and actual scorer pass/harness-invalid integration.
 No C# or command/skill changes were needed for this capture repair; the previously
 qualified Release worker is unchanged.
+
+## Second Flash trial and campaign checkpoint
+
+Trial 2 ran at capture-repair commit `8b3f13b`, with the same frozen case/vector
+and identical skills tree (`4287f2a503a25a0f1f0eacdb18831c428b25bc6c`). It timed out
+at 1,800.161 seconds and scored **15/100**. The original result remains a valid
+recorded timeout/model-stack failure; it was not reclassified as a capture error
+or removed from statistics. Reported reasoning tokens: 37,777; reasoning/variant
+High; request cost $0 under the subscription. No provider/rate-limit error occurred.
+
+Six fresh probes were Failed, with both cleanups proven:
+
+| Evidence ID | Rejection |
+| --- | --- |
+| `26a975c7831046a492bcf77d8a3768d3` | Compile 0 errors / 1 new warning |
+| `132b0d345ec147b78c65f85bb558f7e1` | Compile 0 errors / 1 new warning |
+| `fbf8c08a09984747bfaea07a900fecd3` | Clean compile; Active incorrectly true before dwell |
+| `13ac34fa87cd491ba05633f4a845fbab` | Compile 0 errors / 1 new warning |
+| `29daf40059d44e5aa96aff6f05efd9a3` | Compile 0 errors / 1 new warning |
+| `ccc36772650841988b60e845f480d8a8` | Clean compile; expected activation remained false |
+
+The model attempted code simplifications and revisions without substituting the
+vector, relaxing the warning gate, or using forbidden standalone mutation. The
+runtime failures are real algorithmic failures. Missing compiler feedback cannot
+be claimed to be their sole cause, nor can a feedback fix be assumed to guarantee
+model success.
+
+A generic toolkit feedback gap was confirmed independently in code:
+`CompilationResult.Diagnostics` contains severity, path, name, description and
+error code, but `PlcCodeTransactionCompileEvidence` and conversions in the planner,
+executor and rollback coordinator retain only success/counts/summary text. A failed
+probe rolls back before a subsequent standalone compile, so the candidate's actual
+warning text is lost to the model. Requesting the already-cleaned transaction also
+cannot recover it. The proposed next slice is additive diagnostic retention across
+these evidence paths, with failure/rollback/serialization tests and disposable live
+qualification. No skill recipe or compiler/vector relaxation is proposed or applied.
+
+Trial 3 and GLM-5.3 High fallback are **not run** pending that decision. The combined
+two-trial artifact preserves each source commit/replay provenance and is not a
+completed three-trial campaign:
+`E:/Documents/OpenTiaBench/Artifacts/ott35-models/20261003-paused-diagnostics-campaign-result.json`.
+Its observed aggregate is 1/2 passes, mean 57.5; this is not a general model ranking.
+
+Final independent health: Main only, zero external sources, compile 0/0, original
+Main hash unchanged, simulator tag count zero, and online difference count zero.
+The disposable project was closed unsaved. Attached-portal disposal did not end its
+UI process; only the proven campaign PID 32536 and its exact Portal/crash-detector
+children were terminated after project cleanup. The owned `OTT35_Bench` instance
+was powered off and explicitly unregistered (remaining instances zero), then its
+bounded owner PID 44824 was ended. The user's PID 15780 and its children, and the
+chat-managed Debug MCP/worker processes, were preserved. Evidence:
+`E:/Documents/OpenTiaBench/Artifacts/ott35-models/20261003-trial2-final-health/` and
+the sibling `20261003-trial2-final-health-cli.log`.
+
+The behavior archive is still read-only, 5,633,615 bytes, with the original SHA-256.
+The model's provider-scoped temporary credential copy was removed. No push, PR,
+merge, skill edit, gold-code staging, or original-project mutation occurred.
