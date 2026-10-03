@@ -188,6 +188,19 @@ internal sealed class PlcCodeProbeWorkflow
     private static void RequirePromotionEvidence(PlcCodeEvidenceRecord evidence, PlcCodeArtifactValidationResult validation, PlcCodeEvidenceCompatibility compatibility)
         => PlcCodePromotionGate.RequireEvidence(evidence, validation, compatibility);
 
+    internal void RequireArtifactCapabilities(IReadOnlyList<PlcCodeCapabilityDiscovery> capabilities, PlcCodeArtifactValidationResult artifact, string plcName, string? groupPath, string? typeGroupPath)
+    {
+        foreach (PlcCodeDeclaredObject declared in artifact.DeclaredObjects)
+        {
+            bool isType = declared.ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase);
+            string kind = isType ? "Type" : "Block";
+            PlcCodeCapabilityDiscovery[] matches = capabilities.Where(item => item.Request.ObjectKind.Equals(kind, StringComparison.OrdinalIgnoreCase) && item.Request.ObjectName.Equals(declared.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length != 1) throw new InvalidOperationException($"Supply exactly one capability for '{declared.ObjectType}:{declared.Name}'.");
+            _capabilityGate.RequireOperation(matches[0], artifact.Format.Equals("SCL", StringComparison.OrdinalIgnoreCase) ? "GenerateSclSource" : "UpsertBlockDocuments", kind, declared.Name, declared.ObjectType,
+                isType ? PlcWorkflowPrimitives.NormalizeTypeGroupPath(typeGroupPath, plcName) : PlcWorkflowPrimitives.NormalizeGroupPath(groupPath, plcName));
+        }
+    }
+
     private static void RequirePromotionOperationCoverage(PlcCodeTransaction transaction, PlcCodePromotionBinding promotion)
     {
         if (transaction.Operations.Count != 1)

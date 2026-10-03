@@ -11,6 +11,20 @@ internal static class PlcCodeTransactionIntegrity
 {
     internal static readonly string[] RecoverableStates = { "Applying", "Verifying", "DisposingProbe", "RollingBack", "RecoveryRequired" };
 
+    // State alone is not proof: an interrupted or inconsistent manifest must retain recovery evidence.
+    internal static bool IsNeverApplied(PlcCodeTransaction transaction)
+    {
+        if (!new[] { "Draft", "Planned", "ImpactReviewRequired", "ImpactBlocked", "Expired", "Stale" }.Contains(transaction.State, StringComparer.Ordinal) ||
+            transaction.FinalCompilation != null || transaction.RollbackCompilation != null ||
+            transaction.Journal == null || transaction.Journal.Count == 0 || transaction.Operations == null) return false;
+        if (transaction.Journal[0] == null || transaction.Journal[0].Phase != "Lifecycle" || transaction.Journal[0].State != "Draft") return false;
+        string[] preApplyEntries = { "Lifecycle:Draft", "Lifecycle:Expired", "Authoring:Added", "Planning:Planned", "Impact:Planned", "Impact:ImpactReviewRequired", "Impact:ImpactBlocked", "Impact:Acknowledged", "Impact:Stale", "Preflight:Stale", "Preflight:Expired", "Promotion:Bound" };
+        if (transaction.Journal.Any(item => item == null || !preApplyEntries.Contains(item.Phase + ":" + item.State, StringComparer.Ordinal))) return false;
+        return transaction.Operations.All(item => item != null && item.ApplyState == "Pending" &&
+            string.IsNullOrWhiteSpace(item.CanonicalResultHash) && !item.RestorationVerified && string.IsNullOrWhiteSpace(item.ActualRestoredHash) &&
+            item.TargetSnapshots != null && item.TargetSnapshots.All(target => target != null && string.IsNullOrWhiteSpace(target.CanonicalResultHash) && !target.RestorationVerified && string.IsNullOrWhiteSpace(target.ActualRestoredHash)));
+    }
+
     internal static string ComputePlanHash(PlcCodeTransaction transaction)
     {
         string canonical = JsonSerializer.Serialize(new

@@ -9,13 +9,15 @@ param(
     [Parameter(Mandatory = $true)][string]$WorkerPath,
     [string]$PlcName = 'PLC_Main',
     [string]$InstanceName = 'OTT35_Bench',
-    [ValidateSet('Verified', 'Failed')][string]$ExpectedStatus = 'Verified',
+    [ValidateSet('Verified', 'Failed', 'Rejected')][string]$ExpectedStatus = 'Verified',
+    [switch]$MismatchedDocumentRoute,
     [switch]$AcceptUnknownImpact,
     [ValidateRange(60, 900)][int]$TimeoutSeconds = 600
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ($MismatchedDocumentRoute -ne ($ExpectedStatus -eq 'Rejected')) { throw 'Route rejection control requires ExpectedStatus=Rejected and MismatchedDocumentRoute together.' }
 $archive = (Resolve-Path -LiteralPath $ArchivePath).Path
 $package = (Resolve-Path -LiteralPath $PackagePath).Path
 $vector = (Resolve-Path -LiteralPath $VectorPath).Path
@@ -78,6 +80,7 @@ function Invoke-Tool {
     $response = Invoke-Request 'tools/call' @{name = $Name; arguments = $Arguments}
     if ($null -ne $response.PSObject.Properties['error']) { throw ($response.error | ConvertTo-Json -Compress) }
     $result = $response.result.structuredContent
+    $script:lastToolEnvelope = $result
     if ($result.success -ne $true -and -not $AllowFailure) { throw "$Name failed: $($result.message)" }
     return $result.data
 }
@@ -108,6 +111,7 @@ try {
     [void](Invoke-Tool 'validate-plc-behavior-package' @{'package-path' = $package})
     $manifest = Get-Content -LiteralPath $package -Raw | ConvertFrom-Json
     $ids = [Collections.Generic.List[string]]::new()
+    $transactionsBefore = Invoke-Tool 'list-plc-code-transactions'
     foreach ($artifact in $manifest.artifacts) {
         $artifactPath = Join-Path (Split-Path -Parent $package) ([string]$artifact.inputPath)
         $validation = Invoke-Tool 'validate-plc-code-artifact' @{'code-format' = $artifact.codeFormat; 'input-path' = $artifactPath}
@@ -115,13 +119,18 @@ try {
         foreach ($declaration in $validation.DeclaredObjects) {
             $arguments = @{'plc-name' = $PlcName; 'object-name' = $declaration.Name; 'object-kind' = 'Block'; operation = 'Create'; 'block-type' = $declaration.ObjectType; 'requested-format' = $artifact.codeFormat; 'group-path' = $artifact.groupPath}
             if ($artifact.codeFormat -eq 'scl') { $arguments['requested-language'] = 'SCL' }
+            if ($MismatchedDocumentRoute -and $artifact.codeFormat -eq 's7dcl') {
+                $arguments['requested-format'] = 'scl'
+                $arguments['requested-language'] = 'SCL'
+            }
             $capability = Invoke-Tool 'discover-plc-code-capabilities' $arguments
             if ($capability.SelectedRoute -eq 'Blocked') { throw 'A probe declaration is blocked.' }
             $ids.Add([string]$capability.CapabilityId)
         }
     }
     $arguments = @{'plc-name' = $PlcName; 'capability-ids' = ($ids -join ','); 'package-path' = $package; 'vector-path' = $vector; 'instance-name' = $InstanceName}
-    [void](Invoke-Tool 'query-plc-behavior-evidence' $arguments)
+    [void](Invoke-Tool 'query-plc-behavior-evidence' $arguments -AllowFailure:$MismatchedDocumentRoute)
+    if ($MismatchedDocumentRoute -and ($lastToolEnvelope.success -or $lastToolEnvelope.message -notmatch 'DirectDocuments')) { throw 'Mismatched query route was not rejected before execution.' }
     $arguments['compile-policy'] = 'CleanCompile'
     $arguments['maximum-new-warnings'] = 0
     $arguments['only-changes'] = $true
@@ -133,16 +142,24 @@ try {
     $retainSession = $true
     $probe = Invoke-Tool 'run-plc-code-behavior-probe' $arguments -AllowFailure
     [IO.File]::WriteAllText((Join-Path $output 'probe.json'), ($probe | ConvertTo-Json -Depth 100), $utf8)
-    if ($null -eq $probe -or $null -eq $probe.PSObject.Properties['Evidence']) { throw 'Probe returned no evidence record.' }
-    if ($probe.Evidence.Status -eq 'Quarantined') {
-        $recovered = Invoke-Tool 'recover-plc-code-behavior-probe' @{'evidence-id' = $probe.Evidence.EvidenceId; 'only-changes' = $true; confirm = $true} -AllowFailure
-        $retainSession = -not ($recovered.Evidence.CleanupProven -and $recovered.Evidence.Behavior.SimulatorCleanupProven)
-        if ($retainSession) { throw 'Recovery is unproven; keep this session for incident handling.' }
-        throw 'A quarantined probe required recovery; qualification is blocked, never passed.'
+    if ($MismatchedDocumentRoute) {
+        if ($lastToolEnvelope.success -or $lastToolEnvelope.message -notmatch 'DirectDocuments') { throw 'Mismatched probe route was not rejected before execution.' }
+        $transactionsAfter = Invoke-Tool 'list-plc-code-transactions'
+        if (($transactionsBefore | ConvertTo-Json -Depth 100 -Compress) -cne ($transactionsAfter | ConvertTo-Json -Depth 100 -Compress)) { throw 'Route rejection created or changed a transaction.' }
+        $retainSession = $false
     }
-    $retainSession = -not ($probe.Evidence.CleanupProven -and $probe.Evidence.Behavior.SimulatorCleanupProven)
-    if ($probe.Evidence.Status -ne $ExpectedStatus -or -not $probe.Evidence.CleanupProven -or -not $probe.Evidence.Behavior.SimulatorCleanupProven) { throw "Unexpected probe status or missing cleanup proof: $($probe.Evidence.Status) $($probe.Evidence.Failure)" }
-    if ($ExpectedStatus -eq 'Verified' -and (-not $probe.Evidence.Behavior.Execution.Passed -or -not $probe.Evidence.Behavior.Execution.ResetApplied -or -not $probe.Evidence.Behavior.Execution.CleanupApplied)) { throw 'Execution proof is incomplete.' }
+    else {
+        if ($null -eq $probe -or $null -eq $probe.PSObject.Properties['Evidence']) { throw 'Probe returned no evidence record.' }
+        if ($probe.Evidence.Status -eq 'Quarantined') {
+            $recovered = Invoke-Tool 'recover-plc-code-behavior-probe' @{'evidence-id' = $probe.Evidence.EvidenceId; 'only-changes' = $true; confirm = $true} -AllowFailure
+            $retainSession = -not ($recovered.Evidence.CleanupProven -and $recovered.Evidence.Behavior.SimulatorCleanupProven)
+            if ($retainSession) { throw 'Recovery is unproven; keep this session for incident handling.' }
+            throw 'A quarantined probe required recovery; qualification is blocked, never passed.'
+        }
+        $retainSession = -not ($probe.Evidence.CleanupProven -and $probe.Evidence.Behavior.SimulatorCleanupProven)
+        if ($probe.Evidence.Status -ne $ExpectedStatus -or -not $probe.Evidence.CleanupProven -or -not $probe.Evidence.Behavior.SimulatorCleanupProven) { throw "Unexpected probe status or missing cleanup proof: $($probe.Evidence.Status) $($probe.Evidence.Failure)" }
+        if ($ExpectedStatus -eq 'Verified' -and (-not $probe.Evidence.Behavior.Execution.Passed -or -not $probe.Evidence.Behavior.Execution.ResetApplied -or -not $probe.Evidence.Behavior.Execution.CleanupApplied)) { throw 'Execution proof is incomplete.' }
+    }
     $final = Invoke-Tool 'get-blocks' @{'plc-name' = $PlcName; 'page-size' = 1000}
     $finalSources = Invoke-Tool 'list-external-sources' @{'plc-name' = $PlcName; 'page-size' = 1000}
     if (($baseline.items | ConvertTo-Json -Depth 30 -Compress) -cne ($final.items | ConvertTo-Json -Depth 30 -Compress) -or
@@ -153,10 +170,13 @@ try {
     }
     $compile = Invoke-Tool 'compile-software' @{'plc-name' = $PlcName}
     if ($compile.errorCount -ne 0 -or $compile.warningCount -ne 0) { throw 'Cleanup compile is not clean.' }
-    $query = Invoke-Tool 'query-plc-behavior-evidence' @{'plc-name' = $PlcName; 'capability-ids' = ($ids -join ','); 'package-path' = $package; 'vector-path' = $vector; 'instance-name' = $InstanceName}
-    $matchingIds = @($query.Matches | ForEach-Object { $_.EvidenceId })
-    if (($ExpectedStatus -eq 'Verified' -and -not $query.Qualified) -or ($ExpectedStatus -eq 'Failed' -and $matchingIds -contains $probe.Evidence.EvidenceId)) { throw 'Exact evidence reuse classification is wrong.' }
-    Write-Host "PASS: $ExpectedStatus; evidence $($probe.Evidence.EvidenceId); cleanup and independent inventories verified."
+    if (-not $MismatchedDocumentRoute) {
+        $query = Invoke-Tool 'query-plc-behavior-evidence' @{'plc-name' = $PlcName; 'capability-ids' = ($ids -join ','); 'package-path' = $package; 'vector-path' = $vector; 'instance-name' = $InstanceName}
+        $matchingIds = @($query.Matches | ForEach-Object { $_.EvidenceId })
+        if (($ExpectedStatus -eq 'Verified' -and -not $query.Qualified) -or ($ExpectedStatus -eq 'Failed' -and $matchingIds -contains $probe.Evidence.EvidenceId)) { throw 'Exact evidence reuse classification is wrong.' }
+        Write-Host "PASS: $ExpectedStatus; evidence $($probe.Evidence.EvidenceId); cleanup and independent inventories verified."
+    }
+    else { Write-Host 'PASS: capability route rejected before transaction creation; independent inventories and Main hash unchanged.' }
 }
 finally {
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $archiveHash) { Write-Error 'Immutable archive hash changed.' }

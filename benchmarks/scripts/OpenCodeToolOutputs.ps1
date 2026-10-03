@@ -9,6 +9,17 @@ function Test-BenchmarkNativeOutputTruncated {
         $null -eq $Event.part.state.metadata -or
         $null -eq $Event.part.state.metadata.PSObject.Properties['truncated']) { return $false }
     if ($Event.part.state.metadata.truncated -isnot [bool]) { throw 'Invalid native truncation metadata.' }
+    # OpenCode glob caps its result set; it does not create a full-output file for that cap.
+    # Keep this exception narrow: MCP/unknown tools and byte-truncated previews still require capture.
+    $meta = $Event.part.state.metadata
+    if ($meta.truncated -and $null -eq $meta.PSObject.Properties['outputPath'] -and
+        $null -ne $Event.part.PSObject.Properties['tool'] -and $Event.part.tool -ceq 'glob' -and
+        $null -ne $Event.part.state.PSObject.Properties['status'] -and $Event.part.state.status -ceq 'completed' -and
+        $null -ne $meta.PSObject.Properties['count'] -and
+        ($meta.count -is [int] -or $meta.count -is [long]) -and $meta.count -eq 100 -and
+        $null -ne $Event.part.state.PSObject.Properties['output'] -and
+        [string]$Event.part.state.output -notmatch '(?m)^\.\.\.\d+ bytes truncated\.\.\.\r?$' -and
+        [string]$Event.part.state.output -notmatch 'Full output saved to:') { return $false }
     return $Event.part.state.metadata.truncated
 }
 
@@ -17,6 +28,7 @@ function Get-BenchmarkTruncatedOutputPath {
     if ([string]::IsNullOrWhiteSpace($WorkspacePath) -or
         [string]::IsNullOrWhiteSpace([string]$Event.part.callID) -or
         [string]::IsNullOrWhiteSpace([string]$Event.part.tool) -or
+        $null -eq $Event.part.state.metadata.PSObject.Properties['outputPath'] -or
         -not [IO.Path]::IsPathRooted([string]$Event.part.state.metadata.outputPath)) {
         throw 'Truncated output requires an absolute native path and exact tool call identity.'
     }

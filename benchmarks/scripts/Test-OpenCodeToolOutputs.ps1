@@ -43,6 +43,44 @@ foreach ($normal in @(
     $stop
 )) { Restore-BenchmarkToolOutputs -Events @($normal) -Metadata ([pscustomobject]@{}) -ArtifactDirectory $artifacts }
 $rejected = 0
+# A semantic glob cap stays in the immutable trace and needs no file capture.
+$glob = [pscustomobject]@{type='tool_use';part=[pscustomobject]@{callID='glob_1';tool='glob';state=[pscustomobject]@{
+    status='completed';input=[pscustomobject]@{pattern='**/*'};output="C:/workspace/file1`n(Results are truncated: consider using a more specific path or pattern.)"
+    metadata=[pscustomobject]@{count=100;truncated=$true}
+}}}
+$globTrace = Join-Path $testRoot 'glob.jsonl'
+[IO.File]::WriteAllLines($globTrace, [string[]]@(($glob | ConvertTo-Json -Depth 50 -Compress),($stop | ConvertTo-Json -Depth 50 -Compress)), $utf8)
+if (@(Copy-BenchmarkToolOutputs -TracePath $globTrace -WorkspacePath $workspace -ArtifactDirectory $artifacts).Count -ne 0) { throw 'Semantic glob cap was captured as a byte-truncated output.' }
+$globOutput = $glob.part.state.output
+Restore-BenchmarkToolOutputs -Events @($glob) -Metadata ([pscustomobject]@{}) -ArtifactDirectory $artifacts
+if ($glob.part.state.output -cne $globOutput) { throw 'Semantic glob output was rewritten.' }
+$semanticRejected = 0
+foreach ($scenario in @('mcp','unknown','grep','wrong-count','string-count','missing-count','failed','byte-marker','file-marker','empty-path')) {
+    $event = Copy-TestObject $glob
+    switch ($scenario) {
+        'mcp' { $event.part.tool='opentia_glob' }
+        'unknown' { $event.part.tool='unknown' }
+        'grep' { $event.part.tool='grep' }
+        'wrong-count' { $event.part.state.metadata.count=99 }
+        'string-count' { $event.part.state.metadata.count='100' }
+        'missing-count' { $event.part.state.metadata.PSObject.Properties.Remove('count') }
+        'failed' { $event.part.state.status='error' }
+        'byte-marker' { $event.part.state.output=$preview }
+        'file-marker' { $event.part.state.output='Full output saved to: missing' }
+        'empty-path' { $event.part.state.metadata | Add-Member outputPath '' }
+    }
+    try { Restore-BenchmarkToolOutputs -Events @($event) -Metadata ([pscustomobject]@{workspacePath=$workspace}) -ArtifactDirectory $artifacts }
+    catch { $semanticRejected++;continue }
+    throw "Missing full-output evidence was silently accepted: $scenario"
+}
+# Even a built-in glob with an explicit full-output path must use authenticated capture.
+$byteGlob = Copy-TestObject $template
+$byteGlob.part.tool='glob'
+$byteGlob.part.state.metadata | Add-Member count 100
+$byteGlobMeta = Copy-TestObject $metadata
+$byteGlobMeta.toolOutputs[0].tool='glob'
+Restore-BenchmarkToolOutputs -Events @($byteGlob) -Metadata $byteGlobMeta -ArtifactDirectory $artifacts
+if ($byteGlob.part.state.output -cne $full) { throw 'File-backed glob did not use durable capture.' }
 foreach ($scenario in @('missing-manifest','wrong-call','wrong-tool','duplicate-record','wrong-root','relative-native-path','invalid-native-leaf','wrong-source-identity','path-traversal','wrong-hash','wrong-size','wrong-prefix','missing-marker','nonbool-truncated','capture-error','missing-durable-file')) {
     $event = Copy-TestObject $template
     $meta = Copy-TestObject $metadata
@@ -122,4 +160,11 @@ foreach ($negative in @($false,$true)) {
     elseif (-not $result.passed -or $result.score -ne 100 -or -not $result.validForModelComparison) { throw 'Full native output scorer integration failed.' }
 }
 if ((Get-FileHash -LiteralPath $trace).Hash -cne $traceHash) { throw 'Scoring modified the raw trace.' }
-Write-Host "PASS: durable native output/replay, unchanged raw trace, scorer pass/harness-invalid; $rejected adversarial captures. Temporary evidence: $testRoot"
+$globHash = (Get-FileHash -LiteralPath $globTrace).Hash
+$case.assertions[0].namePattern='^glob$'
+$case.assertions[0].outputPatterns=@('file1')
+[IO.File]::WriteAllText($casePath, ($case | ConvertTo-Json -Depth 30), $utf8)
+[IO.File]::WriteAllText($metaPath, ($scorerMetadata | ConvertTo-Json -Depth 30), $utf8)
+$globResult = & (Join-Path $PSScriptRoot 'Measure-OpenCodeTrace.ps1') -CasePath $casePath -TracePath $globTrace -MetadataPath $metaPath -OutputPath $resultPath
+if (-not $globResult.passed -or -not $globResult.validForModelComparison -or (Get-FileHash -LiteralPath $globTrace).Hash -cne $globHash) { throw 'Semantic glob cap scorer integration failed or rewrote its trace.' }
+Write-Host "PASS: durable native output/replay, unchanged raw trace, semantic glob cap, scorer pass/harness-invalid; $rejected adversarial captures + $semanticRejected semantic-cap controls. Temporary evidence: $testRoot"

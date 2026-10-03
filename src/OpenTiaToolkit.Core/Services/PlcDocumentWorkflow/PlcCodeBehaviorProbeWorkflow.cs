@@ -35,6 +35,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         BehaviorPackageValidation package = ValidateBehaviorPackage(packagePath);
         PlcCodeArtifactValidationResult artifact = package.Composite;
         IReadOnlyList<PlcCodeCapabilityDiscovery> capabilities = await ValidateProbeCapabilitiesAsync(capabilityIds, artifact, plcName, requireDisposableCreate: false).ConfigureAwait(false);
+        RequirePackageCapabilities(package, capabilities, plcName);
         string[] owners = BehaviorOwners(artifact);
         PlcBehaviorVectorValidationResult vector = new PlcBehaviorVectorService().Validate(vectorPath, owners);
         if (!vector.Valid) throw new InvalidDataException("Behavior vector validation failed: " + string.Join("; ", vector.Errors));
@@ -54,6 +55,7 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         BehaviorPackageValidation package = ValidateBehaviorPackage(packagePath);
         PlcCodeArtifactValidationResult artifact = package.Composite;
         IReadOnlyList<PlcCodeCapabilityDiscovery> capabilities = await ValidateProbeCapabilitiesAsync(capabilityIds, artifact, plcName, requireDisposableCreate: true).ConfigureAwait(false);
+        RequirePackageCapabilities(package, capabilities, plcName);
         string[] owners = BehaviorOwners(artifact);
         PlcBehaviorVectorValidationResult vectorValidation = new PlcBehaviorVectorService().Validate(vectorPath, owners);
         if (!vectorValidation.Valid) throw new InvalidDataException("Behavior vector validation failed: " + string.Join("; ", vectorValidation.Errors));
@@ -212,7 +214,13 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
             if (!string.IsNullOrWhiteSpace(evidence.TransactionId)) cleanup = await CleanupBehaviorTransactionAsync(evidence.TransactionId).ConfigureAwait(false);
             bool offlineClean = string.IsNullOrWhiteSpace(evidence.TransactionId) || cleanup?.RolledBackAndVerified == true || IsTransactionClean(evidence.TransactionId);
             if (!offlineClean) throw new InvalidOperationException("Offline transaction recovery was not proven.");
-            await ProveSimulatorCleanupAsync(evidence, behavior.Simulator!, owners, onlyChanges).ConfigureAwait(false);
+            // A retained, never-applied transaction cannot have reached a candidate download.
+            // Missing transactions are deliberately not accepted as proof of this condition.
+            bool neverApplied = !string.IsNullOrWhiteSpace(evidence.TransactionId) && _transactions.IsNeverApplied(evidence.TransactionId);
+            if (neverApplied && behavior.ProbeDownload == null && behavior.ProbeCompare == null && behavior.Execution == null)
+                behavior.SimulatorCleanupProven = true;
+            else
+                await ProveSimulatorCleanupAsync(evidence, behavior.Simulator!, owners, onlyChanges).ConfigureAwait(false);
             await RequireBehaviorOfflineAsync("after behavioral recovery verification").ConfigureAwait(false);
             CompleteBehaviorEvidence(evidence, "Failed", cleanup, "Interrupted behavioral run recovered; behavioral evidence was not promoted.");
             if (!string.IsNullOrWhiteSpace(evidence.TransactionId)) DiscardTransaction(evidence.TransactionId);
@@ -263,8 +271,8 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
 
     private bool IsTransactionClean(string transactionId)
     {
-        string state = GetTransaction(transactionId).State;
-        return string.Equals(state, "RolledBackAndVerified", StringComparison.Ordinal);
+        PlcCodeTransaction transaction = GetTransaction(transactionId);
+        return string.Equals(transaction.State, "RolledBackAndVerified", StringComparison.Ordinal) || _transactions.IsNeverApplied(transactionId);
     }
 
     private void CompleteBehaviorEvidence(PlcCodeEvidenceRecord evidence, string status, PlcCodeTransactionApplyResult? cleanup, string failure)
@@ -361,6 +369,12 @@ internal sealed class PlcCodeBehaviorProbeWorkflow
         public BehaviorPackageArtifact(PlcBehaviorProbeArtifact specification, PlcCodeArtifactValidationResult validation) { Specification = specification; Validation = validation; }
         public PlcBehaviorProbeArtifact Specification { get; }
         public PlcCodeArtifactValidationResult Validation { get; }
+    }
+
+    private void RequirePackageCapabilities(BehaviorPackageValidation package, IReadOnlyList<PlcCodeCapabilityDiscovery> capabilities, string plcName)
+    {
+        foreach (BehaviorPackageArtifact item in package.Artifacts)
+            _probes.RequireArtifactCapabilities(capabilities, item.Validation, plcName, item.Specification.GroupPath, item.Specification.TypeGroupPath);
     }
 
     private sealed class BehaviorPackageValidation

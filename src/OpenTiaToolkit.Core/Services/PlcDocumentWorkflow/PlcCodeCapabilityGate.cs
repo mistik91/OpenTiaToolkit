@@ -16,6 +16,12 @@ internal sealed class PlcCodeCapabilityGate
         if (_discovery == null) throw new InvalidOperationException("Capability discovery is unavailable in this host.");
         PlcCodeCapabilityBinding? binding = transaction.CapabilityBindings.FirstOrDefault(item => item.ObjectKind.Equals(objectKind, StringComparison.OrdinalIgnoreCase) && item.ObjectName.Equals(objectName ?? string.Empty, StringComparison.OrdinalIgnoreCase) && item.GroupPath.Trim().Trim('/').Equals((groupPath ?? string.Empty).Trim().Trim('/'), StringComparison.OrdinalIgnoreCase));
         PlcCodeCapabilityDiscovery capability = binding != null ? _discovery.Get(binding.CapabilityId) : _discovery.Get(transaction.CapabilityId!);
+        RequireOperation(capability, operationKind, objectKind, objectName, objectType, groupPath);
+    }
+
+    internal void RequireOperation(PlcCodeCapabilityDiscovery capability, string operationKind, string objectKind, string? objectName, string? objectType, string groupPath)
+    {
+        if (_discovery == null) throw new InvalidOperationException("Capability discovery is unavailable in this host.");
         _discovery.RequireOperationRoute(capability, operationKind);
         if (!capability.Request.ObjectKind.Equals(objectKind, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"Capability discovery is bound to object kind '{capability.Request.ObjectKind}', but the operation targets '{objectKind}'.");
         if (!capability.Request.ObjectName.Equals(objectName ?? string.Empty, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"Capability discovery is bound to '{capability.Request.ObjectName}', but the operation targets '{objectName}'.");
