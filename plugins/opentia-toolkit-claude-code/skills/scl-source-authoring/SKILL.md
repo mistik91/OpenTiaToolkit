@@ -6,7 +6,7 @@ description: Author and safely generate Siemens TIA Portal PLC blocks and PLC da
 # SCL Source Authoring
 
 1. Read [patterns.md](references/patterns.md), [declaration-catalog.md](references/declaration-catalog.md), and the shared [format contract](../plc-code-engineering/references/format-contract.md) before writing stateful instructions or interfaces.
-   Use `assets/Codex_SCL_Probe.scl` for control flow, `assets/Codex_SCL_Stateful_Probe.scl` for FB statics, and `assets/Codex_SCL_Type_Probe.scl` for a multi-target TYPE plus FC source.
+   Use `assets/Codex_SCL_Probe.scl` for control flow, `assets/Codex_SCL_Stateful_Probe.scl` for FB statics, `assets/Codex_SCL_Instance_Probe.scl` for a same-source FB plus native instance DB, and `assets/Codex_SCL_Type_Probe.scl` for a multi-target TYPE plus FC source.
 2. Run `discover-plc-code-capabilities` for every declared block/type target with SCL language and create/modify intent. Continue here only when it selects `DirectScl`; follow VCI when selected and stop on `Blocked`. Inspect project blocks, types, DBs, tags, cross-references, and conventions.
 3. Prefer a new unique block name and number for the first compile.
 4. Write complete native Siemens SCL as UTF-8 with BOM.

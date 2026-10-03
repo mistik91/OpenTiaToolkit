@@ -61,6 +61,36 @@ public sealed class PlcCodeFormatServiceTests
     }
 
     [TestMethod]
+    public void ValidateScl_BundledInstanceAsset_ProvesExactFbAndInstanceDb()
+    {
+        string path = Path.Combine(FindRepositoryRoot(), "skills", "scl-source-authoring", "assets", "Codex_SCL_Instance_Probe.scl");
+        var result = _service.ValidateScl(path);
+
+        Assert.IsTrue(result.Valid, string.Join("; ", result.Errors));
+        Assert.IsTrue(result.HasUtf8Bom, "The shipped source must retain its Siemens import BOM.");
+        Assert.AreEqual("verified", result.Classification);
+        Assert.AreEqual(0, result.Dependencies.Count);
+        Assert.AreEqual(2, result.DeclaredObjects.Count);
+        Assert.AreEqual("FB", result.DeclaredObjects.Single(item => item.Name == "Codex_SCL_Instance_Probe_FB").ObjectType);
+        Assert.AreEqual("InstanceDB", result.DeclaredObjects.Single(item => item.Name == "Codex_SCL_Instance_Probe_DB").ObjectType);
+    }
+
+    [TestMethod]
+    public void ValidateScl_BundledInstanceAssetWithoutItsFb_IsRejected()
+    {
+        string asset = Path.Combine(FindRepositoryRoot(), "skills", "scl-source-authoring", "assets", "Codex_SCL_Instance_Probe.scl");
+        string source = File.ReadAllText(asset);
+        string instanceOnly = Write("InstanceOnly.scl", source.Substring(source.IndexOf("DATA_BLOCK", StringComparison.Ordinal)));
+        var result = _service.ValidateScl(instanceOnly);
+
+        Assert.IsFalse(result.Valid);
+        Assert.AreEqual("known-unsupported", result.Classification);
+        Assert.AreEqual(1, result.DeclaredObjects.Count);
+        CollectionAssert.Contains(result.Dependencies.ToArray(), "Codex_SCL_Instance_Probe_FB");
+        StringAssert.Contains(string.Join("; ", result.Errors), "same source");
+    }
+
+    [TestMethod]
     public void ValidateScl_StatefulTempAndMissingBoundary_AreRejected()
     {
         string path = Write("Bad.scl", "FUNCTION \"Bad\" : Void\r\nVAR_TEMP T : TON; END_VAR\r\nBEGIN\r\n#T(IN := TRUE, PT := T#1S);\r\n");
