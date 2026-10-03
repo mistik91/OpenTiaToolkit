@@ -692,6 +692,16 @@ workspace is classified as `harness-error`, excluded from model comparison,
 and pauses a checkpoint batch as `paused-harness-error`; a model-selected path
 outside the declared workspace remains an ordinary model outcome.
 
+OpenCode may truncate a large tool result in its JSON event stream while retaining
+the native full output in the execution's isolated data directory. The harness
+captures only those native files named by structured truncation metadata, binds
+them to the exact tool/call ID and original preview, and retains size/SHA-256
+records under each trial's `tool-output/`. The scorer verifies and expands these
+captures in memory; `events.jsonl` remains unchanged. Arbitrary workspace proof
+files, paths outside that native root, junctions, changed bytes, and missing
+captures are rejected. Capture failures are `harness-error` and pause batching,
+not model failures. Each native output is limited to 16 MiB.
+
 Use `-CaseId` for an ordered subset during a smoke or continuation run. A
 skill-evaluation definition still retains all four routing buckets; filtering
 only narrows execution and the resulting paired statistics.

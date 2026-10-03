@@ -1,6 +1,6 @@
 # OTT-35 live qualification — 2026-10-03
 
-## Outcome: PASS for candidate and controls; model trials pending
+## Outcome: PASS for candidate and controls; first model trial passed
 
 Branch: `codex/ott-35-plcsim-behavior-benchmark`, continuing fix commit `4ed3c53`
 and scaffold `401c230`. No skills were edited or task-specific examples added.
@@ -99,3 +99,43 @@ TIA PID 32536 is reserved for model trials, and bounded simulator owner PID 4482
 keeps `OTT35_Bench` alive until its lease expires (approximately 14:49 Europe/Rome).
 Do not end that lease during a probe or recovery. Model trials and final campaign
 process teardown remain pending; there is no unresolved quarantine.
+
+## First Flash trial and native-output capture repair
+
+GLM-5.3 Flash High trial 1 ran at commit `c0176d7`, OpenCode 1.18.10, on its own
+restored project attached to campaign PID 32536. Fresh behavioral evidence
+`3c4f6dc675574a44af527786ff9d28ca` is Verified: 15 steps / 26 assertions,
+zero-error/zero-warning compilation, and both offline and simulator cleanup proven.
+The model used its own native FB, same-source instance DB, global contract DB,
+and cyclic OB; it received no gold solution or new skill recipe.
+
+OpenCode's native truncation metadata identified the full 148,699-byte probe
+output, SHA-256 `75AA1412EE0EEB32BDDDF91F36BB79C9EEB6E06DE0322D4E7A06B889199C8235`.
+Its trace preview ended partway through runtime observations. The old scorer's
+25/100 was a harness false failure, not a behavior/model failure. Both original
+trace and result remain untouched. The new generic capture path validates exact
+native data-root/call/tool identity, preview, size, UTF-8, and durable SHA-256,
+then expands only the scorer's in-memory view. Missing or inconsistent captures
+are harness-invalid and cannot be counted against a model.
+
+Append-only replay: `E:/Documents/OpenTiaBench/Artifacts/ott35-models/20261003-output-capture-replay/`.
+It preserves the original trace hash and model-run metadata, records the original
+artifact directory and replay reason, and scores **100/100**, valid for comparison.
+Trial duration: 698.275 seconds; reasoning effort/variant High; 12,513 reported
+reasoning tokens. Reported request cost is $0 under the Z.AI subscription, not free
+inference or a measured economic price. Trials 2/3 will use the repaired harness;
+the old batch checkpoint is preserved, not resumed across a changed commit.
+
+Independent post-trial health reads proved only Main, zero sources, compile 0/0,
+unchanged Main SHA-256, and simulator tag count zero. A compare attempted while
+offline was rejected; after explicit online status on the configured local
+simulator, the repeat succeeded with zero differences. The disposable project was
+then closed without saving. Logs and exports are under the replay's `fresh-health`
+directory and `fresh-*-health-cli.log`. The user's TIA was not touched.
+
+Capture repair validation: full `npm test` regression passed; the final focused
+capture test passed on Windows PowerShell 5.1 and PowerShell 7 with 22 adversarial
+controls, Unicode output preservation, durable replay after native-file removal,
+immutable trace checks, and actual scorer pass/harness-invalid integration.
+No C# or command/skill changes were needed for this capture repair; the previously
+qualified Release worker is unchanged.

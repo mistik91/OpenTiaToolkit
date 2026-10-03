@@ -631,6 +631,16 @@ foreach ($requestedCaseId in $CaseId) {
         }
     }
 
+    $capturedToolOutputs = @()
+    $toolOutputCaptureError = $null
+    try {
+        $capturedToolOutputs = @(Copy-BenchmarkToolOutputs -TracePath $tracePath `
+                -WorkspacePath $workspace -ArtifactDirectory $runDirectory)
+    }
+    catch {
+        # Retain the trace/metadata and produce a harness-invalid result, not a model failure.
+        $toolOutputCaptureError = $_.Exception.Message
+    }
     $metadata = [ordered]@{
         model           = $Model
         trialIndex      = $TrialIndex
@@ -656,6 +666,8 @@ foreach ($requestedCaseId in $CaseId) {
         timedOut        = [bool]$execution.TimedOut
         workspacePath   = $workspace
         workspaceInputs = @($workspaceInputs | Select-Object RelativePath, Sha256, Bytes)
+        toolOutputs     = $capturedToolOutputs
+        toolOutputCaptureError = $toolOutputCaptureError
         mcpAllowedRoots = $benchmarkMcpAllowedRoots
         mcpWorkspacePolicyPreflight = 'passed'
         skillEvaluation = if ($SkillEvaluationArm -eq 'standard') {

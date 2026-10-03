@@ -1,6 +1,7 @@
 Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot 'BenchmarkWorkspaceInputs.ps1')
+. (Join-Path $PSScriptRoot 'OpenCodeToolOutputs.ps1')
 
 function Resolve-ExistingFile {
     param(
