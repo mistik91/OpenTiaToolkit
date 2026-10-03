@@ -2,6 +2,10 @@
 
 ## Outcome: PASS for feedback fix and live qualification
 
+The fresh model campaign is **BLOCKED for toolkit/harness hardening**, as recorded
+below. This does not invalidate the independently qualified diagnostic fix or
+constitute a completed model comparison.
+
 Branch: `codex/ott-35-plcsim-behavior-benchmark`, continuing checkpoint `d47514f`.
 No skill changes, task-specific recipes, vector changes, gold-code staging,
 push, PR, or merge. The earlier Flash results and append-only output replay remain
@@ -77,5 +81,73 @@ remains read-only, 5,633,615 bytes, SHA-256
 New `plc-behavior-diagnostics-glm-5-3-flash-high-20261003` and full-model fallback
 definitions preserve the same three-trial budget, High effort/variant, subscription
 provider, and frozen OTT-35 case. They do not resume the historical campaign across
-different toolkit commits. Model trials and final process/archive audit are pending
-at this implementation checkpoint.
+different toolkit commits. The implementation checkpoint is `d37fd0a`.
+
+Flash High trial 1 was attempted once at that commit. Raw score **10/100**,
+duration 1,276.792 seconds, reported reasoning tokens 24,023, reported request cost
+$0 under the subscription. It is **invalid for model comparison**: native output
+capture failed on an OpenCode built-in `glob` event whose metadata was
+`{count:100,truncated:true}`, with no `outputPath`. This is a capped listing, not
+the full-output-file truncation protocol the capture path expects. No rate-limit
+or provider error was observed. The operator issued a stop request after a
+quarantine and failed recovery; metadata records exit code 0 and no timeout, and
+the raw trace ends at a step start rather than a final answer. No interrupted or
+harness-invalid result is counted as a valid model trial.
+
+The preserved trace also exposes a separate pre-apply cleanup gap:
+
+- Flash first used colon-style instance-DB headers; these were safely rejected.
+  It eventually found a valid native binding and validated the package/vector.
+  The public acceptance vector stayed byte-identical.
+- It requested `SCL` language/format for **all four** capabilities, including
+  `OTT35_IO`, while that global DB package artifact was S7DCL. The toolkit correctly
+  rejected `DirectScl` versus required `DirectDocuments` during operation assembly.
+- Behavior evidence `4010a2d0a99a47098e6c39a57ed073da` became Quarantined, although
+  transaction `104304ad44894af0a0f5db92e5b7590d` was still **Draft**, with one Pending
+  source operation and only Lifecycle/Authoring journal entries. No plan, apply,
+  import, candidate compile, or probe download occurred. Current cleanup only
+  recognizes RolledBackAndVerified or post-apply recovery states, so it could not
+  recognize this un-applied draft as clean. Automated recovery failed too.
+- Flash then issued a standalone `discard-plc-code-transaction`, forbidden by
+  this case, before retrying recovery and receiving a missing-transaction error.
+  This workflow violation remains recorded despite the harness-invalid scoring;
+  it is not excused or hidden as merely a framework failure.
+
+The original trace/result/metadata and paused batch checkpoint are untouched:
+`E:/Documents/OpenTiaBench/Artifacts/ott35-models/diagnostics-fixed/20261003T114718948Z-batch-plc-behavior-diagnostics-glm-5-3-flash-high-20261003/`.
+Batch status is paused-harness-error, zero accepted trials, three remaining.
+No further Flash or full-model trial was attempted.
+
+Independent incident health reads confirmed the exact owned restore, Main only,
+zero sources, compile 0/0, unchanged Main hash, and online difference count zero.
+The project was closed without save. Incident evidence, native Draft readback,
+latest quarantined registry record, and CLI logs are under
+`E:/Documents/OpenTiaBench/Artifacts/ott35-compiler-diagnostics/model-incident/`.
+The quarantined record was not rewritten or promoted; operator health proof is
+separate from automatic recovery proof. The model had already discarded the Draft
+files; their authoritative native readback is retained in the incident snapshot.
+
+The explicitly owned simulator was powered off and unregistered (remaining
+registered instances zero), then its lease owner PID 32584 was ended. PowerOff
+returns void; power-off was proven through OperatingState=Off. ControllerName
+becomes empty while Off; the exact name/ID and pre-power-off controller/article
+identity were checked. Cleaned campaign TIA PID 36576 and its proven children
+1824/41888 were ended. User PID 15780 and its children, and the remaining
+chat-managed Debug MCP/worker 32920/47736, were preserved. The provider-scoped
+temporary auth copy is absent; the user's credential source is unchanged.
+
+Final build/test soak: 0 warnings/errors, **694 unit / 54 architecture** passed.
+The rebuild after `d37fd0a` produced worker SHA-256
+`C632F2125FC63E1698DB5DD46F852B0E0417D979D642A700DC2ADA82B98A3AF0`;
+the earlier live controls used the explicitly recorded `693B...` build. Final
+allow-list refresh exited 0; read-only discovery reconfirmed the original project,
+and modern/legacy MCP smoke passed at 189 tools. No additional
+mutating qualification or model trial is claimed for the new binary. Both
+immutable archives retain their original hashes. No owned campaign process,
+active model, or simulator lease remains.
+
+Next slice: distinguish semantic built-in listing caps from file-backed native
+output truncation; preflight artifact/capability routes before draft assembly and
+prove safe cleanup for failures before apply without weakening post-apply
+quarantine rules. Qualify those paths before a fresh model cohort. No skill edit
+is needed to address either toolkit/harness defect.
