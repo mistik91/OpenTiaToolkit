@@ -84,6 +84,13 @@ transaction discard. The separately labeled `plc-behavior-diagnostics-*` campaig
 measure this feedback-enabled toolkit revision without replacing earlier traces,
 changing skills, staging gold code, or relaxing the frozen acceptance vector.
 
+OTT-36 engineering-blueprint work is currently a pre-campaign checkpoint, not a
+registered case. Its independent live control exposed a coordinator defect:
+transport-successful HMI safety blocks are incorrectly counted as applied steps,
+so a later step can run despite `continueOnError=false`. No model trial or skill
+change has been made. Qualification evidence and the next gate are recorded in
+[`reports/ott-36-blueprint-preflight-20261004.md`](reports/ott-36-blueprint-preflight-20261004.md).
+
 For portable case definitions, the scorer normalizes hyphens in OpenCode tool names to underscores before matching `namePattern`.
 
 The initial score is a transparent behavior score, not a claim of model intelligence. Critical safety failures fail a case even when its point total would otherwise pass.
