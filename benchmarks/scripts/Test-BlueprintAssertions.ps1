@@ -98,7 +98,7 @@ Add-Event 'apply-blueprint' @{'apply-token'=$recovery.ApplyToken;confirm=$true} 
 Add-Main 'after';Add-Event 'compile-software' @{'plc-name'=$contract.plcName} $clean
 [void](Test-BenchmarkBlueprintLifecycle -ToolEvents $events.ToArray() -Metadata $metadata -WorkspaceRoot $testRoot -Assertion $assertion)
 $rejected=0
-foreach($scenario in @('model-text','missing-validation','wrong-hash','wrong-token','wrong-plan','continued-suffix','false-whole-success','missing-step-data','transport-false','missing-stale','wrong-reopen','save-on-close','foreign-instance','foreign-project','direct-apply','missing-prefix-preview','missing-recovery-preview','blocked-recovery-preview','missing-failed-replay','successful-replay','wrong-read-filter','wrong-preview-filter','wrong-tag-comment','wrong-tag-address','wrong-compile','missing-main-export','shell-proof','proof-write','missing-confirm','string-state-matched','string-applied','unblocked-failure','applied-failure','dry-run-recovery','wrong-hmi-label','wrong-hmi-geometry','unchanged-final-hash','continue-on-error','embedded-confirm','allow-stale-base','foreign-artifact','foreign-preview-root','unsafe-preview-default','extra-wrapper-key','changed-preview-label','no-preview-backup')){
+foreach($scenario in @('model-text','missing-validation','wrong-hash','wrong-token','wrong-plan','continued-suffix','false-whole-success','missing-step-data','transport-false','missing-stale','wrong-reopen','save-on-close','foreign-instance','foreign-project','direct-apply','missing-prefix-preview','missing-recovery-preview','blocked-recovery-preview','missing-failed-replay','successful-replay','wrong-read-filter','wrong-preview-filter','wrong-tag-comment','wrong-tag-address','wrong-compile','missing-main-export','shell-proof','proof-write','missing-confirm','string-state-matched','string-applied','unblocked-failure','applied-failure','dry-run-recovery','wrong-hmi-label','wrong-hmi-geometry','unchanged-final-hash','continue-on-error','embedded-confirm','allow-stale-base','foreign-artifact','foreign-preview-root','unsafe-preview-default','extra-wrapper-key','changed-preview-label','no-preview-backup','broad-tag-selector','wrong-tag-selector-name','wrong-tag-selector-address','foreign-planned-hmi-root')){
     $copy=$events.ToArray() | ConvertTo-Json -Depth 100 | ConvertFrom-Json
     $plans=@($copy | Where-Object {$_.part.tool -eq 'opentia_plan-blueprint'})
     $validations=@($copy | Where-Object {$_.part.tool -eq 'opentia_validate-blueprint'})
@@ -151,6 +151,10 @@ foreach($scenario in @('model-text','missing-validation','wrong-hash','wrong-tok
         'extra-wrapper-key'{$previews[4].part.state.input.operations=[pscustomobject]@{operations=$previews[4].part.state.input.operations;extra='unexpected'}}
         'changed-preview-label'{$previews[4].part.state.input.operations[0].value='Other'}
         'no-preview-backup'{$previews[4].part.state.input.backup=$false}
+        'broad-tag-selector'{$validations[1].part.state.output.data.Steps[0].Arguments.operations[0].match.PSObject.Properties.Remove('name');$plans[1].part.state.output.data.BlueprintHash=Get-BenchmarkBlueprintHash $validations[1].part.state.output.data}
+        'wrong-tag-selector-name'{$validations[1].part.state.output.data.Steps[0].Arguments.operations[0].match.name='OccupiedAfter';$plans[1].part.state.output.data.BlueprintHash=Get-BenchmarkBlueprintHash $validations[1].part.state.output.data}
+        'wrong-tag-selector-address'{$validations[1].part.state.output.data.Steps[0].Arguments.operations[0].match.logicalAddress='%M0.0';$plans[1].part.state.output.data.BlueprintHash=Get-BenchmarkBlueprintHash $validations[1].part.state.output.data}
+        'foreign-planned-hmi-root'{$validations[1].part.state.output.data.Steps[1].Arguments | Add-Member -NotePropertyName 'working-path' -NotePropertyValue 'C:/foreign';$plans[1].part.state.output.data.BlueprintHash=Get-BenchmarkBlueprintHash $validations[1].part.state.output.data}
     }
     try{[void](Test-BenchmarkBlueprintLifecycle $copy $metadata $testRoot $assertion)}catch{$rejected++;continue}
     throw "Invalid lifecycle accepted: $scenario"
@@ -177,6 +181,21 @@ foreach($preview in @($equivalentPreview | Where-Object {$_.part.tool -eq 'opent
     $preview.part.state.input.properties=@($contract.properties | Sort-Object -Descending)
 }
 [void](Test-BenchmarkBlueprintLifecycle $equivalentPreview $metadata $testRoot $assertion)
+$equivalentIdentity=$events.ToArray() | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+foreach($event in @($equivalentIdentity | Where-Object {$_.part.tool -eq 'opentia_validate-blueprint'})){
+    foreach($step in $event.part.state.output.data.Steps){
+        if($step.Command -eq 'modify-tags'){$step.Arguments.operations[0].match.PSObject.Properties.Remove('logicalAddress')}
+        else{
+            $step.Arguments.operations=[pscustomobject]@{operations=$step.Arguments.operations}
+            $step.Arguments.PSObject.Properties.Remove('backup')
+            $step.Arguments | Add-Member -NotePropertyName 'working-path' -NotePropertyValue (Join-Path $testRoot 'artifacts/planned')
+        }
+    }
+    $path=$event.part.state.input.'blueprint-path'
+    @($equivalentIdentity | Where-Object {$_.part.tool -eq 'opentia_plan-blueprint' -and $_.part.state.input.'blueprint-path' -eq $path})[0].part.state.output.data.BlueprintHash=Get-BenchmarkBlueprintHash $event.part.state.output.data
+}
+foreach($preview in @($equivalentIdentity | Where-Object {$_.part.tool -eq 'opentia_modify-tags'})){$preview.part.state.input.operations[0].match.PSObject.Properties.Remove('logicalAddress')}
+[void](Test-BenchmarkBlueprintLifecycle $equivalentIdentity $metadata $testRoot $assertion)
 $invalidError=$nativeFailures | ConvertTo-Json -Depth 100 | ConvertFrom-Json
 $rejectedError=@($invalidError | Where-Object {$_.part.state.status -eq 'error'})[1]
 $rejectedError.part.state.error='Model claim: the blueprint failed safely.'
@@ -205,7 +224,7 @@ $other=$target | ConvertTo-Json -Depth 100 | ConvertFrom-Json
 $target.part.state.output.data.Steps[0].Success=$false;$other.part.state.output.data.Steps[1].Success=$false
 $split+=$other
 try{[void](Test-BenchmarkBlueprintLifecycle $split $metadata $testRoot $assertion)}catch{$rejected++}
-if($rejected -ne 48){throw 'Split evidence was accepted or adversarial count drifted.'}
+if($rejected -ne 52){throw 'Split evidence was accepted or adversarial count drifted.'}
 $savedContract=[IO.File]::ReadAllText($contractPath)
 [IO.File]::AppendAllText($contractPath,' ')
 try{[void](Test-BenchmarkBlueprintLifecycle $events.ToArray() $metadata $testRoot $assertion)}catch{$rejected++}
@@ -214,7 +233,7 @@ $tagPath=Join-Path $testRoot 'artifacts/readback/tags.csv';$savedTags=[IO.File]:
 [IO.File]::WriteAllText($tagPath,$savedTags.Replace('%MD108','%MD109'),$utf8)
 try{[void](Test-BenchmarkBlueprintLifecycle $events.ToArray() $metadata $testRoot $assertion)}catch{$rejected++}
 [IO.File]::WriteAllText($tagPath,$savedTags,$utf8)
-if($rejected -ne 50){throw 'Modified contract or unrelated tag artifact was accepted.'}
+if($rejected -ne 54){throw 'Modified contract or unrelated tag artifact was accepted.'}
 # Invoke the actual scorer entry point with authentic envelopes, not just the helper.
 $case=[pscustomobject]@{id='ott-99';fixtureId='synthetic';passScore=100;assertions=@([pscustomobject]@{id='lifecycle';type='blueprintLifecycle';points=100;critical=$true;relativePath=$assertion.relativePath;contractSha256=$assertion.contractSha256})}
 $scorerMetadata=[pscustomobject]@{model='synthetic/model';variant=$null;openCodeVersion='1.18.10';gitCommit='0000000';gitBranch='test';startedAtUtc='2026-10-04T00:00:00Z';finishedAtUtc='2026-10-04T00:10:00Z';durationSeconds=600;exitCode=0;timedOut=$false;workspacePath=$testRoot;fixtureRestoreRoot=$metadata.fixtureRestoreRoot;tiaInstanceId=1234}

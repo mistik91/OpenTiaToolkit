@@ -73,7 +73,7 @@ user/repository roots remain excluded; path resolution rejects junctions. Trial
 metadata now records the selected restore root and TIA PID for independent binding.
 
 Validation includes object/text positives, equivalent supported HMI syntax,
-**50 adversarial controls**, full scorer positive/negative checks, and replay of
+**54 adversarial controls**, full scorer positive/negative checks, and replay of
 the independently captured live-gold envelopes with explicit path adaptation.
 That replay is qualification evidence, never a model result. Release build, 765
 unit tests (32 new regressions included), 54 architecture tests, 5 vendor-free IPC
@@ -126,3 +126,11 @@ reported separately as scorer calibration. Do not use its original 15/100 as a
 model failure or silently migrate its commit-pinned batch checkpoint. Freeze the
 corrected scorer and run a fresh three-trial checkpointed qualification campaign.
 The public task, immutable acceptance contract, runtime and skills are unchanged.
+
+The subsequent campaign stopped at the skill-review gate after two captures.
+Both unchanged traces score 100/100 with the semantic scorer; the original second
+score of 15/100 was a redundant-address selector restriction, not an incorrect
+engineering result. Independent live readback passes for both. See the
+[partial campaign and skill-review report](ott-36-blueprint-flash-high-skill-review-20261004.md)
+for revision attribution, preserved raw scores, scope of the correction and the
+portable skill-reference gap. The formal three-trial campaign is not complete.

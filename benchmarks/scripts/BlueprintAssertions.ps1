@@ -153,7 +153,7 @@ function Test-BenchmarkBlueprintLifecycle {
             foreach ($failed in @($plans | Where-Object {$_.Record.Index -gt $unchanged.LastIndex -and @($_.Blueprint.Steps).Count -eq 3})) {
                 try {
                     Assert-BlueprintTagStep $failed.Blueprint.Steps[0] $contract $contract.prefixComment $contract.primary
-                    Assert-BlueprintHmiStep $failed.Blueprint.Steps[1] $contract ('0'*64)
+                    Assert-BlueprintHmiStep $failed.Blueprint.Steps[1] $contract ('0'*64) $WorkspaceRoot
                     Assert-BlueprintTagStep $failed.Blueprint.Steps[2] $contract $contract.sentinelComment $contract.sentinel
                     Assert-BlueprintPreview $records $failed.Blueprint.Steps[0] $unchanged.LastIndex $failed.Record.Index
                     Assert-BlueprintPreview $records $failed.Blueprint.Steps[1] $unchanged.LastIndex $failed.Record.Index -Blocked -WorkspaceRoot $WorkspaceRoot
@@ -173,7 +173,7 @@ function Test-BenchmarkBlueprintLifecycle {
                     [void](Get-BlueprintReplay $records $failed.Record $partial.Index)
                     foreach ($recovery in @($plans | Where-Object {$_.Record.Index -gt $afterFailure.LastIndex -and @($_.Blueprint.Steps).Count -eq 2})) {
                         Assert-BlueprintTagStep $recovery.Blueprint.Steps[0] $contract $contract.finalComment $contract.primary
-                        Assert-BlueprintHmiStep $recovery.Blueprint.Steps[1] $contract $afterFailure.Hash
+                        Assert-BlueprintHmiStep $recovery.Blueprint.Steps[1] $contract $afterFailure.Hash $WorkspaceRoot
                         foreach ($s in $recovery.Blueprint.Steps) { Assert-BlueprintPreview $records $s $afterFailure.LastIndex $recovery.Record.Index -WorkspaceRoot $WorkspaceRoot }
                         $applied = Get-BlueprintApply $records $recovery.Record $recovery.Record.Index $true
                         Assert-BlueprintApplyState $applied $recovery.Record.Data 2 $true
@@ -243,14 +243,25 @@ function Assert-BlueprintTagStep {
     $a=$Step.Arguments
     Assert-BlueprintBoolean $a.'dry-run' $true 'Planned tag preview flag'
     if($a.'plc-name' -cne $Contract.plcName -or @($a.PSObject.Properties).Count -ne 3 -or @($a.operations).Count -ne 1){throw 'Tag step scope differs.'}
-    $wanted=[pscustomobject]@{action='update';match=[pscustomobject]@{tagTable=$Contract.tagTable;name=$Target.name;logicalAddress=$Target.address};set=[pscustomobject]@{comment=$Comment}}
-    Assert-BlueprintEqual $a.operations[0] $wanted 'Exact tag operation'
+    $operation=$a.operations[0]
+    Assert-BlueprintEqual @($operation.PSObject.Properties.Name | Sort-Object) @('action','match','set') 'Tag operation surface'
+    if($operation.action -cne 'update'){throw 'Tag action differs.'}
+    Assert-BlueprintEqual $operation.set ([pscustomobject]@{comment=$Comment}) 'Exact tag update'
+    # Exact table + name identifies one tag in the immutable inventory. Address
+    # is a supported additional guard, not a required spelling of that identity.
+    $keys=@($operation.match.PSObject.Properties.Name | Sort-Object)
+    if('logicalAddress' -in $keys){
+        if($operation.match.logicalAddress -cne $Target.address){throw 'Tag selector address differs.'}
+        $keys=@($keys | Where-Object {$_ -cne 'logicalAddress'})
+    }
+    Assert-BlueprintEqual $keys @('name','tagTable') 'Exact tag selector surface'
+    if($operation.match.tagTable -cne $Contract.tagTable -or $operation.match.name -cne $Target.name){throw 'Tag selector identity differs.'}
 }
 
 function Assert-BlueprintHmiStep {
-    param([object]$Step,[object]$Contract,[string]$Hash)
+    param([object]$Step,[object]$Contract,[string]$Hash,[string]$WorkspaceRoot)
     if($Step.Command -cne 'apply-hmi-screen-json-patch'){throw 'Expected a focused HMI patch.'}
-    $a=$Step.Arguments
+    $a=ConvertTo-BlueprintHmiPreviewIntent $Step.Arguments $WorkspaceRoot
     Assert-BlueprintBoolean $a.'dry-run' $true 'Planned HMI preview flag'
     Assert-BlueprintBoolean $a.backup $true 'HMI backup'
     $keys=@($a.PSObject.Properties.Name | Sort-Object)
