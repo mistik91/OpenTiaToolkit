@@ -12,8 +12,8 @@ Use blueprints for a small, related set of desired engineering mutations that sh
 ## Workflow
 
 1. Establish the exact TIA instance, project, and PLC/HMI/hardware targets with `basic-tia-interaction` and the relevant domain skill.
-2. Start from `schemas/engineering-blueprint.schema.json` or an example under `examples/blueprints`.
-3. Remove illustrative names, addresses, order numbers, and paths. Keep each step narrowly related to one outcome.
+2. Read the [bundled blueprint schema](references/engineering-blueprint.schema.json) before authoring a blueprint. It defines the file structure; use the active command schemas for domain parameter names and values.
+3. Put each step's command parameters in `arguments`; standalone command examples using `args` are not blueprint steps. Keep each step narrowly related to one outcome.
 4. Run `validate-blueprint --blueprint-path`.
 5. Run `plan-blueprint --blueprint-path` and review the maximum risk, every step, warnings, state fingerprint, and expiry.
 6. Apply once with `apply-blueprint --apply-token --confirm=true` only when the reviewed plan still matches the user’s intent.

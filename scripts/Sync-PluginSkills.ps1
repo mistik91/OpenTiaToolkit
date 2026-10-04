@@ -16,6 +16,7 @@ if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
 }
 
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptRoot '..'))
+. (Join-Path $scriptRoot 'BlueprintSkillSchemaGuard.ps1')
 $canonicalRoot = Join-Path $repoRoot 'skills'
 $pluginSkillRoots = @(
     (Join-Path $repoRoot 'plugins\opentia-toolkit-agent-plugin\skills'),
@@ -140,6 +141,12 @@ if ($requestedSkillNames.Count -gt 0) {
     }
 
     $canonicalSkills = @($canonicalSkills | Where-Object { $_.Name -in $requestedSkillNames })
+}
+
+if (@($canonicalSkills | Where-Object { $_.Name -ceq 'engineering-blueprint-workflow' }).Count -gt 0) {
+    Assert-BundledBlueprintSkillSchema `
+        -SkillDirectory (Join-Path $canonicalRoot 'engineering-blueprint-workflow') `
+        -SourceSchemaPath (Join-Path $repoRoot 'schemas/engineering-blueprint.schema.json')
 }
 
 foreach ($skillRoot in $checkedSkillRoots) {
