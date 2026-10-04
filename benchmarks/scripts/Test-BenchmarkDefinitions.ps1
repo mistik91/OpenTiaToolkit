@@ -16,7 +16,7 @@ $fixtureManifestPath = Join-Path $benchmarkRoot 'fixtures\manifest.json'
 $errors = [System.Collections.Generic.List[string]]::new()
 $fixtures = (Get-Content -LiteralPath $fixtureManifestPath -Raw | ConvertFrom-Json).fixtures
 $fixtureIds = @($fixtures | ForEach-Object { [string]$_.id })
-$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork', 'plcBehaviorEvidence', 'finalRegex', 'traceRegex', 'run')
+$validTypes = @('tool', 'toolOperationSet', 'forbiddenTool', 'workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork', 'plcBehaviorEvidence', 'blueprintLifecycle', 'finalRegex', 'traceRegex', 'run')
 
 foreach ($fixture in $fixtures) {
     if ([string]::IsNullOrWhiteSpace([string]$fixture.id)) {
@@ -124,7 +124,7 @@ foreach ($caseFile in $caseFiles) {
                 $errors.Add("$($caseFile.FullName): assertion '$($assertion.id)' needs expectedOperations.")
             }
         }
-        if ($assertion.type -in @('workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork', 'plcBehaviorEvidence')) {
+        if ($assertion.type -in @('workspaceFile', 'ladBooleanNetwork', 'ladTimerNetwork', 'plcBehaviorEvidence', 'blueprintLifecycle')) {
             $relativePath = [string]$assertion.relativePath
             if ([string]::IsNullOrWhiteSpace($relativePath) -or
                 [System.IO.Path]::IsPathRooted($relativePath) -or
@@ -159,6 +159,14 @@ foreach ($caseFile in $caseFiles) {
                         $_.targetPath -ceq $assertion.relativePath -and $_.sha256 -ieq $assertion.vectorSha256
                     }).Count -ne 1) {
                 $errors.Add("$($caseFile.FullName): behavior assertion '$($assertion.id)' must bind one frozen workspace input.")
+            }
+        }
+        if ($assertion.type -eq 'blueprintLifecycle') {
+            if ($null -eq $assertion.PSObject.Properties['contractSha256'] -or [string]$assertion.contractSha256 -notmatch '^[A-Fa-f0-9]{64}$' -or
+                $null -eq $case.PSObject.Properties['workspaceInputs'] -or @($case.workspaceInputs | Where-Object {
+                    $_.targetPath -ceq $assertion.relativePath -and $_.sha256 -ieq $assertion.contractSha256
+                }).Count -ne 1) {
+                $errors.Add("$($caseFile.FullName): blueprint assertion '$($assertion.id)' must bind one frozen workspace contract.")
             }
         }
         if ($assertion.type -in @('ladBooleanNetwork', 'ladTimerNetwork')) {

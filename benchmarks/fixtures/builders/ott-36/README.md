@@ -1,13 +1,12 @@
 # OTT-36 engineering-blueprint qualification
 
-This is a **pre-campaign qualification checkpoint**, not a registered or completed
-model benchmark. No case definition or model campaign should be enabled until the
-independent path passes. The first live qualification exposed a toolkit-level
+This builder independently qualifies the registered OTT-36 case; qualification
+is not a model result. The first live qualification exposed a toolkit-level
 completion-reporting defect; see
 [`../../../reports/ott-36-blueprint-preflight-20261004.md`](../../../reports/ott-36-blueprint-preflight-20261004.md).
-The generic fix has passed vendor-free checks, but the rebuilt worker still needs
-registration before live requalification; see
-[`../../../reports/ott-36-blueprint-coordinator-fix-20261004.md`](../../../reports/ott-36-blueprint-coordinator-fix-20261004.md).
+After the generic fix and exact worker registration, independent recovery,
+continuation and fresh-worker health controls passed; see
+[`../../../reports/ott-36-blueprint-live-qualification-20261004.md`](../../../reports/ott-36-blueprint-live-qualification-20261004.md).
 
 ## Intended coverage
 
@@ -71,8 +70,8 @@ SHA-256 markers, so planning/apply relationships remain auditable without retain
 bearer tokens. Native screen/tag exports and stopped-blueprint results are retained
 even when the completion assertion fails. `cleanup.json` records confirmed cleanup.
 
-After the toolkit defect is corrected and this path passes, complete the case
-definition and structured scorer with synthetic positive/negative controls, then
-freeze and run three GLM-5.3 Flash High trials with fresh fixture restores. Escalate
+The case and structured scorer are independently qualified with synthetic
+positive/negative controls and live-gold replay. Freeze their revision before
+running three GLM-5.3 Flash High trials with fresh fixture restores. Escalate
 to GLM-5.3 High only for genuine model-capability failures; do not tune skills to
 this task or treat toolkit/capture faults as model scores.

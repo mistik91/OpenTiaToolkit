@@ -449,7 +449,7 @@ foreach ($requestedCaseId in $CaseId) {
     $workspace = Join-Path $executionDirectory 'workspace'
     New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
     New-Item -ItemType Directory -Path $workspace -Force | Out-Null
-    $benchmarkMcpAllowedRoots = Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspace
+    $benchmarkMcpAllowedRoots = Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspace -IncludeDisposableRestore:(-not $SkipFixtureRestore)
     $workspaceInputs = @(Copy-BenchmarkWorkspaceInputs -Case $case `
             -CaseDirectory (Split-Path -Parent $casePath) -WorkspacePath $workspace)
 
@@ -665,6 +665,8 @@ foreach ($requestedCaseId in $CaseId) {
         exitCode        = [int]$execution.ExitCode
         timedOut        = [bool]$execution.TimedOut
         workspacePath   = $workspace
+        fixtureRestoreRoot = if ($SkipFixtureRestore) { $null } else { Join-Path $executionDirectory 'restored' }
+        tiaInstanceId   = if ($SkipFixtureRestore) { $null } else { $instanceId }
         workspaceInputs = @($workspaceInputs | Select-Object RelativePath, Sha256, Bytes)
         toolOutputs     = $capturedToolOutputs
         toolOutputCaptureError = $toolOutputCaptureError

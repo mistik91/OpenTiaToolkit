@@ -30,13 +30,19 @@ function Resolve-ExistingFile {
 }
 
 function Get-BenchmarkMcpAllowedRoots {
-    param([Parameter(Mandatory = $true)][string]$WorkspacePath)
+    param([Parameter(Mandatory = $true)][string]$WorkspacePath, [switch]$IncludeDisposableRestore)
 
     $workspaceRoot = [System.IO.Path]::GetFullPath($WorkspacePath).TrimEnd([char[]]'\/')
     $toolkitTempRoot = [System.IO.Path]::GetFullPath(
         (Join-Path ([System.IO.Path]::GetTempPath()) 'OpenTiaToolkit')
     ).TrimEnd([char[]]'\/')
-    return (@($workspaceRoot, $toolkitTempRoot) |
+    $roots=@($workspaceRoot, $toolkitTempRoot)
+    if($IncludeDisposableRestore){
+        # Permit reopening only the harness-created sibling restore, never an
+        # arbitrary repository/user root. Resolve also rejects ancestor junctions.
+        $roots+=Resolve-BenchmarkRelativePath -Root (Split-Path -Parent $workspaceRoot) -RelativePath 'restored'
+    }
+    return ($roots |
             Select-Object -Unique) -join ';'
 }
 

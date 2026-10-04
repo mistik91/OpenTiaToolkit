@@ -107,6 +107,7 @@
             "ladBooleanNetwork",
             "ladTimerNetwork",
             "plcBehaviorEvidence",
+            "blueprintLifecycle",
             "finalRegex",
             "traceRegex",
             "run"
@@ -152,6 +153,7 @@
           "minLength": 1
         },
         "vectorSha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+        "contractSha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
         "requiredObjectTypes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["FC", "FB", "GlobalDB", "InstanceDB", "OB"] } },
         "networkIndex": { "type": "integer", "minimum": 1 },
         "inputNames": { "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
