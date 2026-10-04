@@ -87,10 +87,14 @@ function Test-BenchmarkBlueprintLifecycle {
             elseif ($name -in @('bash','apply_patch','patch','multiedit')) { throw 'Uncontrolled shell or proof-file mutation is forbidden.' }
             continue
         }
-        if ($event.part.state.status -cne 'completed') { continue }
-        $envelope = $event.part.state.output
+        if ($event.part.state.status -notin @('completed','error')) { continue }
+        # OpenCode preserves MCP isError results as JSON in state.error, not output.
+        # Only a complete structured failure envelope is eligible; prose/errors
+        # without a command outcome never become engineering evidence.
+        $envelope = if($event.part.state.status -eq 'error'){$event.part.state.error}else{$event.part.state.output}
         if ($envelope -is [string]) { try { $envelope = $envelope | ConvertFrom-Json } catch { continue } }
         if ($null -eq $envelope -or $null -eq $envelope.PSObject.Properties['success'] -or $envelope.success -isnot [bool]) { continue }
+        if($event.part.state.status -eq 'error' -and $envelope.success){continue}
         $records.Add([pscustomobject]@{Index=$index;Name=$name.Substring(8);Input=$event.part.state.input;Envelope=$envelope;Data=$envelope.data})
     }
     # Every write outside the two approved domains is denied. Direct domain calls
@@ -127,7 +131,12 @@ function Test-BenchmarkBlueprintLifecycle {
             if ($close.Count -ne 1) { throw 'Stale plan lacks a controlled context change.' }
             Assert-BlueprintBoolean $close[0].Input.confirm $true 'Close confirmation'
             Assert-BlueprintBoolean $close[0].Input.save $false 'Unsaved context change'
-            $project = @($records | Where-Object {$_.Name -eq 'get_project_info' -and $_.Index -lt $close[0].Index -and $_.Envelope.success} | Select-Object -Last 1)
+            $project = @($records | Where-Object {$_.Name -in @('get_project_info','list_projects') -and $_.Index -lt $close[0].Index -and $_.Envelope.success} | ForEach-Object {
+                $identityRecord=$_
+                foreach($identity in @($identityRecord.Data)){
+                    if($null -ne $identity.PSObject.Properties['Path']){[pscustomobject]@{Index=$identityRecord.Index;Data=$identity}}
+                }
+            } | Select-Object -Last 1)
             if ($project.Count -ne 1 -or $null -eq $Metadata.PSObject.Properties['fixtureRestoreRoot']) { throw 'Harness-selected project identity is unproven.' }
             $restorePrefix=[IO.Path]::GetFullPath($Metadata.fixtureRestoreRoot).TrimEnd([char[]]'\/')+[IO.Path]::DirectorySeparatorChar
             if (-not [IO.Path]::GetFullPath($project[0].Data.Path).StartsWith($restorePrefix,[StringComparison]::OrdinalIgnoreCase)) { throw 'Project is outside the harness-selected restore.' }
@@ -147,7 +156,7 @@ function Test-BenchmarkBlueprintLifecycle {
                     Assert-BlueprintHmiStep $failed.Blueprint.Steps[1] $contract ('0'*64)
                     Assert-BlueprintTagStep $failed.Blueprint.Steps[2] $contract $contract.sentinelComment $contract.sentinel
                     Assert-BlueprintPreview $records $failed.Blueprint.Steps[0] $unchanged.LastIndex $failed.Record.Index
-                    Assert-BlueprintPreview $records $failed.Blueprint.Steps[1] $unchanged.LastIndex $failed.Record.Index -Blocked
+                    Assert-BlueprintPreview $records $failed.Blueprint.Steps[1] $unchanged.LastIndex $failed.Record.Index -Blocked -WorkspaceRoot $WorkspaceRoot
                     $partial = Get-BlueprintApply $records $failed.Record $failed.Record.Index $false
                     Assert-BlueprintApplyState $partial $failed.Record.Data 2 $false
                     Assert-BlueprintBoolean $partial.Data.Steps[0].Success $true 'Successful prefix'
@@ -165,7 +174,7 @@ function Test-BenchmarkBlueprintLifecycle {
                     foreach ($recovery in @($plans | Where-Object {$_.Record.Index -gt $afterFailure.LastIndex -and @($_.Blueprint.Steps).Count -eq 2})) {
                         Assert-BlueprintTagStep $recovery.Blueprint.Steps[0] $contract $contract.finalComment $contract.primary
                         Assert-BlueprintHmiStep $recovery.Blueprint.Steps[1] $contract $afterFailure.Hash
-                        foreach ($s in $recovery.Blueprint.Steps) { Assert-BlueprintPreview $records $s $afterFailure.LastIndex $recovery.Record.Index }
+                        foreach ($s in $recovery.Blueprint.Steps) { Assert-BlueprintPreview $records $s $afterFailure.LastIndex $recovery.Record.Index -WorkspaceRoot $WorkspaceRoot }
                         $applied = Get-BlueprintApply $records $recovery.Record $recovery.Record.Index $true
                         Assert-BlueprintApplyState $applied $recovery.Record.Data 2 $true
                         foreach ($s in $applied.Data.Steps) { Assert-BlueprintBoolean $s.Success $true 'Recovery completion'; Assert-BlueprintBoolean $s.TransportSuccess $true 'Recovery transport' }
@@ -273,13 +282,61 @@ function Assert-BlueprintTagEvidence {
     }
 }
 
+function ConvertTo-BlueprintHmiPreviewIntent {
+    param([object]$Arguments,[string]$WorkspaceRoot)
+    $intent=$Arguments | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+    # Command defaults and the documented operations wrapper are equivalent
+    # intent. Artifact placement is not engineering intent, but must stay scoped.
+    if($null -eq $intent.PSObject.Properties['backup']){$intent | Add-Member -NotePropertyName backup -NotePropertyValue $true}
+    foreach($pair in @(@('allow-stale-base',$false),@('fail-on-warning',$true),@('require-clean-preflight',$true))){
+        if($null -ne $intent.PSObject.Properties[$pair[0]]){
+            Assert-BlueprintBoolean $intent.($pair[0]) $pair[1] 'HMI safety default'
+            $intent.PSObject.Properties.Remove($pair[0])
+        }
+    }
+    if($null -ne $intent.PSObject.Properties['working-path']){
+        $path=[IO.Path]::GetFullPath($intent.'working-path')
+        $prefix=[IO.Path]::GetFullPath((Join-Path $WorkspaceRoot 'artifacts')).TrimEnd([char[]]'\/')+[IO.Path]::DirectorySeparatorChar
+        if(-not $path.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)){throw 'HMI preview artifact root is outside workspace artifacts.'}
+        [void](Resolve-BenchmarkRelativePath -Root $WorkspaceRoot -RelativePath ('artifacts/'+$path.Substring($prefix.Length)))
+        $intent.PSObject.Properties.Remove('working-path')
+    }
+    $operations=$intent.operations
+    if($operations -is [Management.Automation.PSCustomObject] -and $null -ne $operations.PSObject.Properties['operations']){
+        Assert-BlueprintEqual @($operations.PSObject.Properties.Name) @('operations') 'HMI operations wrapper'
+        $operations=$operations.operations
+    }
+    $normalized=@(foreach($op in @($operations)){
+        $itemKey=if($null -ne $op.PSObject.Properties['item']){'item'}else{'itemName'}
+        if($op.op -ceq 'set-property'){
+            $propertyKey=if($null -ne $op.PSObject.Properties['property']){'property'}else{'propertyName'}
+            Assert-BlueprintEqual @($op.PSObject.Properties.Name | Sort-Object) @(@('op',$itemKey,$propertyKey,'value') | Sort-Object) 'HMI preview scalar surface'
+            [pscustomobject]@{op='set-property';item=$op.$itemKey;property=$op.$propertyKey;value=$op.value}
+        }elseif($op.op -ceq 'set-properties'){
+            Assert-BlueprintEqual @($op.PSObject.Properties.Name | Sort-Object) @(@('op',$itemKey,'properties') | Sort-Object) 'HMI preview scalar surface'
+            Assert-BlueprintEqual @($op.properties.PSObject.Properties.Name) @('Text') 'HMI preview property surface'
+            [pscustomobject]@{op='set-property';item=$op.$itemKey;property='Text';value=$op.properties.Text}
+        }else{throw 'HMI preview is not a focused scalar edit.'}
+    })
+    $intent.operations=$normalized
+    $intent.'item-names'=@($intent.'item-names' | ForEach-Object {$_.ToLowerInvariant()} | Sort-Object)
+    $intent.properties=@($intent.properties | Sort-Object)
+    return $intent
+}
+
 function Assert-BlueprintPreview {
-    param([object[]]$Records,[object]$Step,[int]$After,[int]$Before,[switch]$Blocked)
+    param([object[]]$Records,[object]$Step,[int]$After,[int]$Before,[switch]$Blocked,[string]$WorkspaceRoot)
     $matches=@($Records | Where-Object {$_.Name -eq ($Step.Command -replace '-','_') -and $_.Index -gt $After -and $_.Index -lt $Before -and $_.Envelope.success})
     foreach($r in $matches){
         $inputClone=$r.Input | ConvertTo-Json -Depth 100 | ConvertFrom-Json
         $inputClone.PSObject.Properties.Remove('confirm')
-        try { Assert-BlueprintEqual $inputClone $Step.Arguments 'Matching recovery preview'; Assert-BlueprintBoolean $r.Data.DryRun $true 'Domain dry run'
+        try {
+            $expected=$Step.Arguments
+            if($Step.Command -eq 'apply-hmi-screen-json-patch'){
+                $inputClone=ConvertTo-BlueprintHmiPreviewIntent $inputClone $WorkspaceRoot
+                $expected=ConvertTo-BlueprintHmiPreviewIntent $expected $WorkspaceRoot
+            }
+            Assert-BlueprintEqual $inputClone $expected 'Matching recovery preview'; Assert-BlueprintBoolean $r.Data.DryRun $true 'Domain dry run'
             if($Step.Command -eq 'modify-tags'){if($r.Data.Summary.Failed -ne 0 -or $r.Data.Summary.Planned -ne 1){throw 'Tag preview failed.'}}
             else{Assert-BlueprintBoolean $r.Data.SafetyBlocked ([bool]$Blocked) 'HMI preview safety'; Assert-BlueprintBoolean $r.Data.SafeToApply (-not $Blocked) 'HMI preview applicability'}
             return

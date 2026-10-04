@@ -73,7 +73,7 @@ user/repository roots remain excluded; path resolution rejects junctions. Trial
 metadata now records the selected restore root and TIA PID for independent binding.
 
 Validation includes object/text positives, equivalent supported HMI syntax,
-**44 adversarial controls**, full scorer positive/negative checks, and replay of
+**50 adversarial controls**, full scorer positive/negative checks, and replay of
 the independently captured live-gold envelopes with explicit path adaptation.
 That replay is qualification evidence, never a model result. Release build, 765
 unit tests (32 new regressions included), 54 architecture tests, 5 vendor-free IPC
@@ -94,4 +94,35 @@ explicit Release worker paths and provider-scoped existing subscription auth.
 Provider/capture failures are invalid, not model failures. GLM-5.3 High is the
 prepared capability fallback if Flash has valid failures; no Sol campaign is
 authorized here. Subscription-reported zero cost is not amortized subscription
-price. At this checkpoint no model calls or provider quota have been consumed.
+price. At the original `7e35249` checkpoint no model calls had been consumed.
+
+## First capture: scorer calibration, not a model failure
+
+The first Flash High capture at `7e35249` completed in 598.893 seconds, without a
+provider failure or rate-limit signal. The original scorer incorrectly returned
+15/100. Its native trace contains a complete successful lifecycle: exact stale
+rejection, stopped partial failure, fresh recovery, replay rejections, native
+readback, unchanged Main and clean compilation. The same immutable trace scores
+**100/100** after correcting these generic evidence adapters:
+
+- OpenCode stores rejected MCP command envelopes in `state.error`, not
+  `state.output`. Only complete structured boolean-failure envelopes qualify;
+  prose is never engineering evidence.
+- `list-projects` and `get-project-info` are both documented ways to establish
+  project identity. Both remain bound to the selected TIA PID and restore root.
+- Supported HMI operation wrappers/aliases, safe command defaults and reordered
+  filter sets represent equivalent preview intent. Optional preview artifact
+  roots must remain inside the exact workspace artifacts; unsafe flags, extra
+  wrapper keys, changed labels/filters and disabled backup still fail.
+
+A separate Release MCP/worker attachment independently checked the pilot's
+still-open final project: exact two-tag inventory and comments, Text=Run with
+unchanged geometry, the immutable Main hash, and compile 0 errors / 0 warnings.
+Evidence: `E:/Documents/OpenTiaBench/Artifacts/ott36-flash-pilot-independent-20261004/`.
+
+Raw `result.json` and both intermediate replay files are retained unchanged under
+`E:/Documents/OpenTiaBench/Artifacts/ott36-flash-high-20261004/`. This capture is
+reported separately as scorer calibration. Do not use its original 15/100 as a
+model failure or silently migrate its commit-pinned batch checkpoint. Freeze the
+corrected scorer and run a fresh three-trial checkpointed qualification campaign.
+The public task, immutable acceptance contract, runtime and skills are unchanged.
