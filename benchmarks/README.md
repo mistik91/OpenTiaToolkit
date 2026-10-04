@@ -86,10 +86,14 @@ changing skills, staging gold code, or relaxing the frozen acceptance vector.
 
 OTT-36 engineering-blueprint work is currently a pre-campaign checkpoint, not a
 registered case. Its independent live control exposed a coordinator defect:
-transport-successful HMI safety blocks are incorrectly counted as applied steps,
-so a later step can run despite `continueOnError=false`. No model trial or skill
-change has been made. Qualification evidence and the next gate are recorded in
-[`reports/ott-36-blueprint-preflight-20261004.md`](reports/ott-36-blueprint-preflight-20261004.md).
+transport-successful HMI safety blocks were incorrectly counted as applied steps,
+so a later step could run despite `continueOnError=false`. A generic coordinator
+fix now passes vendor-free checks; live requalification is pending registration
+of the rebuilt worker. No model trial or skill change has been made. Original
+qualification evidence is recorded in
+[`reports/ott-36-blueprint-preflight-20261004.md`](reports/ott-36-blueprint-preflight-20261004.md);
+the fix and current gate are recorded in
+[`reports/ott-36-blueprint-coordinator-fix-20261004.md`](reports/ott-36-blueprint-coordinator-fix-20261004.md).
 
 For portable case definitions, the scorer normalizes hyphens in OpenCode tool names to underscores before matching `namePattern`.
 

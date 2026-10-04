@@ -50,8 +50,10 @@ public sealed class BlueprintStepOutcome
     public string Id { get; set; } = string.Empty;
     public string Command { get; set; } = string.Empty;
     public bool Success { get; set; }
+    public bool TransportSuccess { get; set; }
     public string Message { get; set; } = string.Empty;
     public string? ErrorCode { get; set; }
+    public JsonElement? Data { get; set; }
 }
 
 public sealed class BlueprintApplyResult

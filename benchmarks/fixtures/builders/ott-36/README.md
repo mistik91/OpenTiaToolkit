@@ -5,6 +5,9 @@ model benchmark. No case definition or model campaign should be enabled until th
 independent path passes. The first live qualification exposed a toolkit-level
 completion-reporting defect; see
 [`../../../reports/ott-36-blueprint-preflight-20261004.md`](../../../reports/ott-36-blueprint-preflight-20261004.md).
+The generic fix has passed vendor-free checks, but the rebuilt worker still needs
+registration before live requalification; see
+[`../../../reports/ott-36-blueprint-coordinator-fix-20261004.md`](../../../reports/ott-36-blueprint-coordinator-fix-20261004.md).
 
 ## Intended coverage
 
@@ -54,6 +57,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File benchmarks/fixtures/builders
 Add `-BaselineOnly` with new roots to perform only independent fixture restoration,
 tag/HMI verification, baseline export and clean compilation. Its
 `PASS_HEALTH_ONLY` result is **not** blueprint or model qualification.
+
+Add `-CheckContinuation` in a separate fresh restore to qualify explicit
+`continueOnError=true`: a blocked HMI step must retain its structured evidence,
+allow the independent suffix, and still leave the overall blueprint incomplete.
+The control verifies both exact tag rows, the unchanged HMI hash and Main, clean
+final compilation, and consumed-token rejection. Its
+`PASS_CONTINUATION_CONTROL` result does not substitute for the default recovery
+qualification. These switches are mutually exclusive.
 
 `mcp.jsonl` preserves actual command envelopes and redacts apply tokens to stable
 SHA-256 markers, so planning/apply relationships remain auditable without retaining

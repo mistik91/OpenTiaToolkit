@@ -6,10 +6,12 @@ param(
     [Parameter(Mandatory=$true)][string]$McpPath,
     [Parameter(Mandatory=$true)][string]$WorkerPath,
     [switch]$BaselineOnly,
+    [switch]$CheckContinuation,
     [ValidateRange(30,600)][int]$TimeoutSeconds=180
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+if($BaselineOnly -and $CheckContinuation){throw 'Select either baseline health or continuation qualification, not both.'}
 $archive=(Resolve-Path -LiteralPath $ArchivePath).Path
 $worker=Get-Item -LiteralPath (Resolve-Path -LiteralPath $WorkerPath).Path
 $workerHash=[Convert]::ToBase64String([Security.Cryptography.SHA256]::Create().ComputeHash([IO.File]::ReadAllBytes($worker.FullName)))
@@ -185,12 +187,42 @@ try {
     $partial=Invoke-Tool 'apply-blueprint' @{'apply-token'=$failure.applyToken;confirm=$true} -AllowFailure
     Write-Json (Join-Path $output 'stop-on-failure-result.json') $partial
     $afterFailure=Get-State 'after-failure'
-    if($partial.success -or $partial.data.applied -or -not $partial.data.stateMatched -or @($partial.data.steps).Count -ne 2 -or -not $partial.data.steps[0].success -or $partial.data.steps[1].success){throw 'Stop-on-failure prefix is not accurately reported.'}
-    if(@($afterFailure.tags | Where-Object {$_.Name -ceq 'OccupiedBefore' -and $_.Comment -ceq 'Pending operator label'}).Count -ne 1 -or
-        ($baseline.tags | Where-Object {$_.Name -cne 'OccupiedBefore'} | ConvertTo-Json -Depth 30 -Compress) -cne ($afterFailure.tags | Where-Object {$_.Name -cne 'OccupiedBefore'} | ConvertTo-Json -Depth 30 -Compress) -or
+    if($partial.success -or $partial.data.applied -or -not $partial.data.stateMatched -or @($partial.data.steps).Count -ne 2 -or
+        -not $partial.data.steps[0].success -or $partial.data.steps[1].success -or
+        -not $partial.data.steps[1].TransportSuccess -or $partial.data.steps[1].ErrorCode -cne 'PolicyDenied' -or
+        -not $partial.data.steps[1].Data.SafetyBlocked -or $partial.data.steps[1].Data.Applied){throw 'Stop-on-failure prefix or retained safety-block evidence is not accurately reported.'}
+    $expectedPartialTags=$baseline.tags | ConvertTo-Json -Depth 30 | ConvertFrom-Json
+    @($expectedPartialTags | Where-Object {$_.Name -ceq 'OccupiedBefore'})[0].Comment='Pending operator label'
+    if(($expectedPartialTags | ConvertTo-Json -Depth 30 -Compress) -cne ($afterFailure.tags | ConvertTo-Json -Depth 30 -Compress) -or
         $baseline.hmi.baseHash -cne $afterFailure.hmi.baseHash){throw 'Successful prefix, HMI preservation, or skipped suffix is unproven.'}
     $replay=Invoke-Tool 'apply-blueprint' @{'apply-token'=$failure.applyToken;confirm=$true} -AllowFailure
     if($replay.success -or $replay.message -notmatch 'consumed|invalid'){throw 'Failed apply token replay was accepted.'}
+    if($CheckContinuation){
+        $continuation=New-Blueprint 'OTT36_IndependentContinuation' @(
+            @{id='prefix-metadata';command='modify-tags';arguments=$prefixArgs;continueOnError=$false},
+            @{id='blocked-label';command='apply-hmi-screen-json-patch';arguments=$blockedHmi;continueOnError=$true},
+            @{id='independent-suffix';command='modify-tags';arguments=(New-TagArguments 'OccupiedAfter' '%MD108' 'Explicit independent continuation');continueOnError=$false}
+        )
+        $continued=Invoke-Tool 'apply-blueprint' @{'apply-token'=$continuation.applyToken;confirm=$true} -AllowFailure
+        Write-Json (Join-Path $output 'continuation-result.json') $continued
+        $continuedState=Get-State 'after-continuation'
+        $expectedContinuedTags=$expectedPartialTags | ConvertTo-Json -Depth 30 | ConvertFrom-Json
+        @($expectedContinuedTags | Where-Object {$_.Name -ceq 'OccupiedAfter'})[0].Comment='Explicit independent continuation'
+        if($continued.success -or $continued.data.Applied -or -not $continued.data.StateMatched -or @($continued.data.Steps).Count -ne 3 -or
+            -not $continued.data.Steps[0].Success -or $continued.data.Steps[1].Success -or -not $continued.data.Steps[2].Success -or
+            -not $continued.data.Steps[1].TransportSuccess -or -not $continued.data.Steps[1].Data.SafetyBlocked -or
+            $continued.data.Steps[1].Data.Applied -or
+            ($expectedContinuedTags | ConvertTo-Json -Depth 30 -Compress) -cne ($continuedState.tags | ConvertTo-Json -Depth 30 -Compress) -or
+            $continuedState.hmi.BaseHash -cne $baseline.hmi.BaseHash){throw 'Explicit continuation is not accurately reported or independently verified.'}
+        $replay=Invoke-Tool 'apply-blueprint' @{'apply-token'=$continuation.applyToken;confirm=$true} -AllowFailure
+        if($replay.success -or $replay.message -notmatch 'consumed|invalid'){throw 'Continuation token replay was accepted.'}
+        [void](Invoke-Tool 'export-block' @{'plc-name'='PLC_Main';'block-name'='Main';'export-path'=(Join-Path $output 'Main-after.xml')})
+        if((Get-MainHash (Join-Path $output 'Main-before.xml')) -cne (Get-MainHash (Join-Path $output 'Main-after.xml'))){throw 'Unrelated Main block changed during continuation.'}
+        $compile=(Invoke-Tool 'compile-software' @{'plc-name'='PLC_Main'}).data
+        if($compile.errorCount -ne 0 -or $compile.warningCount -ne 0){throw 'Final continuation compile is not clean.'}
+        Write-Json (Join-Path $output 'qualification.json') @{status='PASS_CONTINUATION_CONTROL';archiveHash=$archiveHash;project=$identity;staleRejected=$true;partialFailureVerified=$true;independentSuffixVerified=$true;overallApplied=$false;compilation=$compile}
+        return
+    }
     $recoveryHmi=$blockedHmi.Clone()
     $recoveryHmi['base-hash']=[string]$afterFailure.hmi.baseHash
     [void](Invoke-Tool 'modify-tags' $tagArgs)
