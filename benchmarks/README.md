@@ -92,12 +92,17 @@ readback. It preserves the complete two-tag inventory, focused HMI state and Mai
 model-written proof, direct applies, stale-base bypasses and split evidence cannot
 qualify. Only the frozen public acceptance contract is staged, never gold code.
 The coordinator defect found during preflight was corrected generically; standalone
-HMI safety-block behavior and skills remain unchanged. Independent live recovery,
+HMI safety-block behavior remains unchanged. Independent live recovery,
 continuation and fresh-worker health checks passed. See
 [`reports/ott-36-blueprint-live-qualification-20261004.md`](reports/ott-36-blueprint-live-qualification-20261004.md)
 and the historical
 [preflight](reports/ott-36-blueprint-preflight-20261004.md) /
 [fix checkpoint](reports/ott-36-blueprint-coordinator-fix-20261004.md).
+The blueprint skill now bundles its existing generic schema with a skill-local
+reference and packaging drift guard. A fresh, checkpointed Flash High campaign
+passed 3/3 at 100/100 with independent readback and no blueprint-format repairs;
+this is not a measured speed improvement or a paired skill evaluation. See the
+[portable-schema rerun report](reports/ott-36-blueprint-portable-schema-rerun-20261004.md).
 
 For portable case definitions, the scorer normalizes hyphens in OpenCode tool names to underscores before matching `namePattern`.
 
