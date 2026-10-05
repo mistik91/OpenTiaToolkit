@@ -898,8 +898,13 @@ public class PlcDocumentWorkflowServiceTests
         plc.Setup(item => item.GenerateBlocksFromSourceAsync("Stateful", false, true)).ReturnsAsync(() =>
         {
             var fb = new FakeBlock { Name = "Engine", Type = "FB", ExportContent = "FUNCTION_BLOCK \"Engine\"\r\nVAR Value : Int; END_VAR\r\nEND_FUNCTION_BLOCK" };
-            var db = new FakeBlock { Name = "State", Type = wrongSubtype ? "GlobalDB" : "InstanceDB", XmlExportFails = failXml,
-                ExportContent = "<?xml version=\"1.0\"?><Document><SW.Blocks.InstanceDB ID=\"0\"><AttributeList><Name>State</Name><Interface xmlns=\"urn:siemens:test\"/></AttributeList></SW.Blocks.InstanceDB></Document>" };
+            var db = new FakeBlock
+            {
+                Name = "State",
+                Type = wrongSubtype ? "GlobalDB" : "InstanceDB",
+                XmlExportFails = failXml,
+                ExportContent = "<?xml version=\"1.0\"?><Document><SW.Blocks.InstanceDB ID=\"0\"><AttributeList><Name>State</Name><Interface xmlns=\"urn:siemens:test\"/></AttributeList></SW.Blocks.InstanceDB></Document>"
+            };
             foreach (var block in new[] { fb, db })
             {
                 block.OnDelete = () => { deletions.Add(block.Name); software.BlockGroup.Blocks.Remove(block); };
@@ -1458,7 +1463,10 @@ public class PlcDocumentWorkflowServiceTests
         {
             ids.Add((await discovery.DiscoverAsync(new PlcCodeCapabilityRequest
             {
-                PlcName = "PLC_1", ObjectKind = "Block", ObjectName = target.Name, Operation = "Create",
+                PlcName = "PLC_1",
+                ObjectKind = "Block",
+                ObjectName = target.Name,
+                Operation = "Create",
                 BlockType = scenario == "type" ? "FB" : target.Type,
                 RequestedFormat = scenario == "route" ? "SCL" : "S7DCL",
                 GroupPath = scenario == "group" ? "WrongGroup" : ""
@@ -1469,7 +1477,8 @@ public class PlcDocumentWorkflowServiceTests
         var runtime = new Mock<IPlcSimulationRuntime>(MockBehavior.Strict);
         runtime.Setup(item => item.Discover("PLC_1", "TestSim", false)).Returns(new PlcSimulatorCapabilityDiscovery
         {
-            Available = true, SelectedInstance = new PlcSimulatorInstanceCapability { Name = "TestSim", ControllerName = "PLC_1", OperatingState = "Run", Fingerprint = "test-simulator" }
+            Available = true,
+            SelectedInstance = new PlcSimulatorInstanceCapability { Name = "TestSim", ControllerName = "PLC_1", OperatingState = "Run", Fingerprint = "test-simulator" }
         });
         var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, registry, runtime.Object);
         if (scenario == "route" || scenario == "group" || scenario == "type")
@@ -1523,7 +1532,10 @@ public class PlcDocumentWorkflowServiceTests
         else store.AddJournal(draft, null, "Apply", "Starting", "write-ahead crash");
         var evidence = new PlcCodeEvidenceRecord
         {
-            EvidenceId = Guid.NewGuid().ToString("N"), EvidenceKind = "Behavior", Status = "Quarantined", TransactionId = draft.TransactionId,
+            EvidenceId = Guid.NewGuid().ToString("N"),
+            EvidenceKind = "Behavior",
+            Status = "Quarantined",
+            TransactionId = draft.TransactionId,
             Behavior = new PlcCodeBehaviorEvidence { PlcName = "PLC_1", Simulator = new PlcSimulatorCapabilityDiscovery { SelectedInstance = new PlcSimulatorInstanceCapability { Name = "TestSim" } } }
         };
         registry.Save(evidence);
@@ -1592,7 +1604,8 @@ public class PlcDocumentWorkflowServiceTests
         var runtime = new Mock<IPlcSimulationRuntime>(MockBehavior.Strict);
         runtime.Setup(service => service.Discover("PLC_1", "TestSim", false)).Returns(new PlcSimulatorCapabilityDiscovery
         {
-            Available = true, SelectedInstance = new PlcSimulatorInstanceCapability { Name = "TestSim", ControllerName = "PLC_1", OperatingState = "Run", Fingerprint = "test-simulator" }
+            Available = true,
+            SelectedInstance = new PlcSimulatorInstanceCapability { Name = "TestSim", ControllerName = "PLC_1", OperatingState = "Run", Fingerprint = "test-simulator" }
         });
         var service = new PlcDocumentWorkflowService(plc.Object, context, discovery, registry, runtime.Object);
 
