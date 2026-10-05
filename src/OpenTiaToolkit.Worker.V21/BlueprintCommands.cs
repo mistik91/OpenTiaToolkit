@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenTiaToolkit.Application.Blueprints;
 using OpenTiaToolkit.Contracts.Blueprints;
 using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
@@ -103,34 +104,8 @@ internal sealed class BlueprintCoordinator
         if (!FixedEquals(stored.Plan.StateFingerprint, currentFingerprint))
             throw new InvalidOperationException("TIA/project state changed after planning. The apply token is stale; create and review a new plan.");
 
-        var outcomes = new List<BlueprintStepOutcome>();
-        foreach (BlueprintStep step in stored.Blueprint.Steps)
-        {
-            var arguments = step.Arguments.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.OrdinalIgnoreCase);
-            arguments["confirm"] = JsonSerializer.SerializeToElement(true);
-            if (arguments.ContainsKey("dry-run")) arguments["dry-run"] = JsonSerializer.SerializeToElement(false);
-            CommandOutcome outcome = await executor.ExecuteAsync(new CommandInvocation
-            {
-                CommandName = step.Command,
-                Arguments = arguments
-            }).ConfigureAwait(false);
-            outcomes.Add(new BlueprintStepOutcome
-            {
-                Id = step.Id,
-                Command = step.Command,
-                Success = outcome.Success,
-                Message = outcome.Message,
-                ErrorCode = outcome.Error?.Code.ToString()
-            });
-            if (!outcome.Success && !step.ContinueOnError) break;
-        }
-        return new BlueprintApplyResult
-        {
-            PlanId = stored.Plan.PlanId,
-            Applied = outcomes.Count == stored.Blueprint.Steps.Count && outcomes.All(item => item.Success),
-            StateMatched = true,
-            Steps = outcomes
-        };
+        return await BlueprintStepExecutor.ExecuteAsync(
+            stored.Plan.PlanId, stored.Blueprint.Steps, executor.ExecuteAsync).ConfigureAwait(false);
     }
 
     private static EngineeringBlueprint ReadBlueprint(string path)
@@ -246,6 +221,7 @@ internal sealed class ApplyBlueprintCommand : ICommand
     public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
     {
         BlueprintApplyResult result = await _coordinator.ApplyAsync(args.GetString("apply-token")).ConfigureAwait(false);
-        return result.Applied ? CommandResult.CreateSuccess(result, "Blueprint applied.") : CommandResult.CreateFailure("Blueprint apply stopped after a failed step.", result);
+        return result.Applied ? CommandResult.CreateSuccess(result, "Blueprint applied.")
+            : CommandResult.CreateFailure("Blueprint did not fully apply. Inspect step outcomes; earlier successful mutations are not rolled back.", result);
     }
 }

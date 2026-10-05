@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-36",
+  "title": "Engineering blueprint stale/partial/recovery lifecycle",
+  "description": "State-bound orchestration with genuine HMI guard failure, stopped suffix, one-use tokens and independently preserved PLC/HMI state; transport success is not completion.",
+  "fixtureId": "tia-v21-baseline-1",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1800,
+  "passScore": 95,
+  "allowedSkills": ["opentia-toolkit-workflow", "basic-tia-interaction", "engineering-blueprint-workflow", "plc-block-and-tag-workflow", "hmi-unified-agent-editing"],
+  "allowWorkspaceEdits": true,
+  "workspaceInputs": [{ "sourcePath": "acceptance.json", "targetPath": "inputs/acceptance.json", "sha256": "868f51f18fba253c4c89858dc000aabc850c34e12bf9c84803f5cc8df035381e" }],
+  "assertions": [
+    { "id": "run-completed", "type": "run", "points": 5, "critical": true },
+    { "id": "blueprint-skill-loaded", "type": "tool", "points": 5, "namePattern": "skill$", "inputEquals": { "name": "engineering-blueprint-workflow" }, "minCount": 1 },
+    { "id": "authentic-blueprint-lifecycle", "type": "blueprintLifecycle", "points": 85, "critical": true, "relativePath": "inputs/acceptance.json", "contractSha256": "868f51f18fba253c4c89858dc000aabc850c34e12bf9c84803f5cc8df035381e" },
+    { "id": "final-evidence-summary", "type": "finalRegex", "points": 5, "pattern": "(?is)(?=.*stale)(?=.*(?:partial|prefix))(?=.*recover)(?=.*(?:replay|consumed))(?=.*(?:not saved|unsaved|without saving|no.*save))" }
+  ]
+}

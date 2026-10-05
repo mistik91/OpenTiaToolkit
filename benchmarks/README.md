@@ -1,6 +1,6 @@
 # OpenCode benchmark slice
 
-This directory contains the executable OpenTiaToolkit agent benchmark slice. Twenty-eight cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, structured S7DCL data authoring, brownfield LAD interlock and timer editing, independent PLCSIM Advanced temporal behavior, bidirectional VCI synchronization, library reuse, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
+This directory contains the executable OpenTiaToolkit agent benchmark slice. Twenty-nine cases cover discovery, guarded PLC and HMI mutation, constrained PLC code editing, native SCL multi-object authoring, structured S7DCL data authoring, brownfield LAD interlock and timer editing, independent PLCSIM Advanced temporal behavior, engineering-blueprint orchestration, bidirectional VCI synchronization, library reuse, hardware relocation and rollback behavior, computed multi-row planning, cross-domain remapping and transfer, catalog-driven Siemens and third-party GSDML topology provisioning, brownfield modernization, discrete-alarm and trend-logging reconciliation, guarded retirement, and an unsupported Multiuser boundary.
 
 The benchmark is in this repository because the cases, skills, command contracts, and fixtures must evolve together. Large TIA project artifacts stay outside Git; only their identity and integrity hashes are versioned here.
 
@@ -83,6 +83,26 @@ rejected and cleaned, but their diagnostics stay available after cleanup and
 transaction discard. The separately labeled `plc-behavior-diagnostics-*` campaigns
 measure this feedback-enabled toolkit revision without replacing earlier traces,
 changing skills, staging gold code, or relaxing the frozen acceptance vector.
+
+OTT-36 exercises stale-context rejection, a genuine HMI guard failure after a
+successful PLC prefix, stopped suffix, consumed-token rejection and fresh
+cross-domain recovery. Its structured `blueprintLifecycle` oracle links authentic
+validated blueprint hashes, plans, tokens, step outcomes and phase-specific native
+readback. It preserves the complete two-tag inventory, focused HMI state and Main;
+model-written proof, direct applies, stale-base bypasses and split evidence cannot
+qualify. Only the frozen public acceptance contract is staged, never gold code.
+The coordinator defect found during preflight was corrected generically; standalone
+HMI safety-block behavior remains unchanged. Independent live recovery,
+continuation and fresh-worker health checks passed. See
+[`reports/ott-36-blueprint-live-qualification-20261004.md`](reports/ott-36-blueprint-live-qualification-20261004.md)
+and the historical
+[preflight](reports/ott-36-blueprint-preflight-20261004.md) /
+[fix checkpoint](reports/ott-36-blueprint-coordinator-fix-20261004.md).
+The blueprint skill now bundles its existing generic schema with a skill-local
+reference and packaging drift guard. A fresh, checkpointed Flash High campaign
+passed 3/3 at 100/100 with independent readback and no blueprint-format repairs;
+this is not a measured speed improvement or a paired skill evaluation. See the
+[portable-schema rerun report](reports/ott-36-blueprint-portable-schema-rerun-20261004.md).
 
 For portable case definitions, the scorer normalizes hyphens in OpenCode tool names to underscores before matching `namePattern`.
 

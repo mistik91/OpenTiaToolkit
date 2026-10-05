@@ -316,6 +316,13 @@ try {
         throw 'Provider-scoped OAuth was not removed.'
     }
 
+    $workspace=Join-Path $testRoot 'execution/workspace'
+    New-Item -ItemType Directory -Path $workspace -Force | Out-Null
+    $defaultRoots=@((Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspace) -split ';')
+    $fixtureRoots=@((Get-BenchmarkMcpAllowedRoots -WorkspacePath $workspace -IncludeDisposableRestore) -split ';')
+    $exactRestore=[IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $workspace) 'restored'))
+    if($defaultRoots.Count -ne 2 -or $fixtureRoots.Count -ne 3 -or $fixtureRoots[2] -ine $exactRestore){throw 'Disposable restore policy widened unexpected roots.'}
+    if(@($fixtureRoots | Where-Object {$_ -ieq $testRoot -or $_ -ieq (Split-Path -Parent $workspace)}).Count){throw 'Parent execution/user root must not be allowed.'}
     Write-Host 'OpenCode benchmark common helper tests passed.'
 }
 finally {

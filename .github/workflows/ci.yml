@@ -90,6 +90,10 @@ jobs:
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -CheckOnly
 
+      - name: Blueprint skill schema resource regressions
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-BlueprintSkillSchema.ps1
+
   licensed-v21:
     name: Licensed TIA V21 validation
     if: vars.TIA_V21_SELF_HOSTED_ENABLED == 'true'

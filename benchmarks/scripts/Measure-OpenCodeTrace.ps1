@@ -18,6 +18,7 @@ Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot 'LadAssertions.ps1')
 . (Join-Path $PSScriptRoot 'PlcBehaviorAssertions.ps1')
+. (Join-Path $PSScriptRoot 'BlueprintAssertions.ps1')
 . (Join-Path $PSScriptRoot 'OpenCodeToolOutputs.ps1')
 
 function Get-PropertyValue {
@@ -805,6 +806,14 @@ foreach ($assertion in $case.assertions) {
     }
 
     switch ([string]$assertion.type) {
+        'blueprintLifecycle' {
+            try {
+                $details = Test-BenchmarkBlueprintLifecycle -ToolEvents $toolEvents `
+                    -Metadata $metadata -WorkspaceRoot $workspaceRoot -Assertion $assertion
+                $passed = $true
+            }
+            catch { $details = $_.Exception.Message; $passed = $false }
+        }
         'plcBehaviorEvidence' {
             try {
                 $details = Test-BenchmarkPlcBehaviorEvidence -ToolEvents $toolEvents `
