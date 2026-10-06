@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "ott35-stateful-gold-1",
+  "artifacts": [
+    { "codeFormat": "scl", "inputPath": "Control.scl", "groupPath": "" },
+    { "codeFormat": "s7dcl", "inputPath": "OTT35_IO.s7dcl", "groupPath": "" },
+    { "codeFormat": "scl", "inputPath": "Cycle.scl", "groupPath": "" }
+  ]
+}

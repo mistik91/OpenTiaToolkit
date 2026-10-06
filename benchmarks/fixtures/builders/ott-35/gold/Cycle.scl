@@ -1,0 +1,12 @@
+﻿ORGANIZATION_BLOCK "OTT35_Cycle"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+BEGIN
+    "OTT35_Instance"(
+        Request := "OTT35_IO".Request,
+        Permit := "OTT35_IO".Permit,
+        Reset := "OTT35_IO".Reset,
+        Active => "OTT35_IO".Active,
+        ActivationCount => "OTT35_IO".ActivationCount);
+    "OTT35_IO".Heartbeat := "OTT35_IO".Heartbeat + 1;
+END_ORGANIZATION_BLOCK

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "scope": "identity-bound-local-save-ui-handoff",
+  "archiveSha256": "8E6F2738A6332E6741599512745D859A6655AAA3CF4BAB27DDAADD99CD8A8CF2",
+  "operation": {
+    "action": "update",
+    "match": { "tagTable": "Default tag table", "name": "PumpEnable", "logicalAddress": "%M20.0" },
+    "set": { "logicalAddress": "%M24.0", "comment": "Process pump enable - commissioning revision A" }
+  },
+  "targetPlc": "PLC_Process",
+  "plcs": [
+    {
+      "name": "PLC_Process", "prefix": "process",
+      "tags": [
+        { "TagTableName": "Default tag table", "Name": "PumpEnable", "DataType": "Bool", "LogicalAddress": "%M20.0", "Comment": "Process pump enable - baseline" },
+        { "TagTableName": "Default tag table", "Name": "PumpFeedback", "DataType": "Bool", "LogicalAddress": "%M20.1", "Comment": "Preserve process feedback" },
+        { "TagTableName": "Default tag table", "Name": "MaintenancePermit", "DataType": "Bool", "LogicalAddress": "%M20.2", "Comment": "Preserve maintenance permit" }
+      ],
+      "mainSha256": "2395a7fa9c1367f32726895c189121b897f8c50f199282f3d14436020f36d8c5"
+    },
+    {
+      "name": "PLC_Auxiliary", "prefix": "auxiliary",
+      "tags": [
+        { "TagTableName": "Default tag table", "Name": "PeerHeartbeat", "DataType": "Bool", "LogicalAddress": "%M28.0", "Comment": "Peer station heartbeat - baseline" },
+        { "TagTableName": "Default tag table", "Name": "AuxiliaryReady", "DataType": "Bool", "LogicalAddress": "%M28.1", "Comment": "Preserve auxiliary ready" }
+      ],
+      "mainSha256": "2395a7fa9c1367f32726895c189121b897f8c50f199282f3d14436020f36d8c5"
+    }
+  ],
+  "blocks": [{ "Name": "Main", "Type": "OB", "Language": "LAD", "Number": "1", "IsReadOnly": "False", "Comment": "" }]
+}

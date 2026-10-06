@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-skill-io-length-candidate-20260801",
+  "title": "Hardware skill I/O length interpretation candidate",
+  "caseIds": [
+    "ott-17"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+﻿TYPE "OTT33_BatchInfo"
+VERSION : 0.1
+    STRUCT
+        BatchId : DInt;
+        ProductCode : USInt;
+        Accepted : Bool;
+    END_STRUCT;
+END_TYPE

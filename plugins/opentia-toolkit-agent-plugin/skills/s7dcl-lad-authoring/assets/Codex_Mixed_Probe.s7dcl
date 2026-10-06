@@ -1,0 +1,19 @@
+﻿{
+    S7_BlockNumber := "59993";
+    S7_Optimized := "TRUE";
+    S7_PreferredLanguage := "LAD";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Codex_Mixed_Probe"
+    VAR_INPUT Enable : Bool; ValueA : Int; ValueB : Int; END_VAR
+    VAR_OUTPUT Run : Bool; Sum : Int; END_VAR
+
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail Contact( #Enable ) Coil( #Run ) END_RUNG
+    END_NETWORK
+    { S7_Language := "SCL" }
+    NETWORK
+        #Sum := #ValueA + #ValueB;
+    END_NETWORK
+END_FUNCTION_BLOCK

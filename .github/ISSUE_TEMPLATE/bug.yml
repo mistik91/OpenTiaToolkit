@@ -1,0 +1,40 @@
+name: Bug report
+description: Report reproducible toolkit behavior or installation failures.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities, follow SECURITY.md. Do not attach credentials, proprietary TIA projects, or Siemens binaries."
+  - type: input
+    id: version
+    attributes:
+      label: Toolkit version and installation method
+      placeholder: "1.0.0-preview.6, installer / source / MCPB"
+    validations:
+      required: true
+  - type: input
+    id: tia
+    attributes:
+      label: TIA version, update, and relevant engineering components
+      placeholder: "V21 Update 2; STEP 7 / WinCC Unified / Startdrive / PLCSIM Advanced"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction and expected behavior
+      description: "Include exact commands and sanitized arguments. Use public example names."
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized diagnostics
+      description: "Include exit/error codes and relevant doctor output. Remove passwords, tokens, user paths, and private target identifiers."
+    validations:
+      required: true
+  - type: textarea
+    id: recovery
+    attributes:
+      label: Project state and recovery
+      description: "For mutations, describe preview/apply/readback results and whether the disposable project was restored."

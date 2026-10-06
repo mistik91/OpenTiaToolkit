@@ -1,0 +1,30 @@
+﻿{
+    S7_BlockNumber := "59992";
+    S7_Optimized := "TRUE";
+    S7_PreferredLanguage := "LAD";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Codex_LAD_FB_Probe"
+    VAR_INPUT Trigger : Bool; PulseIn : Bool; END_VAR
+    VAR_OUTPUT Delayed : Bool; Pulse : Bool; END_VAR
+    VAR tonInst : TON_TIME; END_VAR
+    VAR_TEMP edgeMemory : Bool; END_VAR
+
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            Contact( #Trigger )
+            { S7_Templates := "time_type := Time" }
+            #tonInst.TON( pt := T#500ms, et => )
+            Coil( #Delayed )
+        END_RUNG
+    END_NETWORK
+    { S7_Language := "LAD" }
+    NETWORK
+        RUNG wire#powerrail
+            Contact( #PulseIn )
+            P_Trig( #edgeMemory )
+            Coil( #Pulse )
+        END_RUNG
+    END_NETWORK
+END_FUNCTION_BLOCK

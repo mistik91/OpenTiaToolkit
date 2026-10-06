@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>OpenTiaToolkit.Tests</AssemblyName>
+    <RootNamespace>OpenTiaToolkit.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenTiaToolkit.Application\OpenTiaToolkit.Application.csproj" />
+    <ProjectReference Include="..\..\src\OpenTiaToolkit.Contracts\OpenTiaToolkit.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\OpenTiaToolkit.Core\OpenTiaToolkit.Core.csproj" />
+    <ProjectReference Include="..\..\src\OpenTiaToolkit.CLI\OpenTiaToolkit.CLI.csproj" />
+    <ProjectReference Include="..\..\src\OpenTiaToolkit.MCP\OpenTiaToolkit.MCP.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- TIA Openness API references for integration tests - V21 installation (primary) -->
+    <!-- In V21+, the API is modular: Base.dll, Step7.dll, WinCC.dll, WinCC.Extension.dll -->
+    <Reference Include="Siemens.Engineering.Base">
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Base.dll</HintPath>
+      <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
+    <Reference Include="Siemens.Engineering.Step7">
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.Step7.dll</HintPath>
+      <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
+    <Reference Include="Siemens.Engineering.WinCCUnified">
+      <HintPath>$(TiaPortalPublicApiPath)\Siemens.Engineering.WinCCUnified.dll</HintPath>
+      <Private>False</Private>
+      <CopyLocal>false</CopyLocal>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="3.9.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="Moq" Version="4.20.70" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>TiaPortalPublicApiPath</_Parameter1>
+      <_Parameter2>$(TiaPortalPublicApiPath)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <Target Name="SetTestAssemblySiemensCodeBasePaths" AfterTargets="Build">
+    <XmlPoke
+      XmlInputPath="$(TargetPath).config"
+      Query="/*[local-name()='configuration']/*[local-name()='runtime']/*[local-name()='assemblyBinding']/*[local-name()='dependentAssembly'][*[local-name()='assemblyIdentity']/@name='Siemens.Engineering.Base']/*[local-name()='codeBase']/@href"
+      Value="FILE://$(TiaPortalPublicApiPath)\Siemens.Engineering.Base.dll" />
+    <XmlPoke
+      XmlInputPath="$(TargetPath).config"
+      Query="/*[local-name()='configuration']/*[local-name()='runtime']/*[local-name()='assemblyBinding']/*[local-name()='dependentAssembly'][*[local-name()='assemblyIdentity']/@name='Siemens.Engineering.Step7']/*[local-name()='codeBase']/@href"
+      Value="FILE://$(TiaPortalPublicApiPath)\Siemens.Engineering.Step7.dll" />
+    <XmlPoke
+      XmlInputPath="$(TargetPath).config"
+      Query="/*[local-name()='configuration']/*[local-name()='runtime']/*[local-name()='assemblyBinding']/*[local-name()='dependentAssembly'][*[local-name()='assemblyIdentity']/@name='Siemens.Engineering.WinCCUnified']/*[local-name()='codeBase']/@href"
+      Value="FILE://$(TiaPortalPublicApiPath)\Siemens.Engineering.WinCCUnified.dll" />
+  </Target>
+
+</Project>

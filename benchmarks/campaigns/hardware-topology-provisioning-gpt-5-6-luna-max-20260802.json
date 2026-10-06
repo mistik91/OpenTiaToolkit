@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-topology-provisioning-gpt-5-6-luna-max-20260802",
+  "title": "GPT-5.6 Luna maximum-effort hardware topology qualification",
+  "caseIds": [
+    "ott-22"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 1.0,
+  "allowPaidModels": true,
+  "models": [
+    {
+      "model": "openrouter/openai/gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "paid"
+    }
+  ]
+}

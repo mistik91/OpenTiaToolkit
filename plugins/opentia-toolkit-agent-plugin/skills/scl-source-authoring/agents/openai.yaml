@@ -1,0 +1,4 @@
+interface:
+  display_name: "SCL Source Authoring"
+  short_description: "Generate Siemens blocks and PLC types from SCL"
+  default_prompt: "Use $scl-source-authoring to generate Siemens blocks and PLC types from native SCL in one verified transaction."

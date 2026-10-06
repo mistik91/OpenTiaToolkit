@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/engineering-blueprint.schema.json",
+  "schemaVersion": "1.0",
+  "name": "Create a Unified HMI screen and title",
+  "description": "A minimal example showing state-bound multi-step HMI orchestration.",
+  "requiredWorker": "V21",
+  "steps": [
+    {
+      "id": "create-screen",
+      "command": "create-hmi-screen",
+      "arguments": {
+        "screen-path": "Generated/Overview",
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "id": "create-title",
+      "command": "create-hmi-item",
+      "arguments": {
+        "screen-path": "Generated/Overview",
+        "item-type": "HmiText",
+        "item-name": "Title",
+        "left": 48,
+        "top": 32,
+        "width": 600,
+        "height": 64
+      }
+    }
+  ]
+}

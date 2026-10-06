@@ -1,0 +1,373 @@
+# Development Guide
+
+Guide for developers contributing to OpenTiaToolkit.
+
+## Table of Contents
+
+- [Development Setup](#development-setup)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [Adding New Commands](#adding-new-commands)
+- [Testing Strategy](#testing-strategy)
+- [Code Style Guidelines](#code-style-guidelines)
+- [Build Process](#build-process)
+- [Release Process](#release-process)
+
+## Development Setup
+
+### Prerequisites
+
+1. Install **TIA Portal V21**.
+   V21 is the primary supported version for development and integration validation.
+2. Install the **.NET SDK pinned in `global.json`** and **.NET Framework 4.8 targeting tools**. If using Visual Studio, install:
+   - .NET desktop development workload
+   - MSTest adapter
+3. Clone the repository.
+
+### Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/mistik91/OpenTiaToolkit.git
+cd OpenTiaToolkit
+
+# Open in Visual Studio
+OpenTiaToolkit.sln
+
+# Build to verify setup
+dotnet build OpenTiaToolkit.sln
+```
+
+If you want to pre-authorize a freshly built executable for TIA Openness, run [Register-OpennessAllowList.ps1](../scripts/Register-OpennessAllowList.ps1) from an elevated PowerShell session after the build.
+
+### Recommended Visual Studio Extensions
+
+- .NET Productivity Tools
+- ReSharper (optional)
+
+## Project Structure
+
+### Solution Layout
+
+```
+OpenTiaToolkit.sln
+├── src/
+│   ├── OpenTiaToolkit.Contracts/   # Vendor-free IPC and command contracts
+│   ├── OpenTiaToolkit.Application/ # Policy, lifecycle, and dispatch
+│   ├── OpenTiaToolkit.Core/        # Siemens-backed engineering commands
+│   ├── OpenTiaToolkit.Worker.V21/  # Isolated serialized Siemens owner
+│   ├── OpenTiaToolkit.CLI/         # Vendor-free console host
+│   └── OpenTiaToolkit.MCP/         # Vendor-free MCP host
+└── tests/
+    ├── OpenTiaToolkit.Tests/             # Core, host, and live integration tests
+    └── OpenTiaToolkit.ArchitectureTests/ # Vendor-free boundary tests
+```
+
+### Layer Responsibilities
+
+| Layer | Responsibility |
+|-------|----------------|
+| `OpenTiaToolkit.Contracts` | Vendor-free versioned IPC, typed outcomes/errors, capabilities, paging, and audit records |
+| `OpenTiaToolkit.Application` | Mutation policy, audit journal, typed dispatch, and worker lifecycle |
+| `OpenTiaToolkit.Worker.V21` | Single-queue net48 process owning Core and Siemens V21 sessions |
+| `OpenTiaToolkit.Core` | Siemens-backed commands, services, adapters, builders, and models |
+| `OpenTiaToolkit.CLI` | Vendor-free CLI routing and output formatting |
+| `OpenTiaToolkit.MCP` | Vendor-free MCP transport and remote tool registry |
+| `OpenTiaToolkit.Tests` | Fast tests plus real TIA integration validation |
+
+## Architecture
+
+### Shared Host Composition
+
+The V21 worker owns the registrations from [ServiceCollectionExtensions.cs](../src/OpenTiaToolkit.Core/ServiceCollectionExtensions.cs):
+
+- `AddOpenTiaToolkitCoreServices()`
+- `AddOpenTiaToolkitCommands()`
+
+Registration happens once in the worker. CLI and MCP obtain the catalog through versioned IPC and cannot reference Core or Siemens assemblies. Application enforces mutation policy before every IPC execution. See [PRODUCTION_ARCHITECTURE.md](PRODUCTION_ARCHITECTURE.md).
+
+### Shared Session State
+
+[EngineeringSessionContext.cs](../src/OpenTiaToolkit.Core/Services/EngineeringSessionContext.cs) is the single source of truth for:
+
+- attached `TiaPortal`
+- current project or local session
+- current PLC software
+- ownership flags used to decide whether close/dispose operations are allowed
+
+The main goal is to keep portal/project/PLC state consistent across services.
+
+### Service Boundaries
+
+The public service interfaces stay stable, but the implementation is now split into capability services:
+
+- [PortalService.cs](../src/OpenTiaToolkit.Core/Services/PortalService.cs): thin facade for the public portal API
+- [PortalSessionService.cs](../src/OpenTiaToolkit.Core/Services/PortalSessionService.cs): small compatibility facade for portal workflows
+- [Services/Portal](../src/OpenTiaToolkit.Core/Services/Portal): portal workflow coordination, atomic session-state ownership, and path/authentication/result policies
+- [PortalInspectionService.cs](../src/OpenTiaToolkit.Core/Services/PortalInspectionService.cs): read-only project/device/PLC/HMI inspection
+- [PlcService.cs](../src/OpenTiaToolkit.Core/Services/PlcService.cs): thin facade for the public PLC API
+- [PlcBrowseService.cs](../src/OpenTiaToolkit.Core/Services/PlcBrowseService.cs): read-only browse/search/info operations
+- [PlcCompileService.cs](../src/OpenTiaToolkit.Core/Services/PlcCompileService.cs): software compilation
+- [PlcBlockMutationService.cs](../src/OpenTiaToolkit.Core/Services/PlcBlockMutationService.cs): block creation/deletion
+- [PlcTagService.cs](../src/OpenTiaToolkit.Core/Services/PlcTagService.cs): tag creation and update flows
+- [PlcMemberRenameService.cs](../src/OpenTiaToolkit.Core/Services/PlcMemberRenameService.cs): DB/UDT member rename flows
+- [PlcImportExportService.cs](../src/OpenTiaToolkit.Core/Services/PlcImportExportService.cs): compatibility facade for PLC transfer commands
+- [PlcXmlTransferService.cs](../src/OpenTiaToolkit.Core/Services/PlcXmlTransferService.cs): XML block and PLC data-type import/export
+- [PlcDocumentTransferService.cs](../src/OpenTiaToolkit.Core/Services/PlcDocumentTransferService.cs): SIMATIC SD document import/export and V21 support checks
+- [PlcSurfaceService.cs](../src/OpenTiaToolkit.Core/Services/PlcSurfaceService.cs): compatibility facade for PLC surface commands
+- [PlcCrossReferenceService.cs](../src/OpenTiaToolkit.Core/Services/PlcCrossReferenceService.cs): cross-reference target discovery, compatibility lookup, traversal, and projection
+- [PlcExternalSourceService.cs](../src/OpenTiaToolkit.Core/Services/PlcExternalSourceService.cs): external-source import, generation, deletion, and block-to-source export
+- [LibraryService.cs](../src/OpenTiaToolkit.Core/Services/LibraryService.cs): project/global library listing, master-copy copy workflows, library type versions, and update checks
+- [VciService.cs](../src/OpenTiaToolkit.Core/Services/VciService.cs): VCI workspaces, mappings, comparison state, and surgical/bulk synchronization
+- [HardwareService.cs](../src/OpenTiaToolkit.Core/Services/HardwareService.cs): compatibility facade preserving the shared hardware service contract
+- [V21HardwareAdapter.cs](../src/OpenTiaToolkit.Core/Services/V21HardwareAdapter.cs): direct-construction compatibility facade only
+- `Services/V21/V21Hardware*Access.cs`: shared catalog, attribute/GSD/IO, Startdrive, and network Openness boundaries consumed directly by production hardware workflows
+- [Services/Hardware](../src/OpenTiaToolkit.Core/Services/Hardware): focused hardware catalog/capability, topology, drive, PLC-tag audit, target-resolution, reference/value-rule, and transactional patch components
+
+Hardware patches use one Siemens transaction for the complete ordered operation list. Domain handlers are registered through a duplicate-checked catalog; dry-runs execute the real operations and roll back, result references remain patch-local, expected-value guards run before writes, and only a fully successful non-dry-run selects commit-on-dispose. CLI and MCP continue to reach this behavior through the shared Core command and `IHardwareService` surface.
+
+### Builders
+
+Tree-shaping logic is being extracted from services into dedicated builders:
+
+- [ProjectTreeBuilder.cs](../src/OpenTiaToolkit.Core/Services/ProjectTreeBuilder.cs)
+- [SoftwareTreeBuilder.cs](../src/OpenTiaToolkit.Core/Services/SoftwareTreeBuilder.cs)
+
+These builders are intended to be testable with fake object graphs so traversal behavior can be verified without a live TIA session.
+
+### V21 Adapter Boundary
+
+[V21OpennessAdapter.cs](../src/OpenTiaToolkit.Core/Services/V21OpennessAdapter.cs) is a compatibility facade, not the destination for new V21 behavior. Focused components under [Services/V21](../src/OpenTiaToolkit.Core/Services/V21) own:
+
+- `V21TypeServiceResolver`: exact/short type lookup, caches, Siemens assembly enumeration, and generic service lookup
+- `V21SoftwareDiscovery`: PLC/Unified HMI discovery, HMI classification, and safety login
+- `V21EngineeringObjectAccess`: names, addresses, data types, comments, consistency, and bounded object primitives
+- `V21PlcTagStructureAccess`: tag tables/tags plus recursive DB, UDT, and nested-member access
+- `V21CompilationAccess`: compile invocation and diagnostic projection
+- `V21OnlineVerificationAccess`: compare, download configuration, online transitions, and CPU control
+- `V21DocumentAccess`: language/FB creation and XML/document import-export overload selection
+
+`AddOpenTiaToolkitCoreServices` registers one shared instance of each focused component. Production feature services must request only the capabilities they use; do not register, construct, store, or inject `V21OpennessAdapter` in the production graph. Direct public service constructors remain compatible by composing their own local focused graph at the public composition boundary.
+
+Add version-sensitive behavior to the narrowest component. Keep `IServiceProvider` access inside `ServiceCollectionExtensions`; do not replace the adapter with a service locator or another broad manager.
+
+### Parallel Development Guidance
+
+If you are adding or changing features, prefer touching one capability area instead of the public facades.
+
+Good work lanes:
+
+- portal lifecycle
+- portal inspection/tree shaping
+- PLC browse/info
+- PLC compile
+- PLC import/export
+- project/global library workflows
+- VCI workspace and synchronization flows
+- PLC tags and rename flows
+- CLI/MCP presentation layers
+
+The main refactoring rule is: new behavior should usually require edits in one feature service, one command, and one test area.
+
+## Adding New Commands
+
+### Step 1: Create the Command
+
+Create the command in `src/OpenTiaToolkit.Core/Commands/...`:
+
+```csharp
+using Microsoft.Extensions.Logging;
+using OpenTiaToolkit.Core.Abstractions;
+using System.Threading.Tasks;
+
+namespace OpenTiaToolkit.Core.Commands.Portal
+{
+    public class MyNewCommand : ICommand
+    {
+        private readonly IPortalService _portalService;
+
+        public MyNewCommand(IPortalService portalService)
+        {
+            _portalService = portalService;
+        }
+
+        public string Name => "my-new-command";
+        public string Description => "Does something useful";
+
+        public CommandSchema Schema => new CommandSchema(
+            Description,
+            new[]
+            {
+                new CommandParameter("my-param", CommandParameterType.String, "Example parameter")
+            });
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            logger.LogInformation("Executing {CommandName}", Name);
+            return CommandResult.CreateSuccess(data: new { ok = true });
+        }
+    }
+}
+```
+
+### Step 2: Verify Discovery
+
+Concrete `ICommand` implementations in the Core assembly are discovered and registered automatically by `AddOpenTiaToolkitCommands()`. Do not add a second manual command list. If the command introduces a new service dependency, register that service in `AddOpenTiaToolkitCoreServices()` and add a composition test.
+
+### Step 3: Add Tests
+
+Prefer fast tests first:
+
+- command tests for argument handling and result shaping
+- builder tests if the feature adds traversal logic
+- composition tests if the feature adds registrations
+
+Then add or extend integration tests if real TIA behavior needs validation.
+
+### Step 4: Verify Both Hosts
+
+Because the worker publishes one catalog to CLI and MCP, you usually do not need separate host registration edits.
+
+Typical local verification:
+
+```bash
+dotnet build OpenTiaToolkit.sln
+dotnet test tests/OpenTiaToolkit.ArchitectureTests/OpenTiaToolkit.ArchitectureTests.csproj
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
+powershell -ExecutionPolicy Bypass -File .\scripts\Generate-CommandReference.ps1 -CheckOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-RepositoryHygiene.ps1
+```
+
+Private audit reports stay local and ignored. Do not force-add `report.md` or `suggestions.md` to Git.
+
+## Testing Strategy
+
+### Fast Tests
+
+Fast tests live under `tests/OpenTiaToolkit.Tests/` and should not require a live TIA session.
+
+The vendor-free architecture suite lives under `tests/OpenTiaToolkit.ArchitectureTests/`. It parses production source with Roslyn to enforce per-file screening, fully-qualified aggregate type ceilings, and decomposition boundaries without loading Siemens/TIA assemblies. Run it in the normal verification sequence:
+
+```bash
+dotnet test tests/OpenTiaToolkit.ArchitectureTests/OpenTiaToolkit.ArchitectureTests.csproj
+```
+
+Typical coverage:
+
+- command argument handling
+- command result shaping
+- routing and output formatting
+- dependency-injection composition
+- extracted builders
+- MCP protocol plumbing
+
+### Integration Tests
+
+Integration tests live under `tests/OpenTiaToolkit.Tests/Integration/` and validate real TIA behavior.
+
+They assume:
+
+- TIA Portal V21 is installed
+- a real test project is available
+- the executable or `testhost` is authorized for Openness access
+- test classes marked with `[TestCategory("Integration")]` are selected explicitly
+
+Configurable environment variables:
+
+- `OPEN_TIA_TEST_PROJECT_PATH`
+- `OPEN_TIA_TEST_EXPORT_PATH`
+- `OPEN_TIA_TEST_OUTPUT_PATH`
+
+### Test Commands
+
+```bash
+# Fast tests only
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory!=Integration"
+
+# All tests
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj
+
+# Integration tests only
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj --filter "TestCategory=Integration"
+```
+
+### CLI Automation
+
+Use [Test-CLI.ps1](../scripts/Test-CLI.ps1) for end-to-end CLI automation against the built executable.
+
+See [CLI_TESTING.md](CLI_TESTING.md) for the full suite matrix, artifact layout, expected skips, and current V21 coverage notes.
+
+- `Help` validates general help plus `help <command>` for every command currently exposed by the CLI host
+- `ReadOnly` drives the real CLI through scripted command batches so project and PLC state stay alive inside one process
+- `Mutation` creates a disposable project copy under `artifacts/cli-tests/` before running block/tag/import-export roundtrips
+- `Negative` covers argument validation and unknown-command behavior
+
+Examples:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-CLI.ps1 -Suite Help
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-CLI.ps1 -Suite ReadOnly -ProjectPath $env:OPEN_TIA_TEST_PROJECT_PATH -PlcName "PLC_1"
+```
+
+Run build and test serially in the same workspace on Windows. Parallel build/test runs can leave `testhost` holding copied binaries and cause temporary file-lock failures.
+
+## Code Style Guidelines
+
+### C# Conventions
+
+- `PascalCase` for classes, methods, and properties
+- `kebab-case` for command names
+- `_camelCase` for private fields
+- prefix interfaces with `I`
+
+### Error Handling
+
+- log the exception with useful context
+- return a structured failure result when possible
+- avoid swallowing exceptions unless the fallback behavior is intentional
+
+### Logging
+
+- `Information`: normal operation flow
+- `Warning`: unexpected but handled conditions
+- `Error`: operation failed
+- `Debug`: detailed diagnostics
+
+### Documentation
+
+Keep XML comments focused on behavior and important constraints, not on obvious syntax.
+
+## Build Process
+
+### Local Build
+
+```bash
+dotnet clean
+dotnet build OpenTiaToolkit.sln
+```
+
+### Release Build
+
+```bash
+dotnet build OpenTiaToolkit.sln -c Release
+dotnet test tests/OpenTiaToolkit.Tests/OpenTiaToolkit.Tests.csproj -c Release
+```
+
+## Release Process
+
+### Versioning
+
+Follow [Semantic Versioning](https://semver.org/):
+
+- `MAJOR`: breaking changes
+- `MINOR`: backwards-compatible features
+- `PATCH`: backwards-compatible fixes
+
+### Pre-Release Checklist
+
+- all fast tests pass
+- integration tests pass against a real V21 project
+- documentation reflects the current command surface and architecture
+- generated command and MCP references have no drift
+- version metadata is updated where needed
+- release build completes successfully

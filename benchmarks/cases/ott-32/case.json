@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-32",
+  "title": "Approved project-library reuse with type-version restraint",
+  "description": "Tests full-path selection among same-leaf domain/legacy distractors, collision-aware dry-run and confirmed grouped copy, recursive XML readback, existing-object preservation, and inspection-only outdated UDT evidence.",
+  "fixtureId": "tia-v21-library-11",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1200,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "library-workflow",
+    "plc-block-and-tag-workflow"
+  ],
+  "allowWorkspaceEdits": false,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 3,
+      "critical": true
+    },
+    {
+      "id": "library-skill-loaded",
+      "type": "tool",
+      "points": 2,
+      "namePattern": "skill$",
+      "inputEquals": {
+        "name": "library-workflow"
+      },
+      "minCount": 1
+    },
+    {
+      "id": "tia-context-established",
+      "type": "traceRegex",
+      "points": 3,
+      "critical": true,
+      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?(?:opentia_list-projects|opentia_get-project-info).*?(?:opentia_open-plc|opentia_list-plcs|opentia_get-software-tree)"
+    },
+    {
+      "id": "project-master-discovery",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "list_master_copies$",
+      "inputEquals": {
+        "library-scope": "project"
+      },
+      "minCount": 1
+    },
+    {
+      "id": "same-leaf-master-inventory",
+      "type": "workspaceFile",
+      "points": 4,
+      "critical": true,
+      "relativePath": "artifacts/masters.json",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "OTT32_Standards/Approved/PLC/Offset",
+        "OTT32_Standards/Approved/HMI/Offset",
+        "OTT32_Standards/Legacy/PLC/Offset"
+      ]
+    },
+    {
+      "id": "project-type-discovery",
+      "type": "tool",
+      "points": 1,
+      "critical": true,
+      "namePattern": "list_library_types$",
+      "inputEquals": {
+        "library-scope": "project"
+      },
+      "minCount": 1
+    },
+    {
+      "id": "managed-type-inventory",
+      "type": "workspaceFile",
+      "points": 3,
+      "critical": true,
+      "relativePath": "artifacts/types.json",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "\"path\"\\s*:\\s*\"UDT/MyANALOG_LEVEL\"",
+        "\"versionCount\"\\s*:\\s*2",
+        "\"status\"\\s*:\\s*\"NonDefaultVersionInstantiation\""
+      ]
+    },
+    {
+      "id": "exact-type-version-discovery",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "get_library_type_versions$",
+      "inputEquals": {
+        "library-scope": "project",
+        "type-path": "UDT/MyANALOG_LEVEL"
+      },
+      "minCount": 1
+    },
+    {
+      "id": "committed-default-version-evidence",
+      "type": "workspaceFile",
+      "points": 4,
+      "critical": true,
+      "relativePath": "artifacts/versions.json",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "\"versionNumber\"\\s*:\\s*\"0[.]0[.]3\"[^{}]*\"isDefault\"\\s*:\\s*false[^{}]*\"state\"\\s*:\\s*\"Committed\"",
+        "\"versionNumber\"\\s*:\\s*\"0[.]0[.]4\"[^{}]*\"isDefault\"\\s*:\\s*true[^{}]*\"state\"\\s*:\\s*\"Committed\""
+      ]
+    },
+    {
+      "id": "inspection-only-update-checks",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "check_library_updates$",
+      "inputEquals": {
+        "library-scope": "project"
+      },
+      "minCount": 2
+    },
+    {
+      "id": "baseline-outdated-instance",
+      "type": "workspaceFile",
+      "points": 6,
+      "critical": true,
+      "relativePath": "artifacts/updates-before.json",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "\"success\"\\s*:\\s*true",
+        "\"libraryScope\"\\s*:\\s*\"project\"",
+        "\"LibraryTypeName\"\\s*:\\s*\"MyANALOG_LEVEL\"",
+        "\"LibraryVersionNumber\"\\s*:\\s*\"0[.]0[.]4\"",
+        "\"UpToDate\"\\s*:\\s*\"Out-of-date\"",
+        "\"CurrentVersionNumber\"\\s*:\\s*\"0[.]0[.]3\"",
+        "\"PathToInstance\"\\s*:\\s*\"PLC_Main/PLC data types/MyANALOG_LEVEL\""
+      ]
+    },
+    {
+      "id": "baseline-empty-destination",
+      "type": "workspaceFile",
+      "points": 4,
+      "critical": true,
+      "relativePath": "artifacts/tree-before.json",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/OTT32_Reuse\"\\s*,\\s*\"children\"\\s*:\\s*\\[\\s*\\]",
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/Main\"",
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/OTT32_ApprovedOffset_Legacy\"",
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/OTT32_ExistingOffset\""
+      ],
+      "forbiddenContentPatterns": [
+        "\"name\"\\s*:\\s*\"OTT32_ApprovedOffset\""
+      ]
+    },
+    {
+      "id": "baseline-before-preview",
+      "type": "traceRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)opentia_get-software-tree(?:(?!opentia_copy-from-master-copy).)*tree-before[.]json(?:(?!opentia_copy-from-master-copy).)*Software tree retrieved successfully.*?opentia_copy-from-master-copy"
+    },
+    {
+      "id": "approved-copy-preview",
+      "type": "tool",
+      "points": 7,
+      "critical": true,
+      "namePattern": "copy_from_master_copy$",
+      "inputEquals": {
+        "library-scope": "project",
+        "master-copy-path": "OTT32_Standards/Approved/PLC/Offset",
+        "plc-name": "PLC_Main",
+        "target-group-path": "OTT32_Reuse",
+        "dry-run": true
+      },
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"Success\"\\s*:\\s*true",
+        "\"DryRun\"\\s*:\\s*true",
+        "\"Applied\"\\s*:\\s*false",
+        "Dry-run successful"
+      ]
+    },
+    {
+      "id": "reviewed-preview-before-apply",
+      "type": "traceRegex",
+      "points": 5,
+      "critical": true,
+      "pattern": "(?is)opentia_copy-from-master-copy(?=(?:(?!opentia_copy-from-master-copy).)*\"dry-run\"\\s*:\\s*true)(?=(?:(?!opentia_copy-from-master-copy).)*\"Applied\"\\s*:\\s*false)(?=(?:(?!opentia_copy-from-master-copy).)*Dry-run successful)(?:(?!opentia_copy-from-master-copy).)*opentia_copy-from-master-copy(?=(?:(?!opentia_copy-from-master-copy).)*\"dry-run\"\\s*:\\s*false)(?=(?:(?!opentia_copy-from-master-copy).)*\"Applied\"\\s*:\\s*true)(?=(?:(?!opentia_copy-from-master-copy).)*Copied master copy)"
+    },
+    {
+      "id": "approved-copy-apply",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "copy_from_master_copy$",
+      "inputEquals": {
+        "library-scope": "project",
+        "master-copy-path": "OTT32_Standards/Approved/PLC/Offset",
+        "plc-name": "PLC_Main",
+        "target-group-path": "OTT32_Reuse",
+        "dry-run": false,
+        "confirm": true
+      },
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "\"Success\"\\s*:\\s*true",
+        "\"Applied\"\\s*:\\s*true",
+        "\"CreatedName\"\\s*:\\s*\"OTT32_ApprovedOffset\"",
+        "\"CreatedType\"\\s*:\\s*\"FC\""
+      ]
+    },
+    {
+      "id": "only-reviewed-copy-pair",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "copy_from_master_copy$",
+      "inputEquals": {},
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "exact-grouped-result",
+      "type": "workspaceFile",
+      "points": 6,
+      "critical": true,
+      "relativePath": "artifacts/tree-after.json",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/OTT32_Reuse/OTT32_ApprovedOffset\"",
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/Main\"",
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/OTT32_ApprovedOffset_Legacy\"",
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/OTT32_ExistingOffset\""
+      ],
+      "forbiddenContentPatterns": [
+        "\"path\"\\s*:\\s*\"PLC_Main/Blocks/OTT32_ApprovedOffset\""
+      ]
+    },
+    {
+      "id": "approved-payload-xml-readback",
+      "type": "workspaceFile",
+      "points": 6,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT32_ApprovedOffset.xml",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "<SW[.]Blocks[.]FC\\b",
+        "<Name>OTT32_ApprovedOffset</Name>",
+        "<Number>1</Number>",
+        "<ProgrammingLanguage>SCL</ProgrammingLanguage>",
+        "<Member\\b[^>]*Name=\"Value\"[^>]*Datatype=\"DInt\"",
+        "<Member\\b[^>]*Name=\"Result\"[^>]*Datatype=\"DInt\"",
+        "<Component\\b[^>]*Name=\"Result\"",
+        "<Token\\b[^>]*Text=\":=\"",
+        "<Component\\b[^>]*Name=\"Value\"",
+        "<Token\\b[^>]*Text=\"\\+\"",
+        "<ConstantValue\\b[^>]*>10</ConstantValue>"
+      ],
+      "forbiddenContentPatterns": [
+        "<ConstantValue\\b[^>]*>(?:20|30)</ConstantValue>"
+      ]
+    },
+    {
+      "id": "recursive-created-block-export",
+      "type": "tool",
+      "points": 3,
+      "critical": true,
+      "namePattern": "export_block$",
+      "inputEquals": {
+        "plc-name": "PLC_Main",
+        "block-name": "OTT32_ApprovedOffset"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "Successfully exported block"
+      ]
+    },
+    {
+      "id": "legacy-preserved",
+      "type": "workspaceFile",
+      "points": 3,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT32_ApprovedOffset_Legacy.xml",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "<SW[.]Blocks[.]FC\\b",
+        "<Name>OTT32_ApprovedOffset_Legacy</Name>",
+        "<Number>2</Number>",
+        "<ProgrammingLanguage>SCL</ProgrammingLanguage>",
+        "<Member\\b[^>]*Name=\"Value\"[^>]*Datatype=\"DInt\"",
+        "<Member\\b[^>]*Name=\"Result\"[^>]*Datatype=\"DInt\"",
+        "<Component\\b[^>]*Name=\"Result\"",
+        "<Token\\b[^>]*Text=\":=\"",
+        "<Component\\b[^>]*Name=\"Value\"",
+        "<Token\\b[^>]*Text=\"\\+\"",
+        "<ConstantValue\\b[^>]*>20</ConstantValue>"
+      ],
+      "forbiddenContentPatterns": [
+        "<ConstantValue\\b[^>]*>(?:10|30)</ConstantValue>"
+      ]
+    },
+    {
+      "id": "existing-preserved",
+      "type": "workspaceFile",
+      "points": 3,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT32_ExistingOffset.xml",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "<SW[.]Blocks[.]FC\\b",
+        "<Name>OTT32_ExistingOffset</Name>",
+        "<Number>3</Number>",
+        "<ProgrammingLanguage>SCL</ProgrammingLanguage>",
+        "<Member\\b[^>]*Name=\"Value\"[^>]*Datatype=\"DInt\"",
+        "<Member\\b[^>]*Name=\"Result\"[^>]*Datatype=\"DInt\"",
+        "<Component\\b[^>]*Name=\"Result\"",
+        "<Token\\b[^>]*Text=\":=\"",
+        "<Component\\b[^>]*Name=\"Value\"",
+        "<Token\\b[^>]*Text=\"\\+\"",
+        "<ConstantValue\\b[^>]*>30</ConstantValue>"
+      ],
+      "forbiddenContentPatterns": [
+        "<ConstantValue\\b[^>]*>(?:10|20)</ConstantValue>"
+      ]
+    },
+    {
+      "id": "main-preserved",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/readback/Main.xml",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "<SW[.]Blocks[.]OB\\b",
+        "<Name>Main</Name>",
+        "<Number>1</Number>",
+        "<ProgrammingLanguage>LAD</ProgrammingLanguage>"
+      ]
+    },
+    {
+      "id": "retained-type-xml",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/readback/MyANALOG_LEVEL.xml",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "<SW[.]Types[.]PlcStruct\\b",
+        "<Name>MyANALOG_LEVEL</Name>"
+      ]
+    },
+    {
+      "id": "outdated-instance-retained",
+      "type": "workspaceFile",
+      "points": 5,
+      "critical": true,
+      "relativePath": "artifacts/updates-after.json",
+      "minBytes": 30,
+      "maxBytes": 100000,
+      "contentPatterns": [
+        "\"success\"\\s*:\\s*true",
+        "\"libraryScope\"\\s*:\\s*\"project\"",
+        "\"LibraryTypeName\"\\s*:\\s*\"MyANALOG_LEVEL\"",
+        "\"LibraryVersionNumber\"\\s*:\\s*\"0[.]0[.]4\"",
+        "\"UpToDate\"\\s*:\\s*\"Out-of-date\"",
+        "\"CurrentVersionNumber\"\\s*:\\s*\"0[.]0[.]3\"",
+        "\"PathToInstance\"\\s*:\\s*\"PLC_Main/PLC data types/MyANALOG_LEVEL\""
+      ]
+    },
+    {
+      "id": "fresh-update-read-after-copy",
+      "type": "traceRegex",
+      "points": 3,
+      "critical": true,
+      "pattern": "(?is)Copied master copy.*?opentia_check-library-updates.*?updates-after[.]json.*?Library update check found 1 message"
+    },
+    {
+      "id": "error-free-compile",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "inputEquals": {
+        "plc-name": "PLC_Main"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "Compilation successful",
+        "\"errorCount\"\\s*:\\s*0(?=\\s*[,}])",
+        "\"warningCount\"\\s*:\\s*[01](?=\\s*[,}])"
+      ]
+    },
+    {
+      "id": "no-other-mutations-or-save",
+      "type": "forbiddenTool",
+      "points": 1,
+      "critical": true,
+      "namePattern": "(?:opentia_)(?:create_|delete_|import_|generate_|modify_|find_replace_|apply_|sync_|save_|close_|archive_|retrieve_|download_|start_cpu|stop_cpu|open_global_library|begin_plc_code_transaction|plan_plc_code_transaction|run_plc_code_probe)"
+    },
+    {
+      "id": "final-summary",
+      "type": "finalRegex",
+      "points": 1,
+      "pattern": "(?is)(?=.*OTT32_Standards/Approved/PLC/Offset)(?=.*OTT32_ApprovedOffset)(?=.*OTT32_Reuse)(?=.*MyANALOG_LEVEL)(?=.*0[.]0[.]3)(?=.*0[.]0[.]4)(?=.*(?:out.?of.?date|outdated))(?=.*(?:not[\\s*_]+saved|unsaved|did[\\s*_]+not[\\s*_]+save))"
+    }
+  ]
+}

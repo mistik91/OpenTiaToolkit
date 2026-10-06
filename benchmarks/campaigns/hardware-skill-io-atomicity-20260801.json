@@ -1,0 +1,21 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-skill-io-atomicity-20260801",
+  "title": "Hardware skill output and mixed-I/O atomicity qualification",
+  "caseIds": [
+    "ott-13",
+    "ott-17"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}

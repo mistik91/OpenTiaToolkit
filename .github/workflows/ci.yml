@@ -1,0 +1,195 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tiaPortalPublicApiPath:
+        description: "Optional TIA Portal PublicAPI path for non-standard runner installs"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  hosted:
+    name: Hosted vendor-free checks
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Repository hygiene
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-RepositoryHygiene.ps1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        run: dotnet restore OpenTiaToolkit.sln --locked-mode
+
+      - name: Build vendor-free architecture and hosts
+        shell: pwsh
+        run: |
+          dotnet build src\OpenTiaToolkit.Contracts\OpenTiaToolkit.Contracts.csproj -c Release --no-restore
+          dotnet build src\OpenTiaToolkit.Application\OpenTiaToolkit.Application.csproj -c Release --no-restore
+          dotnet build src\OpenTiaToolkit.CLI\OpenTiaToolkit.CLI.csproj -c Release --no-restore
+          dotnet build src\OpenTiaToolkit.MCP\OpenTiaToolkit.MCP.csproj -c Release --no-restore
+
+      - name: Vendor-free architecture tests
+        run: dotnet test tests\OpenTiaToolkit.ArchitectureTests\OpenTiaToolkit.ArchitectureTests.csproj -c Release --no-restore
+
+      - name: Dependency vulnerability scan
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-DependencyVulnerabilities.ps1
+
+      - name: Config and docs sanity
+        shell: pwsh
+        run: |
+          $jsonFiles = Get-ChildItem -Path . -Recurse -File -Include *.json |
+            Where-Object { $_.FullName -notmatch '\\(bin|obj|artifacts|TestResults)\\' }
+
+          foreach ($file in $jsonFiles) {
+            Write-Host "Checking JSON: $($file.FullName)"
+            Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable | Out-Null
+          }
+
+          $required = @(
+            'README.md',
+            'LICENSE',
+            'CHANGELOG.md',
+            'THIRD_PARTY_NOTICES.md',
+            'docs\SETUP.md',
+            'docs\generated\command-catalog.json',
+            'docs\generated\COMMAND_REFERENCE.md',
+            'docs\generated\MCP_TOOL_REFERENCE.md',
+            'schemas\unified-hmi-json-1.0.schema.json',
+            'examples\README.md',
+            'plugins\opentia-toolkit-agent-plugin\plugin.json',
+            'plugins\opentia-toolkit-agent-plugin\mcp.json',
+            'plugins\opentia-toolkit\.codex-plugin\plugin.json',
+            'plugins\opentia-toolkit\.mcp.json'
+          )
+
+          foreach ($path in $required) {
+            if (-not (Test-Path -LiteralPath $path)) {
+              throw "Required publication file is missing: $path"
+            }
+          }
+
+      - name: Agent Plugins 1.0 contract check
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-AgentPlugin.ps1 -TestLauncher
+
+      - name: Plugin skill sync check
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -CheckOnly
+
+      - name: Blueprint skill schema resource regressions
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-BlueprintSkillSchema.ps1
+
+  licensed-v21:
+    name: Licensed TIA V21 validation
+    # Never execute untrusted pull-request code on an engineering workstation.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && vars.TIA_V21_SELF_HOSTED_ENABLED == 'true'
+    runs-on: [self-hosted, Windows, X64, tia-v21]
+    env:
+      DEFAULT_TIA_PUBLIC_API_PATH: C:\Program Files\Siemens\Automation\Portal V21\PublicAPI\V21\net48
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Require licensed TIA V21 PublicAPI
+        id: tia
+        shell: pwsh
+        run: |
+          $path = '${{ github.event.inputs.tiaPortalPublicApiPath }}'
+          if ([string]::IsNullOrWhiteSpace($path)) {
+            $path = $env:DEFAULT_TIA_PUBLIC_API_PATH
+          }
+
+          if (-not (Test-Path -LiteralPath (Join-Path $path 'Siemens.Engineering.Base.dll'))) {
+            throw "Licensed TIA V21 PublicAPI was not found at '$path'."
+          }
+
+          "path=$path" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore OpenTiaToolkit.sln --locked-mode
+
+      - name: Build
+        run: dotnet build OpenTiaToolkit.sln -c Release --no-restore /p:TiaPortalPublicApiPath="${{ steps.tia.outputs.path }}"
+
+      - name: Format check
+        run: dotnet format OpenTiaToolkit.sln --no-restore --verify-no-changes --verbosity minimal
+
+      - name: Fast tests
+        run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "TestCategory!=Integration"
+
+      - name: Worker IPC and compatibility diagnostics
+        shell: pwsh
+        run: |
+          dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~WorkerProcessIntegrationTests"
+          $doctor = & .\src\OpenTiaToolkit.CLI\bin\Release\net48\OpenTiaToolkit.CLI.exe doctor --format json | ConvertFrom-Json
+          if (-not $doctor.success -or -not $doctor.data.healthy) { throw "V21 compatibility doctor failed: $($doctor | ConvertTo-Json -Depth 10)" }
+
+      - name: Validate Phase 3 blueprint examples
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem .\examples\blueprints\*.json) {
+            & .\src\OpenTiaToolkit.CLI\bin\Release\net48\OpenTiaToolkit.CLI.exe validate-blueprint --blueprint-path=$($file.FullName) --format json
+            if ($LASTEXITCODE -ne 0) { throw "Blueprint validation failed: $($file.FullName)" }
+          }
+
+      - name: Disposable blueprint lifecycle
+        env:
+          OPEN_TIA_RUN_DISPOSABLE_BLUEPRINT: 'true'
+        run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~DisposableBlueprintIntegrationTests"
+
+      - name: Disposable archived-project integration
+        if: vars.OPEN_TIA_TEST_ARCHIVE_PATH != ''
+        env:
+          OPEN_TIA_TEST_ARCHIVE_PATH: ${{ vars.OPEN_TIA_TEST_ARCHIVE_PATH }}
+        run: dotnet test tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~DisposableArchiveProjectIntegrationTests"
+
+      - name: Generated command reference drift check
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Generate-CommandReference.ps1 -CheckOnly
+
+      - name: Dependency vulnerability scan
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-DependencyVulnerabilities.ps1
+
+      - name: Build and smoke staged installer payload
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Installer.ps1 -Configuration Release -StageOnly -SkipBuild
+
+      - name: Verify supply-chain artifacts
+        shell: pwsh
+        run: |
+          foreach ($file in @('SHA256SUMS.txt', 'sbom.spdx.json', 'provenance.intoto.json')) {
+            if (-not (Test-Path -LiteralPath (Join-Path '.\artifacts\installer\stage\release-metadata' $file))) {
+              throw "Missing staged release metadata: $file"
+            }
+          }
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-ReleaseMetadata.ps1 -PayloadRoot .\artifacts\installer\stage -ExpectedCommit $env:GITHUB_SHA
+
+      - name: Plugin skill sync check
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -CheckOnly

@@ -1,0 +1,8 @@
+# Engineering boundaries and publication policy require maintainer review.
+* @mistik91
+/.github/ @mistik91
+/scripts/ @mistik91
+/installer/ @mistik91
+/src/OpenTiaToolkit.Application/ @mistik91
+/src/OpenTiaToolkit.Worker.V21/ @mistik91
+/compatibility/ @mistik91

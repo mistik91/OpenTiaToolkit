@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-family-transfer-deepseek-v4-flash-free-max-20260802",
+  "title": "DeepSeek V4 Flash Free maximum-effort ET 200MP family-transfer qualification",
+  "caseIds": [
+    "ott-24"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}

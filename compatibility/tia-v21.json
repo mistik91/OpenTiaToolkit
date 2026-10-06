@@ -1,0 +1,37 @@
+{
+  "profileVersion": "1.0",
+  "tiaPortal": "V21",
+  "validatedOn": "2026-07-11",
+  "assemblies": [
+    {
+      "name": "Siemens.Engineering.Base.dll",
+      "fileVersion": "2100.0.121.1",
+      "sha256": "8c12b0fa70c298f1cd1221105880752ab204ed63c9f6d9dcb68833d977bcb5d0"
+    },
+    {
+      "name": "Siemens.Engineering.Startdrive.dll",
+      "fileVersion": "2100.2.2302.1",
+      "sha256": "d9f61a8384e3eafccfa5b9bfc5fc69f179b8a5c0ad5bae763383bdf978bc49ac"
+    },
+    {
+      "name": "Siemens.Engineering.Safety.dll",
+      "fileVersion": "2100.0.121.1",
+      "sha256": "aa239702036fcffe2efb04dc0a9a925ef58c434e0c75e648d4713fcfb4afe892"
+    },
+    {
+      "name": "Siemens.Engineering.SafetyValidation.dll",
+      "fileVersion": "2100.0.121.1",
+      "sha256": "586f897179d8cf6376a52b0eb266e3bf6e009f5fd070e4d866f033970e29d2a0"
+    },
+    {
+      "name": "Siemens.Engineering.Step7.dll",
+      "fileVersion": "2100.0.121.1",
+      "sha256": "dfbbe3863005fa2fbc8cb553a3e7e4612acbaca19124939eb8d29de24c814eba"
+    },
+    {
+      "name": "Siemens.Engineering.WinCCUnified.dll",
+      "fileVersion": "2100.200.5.1",
+      "sha256": "937852a43fb15a2b87e79fc403e4ac1467f389d1c0b528536e3ad244ef1bd0ff"
+    }
+  ]
+}

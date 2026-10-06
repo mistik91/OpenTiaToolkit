@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "lad-brownfield-glm-5-3-high-bulk-fix-20261001",
+  "title": "GLM-5.3 High brownfield LAD qualification after bulk SD export alignment",
+  "caseIds": [
+    "ott-34"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "zai-coding-plan/glm-5.3",
+      "reasoningEffort": "high",
+      "variant": "high",
+      "costClass": "subscription"
+    }
+  ]
+}

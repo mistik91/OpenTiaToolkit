@@ -1,0 +1,83 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[xX]86/
+[xX]64/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+benchmarks/artifacts/
+benchmarks/node_modules/
+
+# Visual Studio and editor state
+.vs/
+.vscode/
+.idea/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.sln.iml
+*.DotSettings.user
+
+# Test results and coverage
+[Tt]est[Rr]esults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+# NuGet and .NET restore artifacts
+project.lock.json
+project.fragment.lock.json
+*.nupkg
+.nuget/
+**/packages/*
+!**/packages/build/
+
+# Generated Visual Studio and C/C++ files
+*_i.c
+*_p.c
+*_v.h
+*.vcxproj
+*.vcxproj.filters
+*.vsidx
+*.vspscc
+*.vssscc
+
+# Tooling reports
+ScaffoldingReadMe.txt
+StyleCopReport.xml
+_ReSharper*/
+*.ReSharper*
+report.md
+suggestions.md
+
+# TIA Portal temporary and archive files
+*.ap19_*
+*.ap19.backup
+*.als19_*
+*.als19.backup
+*.zdtp
+*.zdt1*
+*.zdt2*
+
+# Logs
+logs/
+*.log
+*.credential.clixml
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-topology-addressing-transfer-gpt-5-6-sol-max-20260802",
+  "title": "GPT-5.6 Sol maximum-effort topology and addressing transfer qualification",
+  "caseIds": [
+    "ott-23"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "openai/gpt-5.6-sol",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "subscription"
+    }
+  ]
+}

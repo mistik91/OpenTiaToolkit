@@ -1,0 +1,42 @@
+{
+  "name": "opentia-toolkit",
+  "version": "1.0.0-preview.6",
+  "description": "Codex workflows, skills, and MCP configuration for Siemens TIA Portal automation with OpenTiaToolkit.",
+  "author": {
+    "name": "OpenTiaToolkit Contributors",
+    "url": "https://github.com/mistik91/OpenTiaToolkit"
+  },
+  "homepage": "https://github.com/mistik91/OpenTiaToolkit",
+  "repository": "https://github.com/mistik91/OpenTiaToolkit",
+  "license": "MIT",
+  "keywords": [
+    "tia-portal",
+    "siemens",
+    "mcp",
+    "hmi",
+    "hardware",
+    "openness"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "OpenTiaToolkit",
+    "shortDescription": "TIA Portal MCP tools for HMI and hardware workflows.",
+    "longDescription": "Provides MCP server configuration, TIA Portal session guidance, HMI Unified editing skills, and generic hardware engineering operations for OpenTiaToolkit. Install the MCP host and register the exact isolated V21 worker with Siemens Openness before use.",
+    "developerName": "OpenTiaToolkit Contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "MCP",
+      "TIA Portal",
+      "HMI Editing",
+      "Hardware Engineering"
+    ],
+    "defaultPrompt": [
+      "Connect to TIA Portal and check HMI status.",
+      "Inspect a Unified HMI screen safely.",
+      "Patch a faceplate interface with dry-run.",
+      "Preflight a PROFINET IO device configuration with dry-run."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

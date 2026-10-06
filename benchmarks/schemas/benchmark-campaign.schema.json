@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opentiatoolkit.dev/schemas/benchmark-campaign.schema.json",
+  "title": "OpenTiaToolkit OpenCode benchmark campaign",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "title",
+    "caseIds",
+    "trialCount",
+    "maxCostUsd",
+    "allowPaidModels",
+    "models"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "caseIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^ott-[0-9]{2}$"
+      }
+    },
+    "trialCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "maxCostUsd": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "allowPaidModels": {
+      "type": "boolean"
+    },
+    "skillEvaluation": {
+      "type": "object",
+      "required": [
+        "targetSkill",
+        "arms",
+        "routingCases"
+      ],
+      "properties": {
+        "targetSkill": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "arms": {
+          "const": [
+            "without-skill",
+            "with-skill"
+          ]
+        },
+        "routingCases": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "required": [
+              "caseId",
+              "routingExpectation",
+              "expectedSkill"
+            ],
+            "properties": {
+              "caseId": {
+                "type": "string",
+                "pattern": "^ott-[0-9]{2}$"
+              },
+              "routingExpectation": {
+                "enum": [
+                  "explicit",
+                  "implicit",
+                  "contextual",
+                  "negative"
+                ]
+              },
+              "expectedSkill": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "model",
+          "reasoningEffort",
+          "variant",
+          "costClass"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+/.+$"
+          },
+          "variant": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reasoningEffort": {
+            "type": "string",
+            "minLength": 1
+          },
+          "costClass": {
+            "enum": [
+              "free",
+              "paid",
+              "subscription"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "reasoningEffort": {
+                  "const": "provider-default"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "variant": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "variant": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

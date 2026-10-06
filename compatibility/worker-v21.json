@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "1.0",
+  "workerId": "opentia-worker-v21",
+  "executable": "OpenTiaToolkit.Worker.V21.exe",
+  "protocolVersion": "1.0",
+  "supportedTiaVersions": [ "V21" ],
+  "compatibilityProfile": "compatibility/tia-v21.json"
+}

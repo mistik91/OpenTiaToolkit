@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-25",
+  "title": "Brownfield ET 200MP station modernization",
+  "description": "Tests an atomic destructive module replacement, guarded retained-state changes, generated-child binding, displaced-placement recovery, and independent brownfield readback.",
+  "fixtureId": "tia-v21-brownfield-7",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 900,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "hardware-configuration-workflow"
+  ],
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 5,
+      "critical": true
+    },
+    {
+      "id": "focused-replacement-catalog-discovery",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "find_hardware_catalog_items$",
+      "minCount": 1,
+      "outputPatterns": [
+        "OrderNumber:6ES7 522-1BH01-0AB0/V1\\.1"
+      ]
+    },
+    {
+      "id": "tree-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_tree$",
+      "minCount": 2,
+      "outputPatterns": [
+        "LegacyCell",
+        "LegacyInputs",
+        "LegacyOutputs",
+        "OrderNumber:6ES7 522-1BH10-0AA0/V1\\.1",
+        "ModernOutputs",
+        "OrderNumber:6ES7 522-1BH01-0AB0/V1\\.1",
+        "positionNumber\"?\\s*:\\s*4"
+      ]
+    },
+    {
+      "id": "network-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_networks$",
+      "minCount": 2,
+      "outputPatterns": [
+        "CellPN",
+        "CellIO",
+        "192\\.168\\.0\\.57",
+        "legacy-cell",
+        "\"57\"",
+        "192\\.168\\.0\\.67",
+        "packaging-cell",
+        "\"67\""
+      ]
+    },
+    {
+      "id": "io-baseline-and-readback",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "get_hardware_io_addresses$",
+      "minCount": 2,
+      "outputPatterns": [
+        "LegacyInputs",
+        "LegacyOutputs",
+        "ModernOutputs",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"72\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"140\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"104\"",
+        "\"Name\"\\s*:\\s*\"StartAddress\"\\s*,\\s*\"Value\"\\s*:\\s*\"160\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Input\"",
+        "\"Name\"\\s*:\\s*\"IoType\"\\s*,\\s*\"Value\"\\s*:\\s*\"Output\"",
+        "\"Name\"\\s*:\\s*\"Length\"\\s*,\\s*\"Value\"\\s*:\\s*\"16\""
+      ]
+    },
+    {
+      "id": "single-strict-placement-recovery",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {
+        "dry-run": true,
+        "confirm-destructive": true
+      },
+      "minCount": 2,
+      "maxCount": 2,
+      "outputPatterns": [
+        "(?is)ModernOutputs.*?placed at.*?LegacyCell/ModernOutputs.*?instead of requested.*?LegacyCell/Rail_0/ModernOutputs",
+        "Set allowDisplacedPlacement=true",
+        "\"RolledBack\"\\s*:\\s*true",
+        "\"WrittenStartAddress\"\\s*:\\s*104",
+        "\"WrittenStartAddress\"\\s*:\\s*160"
+      ]
+    },
+    {
+      "id": "exact-corrected-operation-set",
+      "type": "toolOperationSet",
+      "points": 20,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "operationPath": "operations",
+      "normalizeResultReferences": true,
+      "expectedOperations": [
+        {
+          "op": "delete-item",
+          "target": {
+            "deviceName": "LegacyCell",
+            "itemPath": ["LegacyOutputs"],
+            "expectedTypeIdentifier": "OrderNumber:6ES7 522-1BH10-0AA0/V1.1"
+          }
+        },
+        {
+          "op": "set-io-address-start",
+          "target": {
+            "deviceName": "LegacyCell",
+            "itemPath": ["LegacyInputs", "LegacyInputs"]
+          },
+          "addressIndex": 0,
+          "startAddress": 104,
+          "expectedStartAddress": 72
+        },
+        {
+          "op": "configure-profinet-device",
+          "target": {
+            "deviceName": "LegacyCell",
+            "itemPath": ["LegacyCell", "PROFINET interface"]
+          },
+          "ipAddress": "192.168.0.67",
+          "expectedIpAddress": "192.168.0.57",
+          "pnDeviceName": "packaging-cell",
+          "expectedPnDeviceName": "legacy-cell",
+          "pnDeviceNumber": 67,
+          "expectedPnDeviceNumber": 57
+        },
+        {
+          "op": "plug-item",
+          "resultId": "replacement-output",
+          "target": {
+            "deviceName": "LegacyCell",
+            "itemPath": ["Rail_0"]
+          },
+          "typeIdentifier": "OrderNumber:6ES7 522-1BH01-0AB0/V1.1",
+          "itemName": "ModernOutputs",
+          "positionNumber": 4,
+          "allowDisplacedPlacement": true
+        },
+        {
+          "op": "set-io-address-start",
+          "targetRef": "replacement-output",
+          "target": {
+            "itemPath": ["ModernOutputs"]
+          },
+          "addressIndex": 0,
+          "startAddress": 160
+        }
+      ],
+      "minCount": 2,
+      "maxCount": 2
+    },
+    {
+      "id": "strict-preview-apply-sequence",
+      "type": "traceRegex",
+      "points": 10,
+      "critical": true,
+      "pattern": "(?is)opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*placed at.*?LegacyCell/ModernOutputs)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_apply-hardware-patch).)*\\\"dry-run\\\"\\s*:\\s*true)(?=(?:(?!opentia_apply-hardware-patch).)*WrittenStartAddress\\\"?\\s*:\\s*104)(?=(?:(?!opentia_apply-hardware-patch).)*WrittenStartAddress\\\"?\\s*:\\s*160)(?:(?!opentia_apply-hardware-patch).)*opentia_apply-hardware-patch(?=(?:(?!opentia_get-hardware-tree).)*\\\"dry-run\\\"\\s*:\\s*false)(?=(?:(?!opentia_get-hardware-tree).)*\\\"confirm-destructive\\\"\\s*:\\s*true)(?:(?!opentia_get-hardware-tree).)*opentia_get-hardware-tree"
+    },
+    {
+      "id": "corrected-destructive-apply-succeeded",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "apply_hardware_patch$",
+      "inputEquals": {
+        "dry-run": false,
+        "confirm": true,
+        "confirm-destructive": true
+      },
+      "minCount": 1,
+      "maxCount": 1,
+      "outputPatterns": [
+        "Hardware patch applied",
+        "\"Applied\"\\s*:\\s*true",
+        "\"RolledBack\"\\s*:\\s*false",
+        "Deleted hardware item",
+        "\"BeforeStartAddress\"\\s*:\\s*72",
+        "\"WrittenStartAddress\"\\s*:\\s*104",
+        "\"WrittenStartAddress\"\\s*:\\s*160",
+        "192\\.168\\.0\\.67",
+        "packaging-cell"
+      ]
+    },
+    {
+      "id": "compile",
+      "type": "tool",
+      "points": 10,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "minCount": 1,
+      "outputPatterns": [
+        "(?i)(error count|ErrorCount|Errors)[^0-9]*0",
+        "(?i)(warning count|WarningCount|Warnings)[^0-9]*0"
+      ]
+    }
+  ]
+}

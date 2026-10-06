@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>OpenTiaToolkit.MCP</AssemblyName>
+    <RootNamespace>OpenTiaToolkit.MCP</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTiaToolkit.Application\OpenTiaToolkit.Application.csproj" />
+    <ProjectReference Include="..\OpenTiaToolkit.Contracts\OpenTiaToolkit.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageReference Include="ModelContextProtocol" Version="2.0.0" />
+  </ItemGroup>
+
+</Project>

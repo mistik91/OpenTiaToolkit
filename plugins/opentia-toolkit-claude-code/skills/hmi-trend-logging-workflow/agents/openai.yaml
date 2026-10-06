@@ -1,0 +1,4 @@
+interface:
+  display_name: "HMI Trend Logging Workflow"
+  short_description: "Manage Unified HMI trend logging safely."
+  default_prompt: "Use $hmi-trend-logging-workflow for Unified HMI trend, logging tag, and data log workflows."

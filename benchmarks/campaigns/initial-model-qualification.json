@@ -1,0 +1,40 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "initial-model-qualification",
+  "title": "Initial paid and free model qualification",
+  "caseIds": [
+    "ott-01",
+    "ott-03",
+    "ott-14"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 1.0,
+  "allowPaidModels": true,
+  "models": [
+    {
+      "model": "openrouter/deepseek/deepseek-v4-flash",
+      "reasoningEffort": "provider-default",
+      "variant": null,
+      "costClass": "paid"
+    },
+    {
+      "model": "openrouter/deepseek/deepseek-v4-pro",
+      "reasoningEffort": "provider-default",
+      "variant": null,
+      "costClass": "paid"
+    },
+    {
+      "model": "openrouter/openai/gpt-5.6-luna",
+      "reasoningEffort": "provider-default",
+      "variant": null,
+      "costClass": "paid"
+    },
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+FUNCTION_BLOCK "Codex_SCL_Stateful_Probe"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+    VAR_INPUT
+        Enable : Bool;
+        Delay : Time;
+    END_VAR
+    VAR_OUTPUT
+        Active : Bool;
+        Rising : Bool;
+    END_VAR
+    VAR
+        DelayTimer : TON_TIME;
+        RisingEdge : R_TRIG;
+    END_VAR
+BEGIN
+    #DelayTimer.TON(IN := #Enable, PT := #Delay);
+    #RisingEdge(CLK := #Enable);
+    #Active := #DelayTimer.Q;
+    #Rising := #RisingEdge.Q;
+END_FUNCTION_BLOCK

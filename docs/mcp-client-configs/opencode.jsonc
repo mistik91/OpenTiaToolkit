@@ -1,0 +1,28 @@
+// Add this file as:
+//   Project scope: <OpenTiaToolkitRoot>\opencode.json
+//   User scope:    C:\Users\<you>\.config\opencode\opencode.json
+//
+// Replace E:\Path\To\OpenTiaToolkit with your local checkout path.
+
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "opentia": {
+      "type": "local",
+      "command": [
+        "E:\\Path\\To\\OpenTiaToolkit\\src\\OpenTiaToolkit.MCP\\bin\\Debug\\net48\\OpenTiaToolkit.MCP.exe"
+      ],
+      "environment": {
+        "OPEN_TIA_MCP_LOG_LEVEL": "Error"
+      },
+      "enabled": true,
+      "timeout": 600000
+    }
+  },
+  "permission": {
+    "skill": {
+      "hmi-unified-agent-editing": "allow",
+      "library-workflow": "allow"
+    }
+  }
+}

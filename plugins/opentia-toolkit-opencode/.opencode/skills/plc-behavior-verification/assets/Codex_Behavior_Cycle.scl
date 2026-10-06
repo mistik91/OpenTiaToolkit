@@ -1,0 +1,9 @@
+ORGANIZATION_BLOCK "Codex_Behavior_Cycle"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+BEGIN
+    "Codex_Behavior_IO".Result := "Codex_Behavior_Function"(
+        Seed := "Codex_Behavior_IO".Seed,
+        Selector := "Codex_Behavior_IO".Selector);
+    "Codex_Behavior_IO".Heartbeat := "Codex_Behavior_IO".Heartbeat + 1;
+END_ORGANIZATION_BLOCK

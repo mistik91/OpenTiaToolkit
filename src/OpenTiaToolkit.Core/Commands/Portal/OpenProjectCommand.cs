@@ -1,0 +1,121 @@
+using OpenTiaToolkit.Core.Models;
+using Microsoft.Extensions.Logging;
+using OpenTiaToolkit.Core.Abstractions;
+using System.Threading.Tasks;
+
+namespace OpenTiaToolkit.Core.Commands.Portal
+{
+    /// <summary>
+    /// Command to open a TIA Portal project file.
+    /// </summary>
+    public class OpenProjectCommand : IContextualCommand
+    {
+        private readonly IPortalService _portalService;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OpenProjectCommand"/> class.
+        /// </summary>
+        /// <param name="portalService">The portal service instance.</param>
+        public OpenProjectCommand(IPortalService portalService)
+        {
+            _portalService = portalService;
+        }
+
+        /// <inheritdoc/>
+        public string Name => "open-project";
+
+        /// <inheritdoc/>
+        public string Description => "Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported)";
+
+        /// <inheritdoc/>
+        public CommandSchema Schema => new CommandSchema(
+            Description,
+            Combine(
+                new[]
+                {
+                    new CommandParameter(
+                        "project-path",
+                        CommandParameterType.Path,
+                        "Full path to the project file",
+                        required: true
+                    ),
+                    new CommandParameter(
+                        "open-in-new-instance",
+                        CommandParameterType.Boolean,
+                        "Open in a dedicated hidden TIA instance when another project is already open (default: false)",
+                        required: false,
+                        defaultValue: false
+                    )
+                },
+                ProjectCommandSupport.UmacParameters()
+            )
+        );
+
+        /// <inheritdoc/>
+        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
+        {
+            return ExecuteAsync(args, logger, CommandExecutionContext.None);
+        }
+
+        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
+        {
+            logger.LogInformation("Executing command: {CommandName}", Name);
+            context.StartCommand(Name, "Validating project open inputs.");
+
+            try
+            {
+                var projectPath = args.GetString("project-path");
+
+                if (string.IsNullOrEmpty(projectPath))
+                {
+                    return CommandResult.CreateFailure("Project path is required");
+                }
+
+                logger.LogInformation("Opening project: {ProjectPath}", projectPath);
+
+                context.Checkpoint($"Opening TIA Portal project: {projectPath}.", 45, "open-project");
+                var success = await _portalService.OpenProjectAsync(
+                    projectPath,
+                    ProjectCommandSupport.GetAuthenticationOptions(args),
+                    args.GetBool("open-in-new-instance", false));
+
+                if (success)
+                {
+                    context.Checkpoint("Reading opened project information.", 85, "get-project-info");
+                    var projectInfo = await _portalService.GetProjectInfoAsync();
+
+                    context.CompleteCommand(Name, $"Project opened: {projectInfo?.Name}");
+                    return CommandResult.CreateSuccess(
+                        data: projectInfo is null ? new { path = projectPath } : (object)projectInfo,
+                        message: $"Project opened: {projectInfo?.Name}"
+                    );
+                }
+                else
+                {
+                    var detail = string.IsNullOrWhiteSpace(_portalService.LastError)
+                        ? null
+                        : $": {_portalService.LastError}";
+                    return CommandResult.CreateFailure(
+                        $"Failed to open project: {projectPath}{detail}"
+                    );
+                }
+            }
+            catch (System.Exception ex)
+            {
+                logger.LogError(ex, "Error opening project");
+                return CommandResult.CreateFailure(
+                    $"Error opening project: {ex.Message}",
+                    ex
+                );
+            }
+        }
+
+        private static CommandParameter[] Combine(CommandParameter[] first, CommandParameter[] second)
+        {
+            var result = new CommandParameter[first.Length + second.Length];
+            first.CopyTo(result, 0);
+            second.CopyTo(result, first.Length);
+            return result;
+        }
+    }
+}

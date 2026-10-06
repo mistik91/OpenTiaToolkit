@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-plc-cross-domain-remap-20260801",
+  "title": "Cross-domain hardware and PLC tag remap qualification",
+  "caseIds": [
+    "ott-20"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "opencode/deepseek-v4-flash-free",
+      "reasoningEffort": "max",
+      "variant": "max",
+      "costClass": "free"
+    }
+  ]
+}

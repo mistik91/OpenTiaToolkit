@@ -1,0 +1,4 @@
+interface:
+  display_name: "Library Workflow"
+  short_description: "Use TIA project and global libraries safely."
+  default_prompt: "Use $library-workflow to inspect TIA libraries and reuse approved library assets safely."

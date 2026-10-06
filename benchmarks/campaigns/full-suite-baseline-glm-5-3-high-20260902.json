@@ -1,0 +1,26 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "full-suite-baseline-glm-5-3-high-20260902",
+  "title": "GLM-5.3 High full-suite baseline fixture group",
+  "caseIds": [
+    "ott-01",
+    "ott-03",
+    "ott-08",
+    "ott-10",
+    "ott-14",
+    "ott-15",
+    "ott-16"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "zai-coding-plan/glm-5.3",
+      "reasoningEffort": "high",
+      "variant": "high",
+      "costClass": "subscription"
+    }
+  ]
+}

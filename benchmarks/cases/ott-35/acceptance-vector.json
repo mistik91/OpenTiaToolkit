@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "1.0",
+  "vectorId": "ott35-interlocked-delay-1",
+  "description": "Independent acceptance vector: interrupted 1s dwell, interlock loss, reset priority, counted activations, and held-request/release restarts.",
+  "reset": [
+    { "tag": "OTT35_IO.Request", "type": "Bool", "value": false },
+    { "tag": "OTT35_IO.Permit", "type": "Bool", "value": false },
+    { "tag": "OTT35_IO.Reset", "type": "Bool", "value": true }
+  ],
+  "steps": [
+    {
+      "name": "reset-baseline",
+      "writes": [],
+      "settleMilliseconds": 50,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 0, "timeoutMilliseconds": 2000, "pollMilliseconds": 25 },
+        { "tag": "OTT35_IO.Heartbeat", "type": "UInt32", "operator": "GreaterThan", "expected": 0, "timeoutMilliseconds": 2000, "pollMilliseconds": 25 }
+      ]
+    },
+    {
+      "name": "request-without-permit",
+      "writes": [
+        { "tag": "OTT35_IO.Request", "type": "Bool", "value": true },
+        { "tag": "OTT35_IO.Reset", "type": "Bool", "value": false }
+      ],
+      "settleMilliseconds": 50,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 1100 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 0, "timeoutMilliseconds": 2000, "pollMilliseconds": 25 }
+      ]
+    },
+    {
+      "name": "partial-dwell",
+      "writes": [{ "tag": "OTT35_IO.Permit", "type": "Bool", "value": true }],
+      "settleMilliseconds": 600,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 0, "timeoutMilliseconds": 2000, "pollMilliseconds": 25 }
+      ]
+    },
+    {
+      "name": "interrupt-dwell",
+      "writes": [{ "tag": "OTT35_IO.Permit", "type": "Bool", "value": false }],
+      "settleMilliseconds": 50,
+      "assertions": [{ "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 }]
+    },
+    {
+      "name": "restart-not-accumulated",
+      "writes": [{ "tag": "OTT35_IO.Permit", "type": "Bool", "value": true }],
+      "settleMilliseconds": 100,
+      "assertions": [{ "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 700 }]
+    },
+    {
+      "name": "first-activation",
+      "writes": [],
+      "settleMilliseconds": 0,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": true, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 1, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 }
+      ]
+    },
+    {
+      "name": "permit-loss-drops-active",
+      "writes": [{ "tag": "OTT35_IO.Permit", "type": "Bool", "value": false }],
+      "settleMilliseconds": 50,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 1, "timeoutMilliseconds": 2000, "pollMilliseconds": 25 }
+      ]
+    },
+    {
+      "name": "held-request-restarts-delay",
+      "writes": [{ "tag": "OTT35_IO.Permit", "type": "Bool", "value": true }],
+      "settleMilliseconds": 100,
+      "assertions": [{ "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 700 }]
+    },
+    {
+      "name": "second-activation",
+      "writes": [],
+      "settleMilliseconds": 0,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": true, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 2, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 }
+      ]
+    },
+    {
+      "name": "reset-has-priority",
+      "writes": [{ "tag": "OTT35_IO.Reset", "type": "Bool", "value": true }],
+      "settleMilliseconds": 50,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 1100 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 0, "timeoutMilliseconds": 2000, "pollMilliseconds": 25 }
+      ]
+    },
+    {
+      "name": "reset-release-restarts-delay",
+      "writes": [{ "tag": "OTT35_IO.Reset", "type": "Bool", "value": false }],
+      "settleMilliseconds": 100,
+      "assertions": [{ "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 700 }]
+    },
+    {
+      "name": "activation-after-reset",
+      "writes": [],
+      "settleMilliseconds": 0,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": true, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 1, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 }
+      ]
+    },
+    {
+      "name": "request-release-drops-active",
+      "writes": [{ "tag": "OTT35_IO.Request", "type": "Bool", "value": false }],
+      "settleMilliseconds": 50,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 1, "timeoutMilliseconds": 2000, "pollMilliseconds": 25 }
+      ]
+    },
+    {
+      "name": "new-request-restarts-delay",
+      "writes": [{ "tag": "OTT35_IO.Request", "type": "Bool", "value": true }],
+      "settleMilliseconds": 100,
+      "assertions": [{ "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": false, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 700 }]
+    },
+    {
+      "name": "activation-after-release",
+      "writes": [],
+      "settleMilliseconds": 0,
+      "assertions": [
+        { "tag": "OTT35_IO.Active", "type": "Bool", "operator": "Equal", "expected": true, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 },
+        { "tag": "OTT35_IO.ActivationCount", "type": "UInt32", "operator": "Equal", "expected": 2, "timeoutMilliseconds": 2000, "pollMilliseconds": 25, "stableMilliseconds": 50 }
+      ]
+    }
+  ],
+  "cleanup": [
+    { "tag": "OTT35_IO.Request", "type": "Bool", "value": false },
+    { "tag": "OTT35_IO.Permit", "type": "Bool", "value": false },
+    { "tag": "OTT35_IO.Reset", "type": "Bool", "value": true }
+  ]
+}

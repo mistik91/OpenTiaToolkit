@@ -1,0 +1,4 @@
+interface:
+  display_name: "PLC Code Engineering"
+  short_description: "Route verified PLC code authoring workflows"
+  default_prompt: "Use $plc-code-engineering to inspect the target, select a supported format, and execute one verified rollback-safe PLC code transaction."

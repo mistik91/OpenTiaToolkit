@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "plcName": "PLC_Main",
+  "tagTable": "Default tag table",
+  "primary": { "name": "OccupiedBefore", "type": "Bool", "address": "%M99.7" },
+  "sentinel": { "name": "OccupiedAfter", "type": "DInt", "address": "%MD108" },
+  "baselineComment": "Benchmark boundary tag",
+  "prefixComment": "Pending operator label",
+  "sentinelComment": "Unexpected later step",
+  "finalComment": "Operator label: Run",
+  "hmiName": "HMI_RT_1",
+  "screenPath": "Overview",
+  "itemName": "StartButton",
+  "properties": ["Text", "Left", "Top", "Width", "Height"],
+  "baselineItemProperties": { "Text": "Start", "Left": "40", "Top": "40", "Width": "160", "Height": "48" },
+  "label": "Run",
+  "mainHash": "66337a2def7a9405f0f35458b7a13d05985fa7097b696ec6f394d4823bcf31bb"
+}

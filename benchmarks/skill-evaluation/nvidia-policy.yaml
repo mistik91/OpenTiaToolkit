@@ -1,0 +1,10 @@
+profile: opentia-advisory
+
+# OpenTiaToolkit skills are shipped inside the repository and plugin packages;
+# they are not being submitted to NVIDIA's public skill catalog. Keep the
+# external publication identity rules visible in reports without failing the
+# local static audit.
+severity_overrides:
+  SCHEMA.author_missing: info
+  SCHEMA.author_format: info
+  WORKFLOWS.author_format: info

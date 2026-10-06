@@ -1,0 +1,955 @@
+using OpenTiaToolkit.Core.Models;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
+using OpenTiaToolkit.Core.Abstractions;
+using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Core.Commands.Hardware;
+using OpenTiaToolkit.Core.Services;
+using OpenTiaToolkit.Core.Services.Hardware;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+namespace OpenTiaToolkit.Tests.Commands
+{
+    [TestClass]
+    public class HardwareCommandsTests
+    {
+        [TestMethod]
+        public async Task ApplyHardwarePatch_DefaultsToDryRunAndParsesNestedTarget()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"set-attributes\",\"target\":{\"deviceName\":\"Device_1\",\"itemPath\":[\"Module_1\"]},\"attributes\":{\"Name\":\"NewName\"}}]").RootElement.Clone();
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 1 &&
+                    values[0].Target != null &&
+                    values[0].Target!.DeviceName == "Device_1" &&
+                    values[0].Target!.ItemPath[0] == "Module_1"),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_PreservesBlockedResultAsFailureData()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    false,
+                    false,
+                    "test"))
+                .ReturnsAsync(new HardwarePatchResult { SafetyBlocked = true, SafetyMessage = "Cannot plug module." });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse("[{\"op\":\"plug-item\"}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(
+                ("operations", operations), ("dry-run", false), ("transaction-description", "test")), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            Assert.IsInstanceOfType(result.Data, typeof(HardwarePatchResult));
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesGuardedWriteFields()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"set-gsd-parameter-data\",\"target\":{\"deviceName\":\"Master\"},\"datasetNumber\":47360,\"dataHex\":\"01 02\",\"expectedDataHex\":\"00 00\"},{\"op\":\"set-network-item-attributes\",\"target\":{\"deviceName\":\"Master\"},\"networkCollection\":\"Nodes\",\"networkItemIndex\":0,\"attributes\":{\"Address\":\"192.168.1.20\"},\"expectedAttributes\":{\"Address\":\"192.168.1.10\"}}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 2 &&
+                    values[0].ExpectedDataHex == "00 00" &&
+                    values[1].ExpectedAttributes != null &&
+                    values[1].NetworkCollection == "Nodes" &&
+                    values[1].NetworkItemIndex == 0 &&
+                    values[1].ExpectedAttributes!.ContainsKey("Address")),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesProfinetIoAndDriveMutationFields()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"configure-profinet-device\",\"target\":{\"deviceName\":\"AL1403\",\"itemPath\":[\"DAP\",\"PN-IO\"]},\"ipAddress\":\"192.168.101.231\",\"expectedIpAddress\":\"192.168.101.230\",\"pnDeviceName\":\"al1403-231\",\"pnDeviceNumber\":2,\"expectedPnDeviceNumber\":1},{\"op\":\"set-io-address-start\",\"target\":{\"deviceName\":\"AL1403\",\"itemPath\":[\"Proxy\"]},\"addressIndex\":1,\"startAddress\":80,\"expectedStartAddress\":79},{\"op\":\"change-drive-telegram-size\",\"target\":{\"deviceName\":\"G_1\",\"itemPath\":[\"CU\"]},\"driveObjectIndex\":0,\"telegramType\":\"MainTelegram\",\"ioType\":\"Input\",\"sizeInWords\":7,\"expectedSizeInWords\":6,\"keepOriginalAddress\":false}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 3 &&
+                    values[0].PnDeviceName == "al1403-231" &&
+                    values[0].PnDeviceNumber == 2 &&
+                    values[0].ExpectedIpAddress == "192.168.101.230" &&
+                    values[1].AddressIndex == 1 &&
+                    values[1].ExpectedStartAddress == 79 &&
+                    values[2].TelegramType == "MainTelegram" &&
+                    values[2].SizeInWords == 7 &&
+                    values[2].ExpectedSizeInWords == 6 &&
+                    !values[2].KeepOriginalAddress),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesConfigureDriveTelegramFields()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"configure-drive-telegram\",\"target\":{\"deviceName\":\"G_1\",\"itemPath\":[\"CU\"]},\"driveObjectIndex\":0,\"telegramType\":\"MainTelegram\",\"telegramNumber\":352,\"expectedTelegramNumber\":1,\"inputStartAddress\":1040,\"expectedInputStartAddress\":1000,\"outputStartAddress\":1040,\"expectedOutputStartAddress\":1000}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 1 &&
+                    values[0].Op == "configure-drive-telegram" &&
+                    values[0].TelegramType == "MainTelegram" &&
+                    values[0].TelegramNumber == 352 &&
+                    values[0].ExpectedTelegramNumber == 1 &&
+                    values[0].InputStartAddress == 1040 &&
+                    values[0].ExpectedInputStartAddress == 1000 &&
+                    values[0].OutputStartAddress == 1040 &&
+                    values[0].ExpectedOutputStartAddress == 1000),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesTargetRefWithRelativeItemPath()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"create-device\",\"resultId\":\"drive\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_1\"},{\"op\":\"connect-node-to-subnet\",\"targetRef\":\"drive\",\"target\":{\"itemPath\":[\"PROFINET interface\"]},\"nodeIndex\":0,\"subnetName\":\"PN/IE_1\"}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 2 &&
+                    values[1].TargetRef == "drive" &&
+                    values[1].NodeIndex == 0 &&
+                    HasSingleItemPath(values[1], "PROFINET interface")),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_ParsesPlugItemDisplacedPlacementOptIn()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null))
+                .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"create-device\",\"resultId\":\"device\",\"typeIdentifier\":\"GSD:...\",\"deviceName\":\"Device_1\"},{\"op\":\"plug-item\",\"targetRef\":\"device\",\"target\":{\"itemPath\":[\"Totalizer_1\"]},\"typeIdentifier\":\"GSD:.../SM/51\",\"itemName\":\"TotalizerControl\",\"positionNumber\":1,\"allowDisplacedPlacement\":true}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.Is<IReadOnlyList<HardwarePatchOperation>>(values =>
+                    values.Count == 2 &&
+                    values[1].Op == "plug-item" &&
+                    values[1].AllowDisplacedPlacement),
+                true,
+                false,
+                null), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_BlocksStructuralIssuesBeforeCallingService()
+        {
+            var service = new Mock<IHardwareService>();
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"create-device-with-item\",\"resultId\":\"station\",\"typeIdentifier\":\"OrderNumber:IM\",\"deviceName\":\"Station\",\"itemName\":\"Station\"},{\"op\":\"plug-item\",\"resultId\":\"inputs\",\"targetRef\":\"station\",\"typeIdentifier\":\"OrderNumber:DI\",\"itemName\":\"Inputs\",\"positionNumber\":2},{\"op\":\"set-io-address-start\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Inputs\",\"Inputs\"]},\"addressIndex\":0,\"startAddress\":96},{\"op\":\"connect-node-to-subnet\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Station\",\"PROFINET interface\"]},\"subnetName\":\"PN\"}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            var blocked = result.Data as HardwarePatchResult;
+            Assert.IsNotNull(blocked);
+            Assert.IsTrue(blocked!.SafetyBlocked);
+            Assert.IsTrue(blocked.ValidationBlocked);
+            Assert.IsFalse(blocked.RolledBack, "Structural validation runs before a Siemens transaction exists.");
+            CollectionAssert.AreEquivalent(
+                new[] { "missing-relative-item-path", "generated-child-reference-mismatch", "missing-node-index" },
+                blocked.ValidationIssues.Select(issue => issue.Code).ToArray());
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_AggregatesRequiredFieldsBeforeCallingService()
+        {
+            var service = new Mock<IHardwareService>();
+            var command = new ApplyHardwarePatchCommand(service.Object);
+            var operations = JsonDocument.Parse(
+                "[{\"op\":\"create-device-with-item\",\"resultId\":\"station\",\"typeIdentifier\":\"OrderNumber:IM\",\"deviceName\":\"Station\",\"itemName\":\"Station\"},{\"op\":\"connect-node-to-subnet\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Station\",\"PROFINET interface\"]},\"nodeIndex\":0},{\"op\":\"connect-io-connector\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Station\",\"PROFINET interface\"]},\"connectorIndex\":0},{\"op\":\"configure-profinet-device\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Station\",\"PROFINET interface\"]}},{\"op\":\"set-io-address-start\",\"targetRef\":\"station\",\"target\":{\"itemPath\":[\"Inputs\"]}}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(("operations", operations)), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            var blocked = result.Data as HardwarePatchResult;
+            Assert.IsNotNull(blocked);
+            Assert.IsTrue(blocked!.ValidationBlocked);
+            Assert.IsFalse(blocked.RolledBack);
+            Assert.AreEqual(5, blocked.ValidationIssues.Count);
+            Assert.AreEqual(4, blocked.ValidationIssues.Count(issue => issue.Code == "missing-required-field"));
+            CollectionAssert.Contains(blocked.ValidationIssues.Select(issue => issue.Code).ToArray(), "missing-required-choice");
+            Assert.IsTrue(blocked.ValidationIssues.Any(issue => issue.Message.Contains("subnetName")));
+            Assert.IsTrue(blocked.ValidationIssues.Any(issue => issue.Message.Contains("ioSystemName")));
+            service.Verify(candidate => candidate.ApplyPatchAsync(
+                It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_LogsIntoSafetyProgramWhenPasswordProvided()
+        {
+            const string variableName = "OPENTIA_TEST_SAFETY_PASSWORD";
+            Environment.SetEnvironmentVariable(variableName, "A1");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.ApplyPatchAsync(
+                        It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                        true,
+                        false,
+                        null))
+                    .ReturnsAsync(new HardwarePatchResult { DryRun = true, RolledBack = true });
+                var plcService = new Mock<IPlcService>();
+                plcService.SetupGet(candidate => candidate.IsSoftwareOpen).Returns(false);
+                plcService.Setup(candidate => candidate.OpenPlcAsync("PLC_1")).ReturnsAsync(true);
+                plcService.Setup(candidate => candidate.LoginToSafetyOfflineProgramAsync("A1"))
+                    .ReturnsAsync(new SafetyLoginResult(
+                        success: true,
+                        serviceAvailable: true,
+                        passwordRequired: true,
+                        alreadyLoggedIn: false,
+                        message: "Logged into the safety offline program."));
+                var command = new ApplyHardwarePatchCommand(service.Object, plcService.Object);
+                var operations = JsonDocument.Parse("[{\"op\":\"create-device\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_3\"}]").RootElement.Clone();
+
+                var result = await command.ExecuteAsync(Args(
+                    ("operations", operations),
+                    ("plc-name", "PLC_1"),
+                    ("safety-password-env", variableName)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success);
+                plcService.Verify(candidate => candidate.OpenPlcAsync("PLC_1"), Times.Once);
+                plcService.Verify(candidate => candidate.LoginToSafetyOfflineProgramAsync("A1"), Times.Once);
+                service.Verify(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    true,
+                    false,
+                    null), Times.Once);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, null);
+            }
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_RequiresPlcNameWithSafetyPassword()
+        {
+            const string variableName = "OPENTIA_TEST_SAFETY_PASSWORD_NO_PLC";
+            Environment.SetEnvironmentVariable(variableName, "A1");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                var plcService = new Mock<IPlcService>();
+                var command = new ApplyHardwarePatchCommand(service.Object, plcService.Object);
+                var operations = JsonDocument.Parse("[{\"op\":\"create-device\",\"typeIdentifier\":\"System:Device.G120C-2\",\"deviceName\":\"G_3\"}]").RootElement.Clone();
+
+                var result = await command.ExecuteAsync(Args(
+                    ("operations", operations),
+                    ("safety-password-env", variableName)), NullLogger.Instance);
+
+                Assert.IsFalse(result.Success);
+                service.Verify(candidate => candidate.ApplyPatchAsync(
+                    It.IsAny<IReadOnlyList<HardwarePatchOperation>>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string?>()), Times.Never);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, null);
+            }
+        }
+
+        [TestMethod]
+        public async Task ApplyHardwarePatch_RejectsRawSafetyPassword()
+        {
+            var service = new Mock<IHardwareService>();
+            var command = new ApplyHardwarePatchCommand(service.Object, Mock.Of<IPlcService>());
+            var operations = JsonDocument.Parse("[{\"op\":\"create-device\"}]").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(
+                ("operations", operations),
+                ("safety-password", "must-not-be-accepted")), NullLogger.Instance);
+
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "Raw safety-password");
+        }
+
+        [TestMethod]
+        public async Task FindHardwareModuleTypes_UsesProjectProviderWithoutTarget()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.FindModuleTypesAsync("GSD:IFM/M"))
+                .ReturnsAsync(new[] { "GSD:IFM/M/IOLM" });
+            var command = new FindHardwareModuleTypesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(("partial-type-identifier", "GSD:IFM/M")), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareTree_WritesJsonWhenOutputPathIsProvided()
+        {
+            var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "tree.json");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.GetHardwareTreeAsync("Station_1"))
+                    .ReturnsAsync(new[]
+                    {
+                        new HardwareDeviceTreeInfo
+                        {
+                            DeviceName = "Station_1",
+                            Items = new List<HardwareItemInfo>
+                            {
+                                new HardwareItemInfo
+                                {
+                                    Name = "Rack_0",
+                                    Items = new List<HardwareItemInfo>
+                                    {
+                                        new HardwareItemInfo { Name = "CPU_1" }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                var command = new GetHardwareTreeCommand(service.Object);
+
+                var result = await command.ExecuteAsync(Args(
+                    ("device-name", "Station_1"),
+                    ("output-path", outputPath)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success, result.Error);
+                var artifact = result.Data as CommandArtifactResult;
+                Assert.IsNotNull(artifact);
+                Assert.AreEqual(outputPath, artifact!.OutputPath);
+                Assert.AreEqual("json", artifact.Format);
+                Assert.AreEqual("hardware-tree", artifact.DataKind);
+                Assert.AreEqual(1, artifact.ItemCount);
+                Assert.IsFalse(artifact.InlineOutputSuppressed);
+                Assert.IsTrue(File.Exists(outputPath));
+                var json = File.ReadAllText(outputPath);
+                StringAssert.Contains(json, "\"deviceName\": \"Station_1\"");
+                StringAssert.Contains(json, "\"name\": \"CPU_1\"");
+                service.VerifyAll();
+            }
+            finally
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task GetHardwareNetworks_PassesDeviceFilter()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetNetworksAsync("Station_1"))
+                .ReturnsAsync(new[] { new HardwareNetworkInfo() });
+            var command = new GetHardwareNetworksCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(("device-name", "Station_1")), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            Assert.IsInstanceOfType(result.Data, typeof(IReadOnlyList<HardwareNetworkInfo>));
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareNetworks_AutoWritesJsonWhenInlineResultExceedsThreshold()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetNetworksAsync(null))
+                .ReturnsAsync(Enumerable.Range(0, 300)
+                    .Select(index => new HardwareNetworkInfo
+                    {
+                        Target = new HardwareObjectRef { DeviceName = "Device_" + index },
+                        Nodes = new List<HardwareNodeInfo>
+                        {
+                            new HardwareNodeInfo
+                            {
+                                Index = index,
+                                Name = "Node_" + index,
+                                Attributes = new List<HardwareAttributeInfo>
+                                {
+                                    new HardwareAttributeInfo { Name = "Address", Value = "192.168.0." + index },
+                                    new HardwareAttributeInfo { Name = "Comment", Value = new string('x', 100) }
+                                }
+                            }
+                        }
+                    })
+                    .ToList());
+            var command = new GetHardwareNetworksCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success, result.Error);
+            var artifact = result.Data as CommandArtifactResult;
+            Assert.IsNotNull(artifact);
+            Assert.AreEqual("json", artifact!.Format);
+            Assert.AreEqual("hardware-networks", artifact.DataKind);
+            Assert.IsTrue(artifact.InlineOutputSuppressed);
+            Assert.IsTrue(File.Exists(artifact.OutputPath));
+            File.Delete(artifact.OutputPath);
+        }
+
+        [TestMethod]
+        public async Task GetHardwareIoAddresses_PassesDeviceFilterAndAttributes()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetIoAddressesAsync(
+                    "AL1403_231",
+                    It.Is<string[]>(names => names.Length == 2 && names[0] == "StartAddress")))
+                .ReturnsAsync(new[] { new HardwareIoAddressInfo { Index = 0 } });
+            var command = new GetHardwareIoAddressesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "AL1403_231"), ("attributes", new[] { "StartAddress", "IoType" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareDriveTelegrams_PassesDriveFilterAndAddressAttributes()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetDriveTelegramsAsync(
+                    "SINAMICS G_1",
+                    It.Is<string[]>(names => names.Length == 3 && names[0] == "StartAddress")))
+                .ReturnsAsync(new[] { new HardwareDriveTelegramInfo { TelegramNumber = "1" } });
+            var command = new GetHardwareDriveTelegramsCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "SINAMICS G_1"), ("address-attributes", new[] { "StartAddress", "IoType", "Length" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareDriveTelegrams_WritesCsvWhenOutputPathIsProvided()
+        {
+            var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "telegrams.csv");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.GetDriveTelegramsAsync(null, null))
+                    .ReturnsAsync(new[]
+                    {
+                        new HardwareDriveTelegramInfo
+                        {
+                            Target = new HardwareObjectRef
+                            {
+                                DeviceName = "SINAMICS G_1",
+                                ItemPath = new[] { "Drive_1" },
+                                ExpectedTypeIdentifier = "DriveType"
+                            },
+                            DriveObjectIndex = 1,
+                            DriveObjectNumber = "2",
+                            TelegramIndex = 0,
+                            TelegramNumber = "352",
+                            TelegramType = "MainTelegram",
+                            Addresses = new List<HardwareIoAddressInfo>
+                            {
+                                new HardwareIoAddressInfo
+                                {
+                                    Target = new HardwareObjectRef
+                                    {
+                                        DeviceName = "SINAMICS G_1",
+                                        ItemPath = new[] { "Drive_1", "Telegram_1" },
+                                        ExpectedTypeIdentifier = "TelegramType"
+                                    },
+                                    Index = 3,
+                                    Attributes = new List<HardwareAttributeInfo>
+                                    {
+                                        new HardwareAttributeInfo { Name = "StartAddress", Value = "1040", IsReadOnly = false },
+                                        new HardwareAttributeInfo { Name = "IoType", Value = "Input", IsReadOnly = true }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                var command = new GetHardwareDriveTelegramsCommand(service.Object);
+
+                var result = await command.ExecuteAsync(Args(("output-path", outputPath)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success, result.Error);
+                var artifact = result.Data as CommandArtifactResult;
+                Assert.IsNotNull(artifact);
+                Assert.AreEqual(outputPath, artifact!.OutputPath);
+                Assert.AreEqual("csv", artifact.Format);
+                Assert.AreEqual("hardware-drive-telegrams", artifact.DataKind);
+                Assert.AreEqual(1, artifact.ItemCount);
+                Assert.IsFalse(artifact.InlineOutputSuppressed);
+                Assert.IsTrue(File.Exists(outputPath));
+                var csv = File.ReadAllText(outputPath);
+                StringAssert.Contains(csv, "TelegramDeviceName,TelegramItemPath,TelegramExpectedTypeIdentifier,DriveObjectIndex,DriveObjectNumber,TelegramIndex,TelegramNumber,TelegramType,AddressDeviceName,AddressItemPath,AddressExpectedTypeIdentifier,AddressIndex,AttributeName,AttributeValue,IsReadOnly");
+                StringAssert.Contains(csv, "SINAMICS G_1,Drive_1,DriveType,1,2,0,352,MainTelegram,SINAMICS G_1,Drive_1/Telegram_1,TelegramType,3,StartAddress,1040,False");
+                StringAssert.Contains(csv, "SINAMICS G_1,Drive_1,DriveType,1,2,0,352,MainTelegram,SINAMICS G_1,Drive_1/Telegram_1,TelegramType,3,IoType,Input,True");
+            }
+            finally
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task GetHardwareDriveTelegrams_AutoWritesCsvWhenInlineResultExceedsThreshold()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetDriveTelegramsAsync(null, null))
+                .ReturnsAsync(Enumerable.Range(0, 500)
+                    .Select(index => new HardwareDriveTelegramInfo
+                    {
+                        Target = new HardwareObjectRef
+                        {
+                            DeviceName = "Drive_" + index,
+                            ItemPath = new[] { "TelegramContainer_" + index }
+                        },
+                        DriveObjectIndex = index,
+                        TelegramIndex = index,
+                        TelegramNumber = "352",
+                        TelegramType = "MainTelegram",
+                        Addresses = new List<HardwareIoAddressInfo>
+                        {
+                            new HardwareIoAddressInfo
+                            {
+                                Target = new HardwareObjectRef
+                                {
+                                    DeviceName = "Drive_" + index,
+                                    ItemPath = new[] { "Address_" + index }
+                                },
+                                Index = index,
+                                Attributes = new List<HardwareAttributeInfo>
+                                {
+                                    new HardwareAttributeInfo { Name = "StartAddress", Value = index.ToString() },
+                                    new HardwareAttributeInfo { Name = "Comment", Value = new string('x', 100) }
+                                }
+                            }
+                        }
+                    })
+                    .ToList());
+            var command = new GetHardwareDriveTelegramsCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success, result.Error);
+            var artifact = result.Data as CommandArtifactResult;
+            Assert.IsNotNull(artifact);
+            Assert.AreEqual("csv", artifact!.Format);
+            Assert.AreEqual("hardware-drive-telegrams", artifact.DataKind);
+            Assert.IsTrue(artifact.InlineOutputSuppressed);
+            Assert.IsTrue(File.Exists(artifact.OutputPath));
+            File.Delete(artifact.OutputPath);
+        }
+
+        [TestMethod]
+        public async Task GetHardwareIoAddresses_WritesCsvWhenOutputPathIsProvided()
+        {
+            var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "io.csv");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.GetIoAddressesAsync(null, null))
+                    .ReturnsAsync(new[]
+                    {
+                        new HardwareIoAddressInfo
+                        {
+                            Target = new HardwareObjectRef
+                            {
+                                DeviceName = "Device_1",
+                                ItemPath = new[] { "Module_1", "Submodule_1" },
+                                ExpectedTypeIdentifier = "Type/1"
+                            },
+                            Index = 2,
+                            Attributes = new List<HardwareAttributeInfo>
+                            {
+                                new HardwareAttributeInfo { Name = "StartAddress", Value = "100", IsReadOnly = false },
+                                new HardwareAttributeInfo { Name = "IoType", Value = "Input", IsReadOnly = true }
+                            }
+                        }
+                    });
+                var command = new GetHardwareIoAddressesCommand(service.Object);
+
+                var result = await command.ExecuteAsync(Args(("output-path", outputPath)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success, result.Error);
+                var artifact = result.Data as CommandArtifactResult;
+                Assert.IsNotNull(artifact);
+                Assert.AreEqual(outputPath, artifact!.OutputPath);
+                Assert.AreEqual("csv", artifact.Format);
+                Assert.AreEqual("hardware-io-addresses", artifact.DataKind);
+                Assert.AreEqual(1, artifact.ItemCount);
+                Assert.IsTrue(File.Exists(outputPath));
+                var csv = File.ReadAllText(outputPath);
+                StringAssert.Contains(csv, "DeviceName,ItemPath,ExpectedTypeIdentifier,AddressIndex,AttributeName,AttributeValue,IsReadOnly");
+                StringAssert.Contains(csv, "Device_1,Module_1/Submodule_1,Type/1,2,StartAddress,100,False");
+                StringAssert.Contains(csv, "Device_1,Module_1/Submodule_1,Type/1,2,IoType,Input,True");
+            }
+            finally
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task GetHardwareIoAddresses_AutoWritesCsvWhenInlineResultExceedsThreshold()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetIoAddressesAsync(null, null))
+                .ReturnsAsync(Enumerable.Range(0, 600)
+                    .Select(index => new HardwareIoAddressInfo
+                    {
+                        Target = new HardwareObjectRef
+                        {
+                            DeviceName = "Device_" + index,
+                            ItemPath = new[] { "Module_" + index }
+                        },
+                        Index = index,
+                        Attributes = new List<HardwareAttributeInfo>
+                        {
+                            new HardwareAttributeInfo { Name = "StartAddress", Value = index.ToString() },
+                            new HardwareAttributeInfo { Name = "Comment", Value = new string('x', 80) }
+                        }
+                    })
+                    .ToList());
+            var command = new GetHardwareIoAddressesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success, result.Error);
+            var artifact = result.Data as CommandArtifactResult;
+            Assert.IsNotNull(artifact);
+            Assert.AreEqual("csv", artifact!.Format);
+            Assert.IsTrue(artifact.InlineOutputSuppressed);
+            Assert.IsTrue(File.Exists(artifact.OutputPath));
+            File.Delete(artifact.OutputPath);
+        }
+
+        [TestMethod]
+        public async Task AuditHardwareTagMappings_PassesFiltersAndLimit()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.AuditHardwareTagMappingsAsync(
+                    "PLC_1",
+                    "FLOW_METERS",
+                    "Promag",
+                    12))
+                .ReturnsAsync(new HardwareTagMappingAuditResult
+                {
+                    PlcName = "PLC_1",
+                    AddressedTagCount = 14,
+                    UnmatchedTagCount = 14
+                });
+            var command = new AuditHardwareTagMappingsCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("plc-name", "PLC_1"),
+                ("tag-table-filter", "FLOW_METERS"),
+                ("catalog-search-text", "Promag"),
+                ("max-unmatched-tags", 12)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task AuditHardwareTagMappings_WritesUnmatchedTagsCsvWhenOutputPathIsProvided()
+        {
+            var outputPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "unmatched.csv");
+            try
+            {
+                var service = new Mock<IHardwareService>();
+                service.Setup(candidate => candidate.AuditHardwareTagMappingsAsync(
+                        "PLC_1",
+                        null,
+                        null,
+                        100))
+                    .ReturnsAsync(new HardwareTagMappingAuditResult
+                    {
+                        PlcName = "PLC_1",
+                        AddressedTagCount = 2,
+                        UnmatchedTagCount = 1,
+                        UnmatchedTags = new List<HardwareTagAddressInfo>
+                        {
+                            new HardwareTagAddressInfo
+                            {
+                                TagTableName = "FLOW",
+                                TagName = "156FT220",
+                                LogicalAddress = "%ID1572",
+                                Area = "I",
+                                StartAddress = 1572,
+                                Length = 4,
+                                EndAddress = 1575
+                            }
+                        }
+                    });
+                var command = new AuditHardwareTagMappingsCommand(service.Object);
+
+                var result = await command.ExecuteAsync(Args(
+                    ("plc-name", "PLC_1"),
+                    ("output-path", outputPath)), NullLogger.Instance);
+
+                Assert.IsTrue(result.Success, result.Error);
+                var artifact = result.Data as CommandArtifactResult;
+                Assert.IsNotNull(artifact);
+                Assert.AreEqual(outputPath, artifact!.OutputPath);
+                Assert.AreEqual("hardware-tag-mapping-unmatched-tags", artifact.DataKind);
+                Assert.AreEqual(1, artifact.ItemCount);
+                Assert.IsTrue(File.Exists(outputPath));
+                var csv = File.ReadAllText(outputPath);
+                StringAssert.Contains(csv, "TagTableName,TagName,LogicalAddress,Area,StartAddress,Length,EndAddress,MatchedHardwareRange");
+                StringAssert.Contains(csv, "FLOW,156FT220,%ID1572,I,1572,4,1575,");
+            }
+            finally
+            {
+                var directory = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+        }
+
+        [TestMethod]
+        public void HardwareTagAddressParser_ParsesByteWordDwordAndBitAddresses()
+        {
+            var inputDword = HardwareAuditRules.TryParseTagAddress("FLOW_METERS", "156FT220_Volume_Flow", "%ID1572");
+            var outputByte = HardwareAuditRules.TryParseTagAddress("FLOW_METERS", "156FT220_TOT_1_Ctrl", "%QB1577");
+            var inputBit = HardwareAuditRules.TryParseTagAddress("FLOW_METERS", "Ready", "%I1580.1");
+
+            Assert.IsNotNull(inputDword);
+            Assert.AreEqual("I", inputDword!.Area);
+            Assert.AreEqual(1572, inputDword.StartAddress);
+            Assert.AreEqual(1575, inputDword.EndAddress);
+            Assert.IsNotNull(outputByte);
+            Assert.AreEqual("Q", outputByte!.Area);
+            Assert.AreEqual(1577, outputByte.EndAddress);
+            Assert.IsNotNull(inputBit);
+            Assert.AreEqual(1580, inputBit!.StartAddress);
+            Assert.AreEqual(1, inputBit.Length);
+        }
+
+        [TestMethod]
+        public async Task GetGsdParameterData_ParsesTargetAndRange()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetGsdParameterDataAsync(
+                    It.Is<HardwareObjectRef>(target => target.DeviceName == "Master"),
+                    47360,
+                    0,
+                    16))
+                .ReturnsAsync(new HardwareGsdParameterData { Length = 16, DataHex = "00 01" });
+            var command = new GetGsdParameterDataCommand(service.Object);
+            var target = JsonDocument.Parse("{\"deviceName\":\"Master\"}").RootElement.Clone();
+
+            var result = await command.ExecuteAsync(Args(
+                ("target", target), ("dataset-number", 47360), ("length", 16)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareFeatureAttributes_ParsesNetworkInterfaceRequest()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetFeatureAttributesAsync(
+                    It.Is<HardwareObjectRef>(target => target.DeviceName == "Master" && target.ItemPath[0] == "PN-IO"),
+                    "NetworkInterface",
+                    It.Is<string[]>(names => names.Length == 1 && names[0] == "InterfaceOperatingMode")))
+                .ReturnsAsync(new HardwareFeatureAttributesInfo { FeatureService = "NetworkInterface" });
+            var command = new GetHardwareFeatureAttributesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "Master"), ("item-path", "PN-IO"),
+                ("feature-service", "NetworkInterface"), ("attributes", new[] { "InterfaceOperatingMode" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetHardwareNetworkItemAttributes_ParsesNodeAddressRequest()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetNetworkItemAttributesAsync(
+                    It.Is<HardwareObjectRef>(target => target.DeviceName == "Master" && target.ItemPath[0] == "PN-IO"),
+                    "Nodes",
+                    0,
+                    It.Is<string[]>(names => names.Length == 1 && names[0] == "Address")))
+                .ReturnsAsync(new HardwareNetworkItemAttributesInfo { CollectionName = "Nodes", Index = 0 });
+            var command = new GetHardwareNetworkItemAttributesCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "Master"), ("item-path", "PN-IO"),
+                ("network-collection", "Nodes"), ("attributes", new[] { "Address" })), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetGsdParameterData_AcceptsCliJsonStringTarget()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetGsdParameterDataAsync(
+                    It.Is<HardwareObjectRef>(target => target.DeviceName == "Master" && target.ItemPath[0] == "Port_1"),
+                    1,
+                    0,
+                    2))
+                .ReturnsAsync(new HardwareGsdParameterData { Length = 2 });
+            var command = new GetGsdParameterDataCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("target", "{\"deviceName\":\"Master\",\"itemPath\":[\"Port_1\"]}"),
+                ("dataset-number", 1), ("length", 2)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        [TestMethod]
+        public async Task GetGsdParameterData_AcceptsCliSlashDelimitedItemPath()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(candidate => candidate.GetGsdParameterDataAsync(
+                    It.Is<HardwareObjectRef>(target =>
+                        target.DeviceName == "Master" &&
+                        target.ItemPath.Length == 2 &&
+                        target.ItemPath[1] == "Port_1"),
+                    1,
+                    0,
+                    2))
+                .ReturnsAsync(new HardwareGsdParameterData { Length = 2 });
+            var command = new GetGsdParameterDataCommand(service.Object);
+
+            var result = await command.ExecuteAsync(Args(
+                ("device-name", "Master"), ("item-path", "Module/Port_1"),
+                ("dataset-number", 1), ("length", 2)), NullLogger.Instance);
+
+            Assert.IsTrue(result.Success);
+            service.VerifyAll();
+        }
+
+        private static CommandArgs Args(params (string Name, object Value)[] entries)
+        {
+            var values = new Dictionary<string, object?>();
+            foreach (var entry in entries)
+            {
+                values[entry.Name] = entry.Value;
+            }
+            return new CommandArgs(values);
+        }
+
+        private static bool HasSingleItemPath(HardwarePatchOperation operation, string itemName)
+        {
+            return operation.Target != null &&
+                operation.Target.ItemPath.Length == 1 &&
+                operation.Target.ItemPath[0] == itemName;
+        }
+    }
+}

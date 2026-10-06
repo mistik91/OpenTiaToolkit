@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "opentia": {
+      "type": "local",
+      "command": [
+        "powershell",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".opencode/plugins/run-opentia-mcp.ps1"
+      ],
+      "environment": {
+        "OPEN_TIA_MCP_LOG_LEVEL": "Error"
+      },
+      "enabled": true,
+      "timeout": 600000
+    }
+  },
+  "permission": {
+    "skill": {
+      "basic-tia-interaction": "allow",
+      "hmi-unified-agent-editing": "allow",
+      "opentia-toolkit-workflow": "allow",
+      "hardware-configuration-workflow": "allow",
+      "plc-block-and-tag-workflow": "allow",
+      "library-workflow": "allow",
+      "vci-sync-workflow": "allow",
+      "hmi-trend-logging-workflow": "allow",
+      "opentia-dev-workflow": "allow"
+    }
+  }
+}

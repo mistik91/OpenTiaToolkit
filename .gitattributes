@@ -1,0 +1,6 @@
+# Frozen benchmark vectors are hashed as raw bytes, including line endings.
+benchmarks/cases/ott-35/acceptance-vector.json text eol=lf
+benchmarks/cases/ott-36/acceptance.json text eol=lf
+benchmarks/cases/ott-37/acceptance.json text eol=lf
+# The blueprint resource guard requires source and all skill bundles to match bytes.
+**/engineering-blueprint.schema.json text eol=lf

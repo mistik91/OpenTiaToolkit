@@ -1,0 +1,4 @@
+interface:
+  display_name: "S7DCL LAD Authoring"
+  short_description: "Author verified Siemens LAD documents safely"
+  default_prompt: "Use $s7dcl-lad-authoring to create or modify a V21-supported LAD block and apply it through a verified PLC code transaction."

@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "id": "tia-v21-baseline-1",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_20260731.zap21",
+      "sha256": "1C17F223F00F0A43EFD5E51A7C8E2DBE4DD424540AE0C9A799F102997205AB74",
+      "sizeBytes": 5582162,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Default tag table contains OccupiedBefore at %M99.7 and OccupiedAfter at %MD108.",
+        "Main is a LAD organization block whose first network title is empty.",
+        "Overview contains StartButton at (40,40), size 160x48, with Text=Start.",
+        "DI_Occupied inputs use bytes 64-65; DI_Candidate inputs use bytes 2-3."
+      ]
+    },
+    {
+      "id": "tia-v21-io-2",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_IO_20260801.zap21",
+      "sha256": "8AE143CA447564B494C51B5560A76D7FB32C72E5FFA5458672FD5702ACF8409E",
+      "sizeBytes": 5532287,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with two DQ 16x24VDC/0.5A BA V1.1 modules.",
+        "DI_Occupied inputs use bytes 64-65; DI_Candidate inputs use bytes 2-3.",
+        "DQ_Occupied outputs use bytes 128-129; DQ_Candidate outputs use bytes 2-3.",
+        "The archive compiled with zero errors and warnings and was independently restored before its identity was recorded."
+      ]
+    },
+    {
+      "id": "tia-v21-multi-address-3",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_MultiAddress_20260801.zap21",
+      "sha256": "3B4F832B1F32ECDF20C8905E8CE07C429DC808F00C3C15B03688E0AB7E168585",
+      "sizeBytes": 5582000,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-io-2 with one DI 16x24VDC/DQ 16x24VDC/0.5A BA V1.1 mixed module named DIDQ_Candidate.",
+        "DIDQ_Candidate exposes input address index 0 at byte 0 and output address index 1 at byte 0; both address objects have Length=16 bits.",
+        "The archive compiled with zero errors and warnings and was independently restored on a fresh TIA Portal process before its identity was recorded."
+      ]
+    },
+    {
+      "id": "tia-v21-cross-domain-4",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_CrossDomain_20260801.zap21",
+      "sha256": "C89FDAD14AF95CCC9DA216E4C82FD710A60774D9E7C4D9CB07A6185FB350999D",
+      "sizeBytes": 5535034,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-multi-address-3 with four Bool PLC tags mapped to bit 0 of each movable Candidate address row.",
+        "DI_Candidate_Channel0=%I2.0, DIDQ_Candidate_Input0=%I0.0, DQ_Candidate_Channel0=%Q2.0, and DIDQ_Candidate_Output0=%Q0.0.",
+        "All four tags are in Default tag table with comment 'OTT benchmark hardware mapping'.",
+        "The archive was independently restored on a fresh TIA process; hardware, tags, and a zero-error/zero-warning compile were verified before the cross-domain gold audit."
+      ]
+    },
+    {
+      "id": "tia-v21-cross-domain-transfer-5",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Transfer_20260801.zap21",
+      "sha256": "B57573BBD33E185D7B843CDED87362F6BF08932944388508BFD934D575C35A56",
+      "sizeBytes": 5582666,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Held-out transfer fixture with RackInputsFixed at input bytes 40-41 and RackOutputsFixed at output bytes 90-91.",
+        "ConveyorSense input starts at byte 10, GateActuator output at byte 14, and mixed SkidSignals input/output rows at bytes 20 and 28.",
+        "Four transfer-map Bool tags use different identities and nonzero bit offsets: %I10.6, %I20.3, %Q14.5, and %Q28.1.",
+        "The archive passed forward/inverse cross-domain audit, a failed-preview no-write check, real mid-transaction hardware rollback, and a fresh-process zero-error/zero-warning compile."
+      ]
+    },
+    {
+      "id": "tia-v21-topology-6",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Topology_20260801.zap21",
+      "sha256": "33193A83BE565BBD63486D66FFDE39404C76D9F8F01178DF28D435DBE3CC5732",
+      "sizeBytes": 5535646,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-cross-domain-transfer-5 with Ethernet subnet CellPN and controller IO system CellIO on PLC_Main.",
+        "Contains no RemoteCell station; it is the reversible baseline for catalog-driven ET 200SP topology provisioning.",
+        "ott-26 additionally requires the installation-scoped Endress+Hauser Promag 100 GSDML-V2.31 dated 20151109; vendor catalog packages are not embedded in the project archive.",
+        "ott-27 additionally requires the installation-scoped IFM AL1x0x GSDML-V2.35 dated 20230127; vendor catalog packages are not embedded in the project archive.",
+        "The archive passed strict-placement rollback, successful station creation and wiring, exact delete inverse, forced mid-transaction rollback, and fresh-process zero-error/zero-warning compilation."
+      ]
+    },
+    {
+      "id": "tia-v21-brownfield-7",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Brownfield_20260803.zap21",
+      "sha256": "256BED153DF00421DBA65B1F9FFB2625CE09E8715C430A5038CE074F46889073",
+      "sizeBytes": 5541335,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_Main",
+      "notes": [
+        "Extends tia-v21-topology-6 with an existing ET 200MP station named LegacyCell on CellPN and CellIO.",
+        "LegacyInputs is an HF input module at position 2 and input bytes 72-73; LegacyOutputs is a BA output module at position 4 and output bytes 140-141.",
+        "LegacyCell starts at 192.168.0.57 with PROFINET name legacy-cell and device number 57.",
+        "The read-only archive passed strict replacement placement, positive modernization, exact inverse, live late-collision rollback, fresh reattachment readback, and zero-error/zero-warning compilation."
+      ]
+    },
+    {
+      "id": "tia-v21-multiuser-1",
+      "kind": "preprovisioned-multiuser-session",
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark_MU",
+      "serverAlias": "Agent Local Server",
+      "sessionName": "OTT_Benchmark_MU_Agent",
+      "notes": [
+        "The local session path is machine-specific and is supplied to the runner.",
+        "The case must not attempt commit-multiuser-session; V21 public Openness requires UI check-in."
+      ]
+    },
+    {
+      "id": "tia-v21-unified-alarms-8",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_UnifiedAlarms_20260904.zap21",
+      "sha256": "316B538B73F1DF41FBC07DBD0DA5963F039E552568EB1984604FE854DBE9BD52",
+      "sizeBytes": 5655259,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with internal Unified HMI tags MixerAlarmBits (Int), MixerSpeed (Real), and BatchNumber (DInt) in tag table OTT28 Fixture; no HMI-to-PLC connection is required.",
+        "Contains five valid discrete alarms occupying IDs 2398, 2399, 2400, 2401, and 2403 plus MixerAlarmBits trigger bits 0-4, leaving computed ID 2402 and bit 5 as the first free choices in the task ranges.",
+        "Mixer_Trip_Legacy is the exact unreferenced retirement target; Mixer_Trip_Legacy_Display is a near-name preservation distractor.",
+        "The read-only archive was independently restored, all tags and alarm hashes were verified, the gold update/create/delete path succeeded without saving, and a forced second-operation Siemens setter failure rolled back the first change."
+      ]
+    },
+    {
+      "id": "tia-v21-unified-trends-9",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Trends_20260905.zap21",
+      "sha256": "7078FA79558948F375229C94AB69FF00D171646CAE874D51DA9B8453D35C82EB",
+      "sizeBytes": 5641130,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-unified-alarms-8 with a trend-logging reconciliation baseline on the same three internal HMI tags.",
+        "MixerSpeed has one cyclic T10s logging tag associated with MixerLegacyLog; MixerAlarmBits has one cyclic T1s logging tag associated with MixerProtectedLog; BatchNumber has no logging tag.",
+        "MixerBatchRetireLog exists without active logging-tag references and is the orphaned archive in the mixed safety preflight.",
+        "The read-only archive was independently restored; exact logging associations, the orphaned archive, the complete gold reconciliation, active-reference blocking, final absence checks, and close-without-save cleanup were verified."
+      ]
+    },
+    {
+      "id": "tia-v21-vci-10",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Vci_20260930.zap21",
+      "sha256": "B058929F708DB5A5781428238D04B627C4611A0F15C40CE46D4CCC742E76C773",
+      "sizeBytes": 5595516,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with three root SCL FCs: OTT31_ProjectSource adds 10, OTT31_WorkspaceTarget adds 20, and OTT31_Distractor adds 30.",
+        "The archive contains no VCI workspace definition or mapping; every trial creates an isolated workspace below its own benchmark workspace.",
+        "The read-only archive was independently restored on a fresh TIA process, compiled with zero errors and warnings, and verified against exact native-source hashes.",
+        "The gold path proved an unconfirmed import is rejected without mutation, project-to-workspace restores a stale +99 file to +10, workspace-to-project imports +25, all exact mappings finish Equal, and the distractor remains +30."
+      ]
+    },
+    {
+      "id": "tia-v21-library-11",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Library_20261001.zap21",
+      "sha256": "B749366ECD7CFD0564FEC06881526373BF0DBE14F9BE9ECCD1043D0071166749",
+      "sizeBytes": 5701716,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-vci-10 with three same-leaf Offset master copies in project-library Approved/PLC, Approved/HMI, and Legacy/PLC branches under OTT32_Standards.",
+        "Approved PLC payload OTT32_ApprovedOffset adds 10 and is absent from PLC software. OTT32_Reuse is empty; existing root FCs OTT32_ApprovedOffset_Legacy (+20) and OTT32_ExistingOffset (+30) must be preserved.",
+        "Project-library UDT/MyANALOG_LEVEL has Committed versions 0.0.3 and default 0.0.4. The PLC instance remains on 0.0.3 and the update check reports Out-of-date; no upgrade is authorized.",
+        "Construction compiled with zero errors and one intentional non-default-version warning. An incremental gold compile after copying reported zero errors/warnings while update checks still proved the old instance was retained.",
+        "The read-only archive was restored on a fresh TIA process. Exact dry-run and unconfirmed copy left the three-block baseline unchanged; confirmed grouped reuse and recursive XML readback succeeded. External source-library data hashes remained unchanged."
+      ]
+    },
+    {
+      "id": "tia-v21-s7dcl-data-12",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_S7dclData_20261001.zap21",
+      "sha256": "A550A21C719511E7F019E4FBEEC1413EB8238762E8E38D9547EECF3E0B67D02E",
+      "sizeBytes": 5597695,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with non-optimized, non-retained global DB OTT33_RecipeSettings (58033), near-name backup OTT33_RecipeSettings_Backup (58035), FC OTT33_ReadRecipe, and UDT OTT33_BatchInfo.",
+        "Recipe baseline start values include Enabled=FALSE, Mode=1, RecipeId=7001, Target=42.5, RetryLimit=3, Label='Baseline', and RestartCount=17; array bounds are 2..5 and Limits contains Low/High Real members.",
+        "OTT33_QualitySnapshot is absent. The existing consumer reads Enabled, Mode, and Target; the backup carries Mode=9, RecipeId=9909, Target=-99.0, and RetryLimit=8.",
+        "The read-only archive was independently restored on a fresh TIA process and compiled with zero errors/warnings. Gold baseline-bound initialization update plus nested UDT-backed DB creation succeeded atomically; backup, consumer, Main, and complete UDT XML were unchanged.",
+        "A real second-operation Siemens import failure rolled back the already-applied existing-DB change, restored its exact canonical baseline, proved the new DB absent, and recovered zero-error/zero-warning compilation."
+      ]
+    },
+    {
+      "id": "tia-v21-lad-brownfield-13",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_LadBrownfield_20261001.zap21",
+      "sha256": "952FC2C686BFA2C40D0D339340D8E6DDDEABF9B14E24367BF4BAAE796671EACC",
+      "sizeBytes": 5691086,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_RT_1",
+      "notes": [
+        "Extends tia-v21-baseline-1 with LAD FB OTT34_Conveyor (58434), six Boolean request/interlock inputs, four outputs, one nonretained static RunDelay TON_TIME, and five titled networks with paired resources.",
+        "Baseline network 2 drives RunRequest from AutoStart alone; network 3 drives a 100 ms TON from AutoStart. Fault indication and set/reset request-history networks must remain untouched.",
+        "Near-name LAD FC OTT34_Conveyor_Backup (58435) uses AutoStart AND NOT Fault; Main remains the original empty LAD OB.",
+        "The read-only archive was restored in a fresh TIA process, compiled at zero errors/warnings, and its complete SD exports matched the seed byte-for-byte.",
+        "This disposable standard-LAD fixture is not a runtime safety controller. Independent gold body-only import proved common-interlocked Auto/Jog branching and a 750 ms nonretentive TON, with 64 combinational XML wiring rows and exact static IN/PT/Q checks.",
+        "A real final compile failure after both transaction operations applied restored every original SD hash, removed the deliberate failure FC, and recovered zero-error/zero-warning compilation."
+      ]
+    },
+    {
+      "id": "tia-v21-multiuser-identity-15",
+      "kind": "identity-bound-multiuser",
+      "archiveFileName": "OTT37_20261005_IdentitySave_Baseline.zap21",
+      "sha256": "8E6F2738A6332E6741599512745D859A6655AAA3CF4BAB27DDAADD99CD8A8CF2",
+      "sizeBytes": 424908,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT37_20261005_IdentitySave",
+      "serverAlias": "Agent Local Server",
+      "notes": [
+        "Immutable two-PLC baseline with five exact tags and unchanged empty LAD Main OBs; publish a unique Save As project per trial, never reuse the edited qualification server project.",
+        "Requires explicit coordinator and separate-account Agent TIA PIDs plus an existing DPAPI credential. Worker/TIA ownership, empty context, native session opening, baseline artifacts and freshness gate model startup.",
+        "Scores edit/local-save/UI-handoff only. A pending handoff pauses campaigns; exact fresh server-derived verification after operator check-in is a separate persistence checkpoint."
+      ]
+    },
+    {
+      "id": "tia-v21-behavior-14",
+      "kind": "tia-project-archive",
+      "archiveFileName": "OTT_Benchmark_V21_Behavior_20261003.zap21",
+      "sha256": "D2A66124EC3269132DAD9FF5149DA0E73E8C6EA2897E9A62DDA80F7E9F3017FE",
+      "sizeBytes": 5633615,
+      "tiaVersion": "V21 Update 2",
+      "projectName": "OTT_Benchmark",
+      "plcName": "PLC_Main",
+      "hmiName": "HMI_Main",
+      "notes": [
+        "Derived from the baseline project with user-provisioned anonymous access, simulation compilation, and virtual S7-1500 support. Only original empty LAD Main exists in PLC software; no candidate blocks or external sources are archived.",
+        "Requires an explicitly owned powered PLCSIM Advanced OTT35_Bench instance with controller PLC_Main and CPU article 6ES7 511-1AL03-0AB0. Never use real hardware or another simulator identity.",
+        "Independent fresh gold restores passed all 15 temporal scenarios and 26 typed assertions at zero compile errors/warnings; offline inventories, original Main hash, and simulator cleanup/online comparison were proven.",
+        "Independent semantic controls rejected a 100 ms timer, ignored Permit, ignored Reset, and per-scan counting. A real final compile failure after preceding operations applied proved exact instance-before-FB rollback and baseline restoration."
+      ]
+    }
+  ]
+}

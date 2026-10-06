@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-34",
+  "title": "Brownfield LAD interlock and timer engineering",
+  "description": "Implementation-only LAD reconciliation with exhaustive combinational wiring checks, independently exported TON pin/state evidence, and complete unrelated-network preservation.",
+  "fixtureId": "tia-v21-lad-brownfield-13",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1200,
+  "passScore": 90,
+  "allowedSkills": [
+    "opentia-toolkit-workflow",
+    "basic-tia-interaction",
+    "plc-code-engineering",
+    "s7dcl-lad-authoring",
+    "plc-block-and-tag-workflow"
+  ],
+  "allowWorkspaceEdits": true,
+  "assertions": [
+    {
+      "id": "run-completed",
+      "type": "run",
+      "points": 3,
+      "critical": true
+    },
+    {
+      "id": "lad-skill-loaded",
+      "type": "tool",
+      "points": 2,
+      "critical": false,
+      "namePattern": "skill$",
+      "inputEquals": {
+        "name": "s7dcl-lad-authoring"
+      },
+      "minCount": 1
+    },
+    {
+      "id": "tia-context-established",
+      "type": "traceRegex",
+      "points": 3,
+      "critical": true,
+      "pattern": "(?is)opentia_list-instances.*?opentia_connect-instance.*?(?:opentia_get-project-info|opentia_list-projects).*?(?:opentia_open-plc|opentia_list-plcs|opentia_get-software-tree|opentia_discover-plc-code-capabilities)"
+    },
+    {
+      "id": "exact-lad-modify-capability",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "discover_plc_code_capabilities$",
+      "inputEquals": {
+        "plc-name": "PLC_Main",
+        "object-name": "OTT34_Conveyor",
+        "operation": "Modify",
+        "requested-format": "S7DCL"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"Exists\"\\s*:\\s*true",
+        "\"ExactIdentityResolved\"\\s*:\\s*true",
+        "\"SelectedRoute\"\\s*:\\s*\"DirectDocuments\"",
+        "\"ProgrammingLanguage\"\\s*:\\s*\"LAD\""
+      ]
+    },
+    {
+      "id": "untouched-fb-baseline",
+      "type": "workspaceFile",
+      "points": 7,
+      "critical": true,
+      "relativePath": "artifacts/baseline/OTT34_Conveyor.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 100000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58434\";\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_PreferredLanguage\\s+:=\\s+\"LAD\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+FUNCTION_BLOCK\\s+\"OTT34_Conveyor\"\\s+VAR_INPUT\\s+AutoStart\\s+:\\s+Bool;\\s+JogRequest\\s+:\\s+Bool;\\s+Permit\\s+:\\s+Bool;\\s+GuardClosed\\s+:\\s+Bool;\\s+Fault\\s+:\\s+Bool;\\s+Reset\\s+:\\s+Bool;\\s+END_VAR\\s+VAR_OUTPUT\\s+RunRequest\\s+:\\s+Bool;\\s+DelayedRun\\s+:\\s+Bool;\\s+FaultLamp\\s+:\\s+Bool;\\s+RequestSeen\\s+:\\s+Bool;\\s+END_VAR\\s+VAR\\s+RunDelay\\s+:\\s+TON_TIME;\\s+END_VAR\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Fault\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#Fault\\s+\\)\\s+Coil\\(\\s+#FaultLamp\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Request\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#AutoStart\\s+\\)\\s+Coil\\(\\s+#RunRequest\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Delay\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#AutoStart\\s+\\)\\s+\\{\\s+S7_Templates\\s+:=\\s+\"time_type := Time\"\\s+\\}\\s+#RunDelay\\.TON\\(\\s+pt\\s+:=\\s+T#100ms,\\s+et\\s+=>\\s+\\)\\s+Coil\\(\\s+#DelayedRun\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Seen\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#AutoStart\\s+\\)\\s+S_Coil\\(\\s+#RequestSeen\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Reset\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#Reset\\s+\\)\\s+R_Coil\\(\\s+#RequestSeen\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+END_FUNCTION_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "untouched-resource-baseline",
+      "type": "workspaceFile",
+      "points": 3,
+      "critical": true,
+      "relativePath": "artifacts/baseline/OTT34_Conveyor.s7res",
+      "minBytes": 50,
+      "maxBytes": 100000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\AMultiLingualTexts:\\r?\\n  - id: MLC_Fault\\r?\\n    en-US: Fault indication\\r?\\n  - id: MLC_Request\\r?\\n    en-US: Start request\\r?\\n  - id: MLC_Delay\\r?\\n    en-US: Run delay\\r?\\n  - id: MLC_Seen\\r?\\n    en-US: Request history\\r?\\n  - id: MLC_Reset\\r?\\n    en-US: Reset request history\\s*\\z"
+      ]
+    },
+    {
+      "id": "backup-baseline",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/baseline/OTT34_Conveyor_Backup.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 100000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58435\";\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_PreferredLanguage\\s+:=\\s+\"LAD\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+FUNCTION\\s+\"OTT34_Conveyor_Backup\"\\s+:\\s+Void\\s+VAR_INPUT\\s+AutoStart\\s+:\\s+Bool;\\s+Fault\\s+:\\s+Bool;\\s+END_VAR\\s+VAR_OUTPUT\\s+RunRequest\\s+:\\s+Bool;\\s+END_VAR\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#AutoStart\\s+\\)\\s+I_Contact\\(\\s+#Fault\\s+\\)\\s+Coil\\(\\s+#RunRequest\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+END_FUNCTION\\s*\\z"
+      ]
+    },
+    {
+      "id": "main-baseline",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/baseline/Main.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 100000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_PreferredLanguage\\s+:=\\s+\"LAD\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+ORGANIZATION_BLOCK\\s+\"Main\"\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+END_RUNG\\s+END_NETWORK\\s+END_ORGANIZATION_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "verified-document-pair",
+      "type": "tool",
+      "points": 4,
+      "critical": true,
+      "namePattern": "validate_plc_documents$",
+      "inputEquals": {
+        "file-name": "OTT34_Conveyor"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"Valid\"\\s*:\\s*true",
+        "\"HasUtf8Bom\"\\s*:\\s*true",
+        "\"ResourceRequired\"\\s*:\\s*true",
+        "\"Classification\"\\s*:\\s*\"verified\"",
+        "\"Errors\"\\s*:\\s*\\[\\s*\\]"
+      ]
+    },
+    {
+      "id": "verified-lad-artifact",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "validate_plc_code_artifact$",
+      "inputEquals": {
+        "code-format": "s7dcl"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"Valid\"\\s*:\\s*true",
+        "\"Format\"\\s*:\\s*\"S7DCL-LAD\"",
+        "\"Classification\"\\s*:\\s*\"verified\"",
+        "\"Errors\"\\s*:\\s*\\[\\s*\\]"
+      ]
+    },
+    {
+      "id": "one-clean-transaction",
+      "type": "tool",
+      "points": 5,
+      "critical": true,
+      "namePattern": "begin_plc_code_transaction$",
+      "inputEquals": {
+        "plc-name": "PLC_Main",
+        "compile-policy": "CleanCompile",
+        "maximum-new-warnings": 0
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "OTT34_Conveyor",
+        "\"CapabilityRoute\"\\s*:\\s*\"DirectDocuments\""
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "implementation-only-baseline-bound-operation",
+      "type": "tool",
+      "points": 8,
+      "critical": true,
+      "namePattern": "add_plc_code_transaction_operation$",
+      "inputEquals": {
+        "file-name": "OTT34_Conveyor",
+        "target-mode": "baseline-bound",
+        "allowed-changes": "Implementation",
+        "confirm": true
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"TargetMode\"\\s*:\\s*\"BaselineBound\"",
+        "\"ChangedSections\"\\s*:\\s*\\[\\s*\"Implementation\"\\s*\\]"
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "exactly-one-document-operation",
+      "type": "tool",
+      "points": 2,
+      "critical": true,
+      "namePattern": "add_plc_code_transaction_operation$",
+      "inputEquals": {},
+      "minCount": 1,
+      "maxCount": 1
+    },
+    {
+      "id": "single-body-only-safe-plan",
+      "type": "tool",
+      "points": 6,
+      "critical": true,
+      "namePattern": "plan_plc_code_transaction$",
+      "inputEquals": {},
+      "minCount": 1,
+      "outputPatterns": [
+        "\"State\"\\s*:\\s*\"Planned\"",
+        "\"Status\"\\s*:\\s*\"Safe\"",
+        "\"ChangeKind\"\\s*:\\s*\"BodyOnly\"",
+        "\"ApplyToken\"\\s*:\\s*\"[^\"]+\""
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "single-verified-apply",
+      "type": "tool",
+      "points": 8,
+      "critical": true,
+      "namePattern": "apply_plc_code_transaction$",
+      "inputEquals": {
+        "confirm": true
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "\"State\"\\s*:\\s*\"Succeeded\"",
+        "\"Applied\"\\s*:\\s*true",
+        "\"Verified\"\\s*:\\s*true",
+        "\"RollbackAttempted\"\\s*:\\s*false",
+        "\"RecoveryRequired\"\\s*:\\s*false",
+        "(?is)\"FinalCompilation\"\\s*:\\s*\\{.*?\"Success\"\\s*:\\s*true.*?\"ErrorCount\"\\s*:\\s*0.*?\"WarningCount\"\\s*:\\s*0",
+        "(?is)\"Name\"\\s*:\\s*\"OTT34_Conveyor\".*?\"CanonicalResultHash\"\\s*:\\s*\"[0-9a-f]{64}\""
+      ],
+      "maxCount": 1
+    },
+    {
+      "id": "interface-and-unrelated-networks-preserved",
+      "type": "workspaceFile",
+      "points": 7,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT34_Conveyor.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 100000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58434\";\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_PreferredLanguage\\s+:=\\s+\"LAD\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+FUNCTION_BLOCK\\s+\"OTT34_Conveyor\"\\s+VAR_INPUT\\s+AutoStart\\s+:\\s+Bool;\\s+JogRequest\\s+:\\s+Bool;\\s+Permit\\s+:\\s+Bool;\\s+GuardClosed\\s+:\\s+Bool;\\s+Fault\\s+:\\s+Bool;\\s+Reset\\s+:\\s+Bool;\\s+END_VAR\\s+VAR_OUTPUT\\s+RunRequest\\s+:\\s+Bool;\\s+DelayedRun\\s+:\\s+Bool;\\s+FaultLamp\\s+:\\s+Bool;\\s+RequestSeen\\s+:\\s+Bool;\\s+END_VAR\\s+VAR\\s+RunDelay\\s+:\\s+TON_TIME;\\s+END_VAR\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Fault\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#Fault\\s+\\)\\s+Coil\\(\\s+#FaultLamp\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Request\"\\s+\\}\\s+NETWORK\\s+(?:(?!END_NETWORK)[\\s\\S])*?\\s+END_NETWORK\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Delay\"\\s+\\}\\s+NETWORK\\s+(?:(?!END_NETWORK)[\\s\\S])*?\\s+END_NETWORK\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Seen\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#AutoStart\\s+\\)\\s+S_Coil\\(\\s+#RequestSeen\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\";\\s+S7_NetworkTitle\\s+:=\\s+\"MLC_Reset\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#Reset\\s+\\)\\s+R_Coil\\(\\s+#RequestSeen\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+END_FUNCTION_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "network-resources-preserved",
+      "type": "workspaceFile",
+      "points": 3,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT34_Conveyor.s7res",
+      "minBytes": 50,
+      "maxBytes": 100000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\AMultiLingualTexts:\\r?\\n  - id: MLC_Fault\\r?\\n    en-US: Fault indication\\r?\\n  - id: MLC_Request\\r?\\n    en-US: Start request\\r?\\n  - id: MLC_Delay\\r?\\n    en-US: Run delay\\r?\\n  - id: MLC_Seen\\r?\\n    en-US: Request history\\r?\\n  - id: MLC_Reset\\r?\\n    en-US: Reset request history\\s*\\z"
+      ]
+    },
+    {
+      "id": "independent-xml-export",
+      "type": "tool",
+      "points": 3,
+      "critical": true,
+      "namePattern": "export_block$",
+      "inputEquals": {
+        "plc-name": "PLC_Main",
+        "block-name": "OTT34_Conveyor"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "Successfully exported block"
+      ]
+    },
+    {
+      "id": "all-combinational-input-rows",
+      "type": "ladBooleanNetwork",
+      "points": 10,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT34_Conveyor.xml",
+      "networkIndex": 2,
+      "inputNames": [
+        "AutoStart",
+        "JogRequest",
+        "Permit",
+        "GuardClosed",
+        "Fault",
+        "Reset"
+      ],
+      "expectedTrueRows": [
+        13,
+        14,
+        15
+      ],
+      "outputName": "RunRequest"
+    },
+    {
+      "id": "nonretentive-timer-wiring",
+      "type": "ladTimerNetwork",
+      "points": 8,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT34_Conveyor.xml",
+      "networkIndex": 3,
+      "inputName": "RunRequest",
+      "outputName": "DelayedRun",
+      "timerInstance": "RunDelay",
+      "presetMilliseconds": 750
+    },
+    {
+      "id": "backup-preserved",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/readback/OTT34_Conveyor_Backup.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 100000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_BlockNumber\\s+:=\\s+\"58435\";\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_PreferredLanguage\\s+:=\\s+\"LAD\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+FUNCTION\\s+\"OTT34_Conveyor_Backup\"\\s+:\\s+Void\\s+VAR_INPUT\\s+AutoStart\\s+:\\s+Bool;\\s+Fault\\s+:\\s+Bool;\\s+END_VAR\\s+VAR_OUTPUT\\s+RunRequest\\s+:\\s+Bool;\\s+END_VAR\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+Contact\\(\\s+#AutoStart\\s+\\)\\s+I_Contact\\(\\s+#Fault\\s+\\)\\s+Coil\\(\\s+#RunRequest\\s+\\)\\s+END_RUNG\\s+END_NETWORK\\s+END_FUNCTION\\s*\\z"
+      ]
+    },
+    {
+      "id": "main-preserved",
+      "type": "workspaceFile",
+      "points": 1,
+      "critical": true,
+      "relativePath": "artifacts/readback/Main.s7dcl",
+      "minBytes": 50,
+      "maxBytes": 100000,
+      "requireUtf8Bom": true,
+      "contentPatterns": [
+        "(?-i)\\A\\s*\\{\\s+S7_Optimized\\s+:=\\s+\"TRUE\";\\s+S7_PreferredLanguage\\s+:=\\s+\"LAD\";\\s+S7_Version\\s+:=\\s+\"0\\.1\"\\s+\\}\\s+ORGANIZATION_BLOCK\\s+\"Main\"\\s+\\{\\s+S7_Language\\s+:=\\s+\"LAD\"\\s+\\}\\s+NETWORK\\s+RUNG\\s+wire#powerrail\\s+END_RUNG\\s+END_NETWORK\\s+END_ORGANIZATION_BLOCK\\s*\\z"
+      ]
+    },
+    {
+      "id": "fresh-clean-compile",
+      "type": "tool",
+      "points": 3,
+      "critical": true,
+      "namePattern": "compile_software$",
+      "inputEquals": {
+        "plc-name": "PLC_Main"
+      },
+      "minCount": 1,
+      "outputPatterns": [
+        "Compilation successful",
+        "\"errorCount\"\\s*:\\s*0(?=\\s*[,}])",
+        "\"warningCount\"\\s*:\\s*0(?=\\s*[,}])"
+      ]
+    },
+    {
+      "id": "baseline-plan-apply-readback-order",
+      "type": "traceRegex",
+      "points": 2,
+      "critical": true,
+      "pattern": "(?is)opentia_export-blocks?-as-docs(?:(?!opentia_begin-plc-code-transaction).)*baseline.*?(?:Successfully exported block|Exported\\s+\\d+/\\d+\\s+blocks).*?opentia_begin-plc-code-transaction.*?opentia_add-plc-code-transaction-operation.*?opentia_plan-plc-code-transaction.*?opentia_apply-plc-code-transaction.*?opentia_export-blocks?-as-docs.*?readback.*?opentia_compile-software"
+    },
+    {
+      "id": "no-bypass-save-or-unrelated-mutation",
+      "type": "forbiddenTool",
+      "points": 1,
+      "critical": true,
+      "namePattern": "(?:opentia_)(?:create_|find_replace_|import_|generate_|delete_|modify_|sync_|save_|close_|archive_|retrieve_|download_|set_|copy_|ensure_|commit_|remove_|write_|recover_|add_(?!plc_code_transaction_operation$)|connect_vci_|disconnect_|probe_|open_project|open_tia_portal|open_global_library|apply_(?!plc_code_transaction$)|start_cpu|stop_cpu|run_plc_code_(?:behavior_)?probe|begin_promoted_plc_code_transaction|plan_block_document_import|discard_plc_code_transaction)"
+    },
+    {
+      "id": "final-summary",
+      "type": "finalRegex",
+      "points": 1,
+      "pattern": "(?is)(?=.*OTT34_Conveyor)(?=.*DirectDocuments)(?=.*Succeeded)(?=.*(?:not[\\s*_]+saved|nothing[\\s*_]+saved|unsaved|without saving|no\\s+(?:project\\s+)?save))"
+    }
+  ]
+}

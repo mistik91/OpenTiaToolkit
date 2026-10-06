@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "hardware-gsdml-promag-deepseek-v4-flash-paid-xhigh-20260803",
+  "title": "Paid DeepSeek V4 Flash xhigh third-party Promag GSDML qualification",
+  "caseIds": [
+    "ott-26"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 1.0,
+  "allowPaidModels": true,
+  "models": [
+    {
+      "model": "openrouter/deepseek/deepseek-v4-flash",
+      "reasoningEffort": "xhigh",
+      "variant": "xhigh",
+      "costClass": "paid"
+    }
+  ]
+}

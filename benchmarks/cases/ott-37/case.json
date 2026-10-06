@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "ott-37",
+  "title": "Multiuser separate-account edit, local save and UI handoff",
+  "description": "An identity-bound native session, exact narrow PLC tag update, explicit local save and honest check-in boundary; server persistence is separately verified after the operator handoff.",
+  "fixtureId": "tia-v21-multiuser-identity-15",
+  "promptFile": "prompt.md",
+  "timeoutSeconds": 1200,
+  "passScore": 95,
+  "allowedSkills": ["opentia-toolkit-workflow", "basic-tia-interaction", "multiuser-collaboration-workflow", "plc-block-and-tag-workflow"],
+  "workspaceInputs": [{ "sourcePath": "acceptance.json", "targetPath": "inputs/acceptance.json", "sha256": "43216c1284f0b73a772735eb70d28d3a6258a1c7bd0e26dc91a1d157d12b65c9" }],
+  "assertions": [
+    { "id": "run-completed", "type": "run", "points": 5, "critical": true },
+    { "id": "multiuser-skill-loaded", "type": "tool", "points": 5, "namePattern": "skill$", "inputEquals": { "name": "multiuser-collaboration-workflow" }, "minCount": 1 },
+    { "id": "identity-bound-local-save", "type": "multiuserLocalSave", "points": 85, "critical": true, "relativePath": "inputs/acceptance.json", "contractSha256": "43216c1284f0b73a772735eb70d28d3a6258a1c7bd0e26dc91a1d157d12b65c9" },
+    { "id": "pending-ui-handoff", "type": "finalRegex", "points": 5, "critical": true, "pattern": "(?is)(?=.*saved)(?=.*(?:pending|not checked.?in|requires|must))(?=.*check.?in)(?=.*(?:TIA|UI))" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "multiuser-identity-glm-5-3-flash-high-20261005",
+  "title": "GLM-5.3 Flash High separate-account Multiuser local-save qualification",
+  "caseIds": ["ott-37"],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [{ "model": "zai-coding-plan/glm-5.3-flash", "reasoningEffort": "high", "variant": "high", "costClass": "subscription" }]
+}

@@ -1,0 +1,15 @@
+﻿{ S7_BlockNumber := "58035"; S7_Optimized := "FALSE"; S7_StandardRetain := "FALSE"; S7_Version := "0.1" }
+DATA_BLOCK "OTT33_RecipeSettings_Backup"
+    VAR
+        Enabled : Bool;
+        Mode : USInt;
+        RecipeId : DInt;
+        Target : Real;
+        RetryLimit : USInt;
+    END_VAR
+    Enabled := FALSE;
+    Mode := 9;
+    RecipeId := 9909;
+    Target := -99.0;
+    RetryLimit := 8;
+END_DATA_BLOCK

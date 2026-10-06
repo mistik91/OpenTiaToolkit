@@ -1,0 +1,4 @@
+interface:
+  display_name: "VCI Sync Workflow"
+  short_description: "Synchronize PLC objects through TIA VCI."
+  default_prompt: "Use $vci-sync-workflow to inspect VCI mappings and synchronize PLC objects safely."

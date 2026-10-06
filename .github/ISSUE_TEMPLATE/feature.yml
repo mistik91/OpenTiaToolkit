@@ -1,0 +1,23 @@
+name: Feature request
+description: Propose an engineering workflow or compatibility improvement.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Engineering problem
+      description: "Describe the task and the limitation encountered."
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome and acceptance criteria
+      description: "Give a concrete before/after example, relevant TIA targets, and verification expectations."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Current workaround and relevant Siemens API evidence
+      description: "Link public documentation; do not upload proprietary manuals or project files."

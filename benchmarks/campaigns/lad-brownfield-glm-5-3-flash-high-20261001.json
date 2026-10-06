@@ -1,0 +1,20 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "lad-brownfield-glm-5-3-flash-high-20261001",
+  "title": "GLM-5.3 Flash High brownfield LAD interlock and timer engineering",
+  "caseIds": [
+    "ott-34"
+  ],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [
+    {
+      "model": "zai-coding-plan/glm-5.3-flash",
+      "reasoningEffort": "high",
+      "variant": "high",
+      "costClass": "subscription"
+    }
+  ]
+}

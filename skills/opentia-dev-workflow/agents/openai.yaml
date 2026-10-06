@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenTIA Dev Workflow"
+  short_description: "Develop and risk-tier validate OpenTiaToolkit."
+  default_prompt: "Use $opentia-dev-workflow to implement and proportionately validate OpenTiaToolkit code, documentation, host, plugin, skill, or live TIA changes."

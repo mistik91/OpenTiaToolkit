@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="170" viewBox="0 0 960 170" role="img" aria-labelledby="title desc">
+  <title id="title">Review an engineering change</title>
+  <desc id="desc">Inspect the exact target, preview the proposed changes, confirm application, then verify through fresh reads and compilation.</desc>
+  <rect width="960" height="170" rx="18" fill="#f4f7fb"/>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <g fill="#ffffff" stroke="#d6e0ec"><rect x="20" y="24" width="210" height="122" rx="12"/><rect x="255" y="24" width="210" height="122" rx="12"/><rect x="490" y="24" width="210" height="122" rx="12"/><rect x="725" y="24" width="210" height="122" rx="12"/></g>
+    <g font-size="22" font-weight="600" fill="#102d49"><text x="42" y="66">1 · Inspect</text><text x="277" y="66">2 · Preview</text><text x="512" y="66">3 · Apply</text><text x="747" y="66">4 · Verify</text></g>
+    <g font-size="15" fill="#435e78"><text x="42" y="96">Select the project</text><text x="42" y="119">Read the exact target</text><text x="277" y="96">Review the dry-run</text><text x="277" y="119">Check impact and guards</text><text x="512" y="96">Confirm the reviewed plan</text><text x="512" y="119">Inspect structured results</text><text x="747" y="96">Read fresh state</text><text x="747" y="119">Compile where applicable</text></g>
+    <g font-size="22" fill="#0078d4"><text x="234" y="91">→</text><text x="469" y="91">→</text><text x="704" y="91">→</text></g>
+  </g>
+</svg>

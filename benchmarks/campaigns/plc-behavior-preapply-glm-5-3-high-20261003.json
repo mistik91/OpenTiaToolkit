@@ -1,0 +1,11 @@
+{
+  "$schema": "../schemas/benchmark-campaign.schema.json",
+  "schemaVersion": 2,
+  "id": "plc-behavior-preapply-glm-5-3-high-20261003",
+  "title": "GLM-5.3 High temporal behavior fallback after pre-apply and capture hardening",
+  "caseIds": ["ott-35"],
+  "trialCount": 3,
+  "maxCostUsd": 0.01,
+  "allowPaidModels": false,
+  "models": [{ "model": "zai-coding-plan/glm-5.3", "reasoningEffort": "high", "variant": "high", "costClass": "subscription" }]
+}
