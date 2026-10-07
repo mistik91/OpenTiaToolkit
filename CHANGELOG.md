@@ -17,6 +17,7 @@ Prepared 7 October 2026; publication remains on hold. See [candidate release not
 - Correct hardware catalog argument semantics and reject unsupported language cultures before calling Siemens.
 - Expose nested module-lookup errors and missing provider/method failures.
 - Launch legacy Codex/Claude Code servers without working-directory or plugin-root interpolation assumptions and suppress PowerShell profile interference.
+- Compile installers from the requested staging/output root so custom packaging paths cannot silently pick up stale default payloads.
 
 ### Validation
 - Exercise real MCP discovery/execution through packaged launchers and worker resolution without environment overrides.

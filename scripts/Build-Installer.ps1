@@ -300,12 +300,14 @@ if (-not (Test-Path -LiteralPath $resolvedInstallScript -PathType Leaf)) {
     throw "Installer script was not found: $resolvedInstallScript"
 }
 
+$savedInstallerVersion = $env:OPEN_TIA_INSTALLER_VERSION
 $env:OPEN_TIA_INSTALLER_VERSION = $Version
 try {
-    & $InnoCompilerPath $resolvedInstallScript
+    & $InnoCompilerPath "/DStageDir=$stageRoot" "/O$resolvedOutputRoot" $resolvedInstallScript
+    if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with exit code $LASTEXITCODE." }
 }
 finally {
-    Remove-Item Env:\OPEN_TIA_INSTALLER_VERSION -ErrorAction SilentlyContinue
+    $env:OPEN_TIA_INSTALLER_VERSION = $savedInstallerVersion
 }
 
 $installerPath = Join-Path $resolvedOutputRoot "OpenTiaToolkit-$Version-Setup.exe"

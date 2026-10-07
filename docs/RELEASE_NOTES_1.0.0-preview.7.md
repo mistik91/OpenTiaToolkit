@@ -12,6 +12,8 @@ Status: unsigned private release candidate, prepared 7 October 2026. Publication
 
 ## Acceptance findings and remaining gates
 
+Installer compilation now receives the exact staged payload and output directory explicitly. A custom `Build-Installer -OutputRoot` no longer compiles stale files from the default staging directory; compiler failures are checked and the previous installer-version environment value is restored.
+
 Independent-machine preview.6 testing verified the exact installer checksum, installation, worker registration, 189 MCP tools, direct desktop tool execution, and a disposable hardware preview/apply/read-back/reversal. That machine already had development processes, so it did not complete clean-machine or uninstall/reinstall acceptance. HMI engineering was not tested.
 
 The reported portable Codex startup failure was not reproduced locally: the unchanged preview.6 launcher passed both the protocol harness and a cached portable-plugin probe through Codex 0.160.1. Do not treat this as a confirmed portable-plugin fix. Retest the actual cached preview.7 plugin on the reporting machine, and retain the direct MCP fallback while investigating any remaining startup error.
