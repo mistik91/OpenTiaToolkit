@@ -135,35 +135,6 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         }
     }
 
-    public sealed class FindHardwareCatalogItemsCommand : IContextualCommand
-    {
-        private readonly IHardwareQueryCapability _service;
-        public FindHardwareCatalogItemsCommand(IHardwareQueryCapability service) => _service = service;
-        public string Name => "find-hardware-catalog-items";
-        public string Description => "Searches installed TIA Portal hardware catalog items by text";
-        public CommandSchema Schema => new CommandSchema(Description, new[]
-        {
-            new CommandParameter("search-text", CommandParameterType.String, "Catalog search text; blank enumerates the available catalog", required: false, defaultValue: ""),
-            new CommandParameter("culture", CommandParameterType.String, "Optional catalog language such as en-US", required: false)
-        });
-        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
-        {
-            return ExecuteAsync(args, logger, CommandExecutionContext.None);
-        }
-
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
-        {
-            try
-            {
-                context.StartCommand(Name, "Searching TIA Portal hardware catalog.");
-                var values = await _service.FindCatalogItemsAsync(args.GetString("search-text"), args.Has("culture") ? args.GetString("culture") : null);
-                context.CompleteCommand(Name, $"Found {values.Count} hardware catalog item(s).");
-                return CommandResult.CreateSuccess(values, $"Found {values.Count} hardware catalog item(s).");
-            }
-            catch (Exception ex) { return HardwareCommandSupport.Failure("Finding hardware catalog items", ex, logger); }
-        }
-    }
-
     public sealed class GetHardwareTreeCommand : IContextualCommand
     {
         private readonly IHardwareQueryCapability _service;

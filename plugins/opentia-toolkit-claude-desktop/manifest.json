@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "opentia-toolkit",
   "display_name": "OpenTiaToolkit",
-  "version": "1.0.0-preview.6",
+  "version": "1.0.0-preview.7",
   "description": "Claude Desktop extension for Siemens TIA Portal automation with OpenTiaToolkit.",
   "long_description": "Provides the OpenTiaToolkit local MCP server for Claude Desktop. The server runs on the user's Windows machine and exposes TIA Portal, PLC, and Unified HMI automation tools over stdio.",
   "author": {

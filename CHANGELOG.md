@@ -7,6 +7,21 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-preview.7] - private release candidate
+
+Prepared 7 October 2026; publication remains on hold. See [candidate release notes](docs/RELEASE_NOTES_1.0.0-preview.7.md) for the independent-machine findings and remaining acceptance gates.
+
+### Fixed
+- Discover the installed sibling worker without inherited environment overrides.
+- Report compatible Siemens binary hash drift as a visible diagnostic warning while preserving failures for missing assemblies/profiles, wrong architecture, and breaking APIs.
+- Correct hardware catalog argument semantics and reject unsupported language cultures before calling Siemens.
+- Expose nested module-lookup errors and missing provider/method failures.
+- Launch legacy Codex/Claude Code servers without working-directory or plugin-root interpolation assumptions and suppress PowerShell profile interference.
+
+### Validation
+- Exercise real MCP discovery/execution through packaged launchers and worker resolution without environment overrides.
+- Retain the reported portable Codex startup failure as an outstanding reporting-machine retest; it was not reproduced locally on Codex 0.160.1.
+
 ## [1.0.0-preview.6] - release candidate
 
 Prepared 6 October 2026; publication is pending. See [candidate release notes](docs/RELEASE_NOTES_1.0.0-preview.6.md) for validation and remaining gates.

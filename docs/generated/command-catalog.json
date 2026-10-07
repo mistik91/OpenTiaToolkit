@@ -2832,11 +2832,18 @@
           "description": "Catalog search text; blank enumerates the available catalog"
         },
         {
+          "name": "type-identifier",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Optional TIA catalog type identifier filter; this is not a language culture"
+        },
+        {
           "name": "culture",
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Optional catalog language such as en-US"
+          "description": "Unsupported legacy parameter; V21 catalog Find does not accept a language culture. Omit it or use type-identifier"
         }
       ]
     },

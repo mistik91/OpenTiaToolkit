@@ -252,6 +252,15 @@ if ($LASTEXITCODE -ne 0) {
     throw "Staged MCP stable-SDK and stdio compatibility smoke failed with exit code $LASTEXITCODE."
 }
 
+foreach ($pluginName in @('opentia-toolkit-agent-plugin', 'opentia-toolkit', 'opentia-toolkit-claude-code')) {
+    $pluginConfigName = if ($pluginName -eq 'opentia-toolkit-agent-plugin') { 'mcp.json' } else { '.mcp.json' }
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'scripts\Test-McpStdio.ps1') `
+        -ExecutablePath $stagedMcpExe -CommandCatalogExecutablePath $stagedCliExe `
+        -PluginMcpConfigPath (Join-Path $stageRoot "plugins\$pluginName\$pluginConfigName") `
+        -DiscoverWorkerFromLayout
+    if ($LASTEXITCODE -ne 0) { throw "Staged $pluginName launcher transport/discovery smoke failed with exit code $LASTEXITCODE." }
+}
+
 if ($StageOnly) {
     [pscustomobject]@{
         StageRoot = $stageRoot

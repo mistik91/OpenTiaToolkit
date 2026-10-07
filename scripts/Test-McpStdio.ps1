@@ -7,6 +7,12 @@ param(
 
     [string]$WorkerExecutablePath = '',
 
+    [string]$LauncherScriptPath = '',
+
+    [string]$PluginMcpConfigPath = '',
+
+    [switch]$DiscoverWorkerFromLayout,
+
     [switch]$LiveProject,
 
     [ValidateRange(0, [int]::MaxValue)]
@@ -72,6 +78,24 @@ else {
 
 $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
 $startInfo.FileName = $resolvedExecutable
+if (-not [string]::IsNullOrWhiteSpace($PluginMcpConfigPath)) {
+    if (-not [string]::IsNullOrWhiteSpace($LauncherScriptPath)) { throw 'Choose a plugin configuration or a launcher script, not both.' }
+    $resolvedPluginConfig = (Resolve-Path -LiteralPath $PluginMcpConfigPath).Path
+    $pluginRoot = Split-Path -Parent $resolvedPluginConfig
+    $pluginConfig = Get-Content -LiteralPath $resolvedPluginConfig -Raw | ConvertFrom-Json
+    $server = $pluginConfig.mcpServers.opentia
+    $startInfo.FileName = $server.command
+    # Portable MCP configurations expand PLUGIN_ROOT; legacy Codex configs do not.
+    $launchArguments = @($server.args | ForEach-Object { ([string]$_).Replace('${PLUGIN_ROOT}', $pluginRoot) })
+    $startInfo.Arguments = ($launchArguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' }) -join ' '
+    $startInfo.EnvironmentVariables['OPEN_TIA_MCP_EXE'] = $resolvedExecutable
+}
+if (-not [string]::IsNullOrWhiteSpace($LauncherScriptPath)) {
+    $resolvedLauncher = (Resolve-Path -LiteralPath $LauncherScriptPath).Path
+    $startInfo.FileName = 'powershell.exe'
+    $startInfo.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $resolvedLauncher + '"'
+    $startInfo.EnvironmentVariables['OPEN_TIA_MCP_EXE'] = $resolvedExecutable
+}
 $startInfo.WorkingDirectory = $executableDirectory
 $startInfo.UseShellExecute = $false
 $startInfo.CreateNoWindow = $true
@@ -83,7 +107,11 @@ $startInfo.EnvironmentVariables['OPEN_TIA_MCP_LOG_LEVEL'] = 'InvalidForStdioSepa
 
 # A staged MCP payload must exercise the worker shipped beside it instead of
 # inheriting a developer-machine OPEN_TIA_WORKER_EXE value.
-if (-not [string]::IsNullOrWhiteSpace($stagedWorker)) {
+if ($DiscoverWorkerFromLayout) {
+    $startInfo.EnvironmentVariables.Remove('OPEN_TIA_WORKER_V21_EXE')
+    $startInfo.EnvironmentVariables.Remove('OPEN_TIA_WORKER_EXE')
+} elseif (-not [string]::IsNullOrWhiteSpace($stagedWorker)) {
+    $startInfo.EnvironmentVariables['OPEN_TIA_WORKER_V21_EXE'] = $stagedWorker
     $startInfo.EnvironmentVariables['OPEN_TIA_WORKER_EXE'] = $stagedWorker
 }
 
@@ -983,7 +1011,11 @@ try {
 finally {
     try {
         $ownedWorkerPids = @(
-            Get-CimInstance Win32_Process -Filter "ParentProcessId = $($process.Id)" -ErrorAction Stop |
+            $ownedChildren = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($process.Id)" -ErrorAction Stop)
+            foreach ($ownedChild in @($ownedChildren | Where-Object Name -eq 'OpenTiaToolkit.MCP.exe')) {
+                $ownedChildren += @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($ownedChild.ProcessId)" -ErrorAction Stop)
+            }
+            $ownedChildren |
                 Where-Object { $_.Name -like 'OpenTiaToolkit.Worker.*' } |
                 ForEach-Object { [int]$_.ProcessId }
         )
@@ -1001,7 +1033,11 @@ finally {
     $forcedShutdown = $false
     if (-not $process.WaitForExit(5000)) {
         $forcedShutdown = $true
-        $process.Kill()
+        if (-not [string]::IsNullOrWhiteSpace($LauncherScriptPath) -or -not [string]::IsNullOrWhiteSpace($PluginMcpConfigPath)) {
+            & taskkill.exe /PID $process.Id /T /F | Out-Null
+        } else {
+            $process.Kill()
+        }
         $process.WaitForExit()
     }
 

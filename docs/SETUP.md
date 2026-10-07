@@ -58,6 +58,8 @@ It installs isolated `mcp\`, `cli\`, and `worker-v21\` payloads, plus plugins, s
 
 After installation, ask your agent to install or configure the local plugin from the installed folder. See [INSTALL_AGENT_PLUGINS.md](INSTALL_AGENT_PLUGINS.md).
 
+Installer environment changes do not update an already-running shell or agent client; open a new terminal and restart the client when needed. Preview.7 also discovers the installed sibling worker directly without these variables. Explicit overrides still take precedence: inspect process/user/machine `OPEN_TIA_*` values if startup selects an old development worker. Run `doctor` and confirm its reported worker path. Binary baseline warnings require review and affected-workflow testing; see [API compatibility](API_COMPATIBILITY.md).
+
 ## Clone And Build
 
 ```powershell

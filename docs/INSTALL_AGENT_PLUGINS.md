@@ -100,3 +100,13 @@ C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 ```
 
 Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.
+
+## Acceptance and startup troubleshooting
+
+The legacy Codex and Claude Code configurations use the process/user/machine `OPEN_TIA_MCP_EXE` setting, then the default Program Files installation. This avoids relying on the client expanding plugin-root tokens or starting in the plugin directory. For a custom installation or source build, set that path explicitly through the client or the existing installer setting. The portable package retains its plugin-root launcher and adjacent-layout discovery.
+
+Verify actual tool discovery and execution after installing a plugin. A successful launcher `-ResolveOnly` check proves the path selection, but does not prove the client handshake. The repository's `scripts/Test-McpStdio.ps1` can exercise that handshake with `-ExecutablePath <installed-mcp-exe> -LauncherScriptPath <plugin-launcher> -DiscoverWorkerFromLayout`; this checks discovery without inherited worker overrides.
+
+If a bundled server fails but direct MCP works, retain the failure details and client version; do not call the plugin accepted based on the fallback. Compare the cached plugin launcher with the installed package and inspect worker overrides. Enable one OpenTia server at a time for the comparison to avoid duplicate tools. Restore the previous settings afterward unless the user chooses the working configuration.
+
+Back up client settings before editing. Prefer the client's supported MCP configuration command or a TOML-aware editor, and validate the resulting configuration before restarting. Do not append a duplicate MCP table after a command has already created it. For Codex, `codex mcp get <server-name> --json` checks that a direct entry parses; actual discovery remains a separate acceptance check.

@@ -73,7 +73,8 @@ Searches installed TIA Portal hardware catalog items by text
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `search-text` | String | no |  | Catalog search text; blank enumerates the available catalog |
-| `culture` | String | no |  | Optional catalog language such as en-US |
+| `type-identifier` | String | no |  | Optional TIA catalog type identifier filter; this is not a language culture |
+| `culture` | String | no |  | Unsupported legacy parameter; V21 catalog Find does not accept a language culture. Omit it or use type-identifier |
 
 ### find-hardware-module-types
 

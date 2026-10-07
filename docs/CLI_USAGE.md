@@ -396,6 +396,8 @@ Searches the installed TIA Portal hardware catalog for usable type identifiers.
 OpenTiaToolkit.CLI.exe find-hardware-catalog-items --search-text="AL1403"
 ```
 
+V21's optional `type-identifier` argument filters by a TIA type identifier. It does not select a language. The old `culture` argument is rejected with guidance in preview.7; omit it for ordinary text searches.
+
 #### get-hardware-tree
 
 Returns hierarchical devices and items with target paths reusable by the remaining hardware commands.

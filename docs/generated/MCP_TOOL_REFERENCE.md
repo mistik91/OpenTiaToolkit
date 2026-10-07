@@ -73,7 +73,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `export-type` | PLC | `plc-name`, `type-name`, `export-path` | Exports a single type (UDT) to XML |
 | `export-types` | PLC | `plc-name`, `export-path`, `filter-regex` | Exports multiple types (UDT) to XML |
 | `export-vci-block` | VCI | `workspace-name`, `plc-name`, `block-name`, `relative-directory`, `file-name`, `file-format`, `block-type`, `group-path` | Exports one PLC block into a VCI workspace and creates its mapping |
-| `find-hardware-catalog-items` | Hardware | `search-text`, `culture` | Searches installed TIA Portal hardware catalog items by text |
+| `find-hardware-catalog-items` | Hardware | `search-text`, `type-identifier`, `culture` | Searches installed TIA Portal hardware catalog items by text |
 | `find-hardware-module-types` | Hardware | `partial-type-identifier` | Finds module type identifiers using the project-level TIA module information provider |
 | `find-replace-db-members` | PLC | `plc-name`, `rename-map`, `case-insensitive`, `dry-run`, `target-blocks`, `output-path`, `confirm` | Finds and replaces GlobalDB member names with nested struct support |
 | `find-replace-tags` | PLC | `plc-name`, `rename-map`, `case-insensitive`, `dry-run`, `substring-match`, `output-path`, `confirm` | Finds and replaces PLC tag names across all tag tables |

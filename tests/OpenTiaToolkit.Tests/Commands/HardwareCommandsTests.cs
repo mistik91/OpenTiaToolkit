@@ -20,6 +20,30 @@ namespace OpenTiaToolkit.Tests.Commands
     public class HardwareCommandsTests
     {
         [TestMethod]
+        public async Task CatalogSearch_RejectsCultureBeforeCallingSiemens()
+        {
+            var service = new Mock<IHardwareService>(MockBehavior.Strict);
+            var command = new FindHardwareCatalogItemsCommand(service.Object);
+            var result = await command.ExecuteAsync(Args(("search-text", "CPU 1214C"), ("culture", "en-US")), NullLogger.Instance);
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains(result.Message, "culture is unsupported");
+            service.VerifyNoOtherCalls();
+        }
+
+        [TestMethod]
+        public async Task CatalogSearch_PassesActualTypeIdentifierFilter()
+        {
+            var service = new Mock<IHardwareService>();
+            service.Setup(value => value.FindCatalogItemsAsync("CPU 1214C", "OrderNumber:6ES7 214-1AG40-0XB0/V4.6"))
+                .ReturnsAsync(Array.Empty<HardwareCatalogItemInfo>());
+            var command = new FindHardwareCatalogItemsCommand(service.Object);
+            var result = await command.ExecuteAsync(Args(("search-text", "CPU 1214C"),
+                ("type-identifier", "OrderNumber:6ES7 214-1AG40-0XB0/V4.6")), NullLogger.Instance);
+            Assert.IsTrue(result.Success);
+            service.Verify(value => value.FindCatalogItemsAsync("CPU 1214C", "OrderNumber:6ES7 214-1AG40-0XB0/V4.6"), Times.Once);
+        }
+
+        [TestMethod]
         public async Task ApplyHardwarePatch_DefaultsToDryRunAndParsesNestedTarget()
         {
             var service = new Mock<IHardwareService>();
