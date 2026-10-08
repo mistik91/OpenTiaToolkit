@@ -49,8 +49,11 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         {
             var archive = Directory.GetFiles(_root, "*.zap*").Single();
             _portal = new TiaPortal(TiaPortalMode.WithoutUserInterface);
-            var copy = Directory.CreateDirectory(Path.Combine(_root, "Copy"));
-            _project = _portal.Projects.Retrieve(new FileInfo(archive), copy);
+            var copyPath = Path.Combine(_root, "Copy");
+            Directory.CreateDirectory(copyPath);
+            // net48 CreateDirectory returns a DirectoryInfo whose ToString() is only the leaf name.
+            // Siemens marshals that display path; construct it explicitly with the absolute path.
+            _project = _portal.Projects.Retrieve(new FileInfo(archive), new DirectoryInfo(copyPath));
             Session.Portal = _portal;
             Session.Project = _project;
             Session.OwnsCurrentProject = true;
