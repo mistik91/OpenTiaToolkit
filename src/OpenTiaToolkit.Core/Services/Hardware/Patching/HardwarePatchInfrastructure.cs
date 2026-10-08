@@ -212,7 +212,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
         public Task<HardwarePatchResult> ApplyAsync(IReadOnlyList<HardwarePatchOperation> operations, bool dryRun, bool confirmDestructive, string? description) =>
             Task.Run(() => Apply(operations, dryRun, confirmDestructive, description));
 
-        internal HardwarePatchResult Apply(IReadOnlyList<HardwarePatchOperation> operations, bool dryRun, bool confirmDestructive, string? description)
+        internal HardwarePatchResult Apply(IReadOnlyList<HardwarePatchOperation> operations, bool dryRun, bool confirmDestructive, string? description, bool isolatedPreview = false)
         {
             if (operations == null || operations.Count == 0)
                 throw new ArgumentException("At least one hardware operation is required.", nameof(operations));
@@ -227,14 +227,19 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
                 return HardwarePatchStructuralValidator.CreateBlockedResult(
                     operations, dryRun, result.TransactionDescription, validationIssues);
             }
+            if (!isolatedPreview && HardwarePreviewPolicy.RequiresIsolation(dryRun, operations))
+                return ApplyIsolatedPreview(operations, confirmDestructive, result);
             var execution = new HardwarePatchExecutionContext(
                 _engineering, _attributes, _drives, _networks, _resolver, _topology, dryRun, confirmDestructive);
+            var transactionStarted = false;
+            var commitRequested = false;
             try
             {
                 var project = _engineering.RequireProject();
                 using (var access = _engineering.RequirePortal().ExclusiveAccess(result.TransactionDescription))
                 using (var transaction = access.Transaction(project, result.TransactionDescription))
                 {
+                    transactionStarted = true;
                     for (var index = 0; index < operations.Count; index++)
                     {
                         var operation = operations[index];
@@ -245,18 +250,71 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
                             HardwarePatchRules.RequireDestructiveConfirmation(confirmDestructive, registration.Name);
                         result.Operations.Add(registration.Handler.Execute(registration.Name, index, operation, execution));
                     }
-                    if (HardwarePatchTransactionPolicy.ShouldCommit(dryRun, allOperationsSucceeded: true))
-                    { transaction.CommitOnDispose(); result.Applied = true; }
-                    else result.RolledBack = true;
+                    if (isolatedPreview || HardwarePatchTransactionPolicy.ShouldCommit(dryRun, allOperationsSucceeded: true))
+                    { transaction.CommitOnDispose(); commitRequested = true; }
+                    else result.RollbackAttempted = true;
                 }
+                // Report success only after Siemens has disposed the transaction successfully.
+                result.Applied = commitRequested && !isolatedPreview;
+                result.RolledBack = !commitRequested;
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Hardware patch failed");
                 result.Applied = false;
-                result.RolledBack = true;
+                result.RolledBack = false;
+                result.RollbackAttempted = transactionStarted && !commitRequested;
                 result.SafetyBlocked = true;
-                result.SafetyMessage = ex.Message;
+                result.FailureType = EngineeringFailure.Unwrap(ex).GetType().FullName;
+                result.RecoveryRequired = EngineeringFailure.IsSessionLoss(ex);
+                result.FailureException = _engineering.Session.RecordReadFailure(ex);
+                result.SafetyMessage = EngineeringFailure.Describe(result.FailureException);
+            }
+            return result;
+        }
+
+        private HardwarePatchResult ApplyIsolatedPreview(IReadOnlyList<HardwarePatchOperation> operations, bool confirmDestructive, HardwarePatchResult result)
+        {
+            var workspace = new HardwarePreviewWorkspace();
+            var snapshotComplete = false;
+            result.PreviewIsolated = true;
+            try
+            {
+                workspace.Snapshot(_engineering.RequireProject());
+                snapshotComplete = true;
+                workspace.Open();
+                var context = new HardwareEngineeringContext(workspace.Session);
+                var workflow = new HardwarePatchWorkflow(context, _attributes, _drives, _networks,
+                    new HardwareTargetResolver(context), new HardwareTopologyReader(context, _attributes, _networks), _logger);
+                result = workflow.Apply(operations, true, confirmDestructive, result.TransactionDescription, isolatedPreview: true);
+                result.PreviewIsolated = true;
+                result.PreviewArchiveSha256 = workspace.ArchiveSha256;
+                // Scratch-session loss does not invalidate the selected source session.
+                if (result.FailureException is EngineeringSessionUnavailableException unavailable && unavailable.InnerException != null)
+                {
+                    result.FailureException = EngineeringFailure.Unwrap(unavailable.InnerException);
+                    result.SafetyMessage = "Isolated preview session failed; the selected source session was retained. " + EngineeringFailure.Describe(result.FailureException);
+                }
+                result.RecoveryRequired = false;
+            }
+            catch (Exception ex)
+            {
+                result.SafetyBlocked = true;
+                result.FailureType = EngineeringFailure.Unwrap(ex).GetType().FullName;
+                result.FailureException = snapshotComplete ? ex : _engineering.Session.RecordReadFailure(ex);
+                result.RecoveryRequired = !snapshotComplete && EngineeringFailure.IsSessionLoss(ex);
+                result.SafetyMessage = "Isolated device-creation preview failed. " + EngineeringFailure.Describe(result.FailureException);
+            }
+            finally
+            {
+                try { workspace.Dispose(); result.PreviewDiscarded = true; }
+                catch (Exception ex)
+                {
+                    result.SafetyBlocked = true;
+                    result.FailureException = ex;
+                    result.SafetyMessage = (result.SafetyMessage + " " + EngineeringFailure.Describe(ex)).Trim();
+                    _logger?.LogError(ex, "Isolated hardware preview cleanup failed");
+                }
             }
             return result;
         }

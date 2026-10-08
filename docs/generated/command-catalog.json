@@ -388,7 +388,7 @@
           "type": "Boolean",
           "required": false,
           "defaultValue": true,
-          "description": "Validate operations in a rolled-back transaction without applying"
+          "description": "Validate without applying to the selected project; creation uses a disposable saved snapshot, other patches roll back"
         },
         {
           "name": "confirm-destructive",

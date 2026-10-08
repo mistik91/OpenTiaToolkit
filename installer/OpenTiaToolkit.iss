@@ -1,7 +1,7 @@
 #define MyAppName "OpenTiaToolkit"
 #define MyAppVersion GetEnv("OPEN_TIA_INSTALLER_VERSION")
 #if MyAppVersion == ""
-  #define MyAppVersion "1.0.0-preview.7"
+  #define MyAppVersion "1.0.0-preview.8"
 #endif
 #define MyAppPublisher "OpenTiaToolkit Contributors"
 #define MyAppURL "https://github.com/mistik91/OpenTiaToolkit"

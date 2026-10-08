@@ -9,6 +9,8 @@ using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Core.Models;
+using OpenTiaToolkit.Core.Services;
 
 namespace OpenTiaToolkit.Worker.V21;
 
@@ -56,8 +58,9 @@ internal sealed class WorkerCommandExecutor
                 Data = SerializeData(result.Data, invocation),
                 Error = result.Success ? null : new ErrorDetail
                 {
-                    Code = ClassifyError(result.Message),
-                    Message = result.Error ?? result.Message
+                    Code = result.FailureException is EngineeringSessionUnavailableException ? ErrorCode.NotConnected : ClassifyError(result.Message),
+                    Message = result.Error ?? result.Message,
+                    Metadata = FailureMetadata(result)
                 },
                 StartedAtUtc = started,
                 CompletedAtUtc = DateTimeOffset.UtcNow
@@ -68,8 +71,22 @@ internal sealed class WorkerCommandExecutor
         catch (Exception ex)
         {
             _logger.LogError(ex, "Worker command {CommandName} failed.", invocation.CommandName);
-            return Failure(invocation, started, ErrorCode.InternalError, ex.InnerException?.Message ?? ex.Message);
+            var outcome = Failure(invocation, started, ex is EngineeringSessionUnavailableException ? ErrorCode.NotConnected : ErrorCode.InternalError, ex.InnerException?.Message ?? ex.Message);
+            if (ex is EngineeringSessionUnavailableException)
+                outcome.Error!.Metadata = new Dictionary<string, string> { ["recoveryRequired"] = "true", ["exceptionType"] = ex.GetType().FullName! };
+            return outcome;
         }
+    }
+
+    private static IReadOnlyDictionary<string, string> FailureMetadata(CommandResult result)
+    {
+        var metadata = new Dictionary<string, string>();
+        if (result.FailureException != null) metadata["exceptionType"] = result.FailureException.GetType().FullName!;
+        if (result.Data is HardwarePatchResult patch && patch.FailureType != null)
+            metadata["exceptionType"] = patch.FailureType;
+        if (result.FailureException is EngineeringSessionUnavailableException || result.Data is HardwarePatchResult { RecoveryRequired: true })
+            metadata["recoveryRequired"] = "true";
+        return metadata;
     }
 
     private static JsonElement? SerializeData(object? data, CommandInvocation invocation)

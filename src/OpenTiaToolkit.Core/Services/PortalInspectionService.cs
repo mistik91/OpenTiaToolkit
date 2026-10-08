@@ -76,6 +76,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                _sessionContext.ThrowIfProjectUnavailable();
                 var project = _sessionContext.Project;
                 if (project == null)
                 {
@@ -96,7 +97,7 @@ namespace OpenTiaToolkit.Core.Services
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Failed to get project info");
-                    return null;
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
             });
         }
@@ -105,6 +106,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                _sessionContext.ThrowIfProjectUnavailable();
                 var projects = new List<ProjectInfo>();
                 var portal = _sessionContext.Portal;
                 if (portal == null)
@@ -150,6 +152,7 @@ namespace OpenTiaToolkit.Core.Services
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Failed to get open projects");
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
 
                 return (IReadOnlyList<ProjectInfo>)projects;
@@ -161,6 +164,7 @@ namespace OpenTiaToolkit.Core.Services
             return await Task.Run(() =>
             {
                 var devices = new List<DeviceInfo>();
+                _sessionContext.ThrowIfProjectUnavailable();
                 var project = _sessionContext.Project;
                 if (project == null)
                 {
@@ -182,6 +186,7 @@ namespace OpenTiaToolkit.Core.Services
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Failed to get devices");
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
 
                 return (IReadOnlyList<DeviceInfo>)devices;
@@ -192,6 +197,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                _sessionContext.ThrowIfProjectUnavailable();
                 var project = _sessionContext.Project;
                 if (project == null)
                 {
@@ -217,7 +223,7 @@ namespace OpenTiaToolkit.Core.Services
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Failed to get device info: {DeviceName}", deviceName);
-                    return null;
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
             });
         }
@@ -226,6 +232,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                _sessionContext.ThrowIfProjectUnavailable();
                 var project = _sessionContext.Project;
                 if (project == null)
                 {
@@ -260,7 +267,7 @@ namespace OpenTiaToolkit.Core.Services
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Failed to get device item info: {DeviceName}/{ItemName}", deviceName, itemName);
-                    return null;
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
             });
         }
@@ -269,6 +276,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                _sessionContext.ThrowIfProjectUnavailable();
                 var project = _sessionContext.Project;
                 if (project == null)
                 {
@@ -287,7 +295,7 @@ namespace OpenTiaToolkit.Core.Services
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Failed to get project tree");
-                    return null;
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
             });
         }
@@ -296,6 +304,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                _sessionContext.ThrowIfProjectUnavailable();
                 var project = _sessionContext.Project;
                 if (project == null)
                 {
@@ -320,7 +329,7 @@ namespace OpenTiaToolkit.Core.Services
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Error scanning for PLCs");
-                    return (IReadOnlyList<PlcInfo>)Array.Empty<PlcInfo>();
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
             });
         }
@@ -329,6 +338,7 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await Task.Run(() =>
             {
+                _sessionContext.ThrowIfProjectUnavailable();
                 var project = _sessionContext.Project;
                 if (project == null)
                 {
@@ -353,7 +363,7 @@ namespace OpenTiaToolkit.Core.Services
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Error scanning for HMIs");
-                    return (IReadOnlyList<HmiInfo>)Array.Empty<HmiInfo>();
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
             });
         }
@@ -388,9 +398,9 @@ namespace OpenTiaToolkit.Core.Services
                         SearchDeviceItemsRecursive(childItems, parentDeviceName, itemPath, plcs);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore errors accessing child items.
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
             }
         }
@@ -425,9 +435,9 @@ namespace OpenTiaToolkit.Core.Services
                         SearchDeviceItemsForHmisRecursive(childItems, parentDeviceName, itemPath, hmis);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore errors accessing child items.
+                    throw _sessionContext.RecordReadFailure(ex);
                 }
             }
         }
@@ -441,8 +451,9 @@ namespace OpenTiaToolkit.Core.Services
                     .Select(address => address.GetAttribute("Address"))
                     .FirstOrDefault(attribute => attribute != null)?.ToString();
             }
-            catch
+            catch (Exception ex)
             {
+                if (EngineeringFailure.IsSessionLoss(ex)) throw;
                 return null;
             }
         }

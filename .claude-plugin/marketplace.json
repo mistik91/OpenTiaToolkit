@@ -5,13 +5,13 @@
     "email": "maintainers@opentiatoolkit.local"
   },
   "description": "Local Claude Code marketplace for OpenTiaToolkit plugins.",
-  "version": "1.0.0-preview.7",
+  "version": "1.0.0-preview.8",
   "plugins": [
     {
       "name": "opentia-toolkit",
       "source": "./plugins/opentia-toolkit-claude-code",
       "description": "TIA Portal MCP tools and HMI Unified editing workflows for Claude Code.",
-      "version": "1.0.0-preview.7",
+      "version": "1.0.0-preview.8",
       "author": {
         "name": "OpenTiaToolkit Contributors",
         "email": "maintainers@opentiatoolkit.local"

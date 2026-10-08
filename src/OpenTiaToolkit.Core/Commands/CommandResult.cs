@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using OpenTiaToolkit.Core.Services;
 
 namespace OpenTiaToolkit.Core.Commands
 {
@@ -32,6 +34,9 @@ namespace OpenTiaToolkit.Core.Commands
         /// </summary>
         public string? Error { get; private set; }
 
+        [JsonIgnore]
+        public Exception? FailureException { get; private set; }
+
         /// <summary>
         /// Creates a successful command result.
         /// </summary>
@@ -61,7 +66,8 @@ namespace OpenTiaToolkit.Core.Commands
             {
                 Success = false,
                 Message = message,
-                Error = exception?.Message ?? message,
+                Error = exception == null ? message : EngineeringFailure.Describe(exception),
+                FailureException = exception,
                 Data = null
             };
         }
@@ -79,7 +85,8 @@ namespace OpenTiaToolkit.Core.Commands
             {
                 Success = false,
                 Message = message,
-                Error = exception?.Message ?? message,
+                Error = exception == null ? message : EngineeringFailure.Describe(exception),
+                FailureException = exception,
                 Data = data
             };
         }

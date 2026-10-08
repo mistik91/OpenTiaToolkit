@@ -338,6 +338,14 @@ namespace OpenTiaToolkit.Core.Models
         public bool DryRun { get; set; }
         public bool Applied { get; set; }
         public bool RolledBack { get; set; }
+        public bool RollbackAttempted { get; set; }
+        public bool RecoveryRequired { get; set; }
+        public string? FailureType { get; set; }
+        public bool PreviewIsolated { get; set; }
+        public bool PreviewDiscarded { get; set; }
+        public string? PreviewArchiveSha256 { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore]
+        internal Exception? FailureException { get; set; }
         public bool SafetyBlocked { get; set; }
         public bool ValidationBlocked { get; set; }
         public string? SafetyMessage { get; set; }

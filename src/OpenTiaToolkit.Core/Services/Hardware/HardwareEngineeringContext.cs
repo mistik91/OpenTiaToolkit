@@ -14,8 +14,13 @@ namespace OpenTiaToolkit.Core.Services.Hardware
 
         public EngineeringSessionContext Session => _sessionContext;
 
-        public ProjectBase RequireProject() =>
-            _sessionContext.Project ?? throw new InvalidOperationException("No TIA Portal project is open.");
+        public ProjectBase RequireProject()
+        {
+            _sessionContext.ThrowIfProjectUnavailable();
+            var project = _sessionContext.Project ?? throw new InvalidOperationException("No TIA Portal project is open.");
+            try { _ = project.Name; return project; }
+            catch (Exception ex) { throw _sessionContext.RecordReadFailure(ex); }
+        }
 
         public TiaPortal RequirePortal() =>
             _sessionContext.Portal ?? throw new InvalidOperationException("Not connected to TIA Portal.");

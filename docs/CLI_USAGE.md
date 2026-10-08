@@ -505,7 +505,9 @@ OpenTiaToolkit.CLI.exe get-gsd-parameter-data --device-name="IO_Master_01" --ite
 
 #### apply-hardware-patch
 
-Performs a transactional sequence of generic hardware operations. It defaults to `--dry-run=true`, rolling back all mutations after validating them. Use expected-value guards before applying writes.
+Performs a transactional sequence of generic hardware operations. It defaults to `--dry-run=true`. Patches containing `create-device` or `create-device-with-item` run on an archived copy in a separate TIA instance, commit only on that disposable copy, then discard it. The selected project must be a saved standalone project with no unsaved changes. Preview never saves or closes the selected project; Multiuser and protected archives that cannot be retrieved without authentication fail explicitly. Other patches preview in a rollback-only transaction. Use expected-value guards before applying writes.
+
+Creation previews report `PreviewIsolated=true`, `PreviewDiscarded=true`, `Applied=false`, `RolledBack=false`, and the snapshot `PreviewArchiveSha256`. An isolated preview proves execution on that snapshot, not permission to mutate a changed source; fresh reads and the same expected-value guards are still required before apply. Failed transactions report `RollbackAttempted` without claiming a completed rollback. Fatal/disposed Siemens sessions report `RecoveryRequired=true` and explicit read failures; reset and explicitly reconnect/reopen the intended project before retrying. The toolkit does not recover by saving or reopening user projects automatically.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=true

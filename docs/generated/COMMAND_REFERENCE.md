@@ -33,7 +33,7 @@ Dry-runs or applies transactional generic TIA hardware operations
 |---|---|---:|---|---|
 | `operations` | Object | no |  | Operations array or { operations: [...] } object |
 | `operations-path` | Path | no |  | JSON file containing operations; CLI-friendly alternative to operations |
-| `dry-run` | Boolean | no | True | Validate operations in a rolled-back transaction without applying |
+| `dry-run` | Boolean | no | True | Validate without applying to the selected project; creation uses a disposable saved snapshot, other patches roll back |
 | `confirm-destructive` | Boolean | no | False | Permit delete and disconnect operations |
 | `transaction-description` | String | no |  | Undo unit description for TIA Portal |
 | `plc-name` | String | no |  | Optional PLC device name used with safety-password-env |

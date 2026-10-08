@@ -9,7 +9,7 @@ body:
     id: version
     attributes:
       label: Toolkit version and installation method
-      placeholder: "1.0.0-preview.6, installer / source / MCPB"
+      placeholder: "1.0.0-preview.8, installer / source / MCPB"
     validations:
       required: true
   - type: input
