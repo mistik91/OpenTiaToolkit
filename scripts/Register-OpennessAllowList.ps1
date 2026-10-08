@@ -99,7 +99,11 @@ function Ensure-RegistryEntry {
         [string]$FileHash
     )
 
-    New-Item -Path $ParentRegistryPath -Force | Out-Null
+    # Registry New-Item -Force replaces an existing key, including its child entries.
+    # Preserve registrations for other builds and installations of the same worker.
+    if (-not (Test-Path -LiteralPath $ParentRegistryPath)) {
+        New-Item -Path $ParentRegistryPath -Force | Out-Null
+    }
 
     $existing = Find-MatchingEntry `
         -ParentRegistryPath $ParentRegistryPath `

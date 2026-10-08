@@ -13,6 +13,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Isolate device-creation hardware previews on saved disposable project copies to avoid invalidating the selected Unified session during rollback. Unsaved and unsupported snapshots fail with explicit guidance.
 - Preserve nested Siemens failure causes and report session loss explicitly; failed inspection no longer masquerades as empty inventory.
 - Report transaction completion after disposal and distinguish attempted rollback from proven completion. Creation previews describe copy disposal instead of claiming rollback.
+- Preserve existing Siemens worker registrations when adding another build or installation path; verify retention and idempotence with an owned registry test key.
 
 See [preview.8 notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) for scope and outstanding validation. Repository and releases remain private and unpublished.
 

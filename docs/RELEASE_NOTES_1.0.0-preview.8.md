@@ -12,6 +12,8 @@ Creation preview reports `PreviewIsolated`, `PreviewDiscarded`, and `PreviewArch
 
 Failed transactions preserve the underlying cause and report `RollbackAttempted`; they do not claim completed rollback. Fatal or disposed source sessions report `RecoveryRequired=true` and subsequent inspection fails explicitly instead of returning empty inventory. Reset and explicitly reconnect/reopen the intended project before further writes. No automatic save or reopen is attempted.
 
+The worker registration helper also preserves existing entries for other builds/installation paths. Its retention and idempotence regression test runs against an owned HKCU test key without elevation.
+
 ## Validation and remaining gates
 
 Release build, focused regression tests, architecture checks, packaged protocol tests, and a disposable live campaign are required for this changed worker. Live acceptance must cover the exact Unified preview/apply/read-back sequence, repeated previews, isolation after a mid-batch failure, unsaved-source refusal, confirmation denial, ordinary PLC/hardware regression, and independently verified cleanup. Register the exact rebuilt worker before those tests; preview.7 registration does not apply to preview.8.
