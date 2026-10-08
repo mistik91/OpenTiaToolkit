@@ -37,7 +37,7 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
                 throw new InvalidOperationException("Device-creation preview requires a saved standalone project; Multiuser projects are unsupported for isolated preview.");
             if (project.IsModified)
                 throw new InvalidOperationException("Device-creation preview requires a saved project snapshot. Save the intended changes explicitly, then retry; preview does not save your project.");
-            project.Archive(new DirectoryInfo(_root), "PreviewSource", ProjectArchivationMode.Compressed);
+            project.Archive(new DirectoryInfo(_root), "PreviewSource.zap21", ProjectArchivationMode.Compressed);
             var archives = Directory.GetFiles(_root, "*.zap*");
             if (archives.Length != 1) throw new InvalidOperationException("Device-creation preview did not produce exactly one project archive.");
             using (var stream = File.OpenRead(archives[0]))
