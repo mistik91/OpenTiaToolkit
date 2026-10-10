@@ -20,7 +20,7 @@ OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC co
 <p align="center"><a href="#quick-start">Quick start</a> · <a href="https://github.com/mistik91/OpenTiaToolkit/releases">Downloads</a> · <a href="docs/RELEASE_NOTES_1.0.0-preview.8.md">Preview.8 notes</a> · <a href="docs/generated/COMMAND_REFERENCE.md">Command reference</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
 
 > [!IMPORTANT]
-> **1.0.0-preview.8 is a release candidate.** Publication and clean-machine acceptance are pending; see the [release notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) for completed checks and remaining gates. Candidate packages are unsigned. Verify their SHA-256 checksums, run `doctor`, and start write workflows on disposable project copies with independent backups. TIA Portal V21 is the only supported major version.
+> **1.0.0-preview.8 is an unsigned preview candidate.** Independent first-install/PLC, scoped Unified screen editing/compile, and scoped Startdrive acceptance have passed. Publication is pending; the repository remains private and the release draft. See the [qualification matrix and known limitations](docs/PREVIEW8_ACCEPTANCE.md) before choosing a workflow. Verify SHA-256 checksums, run `doctor`, and start write workflows on disposable project copies with independent backups. TIA Portal V21 is the only supported major version.
 
 ## Quick start
 
@@ -34,7 +34,7 @@ OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC co
 
 ### Install a preview
 
-When preview.8 is published, obtain `OpenTiaToolkit-1.0.0-preview.8-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [release page](https://github.com/mistik91/OpenTiaToolkit/releases). Check the version explicitly: previews may not appear as GitHub's latest stable release. Until publication, use [Build from source](#build-from-source).
+When preview.8 is published, obtain `OpenTiaToolkit-1.0.0-preview.8-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [release page](https://github.com/mistik91/OpenTiaToolkit/releases). Check the version explicitly: previews may not appear as GitHub's latest stable release. Before publication, draft downloads require authorized repository access. [Building from source](#build-from-source) is a separate contributor workflow; it does not reproduce acceptance of the supplied installer.
 
 Verify the installer before running it:
 
@@ -66,7 +66,7 @@ Keep connected workflows in one interactive or [script session](docs/CLI_USAGE.m
 
 ### Connect your agent
 
-For Codex, Claude Code, Claude Desktop, OpenCode, and other supported clients, use the [plugin installation guide](docs/INSTALL_AGENT_PLUGINS.md) or [client configuration matrix](docs/mcp-client-configs/README.md). A typical stdio configuration is:
+For client packages and configuration examples, use the [plugin installation guide](docs/INSTALL_AGENT_PLUGINS.md) or [client configuration matrix](docs/mcp-client-configs/README.md). The preview.8 portable integration was exercised in Codex; the presence of a package for another client does not establish installed acceptance in that client. Enable one OpenTia integration per client. A typical stdio configuration is:
 
 ```json
 {
@@ -95,6 +95,8 @@ Blueprints orchestrate reviewed steps sequentially. Earlier successful steps rem
 
 ## What you can automate
 
+This table describes the exposed command surface. Independent preview.8 acceptance covers a smaller set of targets and operations; consult the [qualification matrix](docs/PREVIEW8_ACCEPTANCE.md). Features outside that matrix require validation on your disposable fixture before use.
+
 | Area | Workflows |
 |---|---|
 | Projects | Discover and connect to TIA, open/create/retrieve/archive projects, inspect project trees |
@@ -110,14 +112,14 @@ Use the [CLI reference](docs/generated/COMMAND_REFERENCE.md), [MCP reference](do
 
 | Component | Scope |
 |---|---|
-| TIA Portal | V21 only; the retained benchmark baseline is V21 Update 2. Run `doctor` after updates or hotfixes |
+| TIA Portal | V21 only; scoped installed tests cover Update 2 Hotfix 1 and Update 3. The retained binary benchmark is Update 2; run `doctor` after updates or hotfixes |
 | Older/newer TIA majors | V20 and earlier, V22 and later are unsupported |
-| PLC engineering | STEP 7 licensing and object capabilities are checked for the selected project/target |
+| PLC engineering | The required STEP 7 edition/license and target capabilities must be available; doctor does not verify licensing |
 | HMI | WinCC Unified engineering; workflow-specific licenses and culture configuration are required |
 | Simulation | PLCSIM Advanced is optional and required for simulator download/behavior workflows; physical PLC downloads are outside those guarded workflows |
 | Drives and collaboration | Appropriate Startdrive and Multiuser/Project Server components and licenses are required |
 
-Validation is specific to documented targets and workflows. See [version support](docs/TIA_PORTAL_VERSION_SUPPORT.md), [API compatibility](docs/API_COMPATIBILITY.md), and [release notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) for limits and evidence.
+Validation is specific to documented targets and workflows. Update 3 PLC acceptance does not qualify its changed Unified binary for HMI editing. A healthy `doctor` with compatible API/hash warnings does not prove licensing readiness or live engineering behavior. See [qualification and known limitations](docs/PREVIEW8_ACCEPTANCE.md), [version support](docs/TIA_PORTAL_VERSION_SUPPORT.md), and [API compatibility](docs/API_COMPATIBILITY.md).
 
 ## Architecture and safety
 
@@ -162,7 +164,7 @@ See [contribution guidance](CONTRIBUTING.md), [developer setup](docs/DEV_GUIDE.m
 | [Setup](docs/SETUP.md) | [PLC/CLI workflows](docs/CLI_USAGE.md) |
 | [Agent plugins](docs/INSTALL_AGENT_PLUGINS.md) | [Hardware automation](docs/HARDWARE_AUTOMATION.md) |
 | [MCP client configs](docs/mcp-client-configs/README.md) | [Blueprints](docs/BLUEPRINTS.md) |
-| [Preview.8 release notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) | [MCP protocol](docs/MCP_PROTOCOL.md) |
+| [Preview.8 qualification](docs/PREVIEW8_ACCEPTANCE.md) and [release notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) | [MCP protocol](docs/MCP_PROTOCOL.md) |
 | [Report a bug](https://github.com/mistik91/OpenTiaToolkit/issues/new/choose) | [Supply chain](docs/SUPPLY_CHAIN.md) |
 
 Report security issues through the private route in [SECURITY.md](SECURITY.md). Avoid sharing proprietary projects, credentials, or Siemens binaries in issue reports.

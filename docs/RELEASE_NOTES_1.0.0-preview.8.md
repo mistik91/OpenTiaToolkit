@@ -1,6 +1,6 @@
 # 1.0.0-preview.8 — private candidate
 
-Prepared 8 October 2026. The repository remains private; publication is blocked pending acceptance. Preview.7 artifacts and evidence retain their original identities.
+Prepared 8 October 2026; acceptance summary updated 10 October 2026. The planned scoped engineering acceptance gates have passed. The repository remains private and the release draft pending publication review and authorization. Candidate packages are unsigned. Preview.7 artifacts and evidence retain their original identities.
 
 ## Unified provisioning correction
 
@@ -14,8 +14,12 @@ Failed transactions preserve the underlying cause and report `RollbackAttempted`
 
 The worker registration helper also preserves existing entries for other builds/installation paths. Its retention and idempotence regression test runs against an owned HKCU test key without elevation.
 
-## Validation and remaining gates
+## Validation and qualification
 
-Release build, focused regression tests, architecture checks, packaged protocol tests, and a disposable live campaign are required for this changed worker. Live acceptance must cover the exact Unified preview/apply/read-back sequence, repeated previews, isolation after a mid-batch failure, unsaved-source refusal, confirmation denial, ordinary PLC/hardware regression, and independently verified cleanup. Register the exact rebuilt worker before those tests; preview.7 registration does not apply to preview.8.
+The exact binary source is `7e8c5820ea5df7beb9afc4225575bf064af30cce`. Its Release build completed with zero warnings/errors; 795 unit, 54 architecture, 7 worker IPC and 1 permanent licensed Unified regression tests passed. Packaged protocol discovery exposes 186 commands plus 3 infrastructure tools. Hosted vendor-free CI passed; its licensed job was skipped, with licensed validation collected separately.
 
-Passing local checks does not close the outstanding genuine clean-machine acceptance, colleague-machine retest, relevant WinCC Unified editing/compile qualification, or affected live Startdrive workflow gate. HMI provisioning alone does not qualify HMI editing, and a compatible API/hash-warning doctor result does not qualify drive behavior. No physical equipment download is included. Candidate packages remain unsigned.
+Independent installed acceptance subsequently passed for first installation/client integration and a CPU creation/PLC compile/inverse round trip on V21 Update 3, repeated Unified provisioning and scoped screen/item editing with human HMI software compilation on Update 2 Hotfix 1, and a G120C PN Main telegram number/address round trip on the measured Startdrive V21 Update 1 binary. Fresh reads and independent saved reopen corroborate these results.
+
+See [the qualification matrix](PREVIEW8_ACCEPTANCE.md) for exact targets, compiler evidence, unresolved historical process departures, uninstall observation limits and unqualified domains. Startdrive compiler transcripts contain zero errors and the same 14 existing warnings; project-wide IO coverage is incomplete. No physical download or runtime behavior is qualified.
+
+Documentation revisions after acceptance do not change the candidate's binary source or hashes. Installer, source archive and plugin bundles remain the accepted preview.8 snapshots; current repository guidance and the release's `VALIDATION_PREVIEW8.md` supplement their embedded pre-acceptance documentation. A rebuild would be a new candidate requiring new identity and applicable retesting.

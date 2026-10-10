@@ -16,7 +16,9 @@ The setup registration task registers the isolated V21 worker—not the vendor-f
 
 ## Portable Agent Plugins 1.0
 
-`plugins\opentia-toolkit-agent-plugin` is an Agent Plugins 1.0 package. Its root manifest, 18 workflow skills, and portable stdio MCP configuration can be loaded together by compatible clients including ChatGPT/Codex, Cursor, GitHub Copilot, Kiro, and VS Code.
+`plugins\opentia-toolkit-agent-plugin` is an Agent Plugins 1.0 package with a root manifest, 18 workflow skills and portable stdio MCP configuration. Use a client's supported local-plugin installation flow when it accepts this format. Separate bundles and MCP snippets are provided below for other clients.
+
+Independent installed preview.8 acceptance exercised the portable package in Codex, including actual desktop doctor execution and 189-tool backend discovery. Other client packages/configuration examples are available but were not independently qualified in this campaign. Some desktop chats expose only a subset of backend tools; missing wrappers are not proof that the server omitted them. Enable one OpenTia plugin/server configuration per client and verify the installed worker path with an actual `doctor` call. See [qualification and client limits](PREVIEW8_ACCEPTANCE.md).
 
 The plugin does not contain TIA Portal or replace OpenTiaToolkit installation. Install the Windows product and register its V21 worker first. The launcher then discovers the adjacent installed MCP payload even for a custom installation directory; `OPEN_TIA_MCP_EXE` remains an explicit override.
 

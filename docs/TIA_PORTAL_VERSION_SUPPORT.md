@@ -15,7 +15,7 @@ That is the version assumed by:
 
 | Version | Status | Notes |
 |---------|--------|-------|
-| **V21** | Supported | Current development target and validated runtime environment |
+| **V21** | Supported major version | Qualification is limited to the updates, targets and workflows in the [preview.8 matrix](PREVIEW8_ACCEPTANCE.md) |
 | **V22 and future versions** | Not supported | A dedicated worker and compatibility validation will be required after the Siemens release becomes available |
 | **V20 and earlier** | Not supported | Not a target for development or validation |
 
@@ -159,4 +159,4 @@ When in doubt, validate new PLC behavior against **TIA Portal V21** first.
 
 The executable `doctor` command compares the installed API with [the committed V21 binary compatibility profile](../compatibility/tia-v21.json) and [public-surface baseline](../compatibility/tia-v21.api.json). The current validated file versions are Base/Step7/Safety/SafetyValidation `2100.0.121.1`, WinCC Unified `2100.200.5.1`, and Startdrive `2100.2.2302.1`. Exact SHA-256 and public-surface hashes remain machine-readable and are also reported by `capabilities`, `describe-api`, and `diff-api-profile`.
 
-A V21 installation with different hashes may be a legitimate Siemens update, but it is treated as unvalidated until the architecture suite and live disposable-project suite pass and a reviewed profile update is committed.
+A V21 installation with different hashes may be a legitimate Siemens update. Compatible public API surfaces produce visible doctor warnings; they do not qualify live workflows. Keep the committed baseline intact while validating affected workflows and recording the exact measured hashes and limits. The [preview.8 matrix](PREVIEW8_ACCEPTANCE.md) records scoped installed acceptance with drift on Update 2 Hotfix 1 and Update 3, including a measured Startdrive V21 Update 1 binary. Those results do not qualify every feature on either update or remove the diagnostic warnings. Baseline replacement requires a separate reviewed compatibility change.
