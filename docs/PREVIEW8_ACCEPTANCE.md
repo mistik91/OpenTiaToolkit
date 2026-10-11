@@ -1,6 +1,6 @@
 # Preview.8 qualification and known limitations
 
-Reviewed 10 October 2026. **The planned scoped first-install/PLC, Unified screen editing/compile and Startdrive acceptance gates have passed.** The repository remains private and the release draft pending publication authorization and final publication checks. This qualifies an unsigned preview for the workflows below; it does not establish exhaustive support for all exposed commands.
+Reviewed 10 October 2026; public-preview documentation updated 11 October 2026. **The planned scoped first-install/PLC, Unified screen editing/compile and Startdrive acceptance gates have passed.** This qualifies an unsigned preview for the workflows below; it does not establish exhaustive support for all exposed commands.
 
 ## Exact accepted candidate
 
@@ -13,7 +13,7 @@ Reviewed 10 October 2026. **The planned scoped first-install/PLC, Unified screen
 | Worker SHA-256 | `3314a22e5a989b1052e6529b2acf5d35befaee6da3f98b5113269f66c0e2fc63` |
 | Worker Core.dll SHA-256 | `0b01d67897731cf035ff9e62b0c29ce160a97c8d266581514eba5b6ff67697e2` |
 
-Obtain checksums, the unsigned notice and sanitized `VALIDATION_PREVIEW8.md` from the [release assets](https://github.com/mistik91/OpenTiaToolkit/releases) when published, or with authorized private access during evaluation. SHA-256 establishes identity against the published checksum; the unsigned candidate has no Authenticode publisher signature.
+Obtain checksums, the unsigned notice and sanitized `VALIDATION_PREVIEW8.md` from the [preview.8 release assets](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.8). SHA-256 establishes identity against the published checksum; this unsigned preview has no Authenticode publisher signature.
 
 Documentation follow-up commits supplement the accepted packages. They do not change the binary source, release target or artifact hashes. The installer, source archive and plugin bundles contain the earlier documentation snapshot; use the current repository guidance and release validation record for the completed acceptance status. Rebuilding or repacking produces another candidate requiring a new identity and applicable retesting.
 
@@ -74,4 +74,4 @@ The [command reference](generated/COMMAND_REFERENCE.md) describes the exposed AP
 
 For Startdrive, commissioning parameters, insertion/erasure/size edits, safety telegram writes, other drive families/updates, online firmware, rewiring and motor/tuning behavior remain unqualified. Discover actual target capabilities and confirm target-supported alternatives through the owner's UI or Siemens documentation; see [hardware guidance](HARDWARE_AUTOMATION.md). Start on a disposable fixture and qualify the required domain before relying on it.
 
-Publication requires the reviewed default-branch documentation, explicit authorization, the security-reporting route and public download/link checks in the [release checklist](RELEASE_CHECKLIST.md). No additional installer, CPU or scoped drive engineering repeat is required by these completed results alone.
+Publication checks and any subsequent download-verification results are recorded separately in the release's `VALIDATION_PREVIEW8.md`; they do not extend this engineering qualification. No additional installer, CPU or scoped drive engineering repeat is required by these completed results alone. See the [release checklist](RELEASE_CHECKLIST.md) for future candidates.

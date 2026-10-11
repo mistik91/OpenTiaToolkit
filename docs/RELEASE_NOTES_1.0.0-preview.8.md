@@ -1,6 +1,6 @@
-# 1.0.0-preview.8 — private candidate
+# 1.0.0-preview.8 — unsigned preview
 
-Prepared 8 October 2026; acceptance summary updated 10 October 2026. The planned scoped engineering acceptance gates have passed. The repository remains private and the release draft pending publication review and authorization. Candidate packages are unsigned. Preview.7 artifacts and evidence retain their original identities.
+Prepared 8 October 2026; public-preview documentation updated 11 October 2026. The planned scoped engineering acceptance gates have passed. Preview.8 packages are unsigned. Preview.7 remains an unpublished historical draft; its artifacts and evidence retain their original identities. See the [preview.8 release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.8) for downloads and the sanitized validation record.
 
 ## Unified provisioning correction
 

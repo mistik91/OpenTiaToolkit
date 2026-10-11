@@ -6,9 +6,9 @@ During preview development, security fixes target the latest published preview. 
 
 ## Reporting a vulnerability
 
-Do not open a public issue for an unpatched vulnerability. Once enabled, use the repository Security tab's **Report a vulnerability** action to submit a private report. GitHub documents [private vulnerability reporting for public repositories](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository); while this repository remains private, that public reporting route is not verified. The publication checklist requires enabling and checking it when visibility changes.
+Do not open a public issue for an unpatched vulnerability. Use the repository Security tab's **Report a vulnerability** action to submit a [private report](https://github.com/mistik91/OpenTiaToolkit/security/advisories/new). See GitHub's [private vulnerability reporting guidance](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository).
 
-During private evaluation, use your existing private maintainer contact. If you have no private route, request one without including vulnerability or exploit details; the [maintainer profile](https://github.com/mistik91) identifies the account but is not itself a confidential reporting channel. In the private report, include the affected version, reproduction, impact and suggested mitigation. Avoid attaching proprietary TIA projects, credentials or Siemens binaries.
+If the report action is unavailable, use your existing private maintainer contact or request one without including vulnerability or exploit details. The [maintainer profile](https://github.com/mistik91) identifies the account but is not itself a confidential reporting channel. In the private report, include the affected version, reproduction, impact and suggested mitigation. Avoid attaching proprietary TIA projects, credentials or Siemens binaries.
 
 ## Security boundaries
 
