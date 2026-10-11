@@ -25,7 +25,7 @@ Most users who installed TIA Portal in the default location do not need to chang
 
 For normal use, choose the intended preview version explicitly and download its Windows installer from the [GitHub releases page](https://github.com/mistik91/OpenTiaToolkit/releases).
 
-Download the intended installer together with `INSTALLER-SHA256SUMS.txt` and `UNSIGNED-NOTICE.txt`; verify its hash using the [README quick start](../README.md#install-a-preview). Preview.8 remains a private draft until publication, so current downloads require authorized repository access. Run normal Setup with its exact-worker registration task selected; approve Windows elevation when requested.
+Download the intended installer together with `INSTALLER-SHA256SUMS.txt` and `UNSIGNED-NOTICE.txt` from the [preview.8 release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.8); verify its hash using the [README quick start](../README.md#install-a-preview). Run normal Setup with its exact-worker registration task selected; approve Windows elevation when requested.
 
 The installer places OpenTiaToolkit under:
 

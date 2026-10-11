@@ -6,7 +6,7 @@
 
 <p align="center">
   <img alt="TIA Portal V21 only" src="https://img.shields.io/badge/TIA_Portal-V21_only-0078D4">
-  <img alt="Preview candidate" src="https://img.shields.io/badge/preview-1.0.0--preview.8-orange">
+  <a href="https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.8"><img alt="Unsigned preview.8" src="https://img.shields.io/badge/unsigned_preview-1.0.0--preview.8-orange"></a>
   <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-0078D6">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-2ea44f"></a>
 </p>
@@ -20,7 +20,7 @@ OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC co
 <p align="center"><a href="#quick-start">Quick start</a> · <a href="https://github.com/mistik91/OpenTiaToolkit/releases">Downloads</a> · <a href="docs/RELEASE_NOTES_1.0.0-preview.8.md">Preview.8 notes</a> · <a href="docs/generated/COMMAND_REFERENCE.md">Command reference</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
 
 > [!IMPORTANT]
-> **1.0.0-preview.8 is an unsigned preview candidate.** Independent first-install/PLC, scoped Unified screen editing/compile, and scoped Startdrive acceptance have passed. Publication is pending; the repository remains private and the release draft. See the [qualification matrix and known limitations](docs/PREVIEW8_ACCEPTANCE.md) before choosing a workflow. Verify SHA-256 checksums, run `doctor`, and start write workflows on disposable project copies with independent backups. TIA Portal V21 is the only supported major version.
+> **1.0.0-preview.8 is an unsigned preview.** Independent first-install/PLC, scoped Unified screen editing/compile, and scoped Startdrive acceptance have passed. See the [qualification matrix and known limitations](docs/PREVIEW8_ACCEPTANCE.md) before choosing a workflow. Verify SHA-256 checksums, run `doctor`, and start write workflows on disposable project copies with independent backups. TIA Portal V21 is the only supported major version.
 
 ## Quick start
 
@@ -34,7 +34,7 @@ OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC co
 
 ### Install a preview
 
-When preview.8 is published, obtain `OpenTiaToolkit-1.0.0-preview.8-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [release page](https://github.com/mistik91/OpenTiaToolkit/releases). Check the version explicitly: previews may not appear as GitHub's latest stable release. Before publication, draft downloads require authorized repository access. [Building from source](#build-from-source) is a separate contributor workflow; it does not reproduce acceptance of the supplied installer.
+Obtain `OpenTiaToolkit-1.0.0-preview.8-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [preview.8 release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.8). Check the version explicitly: previews may not appear as GitHub's latest stable release. [Building from source](#build-from-source) is a separate contributor workflow; it does not reproduce acceptance of the supplied installer.
 
 Verify the installer before running it:
 

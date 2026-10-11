@@ -10,7 +10,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Documentation
 - Record scoped preview.8 first-install/PLC, Unified screen editing/compile and Startdrive acceptance, distinguish exposed features from qualified workflows, and clarify setup, client, compiler, lifecycle and process-preservation limits. Accepted preview.8 release bytes remain unchanged.
 
-## [1.0.0-preview.8] - private candidate
+## [1.0.0-preview.8] - 2026-10-11 (unsigned preview)
 
 ### Fixed
 - Isolate device-creation hardware previews on saved disposable project copies to avoid invalidating the selected Unified session during rollback. Unsaved and unsupported snapshots fail with explicit guidance.
@@ -18,7 +18,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Report transaction completion after disposal and distinguish attempted rollback from proven completion. Creation previews describe copy disposal instead of claiming rollback.
 - Preserve existing Siemens worker registrations when adding another build or installation path; verify retention and idempotence with an owned registry test key.
 
-See [preview.8 notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) and the [qualification matrix](docs/PREVIEW8_ACCEPTANCE.md) for completed scoped acceptance and known limits. Repository and releases remain private and unpublished.
+See [preview.8 notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) and the [qualification matrix](docs/PREVIEW8_ACCEPTANCE.md) for completed scoped acceptance and known limits. Accepted installer/source/plugin bytes retain their original identities; current repository documentation supplements their earlier snapshot. Preview.7 and preview.6 remain unpublished historical drafts.
 
 ## [1.0.0-preview.7] - private release candidate
 
