@@ -65,6 +65,6 @@ dotnet test .\tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --filter "T
 
 ## Publication sequence
 
-The repository remains private, releases draft and the candidate PR unmerged until publication is explicitly authorized. Complete the documentation review and required PR checks first. After authorization, merge the reviewed changes so the default-branch README shows the accepted scope; retain the release target at the exact accepted binary source commit.
+Merge preparation and public publication can be authorized separately. Complete the documentation review and required PR checks, then merge when authorized so the default-branch README shows the accepted scope. Keep the repository private and releases draft until public visibility and publication are explicitly confirmed. Retain the release target at the exact accepted binary source commit.
 
 When repository visibility changes, enable GitHub private vulnerability reporting and verify that **Report a vulnerability** is available. Its public route cannot be treated as verified while the repository is private. Verify issue templates, README assets and documentation links from an unauthenticated browser. Publish only the intended unsigned preview draft, with its unsigned name/notice and checked assets; leave historical drafts unpublished. Verify the public download and its checksum after publication. Raw colleague evidence and proprietary project archives remain private.
