@@ -43,6 +43,24 @@ namespace OpenTiaToolkit.Core.Services
 
         public HmiSoftware? HmiSoftware { get; set; }
 
+        public string? ProjectUnavailableReason { get; private set; }
+
+        public void ThrowIfProjectUnavailable()
+        {
+            if (ProjectUnavailableReason != null)
+                throw new EngineeringSessionUnavailableException(ProjectUnavailableReason);
+        }
+
+        public Exception RecordReadFailure(Exception exception)
+        {
+            if (!EngineeringFailure.IsSessionLoss(exception)) return EngineeringFailure.Unwrap(exception);
+            ProjectUnavailableReason = "TIA project/session is unavailable; recovery is required. Reset the session and explicitly reconnect/reopen the intended project. " +
+                EngineeringFailure.Describe(exception);
+            ClearPlcSelection();
+            ClearHmiSelection();
+            return new EngineeringSessionUnavailableException(ProjectUnavailableReason, exception);
+        }
+
         public Device? CurrentHmiDevice { get; set; }
 
         public string? CurrentHmiName { get; set; }
@@ -57,6 +75,7 @@ namespace OpenTiaToolkit.Core.Services
 
         public void ClearProjectSelection()
         {
+            ProjectUnavailableReason = null;
             Project = null;
             Session = null;
             OwnsCurrentProject = false;

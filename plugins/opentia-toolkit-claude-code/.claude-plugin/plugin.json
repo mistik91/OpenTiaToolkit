@@ -1,6 +1,6 @@
 {
   "name": "opentia-toolkit",
-  "version": "1.0.0-preview.6",
+  "version": "1.0.0-preview.8",
   "description": "Claude Code workflows, MCP server configuration, TIA Portal session guidance, and HMI Unified editing skills for Siemens TIA Portal automation with OpenTiaToolkit.",
   "author": {
     "name": "OpenTiaToolkit Contributors",

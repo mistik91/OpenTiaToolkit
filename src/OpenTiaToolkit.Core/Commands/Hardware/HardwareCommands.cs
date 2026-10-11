@@ -102,7 +102,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         public static CommandResult Failure(string action, Exception ex, ILogger logger)
         {
             logger.LogError(ex, "Hardware command failed: {Action}", action);
-            return CommandResult.CreateFailure($"{action} failed: {ex.Message}", ex);
+            return CommandResult.CreateFailure($"{action} failed: {OpenTiaToolkit.Core.Services.EngineeringFailure.Describe(ex)}", ex);
         }
 
         public static CommandArtifactResult CreateJsonArtifact(
@@ -132,35 +132,6 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         public static void WriteCsvRow(StreamWriter writer, IEnumerable<string?> values)
         {
             writer.WriteLine(string.Join(",", values.Select(CommandArtifactSupport.EscapeCsv)));
-        }
-    }
-
-    public sealed class FindHardwareCatalogItemsCommand : IContextualCommand
-    {
-        private readonly IHardwareQueryCapability _service;
-        public FindHardwareCatalogItemsCommand(IHardwareQueryCapability service) => _service = service;
-        public string Name => "find-hardware-catalog-items";
-        public string Description => "Searches installed TIA Portal hardware catalog items by text";
-        public CommandSchema Schema => new CommandSchema(Description, new[]
-        {
-            new CommandParameter("search-text", CommandParameterType.String, "Catalog search text; blank enumerates the available catalog", required: false, defaultValue: ""),
-            new CommandParameter("culture", CommandParameterType.String, "Optional catalog language such as en-US", required: false)
-        });
-        public Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger)
-        {
-            return ExecuteAsync(args, logger, CommandExecutionContext.None);
-        }
-
-        public async Task<CommandResult> ExecuteAsync(CommandArgs args, ILogger logger, CommandExecutionContext context)
-        {
-            try
-            {
-                context.StartCommand(Name, "Searching TIA Portal hardware catalog.");
-                var values = await _service.FindCatalogItemsAsync(args.GetString("search-text"), args.Has("culture") ? args.GetString("culture") : null);
-                context.CompleteCommand(Name, $"Found {values.Count} hardware catalog item(s).");
-                return CommandResult.CreateSuccess(values, $"Found {values.Count} hardware catalog item(s).");
-            }
-            catch (Exception ex) { return HardwareCommandSupport.Failure("Finding hardware catalog items", ex, logger); }
         }
     }
 
@@ -902,7 +873,7 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
         {
             new CommandParameter("operations", CommandParameterType.Object, "Operations array or { operations: [...] } object", required: false),
             new CommandParameter("operations-path", CommandParameterType.Path, "JSON file containing operations; CLI-friendly alternative to operations", required: false),
-            new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate operations in a rolled-back transaction without applying", required: false, defaultValue: true),
+            new CommandParameter("dry-run", CommandParameterType.Boolean, "Validate without applying to the selected project; creation uses a disposable saved snapshot, other patches roll back", required: false, defaultValue: true),
             new CommandParameter("confirm-destructive", CommandParameterType.Boolean, "Permit delete and disconnect operations", required: false, defaultValue: false),
             new CommandParameter("transaction-description", CommandParameterType.String, "Undo unit description for TIA Portal", required: false),
             new CommandParameter("plc-name", CommandParameterType.String, "Optional PLC device name used with safety-password-env", required: false),
@@ -981,9 +952,9 @@ namespace OpenTiaToolkit.Core.Commands.Hardware
                     args.Has("transaction-description") ? args.GetString("transaction-description") : null);
                 if (result.SafetyBlocked)
                 {
-                    return CommandResult.CreateFailure(result.SafetyMessage ?? "Hardware patch was blocked.", result);
+                    return CommandResult.CreateFailure(result.SafetyMessage ?? "Hardware patch was blocked.", result, result.FailureException);
                 }
-                var action = dryRun ? "preflighted and rolled back" : "applied";
+                var action = dryRun ? (result.PreviewIsolated ? "preflighted in a discarded project copy" : "preflighted and rolled back") : "applied";
                 if (safetyLogin != null)
                 {
                     context.CompleteCommand(Name, $"Hardware patch {action}.");

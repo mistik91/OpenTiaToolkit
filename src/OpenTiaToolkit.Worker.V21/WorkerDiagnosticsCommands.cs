@@ -12,11 +12,18 @@ using Microsoft.Extensions.DependencyInjection;
 using OpenTiaToolkit.Contracts.Protocol;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
+using OpenTiaToolkit.Application.Execution;
 
 namespace OpenTiaToolkit.Worker.V21;
 
 internal abstract class WorkerDiagnosticCommand : ICommand
 {
+    protected static readonly string[] RequiredSiemensAssemblies =
+    {
+        "Siemens.Engineering.Base.dll", "Siemens.Engineering.Step7.dll",
+        "Siemens.Engineering.WinCCUnified.dll", "Siemens.Engineering.Startdrive.dll",
+        "Siemens.Engineering.Safety.dll", "Siemens.Engineering.SafetyValidation.dll"
+    };
     protected WorkerDiagnosticCommand(string name, string description)
     {
         Name = name;
@@ -35,12 +42,7 @@ internal abstract class WorkerDiagnosticCommand : ICommand
         string root = Environment.GetEnvironmentVariable("OPEN_TIA_PORTAL_ROOT") ??
             @"C:\Program Files\Siemens\Automation\Portal V21";
         string api = Path.Combine(root, "PublicAPI", "V21", "net48");
-        foreach (string name in new[]
-        {
-            "Siemens.Engineering.Base.dll", "Siemens.Engineering.Step7.dll",
-            "Siemens.Engineering.WinCCUnified.dll", "Siemens.Engineering.Startdrive.dll"
-            , "Siemens.Engineering.Safety.dll", "Siemens.Engineering.SafetyValidation.dll"
-        })
+        foreach (string name in RequiredSiemensAssemblies)
         {
             string path = Path.Combine(api, name);
             if (!File.Exists(path)) continue;
@@ -101,11 +103,16 @@ internal sealed class DoctorCommand : WorkerDiagnosticCommand
         IReadOnlyDictionary<string, string> hashes = SiemensHashes();
         object compatibility = CompatibilityStatus(hashes);
         var apiMigration = _api.Diff(ApiSelfDescriptionService.DefaultBaselinePath());
-        bool matched = (bool)compatibility.GetType().GetProperty("matched")!.GetValue(compatibility)!;
-        bool healthy = Environment.Is64BitProcess && hashes.Count == 6 && matched && apiMigration.Compatible;
+        var mismatches = compatibility.GetType().GetProperty("mismatches")?.GetValue(compatibility) as IReadOnlyCollection<string>
+            ?? Array.Empty<string>();
+        var assessment = WorkerDiagnosticAssessment.Evaluate(Environment.Is64BitProcess,
+            RequiredSiemensAssemblies.Where(name => !hashes.ContainsKey(name)).ToArray(),
+            compatibility.GetType().GetProperty("error") == null, mismatches, apiMigration.Compatible);
         object data = new
         {
-            healthy,
+            healthy = assessment.Healthy,
+            failures = assessment.Failures,
+            warnings = assessment.Warnings,
             process64Bit = Environment.Is64BitProcess,
             processId = Process.GetCurrentProcess().Id,
             workerPath = Assembly.GetExecutingAssembly().Location,
@@ -115,9 +122,11 @@ internal sealed class DoctorCommand : WorkerDiagnosticCommand
             auditJournal = Environment.GetEnvironmentVariable("OPEN_TIA_AUDIT_JOURNAL"),
             failureInjectionEnabled = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPEN_TIA_WORKER_FAILURE_INJECTION"))
         };
-        return Task.FromResult(healthy
-            ? CommandResult.CreateSuccess(data, "The isolated V21 worker passed diagnostics.")
-            : CommandResult.CreateFailure("The isolated V21 worker is missing required Siemens assemblies or is not 64-bit.", data));
+        return Task.FromResult(assessment.Healthy
+            ? CommandResult.CreateSuccess(data, assessment.Warnings.Count == 0
+                ? "The isolated V21 worker passed diagnostics."
+                : "The isolated V21 worker passed diagnostics with binary baseline warnings; validate affected workflows.")
+            : CommandResult.CreateFailure(string.Join(" ", assessment.Failures), data));
     }
 }
 

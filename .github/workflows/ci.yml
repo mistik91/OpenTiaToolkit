@@ -90,6 +90,10 @@ jobs:
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-AgentPlugin.ps1 -TestLauncher
 
+      - name: Openness registration retention
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-OpennessRegistration.ps1
+
       - name: Plugin skill sync check
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File .\scripts\Sync-PluginSkills.ps1 -CheckOnly

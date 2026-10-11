@@ -1,12 +1,14 @@
 #define MyAppName "OpenTiaToolkit"
 #define MyAppVersion GetEnv("OPEN_TIA_INSTALLER_VERSION")
 #if MyAppVersion == ""
-  #define MyAppVersion "1.0.0-preview.6"
+  #define MyAppVersion "1.0.0-preview.8"
 #endif
 #define MyAppPublisher "OpenTiaToolkit Contributors"
 #define MyAppURL "https://github.com/mistik91/OpenTiaToolkit"
 #define MyAppExeName "mcp\OpenTiaToolkit.MCP.exe"
-#define StageDir "..\artifacts\installer\stage"
+#ifndef StageDir
+  #define StageDir "..\artifacts\installer\stage"
+#endif
 
 [Setup]
 AppId={{C8F39502-DB8E-4C50-B882-5C6681E0C9E2}

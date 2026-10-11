@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "opentia-toolkit",
-  "version": "1.0.0-preview.6",
+  "version": "1.0.0-preview.8",
   "description": "Portable Agent Skills and MCP configuration for safe Siemens TIA Portal V21 automation with OpenTiaToolkit.",
   "author": {
     "name": "OpenTiaToolkit Contributors",

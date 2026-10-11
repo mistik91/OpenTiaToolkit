@@ -33,7 +33,7 @@ Dry-runs or applies transactional generic TIA hardware operations
 |---|---|---:|---|---|
 | `operations` | Object | no |  | Operations array or { operations: [...] } object |
 | `operations-path` | Path | no |  | JSON file containing operations; CLI-friendly alternative to operations |
-| `dry-run` | Boolean | no | True | Validate operations in a rolled-back transaction without applying |
+| `dry-run` | Boolean | no | True | Validate without applying to the selected project; creation uses a disposable saved snapshot, other patches roll back |
 | `confirm-destructive` | Boolean | no | False | Permit delete and disconnect operations |
 | `transaction-description` | String | no |  | Undo unit description for TIA Portal |
 | `plc-name` | String | no |  | Optional PLC device name used with safety-password-env |
@@ -73,7 +73,8 @@ Searches installed TIA Portal hardware catalog items by text
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `search-text` | String | no |  | Catalog search text; blank enumerates the available catalog |
-| `culture` | String | no |  | Optional catalog language such as en-US |
+| `type-identifier` | String | no |  | Optional TIA catalog type identifier filter; this is not a language culture |
+| `culture` | String | no |  | Unsupported legacy parameter; V21 catalog Find does not accept a language culture. Omit it or use type-identifier |
 
 ### find-hardware-module-types
 

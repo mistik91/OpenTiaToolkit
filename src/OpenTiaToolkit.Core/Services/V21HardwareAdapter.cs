@@ -46,8 +46,8 @@ namespace OpenTiaToolkit.Core.Services
             _networks = networks ?? throw new ArgumentNullException(nameof(networks));
         }
 
-        public IReadOnlyList<HardwareCatalogItemInfo> FindCatalogItems(TiaPortal portal, string searchText, string? culture) =>
-            _catalog.FindCatalogItems(portal, searchText, culture);
+        public IReadOnlyList<HardwareCatalogItemInfo> FindCatalogItems(TiaPortal portal, string searchText, string? typeIdentifier) =>
+            _catalog.FindCatalogItems(portal, searchText, typeIdentifier);
         public string[] FindModuleTypes(ProjectBase project, string partialTypeIdentifier) =>
             _catalog.FindModuleTypes(project, partialTypeIdentifier);
         public object? GetFeatureService(HardwareObject target, string serviceType) =>

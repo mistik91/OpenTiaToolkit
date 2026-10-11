@@ -7,6 +7,35 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Documentation
+- Record scoped preview.8 first-install/PLC, Unified screen editing/compile and Startdrive acceptance, distinguish exposed features from qualified workflows, and clarify setup, client, compiler, lifecycle and process-preservation limits. Accepted preview.8 release bytes remain unchanged.
+
+## [1.0.0-preview.8] - private candidate
+
+### Fixed
+- Isolate device-creation hardware previews on saved disposable project copies to avoid invalidating the selected Unified session during rollback. Unsaved and unsupported snapshots fail with explicit guidance.
+- Preserve nested Siemens failure causes and report session loss explicitly; failed inspection no longer masquerades as empty inventory.
+- Report transaction completion after disposal and distinguish attempted rollback from proven completion. Creation previews describe copy disposal instead of claiming rollback.
+- Preserve existing Siemens worker registrations when adding another build or installation path; verify retention and idempotence with an owned registry test key.
+
+See [preview.8 notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) and the [qualification matrix](docs/PREVIEW8_ACCEPTANCE.md) for completed scoped acceptance and known limits. Repository and releases remain private and unpublished.
+
+## [1.0.0-preview.7] - private release candidate
+
+Prepared 7 October 2026; publication remains on hold. See [candidate release notes](docs/RELEASE_NOTES_1.0.0-preview.7.md) for the independent-machine findings and remaining acceptance gates.
+
+### Fixed
+- Discover the installed sibling worker without inherited environment overrides.
+- Report compatible Siemens binary hash drift as a visible diagnostic warning while preserving failures for missing assemblies/profiles, wrong architecture, and breaking APIs.
+- Correct hardware catalog argument semantics and reject unsupported language cultures before calling Siemens.
+- Expose nested module-lookup errors and missing provider/method failures.
+- Launch legacy Codex/Claude Code servers without working-directory or plugin-root interpolation assumptions and suppress PowerShell profile interference.
+- Compile installers from the requested staging/output root so custom packaging paths cannot silently pick up stale default payloads.
+
+### Validation
+- Exercise real MCP discovery/execution through packaged launchers and worker resolution without environment overrides.
+- Retain the reported portable Codex startup failure as an outstanding reporting-machine retest; it was not reproduced locally on Codex 0.160.1.
+
 ## [1.0.0-preview.6] - release candidate
 
 Prepared 6 October 2026; publication is pending. See [candidate release notes](docs/RELEASE_NOTES_1.0.0-preview.6.md) for validation and remaining gates.

@@ -1,6 +1,6 @@
 {
   "name": "opentia-toolkit",
-  "version": "1.0.0-preview.6",
+  "version": "1.0.0-preview.8",
   "description": "Codex workflows, skills, and MCP configuration for Siemens TIA Portal automation with OpenTiaToolkit.",
   "author": {
     "name": "OpenTiaToolkit Contributors",
@@ -34,7 +34,6 @@
     "defaultPrompt": [
       "Connect to TIA Portal and check HMI status.",
       "Inspect a Unified HMI screen safely.",
-      "Patch a faceplate interface with dry-run.",
       "Preflight a PROFINET IO device configuration with dry-run."
     ],
     "brandColor": "#2563EB"

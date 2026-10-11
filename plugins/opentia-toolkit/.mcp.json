@@ -3,10 +3,11 @@
     "opentia": {
       "command": "powershell",
       "args": [
+        "-NoProfile",
         "-ExecutionPolicy",
         "Bypass",
-        "-File",
-        "scripts\\run-opentia-mcp.ps1"
+        "-Command",
+        "& { $exe = $env:OPEN_TIA_MCP_EXE; if ([string]::IsNullOrWhiteSpace($exe)) { $exe = [Environment]::GetEnvironmentVariable('OPEN_TIA_MCP_EXE', 'User') }; if ([string]::IsNullOrWhiteSpace($exe)) { $exe = [Environment]::GetEnvironmentVariable('OPEN_TIA_MCP_EXE', 'Machine') }; if ([string]::IsNullOrWhiteSpace($exe)) { $exe = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'OpenTiaToolkit/mcp/OpenTiaToolkit.MCP.exe' }; if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw 'OpenTiaToolkit.MCP.exe was not found. Install the product or set OPEN_TIA_MCP_EXE to its executable path.' }; & $exe; exit $LASTEXITCODE }"
       ],
       "env": {
         "OPEN_TIA_MCP_LOG_LEVEL": "Error"

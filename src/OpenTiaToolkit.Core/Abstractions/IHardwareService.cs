@@ -9,7 +9,7 @@ namespace OpenTiaToolkit.Core.Abstractions
     /// </summary>
     public interface IHardwareQueryCapability
     {
-        Task<IReadOnlyList<HardwareCatalogItemInfo>> FindCatalogItemsAsync(string searchText, string? culture = null);
+        Task<IReadOnlyList<HardwareCatalogItemInfo>> FindCatalogItemsAsync(string searchText, string? typeIdentifier = null);
         Task<IReadOnlyList<HardwareDeviceTreeInfo>> GetHardwareTreeAsync(string? deviceName = null);
         Task<IReadOnlyList<HardwareIoAddressInfo>> GetIoAddressesAsync(string? deviceName = null, string[]? attributes = null);
         Task<IReadOnlyList<HardwareDriveTelegramInfo>> GetDriveTelegramsAsync(string? deviceName = null, string[]? addressAttributes = null);

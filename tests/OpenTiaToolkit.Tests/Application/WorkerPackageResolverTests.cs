@@ -9,8 +9,36 @@ using OpenTiaToolkit.Contracts.Protocol;
 namespace OpenTiaToolkit.Tests.Application;
 
 [TestClass]
+[DoNotParallelize]
 public class WorkerPackageResolverTests
 {
+    [DataTestMethod]
+    [DataRow("cli")]
+    [DataRow("mcp")]
+    public void Resolve_InstalledHostFindsSiblingWorkerWithoutEnvironment(string hostFolder)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "OpenTiaToolkit", "custom install", Guid.NewGuid().ToString("N"));
+        string host = Path.Combine(root, hostFolder, "host.exe");
+        string worker = Path.Combine(root, "worker-v21", "OpenTiaToolkit.Worker.V21.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(host)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(worker)!);
+        File.WriteAllBytes(worker, new byte[] { 1 });
+        string? versioned = Environment.GetEnvironmentVariable("OPEN_TIA_WORKER_V21_EXE");
+        string? legacy = Environment.GetEnvironmentVariable("OPEN_TIA_WORKER_EXE");
+        try
+        {
+            Environment.SetEnvironmentVariable("OPEN_TIA_WORKER_V21_EXE", null);
+            Environment.SetEnvironmentVariable("OPEN_TIA_WORKER_EXE", null);
+            Assert.AreEqual(worker, WorkerPackageResolver.Resolve(host, "V21"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("OPEN_TIA_WORKER_V21_EXE", versioned);
+            Environment.SetEnvironmentVariable("OPEN_TIA_WORKER_EXE", legacy);
+            Directory.Delete(root, true);
+        }
+    }
+
     [TestMethod]
     public void Resolve_UsesVersionedManifestAndEnvironmentVariable()
     {

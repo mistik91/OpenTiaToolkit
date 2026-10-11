@@ -6,6 +6,8 @@ Use this checklist before publishing a public preview or stable release. Stable 
 
 - Confirm the support statement is still accurate: OpenTiaToolkit supports TIA Portal V21 only.
 - Keep the README status section aligned with the exact public release version and signing state.
+- For preview.8, use the [qualification matrix](PREVIEW8_ACCEPTANCE.md) and release `VALIDATION_PREVIEW8.md`; the planned scoped acceptance gates are complete. Review their explicit limits without claiming exhaustive feature qualification.
+- Preserve the accepted installer, worker, source archive and plugin bundle bytes. Documentation follow-up commits do not retarget the accepted binary source. A rebuilt/repacked candidate needs new checksums and applicable acceptance.
 - Do not imply forward compatibility; each future TIA major version requires its own worker and validation profile.
 - Clearly state that users should start mutation workflows on disposable project copies and keep backups.
 - For an unsigned preview, include `unsigned` in the release name and release notes and publish `UNSIGNED-NOTICE.txt`.
@@ -60,3 +62,9 @@ dotnet test .\tests\OpenTiaToolkit.Tests\OpenTiaToolkit.Tests.csproj --filter "T
 - Verify release download links, documentation links, and support/issue links from a clean browser session.
 - Add known limitations for any workflows that are validated only on specific TIA Portal or device configurations.
 - Download the published installer and repeat signature, checksum, `version`, `doctor`, CLI, and MCP smoke checks against the downloaded artifact.
+
+## Publication sequence
+
+Merge preparation and public publication can be authorized separately. Complete the documentation review and required PR checks, then merge when authorized so the default-branch README shows the accepted scope. Keep the repository private and releases draft until public visibility and publication are explicitly confirmed. Retain the release target at the exact accepted binary source commit.
+
+When repository visibility changes, enable GitHub private vulnerability reporting and verify that **Report a vulnerability** is available. Its public route cannot be treated as verified while the repository is private. Verify issue templates, README assets and documentation links from an unauthenticated browser. Publish only the intended unsigned preview draft, with its unsigned name/notice and checked assets; leave historical drafts unpublished. Verify the public download and its checksum after publication. Raw colleague evidence and proprietary project archives remain private.

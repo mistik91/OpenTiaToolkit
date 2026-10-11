@@ -5,17 +5,13 @@ This guide covers a normal OpenTiaToolkit setup on Windows with TIA Portal V21.
 ## Prerequisites
 
 - Windows
-- TIA Portal V21 with Openness enabled
+- TIA Portal V21 with Openness enabled and the legitimate Siemens engineering licenses/components for your workflow
 - .NET Framework 4.8 for the installed CLI, MCP host, and worker
 - Membership in the Siemens TIA Openness Windows group (sign out/in after changing it)
 - For source builds: the .NET SDK pinned by `global.json`, .NET Framework 4.8 targeting tools, and Git
 - Inno Setup 6, only when building the installer
 
-Install Inno Setup for the current Windows user with:
-
-```powershell
-winget install --id JRSoftware.InnoSetup --exact --scope user
-```
+Installed-product use needs no SDK or source build. A healthy `doctor` verifies access/API readiness, not engineering licenses; validate the intended licensed workflow on a disposable project. See [preview.8 qualification](PREVIEW8_ACCEPTANCE.md) for tested environments and limits.
 
 The default Siemens Openness reference path is:
 
@@ -29,24 +25,7 @@ Most users who installed TIA Portal in the default location do not need to chang
 
 For normal use, choose the intended preview version explicitly and download its Windows installer from the [GitHub releases page](https://github.com/mistik91/OpenTiaToolkit/releases).
 
-For local development or release packaging, build the installer from the repo root:
-
-```powershell
-.\scripts\Build-Installer.ps1
-```
-
-That command produces an unsigned installer when no signing certificate is configured. Unsigned builds are permitted only for an explicitly labeled preview and include `UNSIGNED-NOTICE.txt`. Stable release builds require a certificate in the Windows certificate store:
-
-```powershell
-$env:OPEN_TIA_SIGNING_CERT_THUMBPRINT = "<certificate-thumbprint>"
-.\scripts\Build-Installer.ps1 -RequireSigning
-```
-
-To validate the payload without compiling an installer, stage the product layout:
-
-```powershell
-.\scripts\Build-Installer.ps1 -StageOnly
-```
+Download the intended installer together with `INSTALLER-SHA256SUMS.txt` and `UNSIGNED-NOTICE.txt`; verify its hash using the [README quick start](../README.md#install-a-preview). Preview.8 remains a private draft until publication, so current downloads require authorized repository access. Run normal Setup with its exact-worker registration task selected; approve Windows elevation when requested.
 
 The installer places OpenTiaToolkit under:
 
@@ -58,51 +37,19 @@ It installs isolated `mcp\`, `cli\`, and `worker-v21\` payloads, plus plugins, s
 
 After installation, ask your agent to install or configure the local plugin from the installed folder. See [INSTALL_AGENT_PLUGINS.md](INSTALL_AGENT_PLUGINS.md).
 
-## Clone And Build
+Installer environment changes do not update an already-running shell or agent client; open a new terminal and restart the client when needed. Preview.7 and later also discover the installed sibling worker directly without these variables. Explicit overrides still take precedence: inspect process/user/machine `OPEN_TIA_*` values if startup selects an old development worker. Run `doctor` and confirm its reported worker path. Binary baseline warnings require review and affected-workflow testing; see [API compatibility](API_COMPATIBILITY.md).
+
+## First run
+
+Open a new terminal and check the installed identity before connecting:
 
 ```powershell
-git clone https://github.com/mistik91/OpenTiaToolkit.git
-cd OpenTiaToolkit
-dotnet build OpenTiaToolkit.sln
+& "C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe" version
+& "C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe" doctor
+& "C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe"
 ```
 
-For a non-standard TIA Portal installation, pass `TiaPortalPublicApiPath`:
-
-```powershell
-dotnet build OpenTiaToolkit.sln /p:TiaPortalPublicApiPath="D:\Siemens\Portal V21\PublicAPI\V21\net48"
-```
-
-## Register Siemens Openness Allow-List Entries
-
-Siemens Openness allow-list entries are tied to executable path and hash. Register the exact rebuilt V21 worker you plan to launch.
-
-Run PowerShell as Administrator:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe
-```
-
-Repeat this after rebuilding or signing the worker. Do not register the vendor-free CLI or MCP host.
-
-## Run The CLI
-
-Interactive mode:
-
-```powershell
-.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe
-```
-
-Single command mode:
-
-```powershell
-.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe help
-```
-
-Script mode:
-
-```powershell
-.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
-```
+Use one interactive/script session for a connected workflow. Inspect running instances and the exact project before mutations; see the [README example](../README.md#install-a-preview). Begin engineering on a disposable project copy with independent backups. `compile-software` is PLC-only in preview.8; HMI and hardware compiler checks use normal TIA UI.
 
 ## Configure MCP Clients
 
@@ -142,6 +89,79 @@ The OpenCode bundle lives in `plugins/opentia-toolkit-opencode`. Copy its conten
 
 Generic hardware configuration, including GSD/GSDML instantiation, PROFINET identity/wiring, process-image address assignment, Startdrive telegram edits, and guarded parameter-record changes, is available through both CLI and MCP. See [HARDWARE_AUTOMATION.md](HARDWARE_AUTOMATION.md) before building device-specific workflows.
 
+## Clone And Build (contributors)
+
+```powershell
+git clone https://github.com/mistik91/OpenTiaToolkit.git
+cd OpenTiaToolkit
+dotnet build OpenTiaToolkit.sln
+```
+
+For a non-standard TIA Portal installation, pass `TiaPortalPublicApiPath`:
+
+```powershell
+dotnet build OpenTiaToolkit.sln /p:TiaPortalPublicApiPath="D:\Siemens\Portal V21\PublicAPI\V21\net48"
+```
+
+## Register A Rebuilt Worker (contributors)
+
+Siemens Openness allow-list entries are tied to executable path and hash. Register the exact rebuilt V21 worker you plan to launch.
+
+Run PowerShell as Administrator:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe
+```
+
+Repeat this after rebuilding or signing the worker. Do not register the vendor-free CLI or MCP host.
+
+## Run The Development CLI (contributors)
+
+Interactive mode:
+
+```powershell
+.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe
+```
+
+Single command mode:
+
+```powershell
+.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe help
+```
+
+Script mode:
+
+```powershell
+.\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe --script .\inspect-project.commands.txt
+```
+
+## Build The Installer (contributors)
+
+Install Inno Setup for the current Windows user with:
+
+```powershell
+winget install --id JRSoftware.InnoSetup --exact --scope user
+```
+
+For local development or release packaging, build the installer from the repo root:
+
+```powershell
+.\scripts\Build-Installer.ps1
+```
+
+That command produces an unsigned installer when no signing certificate is configured. Unsigned builds are permitted only for an explicitly labeled preview and include `UNSIGNED-NOTICE.txt`. Stable release builds require a certificate in the Windows certificate store:
+
+```powershell
+$env:OPEN_TIA_SIGNING_CERT_THUMBPRINT = "<certificate-thumbprint>"
+.\scripts\Build-Installer.ps1 -RequireSigning
+```
+
+To validate the payload without compiling an installer, stage the product layout:
+
+```powershell
+.\scripts\Build-Installer.ps1 -StageOnly
+```
+
 ## Run Tests
 
 Fast tests do not require a live TIA Portal session:
@@ -173,3 +193,19 @@ If build cannot find Siemens assemblies, confirm the PublicAPI path exists or pa
 If TIA rejects access, refresh the Openness allow-list entry for the exact rebuilt `OpenTiaToolkit.Worker.V21.exe`.
 
 If an MCP client cannot start the server, run the MCP executable directly from PowerShell first and verify the path in the client config. After rebuilding or changing which Debug/Release executable is used, restart the MCP client so it launches the newly registered binary.
+
+## Archive and file-access policy
+
+MCP path parameters default to Documents, Desktop and `%TEMP%\OpenTiaToolkit`; existing input files are capped at 16 MiB. `OPEN_TIA_MCP_ALLOWED_ROOTS` accepts semicolon-separated roots and `OPEN_TIA_MCP_MAX_INPUT_FILE_BYTES` accepts a positive byte limit. Use an explicit, narrowly scoped client configuration if a reviewed workflow needs another root or limit; do not disable file protections or silently expand them.
+
+For a large test archive, the owner can retrieve it through normal TIA UI into a new disposable folder under a permitted root, close it, then open that copy through a newly owned toolkit session. Verify its exact path and ownership before edits. Keep the original/archive unchanged. Device-creation previews require a saved standalone snapshot without unsaved changes and never save or close the selected project automatically.
+
+## Upgrade, recovery and uninstall
+
+Use one enabled OpenTia integration per client. An upgrade can stop the installed MCP/worker while the client retains a closed transport; restart the client normally and verify an actual doctor call and selected worker path. Missing desktop wrappers can coexist with complete backend discovery and are not guaranteed to be repaired by another restart.
+
+If an operation loses its session, inspect its returned result, reset explicitly and reselect/reopen the intended instance/project before further writes. Obtain fresh state; do not blindly replay a timed-out mutation. Closing a project/portal through the API can leave a GUI root alive. Close remaining windows normally and avoid process-name-wide termination.
+
+Uninstall can retain exact-worker Siemens entries and client-managed configuration/cache. Complete immediate product-root removal was not observed in one first-use lifecycle test. Stop using the installed integration before uninstalling; review remaining product files and client entries individually without deleting shared Siemens registrations or development installations. See [the qualification record](PREVIEW8_ACCEPTANCE.md) for the exact observations.
+
+The accepted installer includes a pre-acceptance documentation snapshot. Current repository guidance and release `VALIDATION_PREVIEW8.md` supplement it; documentation follow-ups do not silently replace accepted installer or plugin bytes.

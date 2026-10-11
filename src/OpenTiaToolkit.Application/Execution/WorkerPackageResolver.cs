@@ -56,6 +56,9 @@ public static class WorkerPackageResolver
         string suffix = version.TrimStart('V', 'v').Replace(".", string.Empty);
         yield return Path.Combine(hostDirectory, "worker-v" + suffix, $"OpenTiaToolkit.Worker.V{suffix}.exe");
         yield return Path.Combine(hostDirectory, $"OpenTiaToolkit.Worker.V{suffix}.exe");
+        string? installRoot = Path.GetDirectoryName(hostDirectory);
+        if (installRoot != null)
+            yield return Path.Combine(installRoot, "worker-v" + suffix, $"OpenTiaToolkit.Worker.V{suffix}.exe");
         foreach (string start in new[] { hostDirectory, Environment.CurrentDirectory })
         {
             DirectoryInfo? current = new DirectoryInfo(start);

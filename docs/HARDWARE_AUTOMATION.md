@@ -40,6 +40,10 @@ The item exposing `NetworkInterface` is catalog-defined and must be discovered f
 
 ## Hardware Targets
 
+For Startdrive, read the exact nested device item, drive object, telegram type/number and address values before planning an edit. The read tools do not promise an enumeration of every supported replacement telegram. Confirm valid alternatives and their lengths for that target in the owner's Startdrive UI or target-specific Siemens documentation when they are not available through the exposed API. Capability flags and a successful preview are additional checks, not a universal list of permitted choices.
+
+Native telegram address `Length` values observed in preview.8 are bits; convert to byte spans with rounding up when reviewing collisions. Write `sizeInWords` values remain words. Re-read lengths after a number change rather than carrying the old layout forward. Inspect both ordinary hardware IO and native telegram ranges, and account for connected devices/interfaces omitted from the returned address inventory before claiming project-wide collision freedom. The [scoped preview.8 qualification](PREVIEW8_ACCEPTANCE.md) covers a G120C PN Main 352/350 number and address round trip; it does not qualify safety telegram edits, structural changes or commissioning.
+
 Hardware operations address a device and nested item names:
 
 ```json

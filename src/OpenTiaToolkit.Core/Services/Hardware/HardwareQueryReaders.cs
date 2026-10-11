@@ -27,8 +27,8 @@ namespace OpenTiaToolkit.Core.Services.Hardware
             _attributes = attributes;
         }
 
-        public IReadOnlyList<HardwareCatalogItemInfo> FindCatalogItems(string searchText, string? culture) =>
-            _catalog.FindCatalogItems(_context.RequirePortal(), searchText ?? string.Empty, culture);
+        public IReadOnlyList<HardwareCatalogItemInfo> FindCatalogItems(string searchText, string? typeIdentifier) =>
+            _catalog.FindCatalogItems(_context.RequirePortal(), searchText ?? string.Empty, typeIdentifier);
 
         public HardwareCapabilityInfo? GetCapabilities(HardwareObjectRef target, string[]? attributes)
         {

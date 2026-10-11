@@ -31,7 +31,7 @@ Device-specific catalog IDs and GSD parameter byte meanings belong in project in
    created earlier in the same patch, use its result reference and do not
    invent an expected value for state that could not exist before the patch.
 8. Use `targetRef` for items created earlier in the same patch. When a child item is generated during a plug, combine `targetRef` with a relative `target.itemPath` discovered from the prior dry-run result or from `get-hardware-tree`. If `plug-item` reports that TIA placed a GSD/GSDML subslot at a different actual path, prefer `allowDisplacedPlacement=true` with a `resultId`, then use that `resultId` for follow-up operations instead of adding a new device-specific command.
-9. Run `apply-hardware-patch` with `dry-run=true`.
+9. Run `apply-hardware-patch` with `dry-run=true`. If the batch creates devices, preview runs on a saved standalone snapshot in an independently owned TIA instance. Unsaved source changes or unsupported snapshot retrieval block preview; never save, close, or reopen the user project merely to bypass that block. Ask for an explicit save when needed. Successful creation preview reports `PreviewIsolated=true`, `PreviewDiscarded=true`, `Applied=false`, `RolledBack=false`; it commits only on the discarded copy. Other patches use rollback-only preview. Keep the same operations and expected-value guards for apply, and freshly recheck the selected source state.
 10. Put a user-provided safety password in a process environment variable and pass `plc-name` plus `safety-password-env`; never pass or persist the password itself. Dry-runs still execute Siemens mutations inside a rolled-back transaction and can require safety authorization.
 11. Apply with `dry-run=false` only after the dry-run validates and the user has confirmed destructive operations when needed.
 12. Verify by rereading the affected device tree, network, addresses, telegrams, attributes, audit result, or GSD parameter bytes.
@@ -216,3 +216,7 @@ If dry-run fails, fix the target path, type identifier, position, expected value
 If an apply fails or times out, do not replay immediately. Reread the affected hardware state first; TIA operations may have rolled back or may still be completing.
 
 If the MCP server reports another active operation, wait for it to finish before issuing another hardware command.
+
+## Failed hardware transactions
+
+`RollbackAttempted` is not evidence that rollback completed. Never describe a failed patch as reverted without fresh state verification. If `RecoveryRequired=true` or a read reports a disposed/unavailable project, stop writes, reset the session, and explicitly select the intended instance/project again. Do not interpret failed device/PLC/HMI inspection as a successful empty list, and do not save or reopen user projects automatically.

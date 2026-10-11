@@ -52,8 +52,8 @@ namespace OpenTiaToolkit.Core.Services
             _patch = new HardwarePatchWorkflow(engineering, attributes, drives, networks, resolver, _topology, logger);
         }
 
-        public Task<IReadOnlyList<HardwareCatalogItemInfo>> FindCatalogItemsAsync(string searchText, string? culture = null) =>
-            Task.Run(() => _catalog.FindCatalogItems(searchText, culture));
+        public Task<IReadOnlyList<HardwareCatalogItemInfo>> FindCatalogItemsAsync(string searchText, string? typeIdentifier = null) =>
+            Task.Run(() => _catalog.FindCatalogItems(searchText, typeIdentifier));
 
         public Task<IReadOnlyList<HardwareDeviceTreeInfo>> GetHardwareTreeAsync(string? deviceName = null) =>
             Task.Run(() => _topology.GetHardwareTree(deviceName));

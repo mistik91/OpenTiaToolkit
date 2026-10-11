@@ -16,7 +16,9 @@ The setup registration task registers the isolated V21 worker—not the vendor-f
 
 ## Portable Agent Plugins 1.0
 
-`plugins\opentia-toolkit-agent-plugin` is an Agent Plugins 1.0 package. Its root manifest, 18 workflow skills, and portable stdio MCP configuration can be loaded together by compatible clients including ChatGPT/Codex, Cursor, GitHub Copilot, Kiro, and VS Code.
+`plugins\opentia-toolkit-agent-plugin` is an Agent Plugins 1.0 package with a root manifest, 18 workflow skills and portable stdio MCP configuration. Use a client's supported local-plugin installation flow when it accepts this format. Separate bundles and MCP snippets are provided below for other clients.
+
+Independent installed preview.8 acceptance exercised the portable package in Codex, including actual desktop doctor execution and 189-tool backend discovery. Other client packages/configuration examples are available but were not independently qualified in this campaign. Some desktop chats expose only a subset of backend tools; missing wrappers are not proof that the server omitted them. Enable one OpenTia plugin/server configuration per client and verify the installed worker path with an actual `doctor` call. See [qualification and client limits](PREVIEW8_ACCEPTANCE.md).
 
 The plugin does not contain TIA Portal or replace OpenTiaToolkit installation. Install the Windows product and register its V21 worker first. The launcher then discovers the adjacent installed MCP payload even for a custom installation directory; `OPEN_TIA_MCP_EXE` remains an explicit override.
 
@@ -100,3 +102,13 @@ C:\Program Files\OpenTiaToolkit\mcp\OpenTiaToolkit.MCP.exe
 ```
 
 Keep `OPEN_TIA_MCP_LOG_LEVEL` at `Error` unless you are debugging startup or tool execution.
+
+## Acceptance and startup troubleshooting
+
+The legacy Codex and Claude Code configurations use the process/user/machine `OPEN_TIA_MCP_EXE` setting, then the default Program Files installation. This avoids relying on the client expanding plugin-root tokens or starting in the plugin directory. For a custom installation or source build, set that path explicitly through the client or the existing installer setting. The portable package retains its plugin-root launcher and adjacent-layout discovery.
+
+Verify actual tool discovery and execution after installing a plugin. A successful launcher `-ResolveOnly` check proves the path selection, but does not prove the client handshake. The repository's `scripts/Test-McpStdio.ps1` can exercise that handshake with `-ExecutablePath <installed-mcp-exe> -LauncherScriptPath <plugin-launcher> -DiscoverWorkerFromLayout`; this checks discovery without inherited worker overrides.
+
+If a bundled server fails but direct MCP works, retain the failure details and client version; do not call the plugin accepted based on the fallback. Compare the cached plugin launcher with the installed package and inspect worker overrides. Enable one OpenTia server at a time for the comparison to avoid duplicate tools. Restore the previous settings afterward unless the user chooses the working configuration.
+
+Back up client settings before editing. Prefer the client's supported MCP configuration command or a TOML-aware editor, and validate the resulting configuration before restarting. Do not append a duplicate MCP table after a command has already created it. For Codex, `codex mcp get <server-name> --json` checks that a direct entry parses; actual discovery remains a separate acceptance check.
