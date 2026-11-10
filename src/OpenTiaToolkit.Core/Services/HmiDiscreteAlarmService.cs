@@ -232,6 +232,18 @@ internal sealed class HmiDiscreteAlarmService
     private IReadOnlyList<HmiDiscreteAlarmPlanItem> BuildInitialPlans(HmiDiscreteAlarmDocument document, IReadOnlyDictionary<string, HmiDiscreteAlarmSnapshot> current, bool failOnWarning)
     {
         var plans = new List<HmiDiscreteAlarmPlanItem>();
+        // Current already contains the complete canonical ID inventory. Do
+        // not enumerate the Siemens composition again for every request.
+        var ids = current.Values.ToLookup(x => x.Id, x => x.Name);
+        var classes = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var cultures = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var tags = new Dictionary<string, bool>(StringComparer.Ordinal);
+        bool Cached(Dictionary<string, bool> cache, string name, Func<string, bool> read)
+        {
+            if (!cache.TryGetValue(name, out var exists)) cache[name] = exists = read(name);
+            return exists;
+        }
+        bool TagExists(string name) => Cached(tags, name, _access.TagExists);
         foreach (var request in document.Alarms)
         {
             current.TryGetValue(request.Name, out var before);
@@ -242,15 +254,15 @@ internal sealed class HmiDiscreteAlarmService
             if (before != null && !string.IsNullOrWhiteSpace(request.ExpectedHash) && !FixedEquals(before.ContentHash, request.ExpectedHash!)) errors.Add("expectedHash does not match the current canonical hash.");
             if (before != null && string.IsNullOrWhiteSpace(request.ExpectedHash)) warnings.Add("Updating an existing alarm without expectedHash is unsafe.");
             if (before != null && request.PresentProperties.Contains("id") && request.Id != before.Id) errors.Add("Changing the ID of an existing alarm is not supported.");
-            if (request.PresentProperties.Contains("id") && request.Id.HasValue && _access.IdExists(request.Id.Value, request.Name)) errors.Add($"Alarm ID {request.Id.Value} is already in use.");
-            if (request.PresentProperties.Contains("alarmClass") && (string.IsNullOrWhiteSpace(request.AlarmClass) || !_access.AlarmClassExists(request.AlarmClass!))) errors.Add($"Alarm class '{request.AlarmClass}' does not exist.");
-            ValidateTag(request, "raisedStateTag", request.RaisedStateTag, requiredWhenPresent: true, errors);
-            ValidateTag(request, "acknowledgmentStateTag", request.AcknowledgmentStateTag, requiredWhenPresent: false, errors);
-            ValidateTag(request, "acknowledgmentControlTag", request.AcknowledgmentControlTag, requiredWhenPresent: false, errors);
+            if (request.PresentProperties.Contains("id") && request.Id.HasValue && ids[request.Id.Value].Any(name => !string.Equals(name, request.Name, StringComparison.Ordinal))) errors.Add($"Alarm ID {request.Id.Value} is already in use.");
+            if (request.PresentProperties.Contains("alarmClass") && (string.IsNullOrWhiteSpace(request.AlarmClass) || !Cached(classes, request.AlarmClass!, _access.AlarmClassExists))) errors.Add($"Alarm class '{request.AlarmClass}' does not exist.");
+            ValidateTag(request, "raisedStateTag", request.RaisedStateTag, requiredWhenPresent: true, errors, TagExists);
+            ValidateTag(request, "acknowledgmentStateTag", request.AcknowledgmentStateTag, requiredWhenPresent: false, errors, TagExists);
+            ValidateTag(request, "acknowledgmentControlTag", request.AcknowledgmentControlTag, requiredWhenPresent: false, errors, TagExists);
             if (request.AlarmParameterTags != null)
-                foreach (var tag in request.AlarmParameterTags.Where(x => !_access.TagExists(x))) errors.Add($"Alarm parameter tag '{tag}' does not exist.");
+                foreach (var tag in request.AlarmParameterTags.Where(x => !TagExists(x))) errors.Add($"Alarm parameter tag '{tag}' does not exist.");
             if (request.Texts != null)
-                foreach (var culture in request.Texts.Keys.Where(x => !_access.CultureExists(x))) errors.Add($"Culture '{culture}' is not configured in the project.");
+                foreach (var culture in request.Texts.Keys.Where(x => !Cached(cultures, x, _access.CultureExists))) errors.Add($"Culture '{culture}' is not configured in the project.");
             if (before == null)
             {
                 if (!request.PresentProperties.Contains("id")) errors.Add("id is required when creating an alarm.");
@@ -264,11 +276,11 @@ internal sealed class HmiDiscreteAlarmService
         return plans;
     }
 
-    private void ValidateTag(HmiDiscreteAlarmChangeRequest request, string property, string? value, bool requiredWhenPresent, ICollection<string> errors)
+    private static void ValidateTag(HmiDiscreteAlarmChangeRequest request, string property, string? value, bool requiredWhenPresent, ICollection<string> errors, Func<string, bool> tagExists)
     {
         if (!request.PresentProperties.Contains(property)) return;
         if (string.IsNullOrWhiteSpace(value)) { if (requiredWhenPresent) errors.Add($"{property} cannot be empty."); return; }
-        if (!_access.TagExists(value!)) errors.Add($"Tag '{value}' referenced by {property} does not exist.");
+        if (!tagExists(value!)) errors.Add($"Tag '{value}' referenced by {property} does not exist.");
     }
 
     private static IReadOnlyList<string> ValidateDocument(HmiDiscreteAlarmDocument document)
