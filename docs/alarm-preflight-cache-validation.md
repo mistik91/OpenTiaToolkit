@@ -1,0 +1,11 @@
+# Batch-local alarm preflight lookup caching
+
+For large discrete-alarm documents, preflight repeated Siemens alarm-class and culture reads per row and re-enumerated IDs even after taking the complete canonical inventory. A batch of 1,936 rows sharing a class/culture can therefore pay for thousands of identical cross-process reads before creating a transaction.
+
+The preflight now indexes IDs from that inventory and caches exact class, culture, and tag existence results within the current batch only. Every distinct identity is still validated; missing references still block the whole batch. No transaction, hash, rollback, warning policy, or setter validation is bypassed. The cache is recreated for each call.
+
+Release non-integration tests: **767 passed**. The new synthetic 1,936-row test confirms one alarm-class lookup, two culture lookups, 1,938 distinct tag lookups (1,936 triggers plus two shared parameters), and zero extra ID enumerations. It also confirms rollback. A second regression changes class availability between batches and verifies a fresh rejection; existing-ID collisions remain blocked.
+
+This is a preflight read optimization, not a live timing claim. Live attachment/mutation gates for the rebuilt worker remain pending: the current session is not elevated, and the installed worker under Program Files requires an administrator-managed update/allow-list registration. The user's open engineering project was not modified for this validation. SDK 10.0.112 was used locally with the SDK roll-forward policy temporarily widened from the repository's pinned 9.0.102; that local environment adjustment is excluded from the commit.
+
+Release worker compilation also passes with zero warnings/errors. The CLI catalog exposes 186 commands; all 189 installed MCP tool names are accounted for after adding the three MCP-only operation/session controls. The generated-reference check reports two existing hardware-documentation discrepancies at this baseline (`apply-hardware-patch` dry-run description and `find-hardware-catalog-items` type-identifier parameter). No hardware command/schema or generated reference was changed by this patch; that check is recorded as failing, not passed. Full live worker gates and end-to-end bulk timing are pending before deployment.

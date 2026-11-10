@@ -14,6 +14,53 @@ namespace OpenTiaToolkit.Tests.Services;
 public sealed class HmiDiscreteAlarmServiceTests
 {
     [TestMethod]
+    public async Task LargeBatch_ReusesClassCultureParameterReadsAndSnapshotIds()
+    {
+        const int count = 1936;
+        var access = new FakeAccess();
+        using var input = TempDocument(JsonSerializer.Serialize(new {
+            schemaVersion = "1.0",
+            alarms = Enumerable.Range(0, count).Select(i => new {
+                name = $"Alarm_{i}", expectedState = "absent", id = 1000 + i,
+                alarmClass = "Error", raisedStateTag = $"Motor1_Status_{i}",
+                raisedStateTagBitNumber = 0, triggerMode = "OnRisingEdge",
+                alarmParameterTags = new[] { "Motor1_Speed", "Motor1_Current" },
+                texts = new Dictionary<string, object> {
+                    ["en-US"] = new { eventText = "Alarm" }, ["it-IT"] = new { eventText = "Allarme" }
+                }
+            })
+        }));
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+        Assert.IsTrue(result.Success, result.Message);
+        Assert.IsTrue(result.Transaction.RolledBack);
+        Assert.AreEqual(count, result.Alarms.Count);
+        Assert.AreEqual(1, access.ClassReads);
+        Assert.AreEqual(2, access.CultureReads);
+        Assert.AreEqual(count + 2, access.TagReads);
+        Assert.AreEqual(0, access.IdReads);
+    }
+
+    [TestMethod]
+    public async Task LookupCache_IsFreshForEveryBatchAndIdCollisionsStillBlock()
+    {
+        var access = new FakeAccess();
+        var service = new HmiDiscreteAlarmService(access);
+        using var first = TempDocument(CreateJson("A"));
+        Assert.IsTrue((await service.ApplyAsync(first.Path, true, true)).Success);
+        access.ClassAvailable = false;
+        using var second = TempDocument(CreateJson("B"));
+        var changed = await service.ApplyAsync(second.Path, true, true);
+        Assert.IsFalse(changed.Success);
+        Assert.IsFalse(changed.Transaction.Created);
+        StringAssert.Contains(string.Join(" ", changed.Alarms.SelectMany(x => x.Errors)), "class");
+        Assert.AreEqual(2, access.ClassReads);
+
+        var existing = Snapshot("Unrelated"); existing.Id = 1001;
+        var collision = await new HmiDiscreteAlarmService(new FakeAccess(existing)).ApplyAsync(first.Path, true, true);
+        Assert.IsFalse(collision.Success);
+        StringAssert.Contains(string.Join(" ", collision.Alarms.SelectMany(x => x.Errors)), "already in use");
+    }
+    [TestMethod]
     public void CanonicalHash_IsStableAndKeepsParameterOrderSignificant()
     {
         var first = Snapshot("Alarm_1");
@@ -267,6 +314,11 @@ public sealed class HmiDiscreteAlarmServiceTests
         private Dictionary<string, HmiDiscreteAlarmSnapshot> _alarms;
         public FakeAccess(params HmiDiscreteAlarmSnapshot[] alarms) => _alarms = alarms.ToDictionary(x => x.Name, Clone, StringComparer.Ordinal);
         public bool IsAvailable => true;
+        public int ClassReads { get; private set; }
+        public int CultureReads { get; private set; }
+        public int TagReads { get; private set; }
+        public int IdReads { get; private set; }
+        public bool ClassAvailable { get; set; } = true;
         public bool IsReadOnly { get; set; }
         public string? FailOnName { get; set; }
         public string? NextValidationError { get; set; }
@@ -275,10 +327,10 @@ public sealed class HmiDiscreteAlarmServiceTests
         public string? ReferenceLimitation { get; set; }
         public IReadOnlyList<HmiDiscreteAlarmSnapshot> List(bool includeValidation) => _alarms.Values.Select(Clone).ToArray();
         public HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation) => _alarms.TryGetValue(name, out var value) ? Clone(value) : null;
-        public bool AlarmClassExists(string name) => name == "Error";
-        public bool TagExists(string name) => name.StartsWith("Motor1_", StringComparison.Ordinal);
-        public bool CultureExists(string cultureName) => cultureName == "en-US" || cultureName == "it-IT";
-        public bool IdExists(uint id, string? exceptName = null) => _alarms.Values.Any(x => x.Id == id && x.Name != exceptName);
+        public bool AlarmClassExists(string name) { ClassReads++; return ClassAvailable && name == "Error"; }
+        public bool TagExists(string name) { TagReads++; return name.StartsWith("Motor1_", StringComparison.Ordinal); }
+        public bool CultureExists(string cultureName) { CultureReads++; return cultureName == "en-US" || cultureName == "it-IT"; }
+        public bool IdExists(uint id, string? exceptName = null) { IdReads++; return _alarms.Values.Any(x => x.Id == id && x.Name != exceptName); }
         public HmiDiscreteAlarmSnapshot CreateAndApply(HmiDiscreteAlarmChangeRequest request)
         {
             if (_alarms.ContainsKey(request.Name)) throw new InvalidOperationException("collision");
