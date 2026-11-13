@@ -6,7 +6,7 @@
 
 <p align="center">
   <img alt="TIA Portal V21 only" src="https://img.shields.io/badge/TIA_Portal-V21_only-0078D4">
-  <a href="https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.8"><img alt="Unsigned preview.8" src="https://img.shields.io/badge/unsigned_preview-1.0.0--preview.8-orange"></a>
+  <a href="https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.9"><img alt="Unsigned preview.9" src="https://img.shields.io/badge/unsigned_preview-1.0.0--preview.9-orange"></a>
   <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-0078D6">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-2ea44f"></a>
 </p>
@@ -17,10 +17,10 @@ OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC co
 - **Change PLC code:** plan source or block changes, inspect their impact, compile, and verify the resulting objects.
 - **Edit Unified HMI:** read a screen as JSON, preview a targeted patch, apply it, and check the saved state.
 
-<p align="center"><a href="#quick-start">Quick start</a> · <a href="https://github.com/mistik91/OpenTiaToolkit/releases">Downloads</a> · <a href="docs/RELEASE_NOTES_1.0.0-preview.8.md">Preview.8 notes</a> · <a href="docs/generated/COMMAND_REFERENCE.md">Command reference</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
+<p align="center"><a href="#quick-start">Quick start</a> · <a href="https://github.com/mistik91/OpenTiaToolkit/releases">Downloads</a> · <a href="docs/RELEASE_NOTES_1.0.0-preview.9.md">Preview.9 notes</a> · <a href="docs/generated/COMMAND_REFERENCE.md">Command reference</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
 
 > [!IMPORTANT]
-> **1.0.0-preview.8 is an unsigned preview.** Independent first-install/PLC, scoped Unified screen editing/compile, and scoped Startdrive acceptance have passed. See the [qualification matrix and known limitations](docs/PREVIEW8_ACCEPTANCE.md) before choosing a workflow. Verify SHA-256 checksums, run `doctor`, and start write workflows on disposable project copies with independent backups. TIA Portal V21 is the only supported major version.
+> **1.0.0-preview.9 is an unsigned preview.** This release fixes bulk trend conflicts, reduces redundant engineering reads, and corrects PLC type rollback verification. See the [release qualification and known limits](docs/RELEASE_NOTES_1.0.0-preview.9.md#validation-and-limits); previous independent preview.8 acceptance remains a [historical record](docs/PREVIEW8_ACCEPTANCE.md). Verify SHA-256 checksums, run `doctor`, and start write workflows on disposable project copies with independent backups. TIA Portal V21 is the only supported major version.
 
 ## Quick start
 
@@ -34,13 +34,13 @@ OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC co
 
 ### Install a preview
 
-Obtain `OpenTiaToolkit-1.0.0-preview.8-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [preview.8 release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.8). Check the version explicitly: previews may not appear as GitHub's latest stable release. [Building from source](#build-from-source) is a separate contributor workflow; it does not reproduce acceptance of the supplied installer.
+Obtain `OpenTiaToolkit-1.0.0-preview.9-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [preview.9 release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.9). Check the version explicitly: previews may not appear as GitHub's latest stable release. [Building from source](#build-from-source) is a separate contributor workflow; it does not reproduce acceptance of the supplied installer.
 
 Verify the installer before running it:
 
 ```powershell
 $expected = (Get-Content .\INSTALLER-SHA256SUMS.txt).Split()[0]
-$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.8-Setup.exe -Algorithm SHA256).Hash
+$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.9-Setup.exe -Algorithm SHA256).Hash
 if ($actual.ToLowerInvariant() -ne $expected.ToLowerInvariant()) { throw "Installer checksum mismatch" }
 ```
 
@@ -164,7 +164,7 @@ See [contribution guidance](CONTRIBUTING.md), [developer setup](docs/DEV_GUIDE.m
 | [Setup](docs/SETUP.md) | [PLC/CLI workflows](docs/CLI_USAGE.md) |
 | [Agent plugins](docs/INSTALL_AGENT_PLUGINS.md) | [Hardware automation](docs/HARDWARE_AUTOMATION.md) |
 | [MCP client configs](docs/mcp-client-configs/README.md) | [Blueprints](docs/BLUEPRINTS.md) |
-| [Preview.8 qualification](docs/PREVIEW8_ACCEPTANCE.md) and [release notes](docs/RELEASE_NOTES_1.0.0-preview.8.md) | [MCP protocol](docs/MCP_PROTOCOL.md) |
+| [Preview.9 release notes](docs/RELEASE_NOTES_1.0.0-preview.9.md) and [historical preview.8 qualification](docs/PREVIEW8_ACCEPTANCE.md) | [MCP protocol](docs/MCP_PROTOCOL.md) |
 | [Report a bug](https://github.com/mistik91/OpenTiaToolkit/issues/new/choose) | [Supply chain](docs/SUPPLY_CHAIN.md) |
 
 Report security issues through the private route in [SECURITY.md](SECURITY.md). Avoid sharing proprietary projects, credentials, or Siemens binaries in issue reports.

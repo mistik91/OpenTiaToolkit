@@ -11,7 +11,7 @@ This guide covers a normal OpenTiaToolkit setup on Windows with TIA Portal V21.
 - For source builds: the .NET SDK pinned by `global.json`, .NET Framework 4.8 targeting tools, and Git
 - Inno Setup 6, only when building the installer
 
-Installed-product use needs no SDK or source build. A healthy `doctor` verifies access/API readiness, not engineering licenses; validate the intended licensed workflow on a disposable project. See [preview.8 qualification](PREVIEW8_ACCEPTANCE.md) for tested environments and limits.
+Installed-product use needs no SDK or source build. A healthy `doctor` verifies access/API readiness, not engineering licenses; validate the intended licensed workflow on a disposable project. See [preview.9 notes](RELEASE_NOTES_1.0.0-preview.9.md#validation-and-limits) for current qualification and [historical preview.8 acceptance](PREVIEW8_ACCEPTANCE.md) for earlier independent environments.
 
 The default Siemens Openness reference path is:
 
@@ -25,7 +25,7 @@ Most users who installed TIA Portal in the default location do not need to chang
 
 For normal use, choose the intended preview version explicitly and download its Windows installer from the [GitHub releases page](https://github.com/mistik91/OpenTiaToolkit/releases).
 
-Download the intended installer together with `INSTALLER-SHA256SUMS.txt` and `UNSIGNED-NOTICE.txt` from the [preview.8 release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.8); verify its hash using the [README quick start](../README.md#install-a-preview). Run normal Setup with its exact-worker registration task selected; approve Windows elevation when requested.
+Download the intended installer together with `INSTALLER-SHA256SUMS.txt` and `UNSIGNED-NOTICE.txt` from the [preview.9 release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.9); verify its hash using the [README quick start](../README.md#install-a-preview). Run normal Setup with its exact-worker registration task selected; approve Windows elevation when requested.
 
 The installer places OpenTiaToolkit under:
 
@@ -49,7 +49,7 @@ Open a new terminal and check the installed identity before connecting:
 & "C:\Program Files\OpenTiaToolkit\cli\OpenTiaToolkit.CLI.exe"
 ```
 
-Use one interactive/script session for a connected workflow. Inspect running instances and the exact project before mutations; see the [README example](../README.md#install-a-preview). Begin engineering on a disposable project copy with independent backups. `compile-software` is PLC-only in preview.8; HMI and hardware compiler checks use normal TIA UI.
+Use one interactive/script session for a connected workflow. Inspect running instances and the exact project before mutations; see the [README example](../README.md#install-a-preview). Begin engineering on a disposable project copy with independent backups. `compile-software` is PLC-only; HMI and hardware compiler checks use normal TIA UI.
 
 ## Configure MCP Clients
 

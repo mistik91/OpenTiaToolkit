@@ -7,7 +7,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-preview.9] - 2026-11-13 (unsigned preview)
+
 ### Fixed
+- Reuse batch-local Unified discrete-alarm reference lookups and filter PLC block names before projecting metadata.
 - Block conflicting shared data-log sizing or retention settings before any bulk trend writes, in preview and apply.
 - Discover HMI screen paths before projecting filtered JSON exports and reuse PLC target discovery only within each independent impact analysis.
 - Verify restored PLC type hashes after rollback compilation, when TIA V21 can export the imported definitions.
