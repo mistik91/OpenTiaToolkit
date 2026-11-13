@@ -7,6 +7,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Fixed
+- Block conflicting shared data-log sizing or retention settings before any bulk trend writes, in preview and apply.
+- Discover HMI screen paths before projecting filtered JSON exports and reuse PLC target discovery only within each independent impact analysis.
+- Verify restored PLC type hashes after rollback compilation, when TIA V21 can export the imported definitions.
+
 ### Documentation
 - Record scoped preview.8 first-install/PLC, Unified screen editing/compile and Startdrive acceptance, distinguish exposed features from qualified workflows, and clarify setup, client, compiler, lifecycle and process-preservation limits. Accepted preview.8 release bytes remain unchanged.
 

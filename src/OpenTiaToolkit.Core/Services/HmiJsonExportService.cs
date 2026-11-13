@@ -55,16 +55,16 @@ namespace OpenTiaToolkit.Core.Services
                 };
 
                 var itemCount = 0;
-                foreach (var screenInfo in _adapter.ListScreens(software, groupPath: null, recursive: true))
+                foreach (var screenPath in _adapter.ListScreenPaths(software))
                 {
-                    if (!HmiJsonFilterMatcher.ShouldIncludeScreen(screenInfo.Path, effectiveFilters))
+                    if (!HmiJsonFilterMatcher.ShouldIncludeScreen(screenPath, effectiveFilters))
                     {
                         continue;
                     }
 
-                    if (!_adapter.TryGetScreen(software, screenInfo.Path, out var screen, out var normalizedPath) || screen == null)
+                    if (!_adapter.TryGetScreen(software, screenPath, out var screen, out var normalizedPath) || screen == null)
                     {
-                        document.Warnings.Add($"Screen '{screenInfo.Path}' could not be resolved during export.");
+                        document.Warnings.Add($"Screen '{screenPath}' could not be resolved during export.");
                         continue;
                     }
 

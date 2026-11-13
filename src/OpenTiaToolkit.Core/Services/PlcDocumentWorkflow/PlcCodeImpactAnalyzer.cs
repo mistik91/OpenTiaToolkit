@@ -28,6 +28,11 @@ internal sealed class PlcCodeImpactAnalyzer
         var targets = new List<PlcCodeImpactTarget>();
         var dependencies = new List<PlcCodeImpactDependency>();
         var warnings = new List<string>();
+        // Each invocation (plan, approval, apply) owns a fresh lazy target inventory.
+        // The lookup still queries the Siemens consumer service for every target.
+        Func<string, Task<PlcCrossReferenceResult>> lookup = _plcService is IPlcCrossReferenceBatchProvider provider
+            ? provider.CreateCrossReferenceLookup()
+            : _plcService.GetCrossReferencesAsync;
         var producedNames = new HashSet<string>(transaction.Operations.SelectMany(OperationTargets).Select(target => target.Name), StringComparer.OrdinalIgnoreCase);
 
         foreach (PlcCodeTransactionOperation operation in transaction.Operations.OrderBy(item => item.Sequence))
@@ -37,7 +42,7 @@ internal sealed class PlcCodeImpactAnalyzer
 
             IReadOnlyList<PlcCodeTransactionTargetSnapshot> snapshots = EffectiveSnapshots(operation);
             for (int index = 0; index < snapshots.Count; index++)
-                targets.Add(await AnalyzeImpactTargetAsync(transaction, operation, snapshots[index], index + 1).ConfigureAwait(false));
+                targets.Add(await AnalyzeImpactTargetAsync(transaction, operation, snapshots[index], index + 1, lookup).ConfigureAwait(false));
         }
 
         if (targets.Any(target => IsDataLayoutTarget(target.Target) && target.ChangeKind != "Create" && target.ChangeKind != "BodyOnly"))
@@ -81,7 +86,7 @@ internal sealed class PlcCodeImpactAnalyzer
         };
     }
 
-    private async Task<PlcCodeImpactTarget> AnalyzeImpactTargetAsync(PlcCodeTransaction transaction, PlcCodeTransactionOperation operation, PlcCodeTransactionTargetSnapshot snapshot, int targetIndex)
+    private async Task<PlcCodeImpactTarget> AnalyzeImpactTargetAsync(PlcCodeTransaction transaction, PlcCodeTransactionOperation operation, PlcCodeTransactionTargetSnapshot snapshot, int targetIndex, Func<string, Task<PlcCrossReferenceResult>> lookup)
     {
         var reasons = new List<string>();
         string? baselineSignature = null;
@@ -145,7 +150,7 @@ internal sealed class PlcCodeImpactAnalyzer
         {
             try
             {
-                PlcCrossReferenceResult? result = await _plcService.GetCrossReferencesAsync(snapshot.Target.Name).ConfigureAwait(false);
+                PlcCrossReferenceResult? result = await lookup(snapshot.Target.Name).ConfigureAwait(false);
                 if (result == null)
                 {
                     lookupMessage = "PLC cross-reference lookup returned no result.";

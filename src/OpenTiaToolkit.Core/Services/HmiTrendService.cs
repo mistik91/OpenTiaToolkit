@@ -188,7 +188,16 @@ namespace OpenTiaToolkit.Core.Services
             }
 
             var result = NewBulkResult("create-hmi-trends", dryRun, configs.Count);
-            var dataLogCache = new Dictionary<string, CachedDataLog>(StringComparer.OrdinalIgnoreCase);
+            var conflicts = HmiTrendBatchRules.ConflictingDataLogs(configs);
+            if (conflicts.Count > 0)
+            {
+                var message = $"The batch contains conflicting archive size or retention settings for: {string.Join(", ", conflicts)}. Use the same effective logMaxSize, durationDays, and segmentMaxSize for every row sharing an archive. Omitted sizing fields use their documented defaults. No trends were changed.";
+                foreach (var config in configs)
+                    AddBlocked(result, config.TagPath, config.DataLogName, message);
+                return Task.FromResult<HmiTrendBulkResult?>(result);
+            }
+
+            var dataLogCache = new Dictionary<string, HmiDataLog>(StringComparer.OrdinalIgnoreCase);
             foreach (var config in configs)
             {
                 if (string.IsNullOrWhiteSpace(config.TagPath) || string.IsNullOrWhiteSpace(config.DataLogName))
@@ -244,7 +253,7 @@ namespace OpenTiaToolkit.Core.Services
             HmiTag tag,
             string normalizedTagPath,
             HmiTrendCreateRequest config,
-            IDictionary<string, CachedDataLog>? dataLogCache)
+            IDictionary<string, HmiDataLog>? dataLogCache)
         {
             var dataLog = EnsureDataLog(config, dataLogCache, out var dataLogCreated);
 
@@ -271,13 +280,13 @@ namespace OpenTiaToolkit.Core.Services
 
         private HmiDataLog EnsureDataLog(
             HmiTrendCreateRequest config,
-            IDictionary<string, CachedDataLog>? dataLogCache,
+            IDictionary<string, HmiDataLog>? dataLogCache,
             out bool dataLogCreated)
         {
             if (dataLogCache != null && dataLogCache.TryGetValue(config.DataLogName, out var cached))
             {
                 dataLogCreated = false;
-                return cached.DataLog;
+                return cached;
             }
 
             HmiDataLog dataLog = _adapter.EnsureDataLog(_sessionContext.HmiSoftware!, config.DataLogName, out dataLogCreated);
@@ -289,20 +298,10 @@ namespace OpenTiaToolkit.Core.Services
 
             if (dataLogCache != null)
             {
-                dataLogCache[config.DataLogName] = new CachedDataLog(dataLog);
+                dataLogCache[config.DataLogName] = dataLog;
             }
 
             return dataLog;
-        }
-
-        private sealed class CachedDataLog
-        {
-            public CachedDataLog(HmiDataLog dataLog)
-            {
-                DataLog = dataLog;
-            }
-
-            public HmiDataLog DataLog { get; }
         }
 
         public async Task<HmiTrendBulkResult?> RemoveLoggingTagsAsync(

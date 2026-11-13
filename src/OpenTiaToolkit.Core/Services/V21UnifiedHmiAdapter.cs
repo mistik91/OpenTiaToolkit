@@ -40,6 +40,7 @@ namespace OpenTiaToolkit.Core.Services
             _access.TryResolveUnifiedHmi(project, hmiName, out matchedDevice, out matchedDeviceItem, out software);
         public IReadOnlyList<HmiScreenInfo> ListScreens(HmiSoftware software, string? groupPath, bool recursive) =>
             _access.ListScreens(software, groupPath, recursive);
+        public IReadOnlyList<string> ListScreenPaths(HmiSoftware software) => _access.ListScreenPaths(software);
         public bool TryGetScreen(HmiSoftware software, string screenPath, out HmiScreen? screen, out string normalizedPath) =>
             _access.TryGetScreen(software, screenPath, out screen, out normalizedPath);
         public HmiScreen? EnsureScreen(HmiSoftware software, string screenPath) => _access.EnsureScreen(software, screenPath);

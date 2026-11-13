@@ -667,10 +667,12 @@ OpenTiaToolkit.CLI.exe delete-hmi-data-log --hmi-name="HMI_1" --datalog-name="Mo
 
 #### create-hmi-trends
 
-Plans or applies several logging configurations in one operation. The default is `--dry-run=true`; use `--dry-run=false` after reviewing planned entries.
+Rows sharing a `dataLogName` (case-insensitive) must use the same effective `logMaxSize`, `durationDays`, and `segmentMaxSize`. Omitted fields use defaults of 2000, 365, and 500 respectively; values below 1 retain the existing clamp to 1. A conflict blocks the entire batch before any writes in both preview and apply. Acquisition mode and cycle remain independent per tag. To change a shared archive's sizing, repeat the chosen values on every row using that archive.
+
+Plans or applies several logging configurations in one operation. The default is `--dry-run=true`; use `--dry-run=false --confirm=true` after reviewing planned entries.
 
 ```bash
-OpenTiaToolkit.CLI.exe create-hmi-trends --hmi-name="HMI_1" --configs="[{\"tagPath\":\"Motor.PV\",\"dataLogName\":\"MotorLog\",\"cyclic\":true,\"cycle\":\"T5s\"},{\"tagPath\":\"Motor.SP\",\"dataLogName\":\"MotorLog\"}]" --dry-run=false
+OpenTiaToolkit.CLI.exe create-hmi-trends --hmi-name="HMI_1" --configs="[{\"tagPath\":\"Motor.PV\",\"dataLogName\":\"MotorLog\",\"cyclic\":true,\"cycle\":\"T5s\"},{\"tagPath\":\"Motor.SP\",\"dataLogName\":\"MotorLog\"}]" --dry-run=false --confirm=true
 ```
 
 Multiple `tagPath` entries can intentionally share the same `dataLogName`. Use that pattern to create one combined archive for related values, such as `Motor.PV`, `Motor.SP`, and `Motor.CURR`, instead of creating one archive per tag. Bulk creation resolves each requested tag path directly; it does not require `list-hmi-tags` discovery first.

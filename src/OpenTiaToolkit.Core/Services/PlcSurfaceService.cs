@@ -50,6 +50,8 @@ namespace OpenTiaToolkit.Core.Services
 
         public Task<PlcCrossReferenceResult> GetCrossReferencesAsync(string name) =>
             _crossReferences.GetAsync(name);
+        internal Func<string, Task<PlcCrossReferenceResult>> CreateCrossReferenceLookup() =>
+            _crossReferences.CreateLookup();
 
         public Task<IReadOnlyList<PlcSurfaceItem>> ListExternalSourcesAsync() =>
             _surfaces.ListExternalSourcesAsync();

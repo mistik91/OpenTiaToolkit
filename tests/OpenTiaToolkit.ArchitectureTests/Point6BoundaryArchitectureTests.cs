@@ -30,6 +30,8 @@ public class Point6BoundaryArchitectureTests
             "src/OpenTiaToolkit.Core/Services/PlcDocumentTransferService.cs",
             "src/OpenTiaToolkit.Core/Services/PlcTagExportService.cs",
             "src/OpenTiaToolkit.Core/Services/PlcCrossReferenceService.cs",
+            "src/OpenTiaToolkit.Core/Services/PlcCrossReferenceTargetInventory.cs",
+            "src/OpenTiaToolkit.Core/Services/UnifiedHmi/V21HmiScreenInventory.cs",
             "src/OpenTiaToolkit.Core/Services/PlcAncillarySurfaceReader.cs",
             "src/OpenTiaToolkit.Core/Services/PlcExternalSourceService.cs"
         };
@@ -65,7 +67,9 @@ public class Point6BoundaryArchitectureTests
     public void ResponsibilityOwners_StayExplicit()
     {
         ProductionSourceIndex index = ProductionSourceIndex.Create(RepositoryPaths.FindRoot());
-        AssertOwns(index, "PlcCrossReferenceService", "FindPotentialTargets", "FlattenEntry", "WithTargetDetail");
+        AssertOwns(index, "PlcCrossReferenceService", "CreateLookup", "FlattenEntry", "WithTargetDetail");
+        AssertOwns(index, "PlcCrossReferenceTargetInventory", "Read", "Find", "Enumerate");
+        AssertOwns(index, "V21HmiScreenInventory", "ListScreens", "ListScreenPaths", "ToScreenInfo");
         AssertOwns(index, "PlcExternalSourceService", "TryCreateExternalSource", "TryGenerateSourceFile");
         AssertOwns(index, "PlcDocumentTransferService", "EnsureSupported", "ParseImportOption");
         AssertOwns(index, "V21HardwareDriveAccess", "ConfigureDriveTelegram", "GetDriveParameters");
