@@ -49,7 +49,10 @@ namespace OpenTiaToolkit.Core.Services
             });
         }
 
-        public async Task<IReadOnlyList<BlockInfo>> GetBlocksAsync(string? filterRegex = null)
+        public Task<IReadOnlyList<BlockInfo>> GetBlocksAsync(string? filterRegex = null) =>
+            ReadBlocksAsync(filterRegex, nameContains: null);
+
+        private async Task<IReadOnlyList<BlockInfo>> ReadBlocksAsync(string? filterRegex, string? nameContains)
         {
             return await Task.Run(() =>
             {
@@ -73,11 +76,20 @@ namespace OpenTiaToolkit.Core.Services
                         return (IReadOnlyList<BlockInfo>)blocks;
                     }
 
+                    Regex? nameFilter = null;
+                    if (!string.IsNullOrEmpty(filterRegex))
+                    {
+                        try { nameFilter = new Regex(filterRegex, RegexOptions.IgnoreCase); }
+                        catch (Exception ex) { _logger?.LogWarning(ex, "Invalid regex filter: {FilterRegex}", filterRegex); }
+                    }
+
                     foreach (var block in blocksCollection)
                     {
                         try
                         {
                             var name = TiaReflectionHelper.GetName(block) ?? "Unknown";
+                            if (nameFilter != null && !nameFilter.IsMatch(name)) continue;
+                            if (nameContains != null && name.IndexOf(nameContains, StringComparison.OrdinalIgnoreCase) < 0) continue;
                             var type = TiaReflectionHelper.GetProperty(block, "Type")?.ToString();
                             var number = TiaReflectionHelper.GetProperty(block, "Number")?.ToString();
                             var language = TiaReflectionHelper.GetProperty(block, "ProgrammingLanguage")?.ToString();
@@ -97,19 +109,6 @@ namespace OpenTiaToolkit.Core.Services
                         catch (Exception ex)
                         {
                             _logger?.LogDebug(ex, "Failed to get info for block");
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(filterRegex))
-                    {
-                        try
-                        {
-                            var regex = new Regex(filterRegex, RegexOptions.IgnoreCase);
-                            blocks = blocks.Where(block => regex.IsMatch(block.Name)).ToList();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger?.LogWarning(ex, "Invalid regex filter: {FilterRegex}", filterRegex);
                         }
                     }
 
@@ -214,12 +213,11 @@ namespace OpenTiaToolkit.Core.Services
 
             try
             {
-                var allBlocks = await GetBlocksAsync(null);
-                var results = new List<BlockInfo>();
-
                 bool searchInName = searchIn.Equals("name", StringComparison.OrdinalIgnoreCase);
                 bool searchInComment = searchIn.Equals("comment", StringComparison.OrdinalIgnoreCase);
                 bool searchInBoth = !searchInName && !searchInComment;
+                var allBlocks = await ReadBlocksAsync(filterRegex: null, nameContains: searchInName ? pattern : null);
+                var results = new List<BlockInfo>();
 
                 foreach (var block in allBlocks)
                 {

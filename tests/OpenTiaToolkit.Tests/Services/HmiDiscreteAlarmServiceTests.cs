@@ -14,6 +14,222 @@ namespace OpenTiaToolkit.Tests.Services;
 public sealed class HmiDiscreteAlarmServiceTests
 {
     [TestMethod]
+    public async Task LargeBatch_ReusesClassCultureParameterReadsAndSnapshotIds()
+    {
+        const int count = 1936;
+        var access = new FakeAccess();
+        using var input = TempDocument(JsonSerializer.Serialize(new
+        {
+            schemaVersion = "1.0",
+            alarms = Enumerable.Range(0, count).Select(i => new
+            {
+                name = $"Alarm_{i}",
+                expectedState = "absent",
+                id = 1000 + i,
+                alarmClass = "Error",
+                raisedStateTag = $"Motor1_Status_{i}",
+                raisedStateTagBitNumber = 0,
+                triggerMode = "OnRisingEdge",
+                alarmParameterTags = new[] { "Motor1_Speed", "Motor1_Current" },
+                texts = new Dictionary<string, object>
+                {
+                    ["en-US"] = new { eventText = "Alarm" },
+                    ["it-IT"] = new { eventText = "Allarme" }
+                }
+            })
+        }));
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+        Assert.IsTrue(result.Success, result.Message);
+        Assert.IsTrue(result.Transaction.RolledBack);
+        Assert.AreEqual(count, result.Alarms.Count);
+        Assert.AreEqual(1, access.ClassReads);
+        Assert.AreEqual(2, access.CultureReads);
+        Assert.AreEqual(count + 2, access.TagReads);
+        Assert.AreEqual(0, access.IdReads);
+        Assert.AreEqual(0, access.List(false).Count);
+    }
+
+    [DataTestMethod]
+    [DataRow("alarmClass")]
+    [DataRow("tag")]
+    [DataRow("culture")]
+    public async Task LookupCache_RefreshesHitsAndMissesForEveryBatch(string reference)
+    {
+        var access = new FakeAccess();
+        var service = new HmiDiscreteAlarmService(access);
+        using var input = Batch(CreateRequest("A", 1001), CreateRequest("B", 1002));
+        foreach (var available in new[] { false, true, false })
+        {
+            access.SetReferenceAvailability(reference, available);
+            var result = await service.ApplyAsync(input.Path, true, true);
+            Assert.AreEqual(available, result.Success, result.Message);
+            Assert.AreEqual(available, result.Transaction.Created);
+            if (available) Assert.IsTrue(result.Transaction.RolledBack);
+            else
+            {
+                Assert.AreEqual("preflight-blocked", result.ErrorCode);
+                Assert.IsTrue(result.Alarms.All(x => x.Errors.Count == 1));
+            }
+            Assert.AreEqual(0, access.List(false).Count);
+        }
+        Assert.AreEqual(3, access.ClassReads);
+        Assert.AreEqual(3, access.TagReads);
+        Assert.AreEqual(3, access.CultureReads);
+    }
+
+    [TestMethod]
+    public async Task SnapshotIdIndex_RejectsAnUnrelatedExistingAlarm()
+    {
+        var existing = Snapshot("Unrelated"); existing.Id = 1001;
+        var access = new FakeAccess(existing);
+        using var input = TempDocument(CreateJson("A"));
+        var collision = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+        Assert.IsFalse(collision.Success);
+        Assert.IsFalse(collision.Transaction.Created);
+        StringAssert.Contains(string.Join(" ", collision.Alarms.SelectMany(x => x.Errors)), "already in use");
+        Assert.AreEqual(0, access.IdReads);
+        Assert.AreEqual(HmiDiscreteAlarmService.Hash(existing), HmiDiscreteAlarmService.Hash(access.FindExact(existing.Name, false)!));
+    }
+
+    [DataTestMethod]
+    [DataRow("alarmClass", "error")]
+    [DataRow("raisedStateTag", "motor1_Status")]
+    [DataRow("texts", "en-us")]
+    public async Task LookupCache_DoesNotMergeCaseDifferentNames(string property, string alternate)
+    {
+        // The cache must preserve the access boundary's answer for each exact key.
+        var second = CreateRequest("B", 1002);
+        second[property] = property == "texts"
+            ? new Dictionary<string, object> { [alternate] = new { eventText = "Alarm" } }
+            : alternate;
+        var access = new FakeAccess();
+        using var input = Batch(CreateRequest("A", 1001), second);
+
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+
+        Assert.AreEqual("preflight-blocked", result.ErrorCode);
+        Assert.IsFalse(result.Transaction.Created);
+        Assert.AreEqual(0, result.Alarms[0].Errors.Count);
+        StringAssert.Contains(result.Alarms[1].Errors.Single(), alternate);
+        Assert.AreEqual(property == "alarmClass" ? 2 : 1, access.ClassReads);
+        Assert.AreEqual(property == "raisedStateTag" ? 2 : 1, access.TagReads);
+        Assert.AreEqual(property == "texts" ? 2 : 1, access.CultureReads);
+    }
+
+    [DataTestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task LookupCache_SharesTagReadsAcrossAllRolesAndPreservesErrors(bool available)
+    {
+        var requests = new[] { CreateRequest("A", 1001), CreateRequest("B", 1002) };
+        foreach (var request in requests)
+        {
+            request["acknowledgmentStateTag"] = "Motor1_Status";
+            request["acknowledgmentControlTag"] = "Motor1_Status";
+            request["alarmParameterTags"] = new[] { "Motor1_Status" };
+        }
+        var access = new FakeAccess { TagAvailable = available };
+        using var input = Batch(requests);
+
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+
+        Assert.AreEqual(available, result.Success, result.Message);
+        Assert.AreEqual(1, access.TagReads);
+        Assert.AreEqual(available, result.Transaction.Created);
+        if (available) Assert.IsTrue(result.Transaction.RolledBack);
+        else
+        {
+            foreach (var plan in result.Alarms)
+            {
+                Assert.AreEqual(4, plan.Errors.Count);
+                foreach (var role in new[] { "raisedStateTag", "acknowledgmentStateTag", "acknowledgmentControlTag", "parameter" })
+                    Assert.IsTrue(plan.Errors.Any(error => error.Contains(role)), role);
+            }
+        }
+        Assert.AreEqual(0, access.List(false).Count);
+    }
+
+    [DataTestMethod]
+    [DataRow(0u)]
+    [DataRow(uint.MaxValue)]
+    public async Task SnapshotIdIndex_ExcludesOnlyTheExactExistingName(uint id)
+    {
+        var existing = Snapshot("Existing"); existing.Id = id;
+        var access = new FakeAccess(existing);
+        var service = new HmiDiscreteAlarmService(access);
+        using var self = Batch(new Dictionary<string, object?>
+        {
+            ["name"] = existing.Name,
+            ["expectedState"] = "present",
+            ["expectedHash"] = HmiDiscreteAlarmService.Hash(existing),
+            ["id"] = id
+        });
+        var sameName = await service.ApplyAsync(self.Path, true, true);
+        Assert.IsTrue(sameName.Success, sameName.Message);
+        Assert.IsTrue(sameName.Transaction.RolledBack);
+
+        using var other = Batch(CreateRequest("existing", id));
+        var otherName = await service.ApplyAsync(other.Path, true, true);
+        Assert.AreEqual("preflight-blocked", otherName.ErrorCode);
+        Assert.IsFalse(otherName.Transaction.Created);
+        StringAssert.Contains(otherName.Alarms.Single().Errors.Single(), "already in use");
+        Assert.AreEqual(0, access.IdReads);
+    }
+
+    [DataTestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task CachedPreflight_LaterSetterFailureRestoresAnUpdatedAlarmAndUnrelatedInventory(bool dryRun)
+    {
+        var existing = Snapshot("Existing");
+        var unrelated = Snapshot("Unrelated");
+        var access = new FakeAccess(existing, unrelated) { FailOnName = "New" };
+        var service = new HmiDiscreteAlarmService(access);
+        var before = (await service.ListAsync()).Select(x => x.ContentHash).ToArray();
+        using var input = Batch(new Dictionary<string, object?>
+        {
+            ["name"] = existing.Name,
+            ["expectedState"] = "present",
+            ["expectedHash"] = HmiDiscreteAlarmService.Hash(existing),
+            ["origin"] = "Changed",
+            ["alarmClass"] = "Error",
+            ["raisedStateTag"] = "Motor1_Status"
+        }, CreateRequest("New", 1001));
+
+        var result = await service.ApplyAsync(input.Path, dryRun, true);
+
+        Assert.AreEqual("setter-failed", result.ErrorCode);
+        Assert.IsTrue(result.Transaction.Created);
+        Assert.IsTrue(result.Transaction.RolledBack);
+        Assert.IsFalse(result.Transaction.Committed);
+        Assert.AreEqual("Changed", result.Alarms[0].ProposedAfter!.Origin);
+        CollectionAssert.AreEquivalent(before, (await service.ListAsync()).Select(x => x.ContentHash).ToArray());
+        Assert.AreEqual(1, access.ClassReads);
+        Assert.AreEqual(1, access.TagReads);
+    }
+
+    [TestMethod]
+    public async Task SnapshotIdIndex_RefreshesAfterCommitAndDeletion()
+    {
+        var access = new FakeAccess();
+        var service = new HmiDiscreteAlarmService(access);
+        using var first = Batch(CreateRequest("A", 1001));
+        Assert.IsTrue((await service.ApplyAsync(first.Path, false, true)).Success);
+
+        using var next = Batch(CreateRequest("B", 1001));
+        var collision = await service.ApplyAsync(next.Path, true, true);
+        Assert.AreEqual("preflight-blocked", collision.ErrorCode);
+        Assert.IsFalse(collision.Transaction.Created);
+
+        var created = await service.GetAsync("A");
+        Assert.IsTrue((await service.DeleteAsync("A", created!.ContentHash, false, true, false)).Deleted);
+        var reused = await service.ApplyAsync(next.Path, true, true);
+        Assert.IsTrue(reused.Success, reused.Message);
+        Assert.IsTrue(reused.Transaction.RolledBack);
+        Assert.AreEqual(0, access.List(false).Count);
+    }
+
+    [TestMethod]
     public void CanonicalHash_IsStableAndKeepsParameterOrderSignificant()
     {
         var first = Snapshot("Alarm_1");
@@ -231,6 +447,21 @@ public sealed class HmiDiscreteAlarmServiceTests
         Assert.IsNotNull(access.FindExact("Alarm_Extended", false));
     }
 
+    private static Dictionary<string, object?> CreateRequest(string name, uint id) => new()
+    {
+        ["name"] = name,
+        ["expectedState"] = "absent",
+        ["id"] = id,
+        ["alarmClass"] = "Error",
+        ["raisedStateTag"] = "Motor1_Status",
+        ["raisedStateTagBitNumber"] = 0,
+        ["triggerMode"] = "OnRisingEdge",
+        ["texts"] = new Dictionary<string, object> { ["en-US"] = new { eventText = "Alarm" } }
+    };
+
+    private static TempFile Batch(params Dictionary<string, object?>[] alarms) =>
+        TempDocument(JsonSerializer.Serialize(new { schemaVersion = "1.0", alarms }));
+
     private static string CreateJson(string name) => """
     {"schemaVersion":"1.0","alarms":[{"name":"__NAME__","expectedState":"absent","id":1001,"alarmClass":"Error","priority":10,"origin":"Motor","area":"Area","raisedStateTag":"Motor1_Status","raisedStateTagBitNumber":3,"triggerMode":"OnRisingEdge","alarmParameterTags":["Motor1_Speed","Motor1_Current"],"texts":{"en-US":{"eventText":"Motor overload","infoText":"Check motor"},"it-IT":{"eventText":"Sovraccarico"}}}]}
     """.Replace("__NAME__", name);
@@ -267,6 +498,13 @@ public sealed class HmiDiscreteAlarmServiceTests
         private Dictionary<string, HmiDiscreteAlarmSnapshot> _alarms;
         public FakeAccess(params HmiDiscreteAlarmSnapshot[] alarms) => _alarms = alarms.ToDictionary(x => x.Name, Clone, StringComparer.Ordinal);
         public bool IsAvailable => true;
+        public int ClassReads { get; private set; }
+        public int CultureReads { get; private set; }
+        public int TagReads { get; private set; }
+        public int IdReads { get; private set; }
+        public bool ClassAvailable { get; set; } = true;
+        public bool TagAvailable { get; set; } = true;
+        public bool CultureAvailable { get; set; } = true;
         public bool IsReadOnly { get; set; }
         public string? FailOnName { get; set; }
         public string? NextValidationError { get; set; }
@@ -275,10 +513,20 @@ public sealed class HmiDiscreteAlarmServiceTests
         public string? ReferenceLimitation { get; set; }
         public IReadOnlyList<HmiDiscreteAlarmSnapshot> List(bool includeValidation) => _alarms.Values.Select(Clone).ToArray();
         public HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation) => _alarms.TryGetValue(name, out var value) ? Clone(value) : null;
-        public bool AlarmClassExists(string name) => name == "Error";
-        public bool TagExists(string name) => name.StartsWith("Motor1_", StringComparison.Ordinal);
-        public bool CultureExists(string cultureName) => cultureName == "en-US" || cultureName == "it-IT";
-        public bool IdExists(uint id, string? exceptName = null) => _alarms.Values.Any(x => x.Id == id && x.Name != exceptName);
+        public bool AlarmClassExists(string name) { ClassReads++; return ClassAvailable && name == "Error"; }
+        public bool TagExists(string name) { TagReads++; return TagAvailable && name.StartsWith("Motor1_", StringComparison.Ordinal); }
+        public bool CultureExists(string cultureName) { CultureReads++; return CultureAvailable && (cultureName == "en-US" || cultureName == "it-IT"); }
+        public bool IdExists(uint id, string? exceptName = null) { IdReads++; return _alarms.Values.Any(x => x.Id == id && x.Name != exceptName); }
+        public void SetReferenceAvailability(string reference, bool available)
+        {
+            switch (reference)
+            {
+                case "alarmClass": ClassAvailable = available; break;
+                case "tag": TagAvailable = available; break;
+                case "culture": CultureAvailable = available; break;
+                default: throw new ArgumentException("Unknown reference kind", nameof(reference));
+            }
+        }
         public HmiDiscreteAlarmSnapshot CreateAndApply(HmiDiscreteAlarmChangeRequest request)
         {
             if (_alarms.ContainsKey(request.Name)) throw new InvalidOperationException("collision");
