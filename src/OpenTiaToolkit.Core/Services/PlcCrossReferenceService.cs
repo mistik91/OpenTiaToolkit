@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using CrossReferenceTarget = OpenTiaToolkit.Core.Services.PlcCrossReferenceTargetInventory.Target;
 
 namespace OpenTiaToolkit.Core.Services
 {
@@ -35,14 +36,29 @@ namespace OpenTiaToolkit.Core.Services
         public Task<PlcCrossReferenceResult> GetAsync(string name) =>
             Task.Run(() => Get(name));
 
-        private PlcCrossReferenceResult Get(string name)
+        internal Func<string, Task<PlcCrossReferenceResult>> CreateLookup()
+        {
+            var software = _sessionContext.PlcSoftware;
+            var project = _sessionContext.Project;
+            var inventory = new Lazy<IReadOnlyList<CrossReferenceTarget>>(() =>
+                software == null ? Array.Empty<CrossReferenceTarget>() : PlcCrossReferenceTargetInventory.Read(software, _tags, _objects));
+            return name => Task.Run(() =>
+            {
+                if (!ReferenceEquals(software, _sessionContext.PlcSoftware) || !ReferenceEquals(project, _sessionContext.Project))
+                    return new PlcCrossReferenceResult(false, name, "PLC selection changed during cross-reference analysis; start a fresh analysis.");
+                return Get(name, inventory);
+            });
+        }
+
+        private PlcCrossReferenceResult Get(string name, Lazy<IReadOnlyList<CrossReferenceTarget>>? inventory = null)
         {
             if (string.IsNullOrWhiteSpace(name))
                 return new PlcCrossReferenceResult(false, string.Empty, "name is required");
             if (_sessionContext.PlcSoftware == null)
                 return new PlcCrossReferenceResult(false, name, "No PLC software is currently open");
 
-            var targets = FindTargets(name).ToList();
+            var all = inventory?.Value ?? PlcCrossReferenceTargetInventory.Read(_sessionContext.PlcSoftware, _tags, _objects);
+            var targets = PlcCrossReferenceTargetInventory.Find(name, all).ToList();
             if (targets.Count == 0)
                 return new PlcCrossReferenceResult(false, name, $"No PLC object named '{name}' was found.");
 
@@ -81,63 +97,10 @@ namespace OpenTiaToolkit.Core.Services
             return new PlcCrossReferenceResult(true, name, $"Found {entries.Count} cross-reference(s).", entries);
         }
 
-        private IEnumerable<CrossReferenceTarget> FindTargets(string name)
-        {
-            var plcSoftware = _sessionContext.PlcSoftware;
-            if (plcSoftware == null) yield break;
-            var all = FindPotentialTargets(plcSoftware).ToList();
-            var exact = all.Where(target => string.Equals(target.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
-            foreach (var target in exact.Count > 0
-                ? exact
-                : all.Where(target => target.Name.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0))
-            {
-                yield return target;
-            }
-        }
-
         private object? GetService(object engineeringObject) =>
             _types.GetService(engineeringObject, typeof(CrossReferenceService))
             ?? _types.GetService(engineeringObject, "Siemens.Engineering.CrossReference.CrossReferenceService")
             ?? _types.GetService(engineeringObject, "CrossReferenceService");
-
-        private IEnumerable<CrossReferenceTarget> FindPotentialTargets(object plcSoftware)
-        {
-            var tagTables = _tags.GetTagTables(plcSoftware);
-            if (tagTables != null)
-            {
-                foreach (var tagTable in tagTables)
-                {
-                    var tableName = _objects.GetName(tagTable) ?? string.Empty;
-                    var tags = _tags.GetTags(tagTable);
-                    if (tags == null) continue;
-                    foreach (var tag in tags)
-                    {
-                        var name = _objects.GetName(tag);
-                        if (!string.IsNullOrWhiteSpace(name))
-                            yield return new CrossReferenceTarget(name!, "Tag", "Tag Tables/" + tableName + "/" + name, tag);
-                    }
-                }
-            }
-
-            foreach (var block in EnumerateRecursive(TiaReflectionHelper.GetBlockGroup(plcSoftware), "Blocks"))
-            {
-                var name = GetString(block, "Name");
-                if (!string.IsNullOrWhiteSpace(name))
-                    yield return new CrossReferenceTarget(name!, "Block", "Program Blocks/" + name, block);
-            }
-            foreach (var type in EnumerateRecursive(TiaReflectionHelper.GetTypeGroup(plcSoftware), "Types"))
-            {
-                var name = GetString(type, "Name");
-                if (!string.IsNullOrWhiteSpace(name))
-                    yield return new CrossReferenceTarget(name!, "Type", "PLC Data Types/" + name, type);
-            }
-            foreach (var source in EnumerateRecursive(TiaReflectionHelper.GetExternalSourceGroup(plcSoftware), "ExternalSources"))
-            {
-                var name = GetString(source, "Name");
-                if (!string.IsNullOrWhiteSpace(name))
-                    yield return new CrossReferenceTarget(name!, "ExternalSource", "Source Files/" + name, source);
-            }
-        }
 
         private static bool TryInvoke(object service, string name, out IReadOnlyList<object> entries, out string? failureReason)
         {
@@ -244,20 +207,6 @@ namespace OpenTiaToolkit.Core.Services
                 string.IsNullOrWhiteSpace(entry.Detail) ? targetDetail : entry.Detail + "; " + targetDetail);
         }
 
-        private static IEnumerable<object> EnumerateRecursive(object? group, string collectionName)
-        {
-            if (group == null) yield break;
-            var items = TiaReflectionHelper.GetEnumerableProperty(group, collectionName);
-            if (items != null)
-                foreach (var item in items)
-                    yield return item;
-            var groups = TiaReflectionHelper.GetGroups(group);
-            if (groups == null) yield break;
-            foreach (var nested in groups)
-                foreach (var item in EnumerateRecursive(nested, collectionName))
-                    yield return item;
-        }
-
         private static bool IsLookupMethod(MethodInfo method) =>
             method.Name.IndexOf("Reference", StringComparison.OrdinalIgnoreCase) >= 0
             || method.Name.IndexOf("Usage", StringComparison.OrdinalIgnoreCase) >= 0
@@ -286,20 +235,5 @@ namespace OpenTiaToolkit.Core.Services
         private static string FormatException(Exception ex) =>
             ex is TargetInvocationException { InnerException: { } inner } ? inner.Message : ex.Message;
 
-        private sealed class CrossReferenceTarget
-        {
-            public CrossReferenceTarget(string name, string itemType, string path, object item)
-            {
-                Name = name;
-                ItemType = itemType;
-                Path = path;
-                Item = item;
-            }
-
-            public string Name { get; }
-            public string ItemType { get; }
-            public string Path { get; }
-            public object Item { get; }
-        }
     }
 }

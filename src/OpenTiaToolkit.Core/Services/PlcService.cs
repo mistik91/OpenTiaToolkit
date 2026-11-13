@@ -22,7 +22,7 @@ namespace OpenTiaToolkit.Core.Services
     /// <summary>
     /// Provides PLC software operations, wrapping the TIA Openness API.
     /// </summary>
-    public class PlcService : IPlcService
+    public class PlcService : IPlcService, IPlcCrossReferenceBatchProvider
     {
         private readonly IPortalService _portalService;
         private readonly EngineeringSessionContext _sessionContext;
@@ -325,6 +325,9 @@ namespace OpenTiaToolkit.Core.Services
         {
             return await _surfaceService.GetCrossReferencesAsync(name);
         }
+
+        Func<string, Task<PlcCrossReferenceResult>> IPlcCrossReferenceBatchProvider.CreateCrossReferenceLookup() =>
+            _surfaceService.CreateCrossReferenceLookup();
 
         /// <inheritdoc/>
         public async Task<IReadOnlyList<PlcSurfaceItem>> ListExternalSourcesAsync()

@@ -1066,12 +1066,17 @@ public class PlcDocumentWorkflowServiceTests
         Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
     }
 
-    [TestMethod]
-    public async Task Transaction_DeletePlcType_CompileFailureRestoresExactType()
+    [DataTestMethod]
+    [DataRow(true, true)]
+    [DataRow(false, true)]
+    [DataRow(false, false)]
+    public async Task Transaction_DeletePlcType_CompileFailureRestoresExactType(bool importReportedSuccess, bool restoredContent)
     {
         var context = ContextWithGroups();
         var software = (FakePlcSoftware)context.PlcSoftware!;
         var type = new FakeType { Name = "DeleteProbe", ExportContent = TypeXml("DeleteProbe", "baseline") };
+        bool exportReady = true;
+        type.CanExport = () => exportReady;
         type.OnDelete = () => software.TypeGroup.Types.Remove(type);
         software.TypeGroup.Types.Add(type);
         var plc = OpenPlcMock();
@@ -1079,14 +1084,15 @@ public class PlcDocumentWorkflowServiceTests
             .ReturnsAsync(new PlcCrossReferenceResult(true, "DeleteProbe", "No PLC consumers were found."));
         plc.Setup(service => service.ImportTypeAsync(It.IsAny<string>(), "")).ReturnsAsync((string path, string _) =>
         {
-            type.ExportContent = File.ReadAllText(path);
+            exportReady = false;
+            type.ExportContent = restoredContent ? File.ReadAllText(path) : TypeXml("DeleteProbe", "wrong content");
             if (!software.TypeGroup.Types.Contains(type)) software.TypeGroup.Types.Add(type);
-            return true;
+            return importReportedSuccess;
         });
         plc.SetupSequence(service => service.CompileSoftwareAsync(null))
             .ReturnsAsync(new CompilationResult(true, 0, 0, "baseline"))
             .ReturnsAsync(new CompilationResult(false, 1, 0, "forced"))
-            .ReturnsAsync(new CompilationResult(true, 0, 0, "restored"));
+            .ReturnsAsync(() => { exportReady = true; return new CompilationResult(true, 0, 0, "restored"); });
         var service = new PlcDocumentWorkflowService(plc.Object, context);
         PlcCodeTransaction draft = await service.BeginTransactionAsync("PLC_1", "type delete rollback");
         service.AddDeleteTypeTransactionOperation(draft.TransactionId, "DeleteProbe", null);
@@ -1096,9 +1102,17 @@ public class PlcDocumentWorkflowServiceTests
 
         PlcCodeTransactionApplyResult result = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
 
-        Assert.IsTrue(result.RolledBackAndVerified, result.Message);
+        Assert.AreEqual(restoredContent, result.RolledBackAndVerified, result.Message);
         Assert.AreSame(type, software.TypeGroup.Types.Single());
-        Assert.IsTrue(result.Transaction.Operations.Single().RestorationVerified);
+        Assert.AreEqual(restoredContent, result.Transaction.Operations.Single().RestorationVerified);
+        if (!restoredContent)
+        {
+            Assert.IsTrue(result.RecoveryRequired);
+            Assert.ThrowsException<InvalidOperationException>(() => service.DiscardTransaction(plan.TransactionId));
+            plc.Setup(item => item.ImportTypeAsync(It.IsAny<string>(), "")).ReturnsAsync((string path, string _) => { type.ExportContent = File.ReadAllText(path); return true; });
+            plc.Setup(item => item.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "recovered"));
+            Assert.IsTrue((await service.RecoverTransactionAsync(plan.TransactionId)).RolledBackAndVerified);
+        }
         Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
     }
 
@@ -1911,9 +1925,11 @@ public class PlcDocumentWorkflowServiceTests
     {
         public string Name { get; set; } = string.Empty;
         public string ExportContent { get; set; } = string.Empty;
+        public Func<bool>? CanExport { get; set; }
         public Action? OnDelete { get; set; }
         public void Export(FileInfo file, FakeExportOptions options)
         {
+            if (CanExport != null && !CanExport()) throw new InvalidOperationException("Imported type must be compiled before export.");
             file.Directory?.Create();
             File.WriteAllText(file.FullName, ExportContent, new UTF8Encoding(true));
         }

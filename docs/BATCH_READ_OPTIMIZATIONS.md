@@ -1,5 +1,7 @@
 # Batch and filtered-read optimization review
 
+This page records PR #4. Its three follow-ups are implemented and qualified in [follow-up validation](FOLLOWUP_VALIDATION.md).
+
 This change removes redundant Siemens reads while preserving the command catalog, matching rules, mutation policy, transaction boundaries, and freshness checks. It introduces no persistent cache or new service abstraction.
 
 ## Included changes
@@ -20,9 +22,9 @@ See [alarm preflight qualification](alarm-preflight-cache-validation.md) for the
 | --- | --- | --- |
 | PLC tag modification and find/replace | Current workflows already read the vendor catalog once and operate on mutable local tag state. Some matching scans are linear in memory. | Keep the existing semantics. Adding more indexes needs a measured workload and must track ordered rename/create/delete state correctly. |
 | Legacy PLC CSV reconciliation | `PlcTagService.UpdateTagsFromCsvAsync` discards cached table names and rereads names during row processing, but has no current command caller in `src`. | Leave this dormant path out of the command-performance change. Decide separately whether to retain or remove the legacy implementation. |
-| HMI JSON export | `HmiJsonExportService.ExportAsync` obtains projected information for all screens before applying screen filters, then resolves selected screens again. | Candidate for a focused screen-discovery change. Preserve canonical path spelling, case-insensitive exact matching, group traversal, missing-screen behavior, and ordering; validate on a multi-screen/group fixture. |
-| PLC cross-reference discovery | Each lookup enumerates all potential PLC targets. Multi-target impact analysis can repeat this discovery. | Candidate for a single-analysis target inventory. Never reuse consumer results across the independent stale-state checks at planning and apply. |
-| HMI trends | Bulk creation caches each data log after its first configuration; later rows naming that log do not reapply its size/duration settings. | Investigate conflicting requests as a separate behavior issue. Optimizing reference reads must not silently change which settings win. |
+| HMI JSON export | Full screen metadata was projected before filtering. | Follow-up uses canonical path discovery before projecting selected screens; see [follow-up validation](FOLLOWUP_VALIDATION.md). |
+| PLC cross-reference discovery | Multi-target impact analysis repeated the complete target inventory. | Follow-up shares target discovery within one analysis, with fresh consumer queries and independent inventories for plan, approval, and apply. |
+| HMI trends | Conflicting rows silently used the first shared archive settings. | Follow-up blocks the entire conflicting batch in preview and apply before writes; consistent settings retain the batch-local archive cache. |
 | VCI bulk synchronization | Per-object before/after status reads verify whether synchronization is needed and whether it succeeded. | Retain these reads; their removal would change verification behavior. |
 | Bulk HMI data-log deletion | Logging-tag references are already scanned once for the requested log set. | No repeated full reference scan per log to remove. |
 

@@ -41,20 +41,7 @@ namespace OpenTiaToolkit.Core.Services
             _properties = properties ?? throw new ArgumentNullException(nameof(properties));
         }
 
-        public string NormalizeScreenPath(string? screenPath)
-        {
-            if (string.IsNullOrWhiteSpace(screenPath))
-            {
-                return string.Empty;
-            }
-
-            return string.Join(
-                "/",
-                screenPath!
-                    .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(segment => segment.Trim())
-                    .Where(segment => !string.IsNullOrWhiteSpace(segment)));
-        }
+        public string NormalizeScreenPath(string? screenPath) => V21HmiScreenInventory.NormalizeScreenPath(screenPath);
 
         public string NormalizeItemTypeName(string? itemType)
         {
@@ -146,49 +133,10 @@ namespace OpenTiaToolkit.Core.Services
             return false;
         }
 
-        public IReadOnlyList<HmiScreenInfo> ListScreens(HmiSoftware software, string? groupPath, bool recursive)
-        {
-            var normalizedGroupPath = NormalizeGroupPath(groupPath);
-            var results = new List<HmiScreenInfo>();
+        public IReadOnlyList<HmiScreenInfo> ListScreens(HmiSoftware software, string? groupPath, bool recursive) =>
+            V21HmiScreenInventory.ListScreens(software, groupPath, recursive);
 
-            if (string.IsNullOrEmpty(normalizedGroupPath))
-            {
-                foreach (var screen in software.Screens)
-                {
-                    results.Add(ToScreenInfo(screen, screen.Name, includeItems: false));
-                }
-
-                foreach (var group in software.ScreenGroups)
-                {
-                    CollectScreens(group, group.Name, recursive, results);
-                }
-            }
-            else
-            {
-                var group = TryGetGroup(software, normalizedGroupPath.Split('/'));
-                if (group == null)
-                {
-                    return Array.Empty<HmiScreenInfo>();
-                }
-
-                foreach (var screen in group.Screens)
-                {
-                    results.Add(ToScreenInfo(screen, CombinePath(normalizedGroupPath, screen.Name), includeItems: false));
-                }
-
-                if (recursive)
-                {
-                    foreach (var childGroup in group.Groups)
-                    {
-                        CollectScreens(childGroup, CombinePath(normalizedGroupPath, childGroup.Name), recursive, results);
-                    }
-                }
-            }
-
-            return results
-                .OrderBy(screen => screen.Path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
+        public IReadOnlyList<string> ListScreenPaths(HmiSoftware software) => V21HmiScreenInventory.ListScreenPaths(software);
 
         public bool TryGetScreen(HmiSoftware software, string screenPath, out HmiScreen? screen, out string normalizedPath)
         {
@@ -466,41 +414,11 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        public HmiScreenInfo ToScreenInfo(HmiScreen screen, string path, bool includeItems)
-        {
-            var items = includeItems
-                ? screen.ScreenItems.Cast<HmiScreenItemBase>().Select(item => ToItemInfo(item, path)).ToList()
-                : new List<HmiScreenItemInfo>();
+        public HmiScreenInfo ToScreenInfo(HmiScreen screen, string path, bool includeItems) =>
+            V21HmiScreenInventory.ToScreenInfo(screen, path, includeItems);
 
-            var normalizedPath = NormalizeScreenPath(path);
-            var slashIndex = normalizedPath.LastIndexOf('/');
-
-            return new HmiScreenInfo
-            {
-                Name = screen.Name,
-                Path = normalizedPath,
-                GroupPath = slashIndex >= 0 ? normalizedPath.Substring(0, slashIndex) : null,
-                Width = (int)screen.Width,
-                Height = (int)screen.Height,
-                Enabled = screen.Enabled,
-                ItemCount = screen.ScreenItems.Count,
-                Items = items
-            };
-        }
-
-        public HmiScreenItemInfo ToItemInfo(HmiScreenItemBase item, string screenPath)
-        {
-            return new HmiScreenItemInfo
-            {
-                ScreenPath = NormalizeScreenPath(screenPath),
-                Name = item.Name,
-                Type = item.GetType().Name,
-                Left = V21HmiItemPropertyAccessor.TryReadIntAttribute(item, "Left"),
-                Top = V21HmiItemPropertyAccessor.TryReadIntAttribute(item, "Top"),
-                Width = V21HmiItemPropertyAccessor.TryReadIntAttribute(item, "Width"),
-                Height = V21HmiItemPropertyAccessor.TryReadIntAttribute(item, "Height")
-            };
-        }
+        public HmiScreenItemInfo ToItemInfo(HmiScreenItemBase item, string screenPath) =>
+            V21HmiScreenInventory.ToItemInfo(item, screenPath);
 
         public HmiTrendInfo ToTrendInfo(
             HmiTag tag,
@@ -525,33 +443,6 @@ namespace OpenTiaToolkit.Core.Services
                 DataLogCreated = dataLogCreated,
                 LoggingTagCreated = loggingTagCreated
             };
-        }
-
-        private static void CollectScreens(HmiScreenGroup group, string groupPath, bool recursive, List<HmiScreenInfo> results)
-        {
-            foreach (var screen in group.Screens)
-            {
-                results.Add(new HmiScreenInfo
-                {
-                    Name = screen.Name,
-                    Path = CombinePath(groupPath, screen.Name),
-                    GroupPath = groupPath,
-                    Width = (int)screen.Width,
-                    Height = (int)screen.Height,
-                    Enabled = screen.Enabled,
-                    ItemCount = screen.ScreenItems.Count
-                });
-            }
-
-            if (!recursive)
-            {
-                return;
-            }
-
-            foreach (var childGroup in group.Groups)
-            {
-                CollectScreens(childGroup, CombinePath(groupPath, childGroup.Name), recursive, results);
-            }
         }
 
         private void CollectTags(
@@ -673,24 +564,8 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        private static HmiScreenGroup? TryGetGroup(HmiSoftware software, IEnumerable<string> segments)
-        {
-            HmiScreenGroup? currentGroup = null;
-
-            foreach (var segment in segments)
-            {
-                currentGroup = currentGroup == null
-                    ? software.ScreenGroups.Find(segment)
-                    : currentGroup.Groups.Find(segment);
-
-                if (currentGroup == null)
-                {
-                    return null;
-                }
-            }
-
-            return currentGroup;
-        }
+        private static HmiScreenGroup? TryGetGroup(HmiSoftware software, IEnumerable<string> segments) =>
+            V21HmiScreenInventory.FindGroup(software, segments);
 
         private static HmiScreenGroup? EnsureGroup(HmiSoftware software, IEnumerable<string> segments)
         {

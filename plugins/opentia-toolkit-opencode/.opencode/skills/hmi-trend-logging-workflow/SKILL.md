@@ -22,7 +22,7 @@ Use this skill for Unified HMI logging infrastructure, not for screen layout edi
    - For broad discovery or large tag tables, provide `output-path` or use the returned artifact `outputPath` CSV instead of expecting all tags inline.
    - When the user gives several related tag-table names or naming prefixes, prefer one bounded scan with a shared filter and CSV output, then group the artifact rows locally by `TagTableName`. Use `max-depth` deliberately: shallow scans are faster for parent/direct-member coverage checks, while deeper scans are needed when logging may live on nested members.
 4. For one tag, use `create-hmi-trend`.
-5. For multiple tags, use `create-hmi-trends` with `dry-run=true` first.
+5. For multiple tags, use `create-hmi-trends` with `dry-run=true` first, then apply the reviewed batch with `dry-run=false` and `confirm=true`.
 6. For removal, use `remove-hmi-logging-tag` or `remove-hmi-logging-tags` before deleting data logs.
 7. Delete data logs only with `delete-hmi-data-log` or `delete-hmi-data-logs` after active references are gone.
 8. Verify by listing tags with logging counts or by reading command results that show logging tag/data log associations.
@@ -32,6 +32,8 @@ Use this skill for Unified HMI logging infrastructure, not for screen layout edi
 Use one data log for related values when that matches the user's intent, such as process value, setpoint, and current for the same motor. Do not create one archive per tag by default when a shared archive is more natural.
 
 For bulk configs, include explicit `tagPath`, `dataLogName`, `cyclic`, and `cycle` when known. Keep sizing fields such as `duration-days`, `log-max-size`, and `segment-max-size` only when the user specified them or project standards require them.
+
+Rows sharing a `dataLogName` (case-insensitive) must agree on the effective JSON sizing fields `logMaxSize`, `durationDays`, and `segmentMaxSize`. Omitted fields use defaults of 2000, 365, and 500; values below 1 clamp to 1. Conflicts block the entire batch in both dry-run and apply before any writes. When setting a shared archive's sizing explicitly, repeat the same values on every row that uses it. Acquisition mode and cycle may differ per tag.
 
 `storage-folder` is compatibility-only for Unified HMI and should not be used to promise a writable storage folder. Report the configured folder if the command returns it.
 
