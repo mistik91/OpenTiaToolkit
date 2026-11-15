@@ -17,20 +17,17 @@ namespace OpenTiaToolkit.Core.Services
     {
         private readonly EngineeringSessionContext _sessionContext;
         private readonly IPortalService _portalService;
-        private readonly PlcBrowseService _browseService;
         private readonly V21DocumentAccess _documents;
         private readonly ILogger? _logger;
 
         public PlcDocumentTransferService(
             EngineeringSessionContext sessionContext,
             IPortalService portalService,
-            PlcBrowseService browseService,
             ILogger? logger,
             V21DocumentAccess documents)
         {
             _sessionContext = sessionContext ?? throw new ArgumentNullException(nameof(sessionContext));
             _portalService = portalService ?? throw new ArgumentNullException(nameof(portalService));
-            _browseService = browseService ?? throw new ArgumentNullException(nameof(browseService));
             _documents = documents ?? throw new ArgumentNullException(nameof(documents));
             _logger = logger;
         }
@@ -62,17 +59,7 @@ namespace OpenTiaToolkit.Core.Services
                         return false;
                     }
                     Directory.CreateDirectory(exportPath);
-                    if (!_documents.TryExportAsDocuments(block, new DirectoryInfo(exportPath), blockName, out var state))
-                    {
-                        _logger?.LogError("ExportAsDocuments returned non-success state or is not available on block type");
-                        return false;
-                    }
-                    var success = string.Equals(state, "Success", StringComparison.OrdinalIgnoreCase);
-                    if (success)
-                        _logger?.LogInformation("Successfully exported block as SIMATIC SD documents: {BlockName}", blockName);
-                    else
-                        _logger?.LogError("ExportAsDocuments returned non-success state for block: {BlockName}", blockName);
-                    return success;
+                    return TryExportBlock(block, blockName, new DirectoryInfo(exportPath));
                 }
                 catch (InvalidOperationException) { throw; }
                 catch (Exception ex)
@@ -82,10 +69,18 @@ namespace OpenTiaToolkit.Core.Services
                 }
             });
 
-        public async Task<ExportResult> ExportBlocksAsync(string? filterRegex, string exportPath)
+        private bool TryExportBlock(object block, string name, DirectoryInfo directory)
+        {
+            try { return _documents.TryExportAsDocuments(block, directory, name, out _); }
+            catch (InvalidOperationException) { throw; }
+            catch (Exception ex) { _logger?.LogError(ex, "Failed to export block as documents: {BlockName}", name); return false; }
+        }
+
+        public Task<ExportResult> ExportBlocksAsync(string? filterRegex, string exportPath) => Task.Run(() =>
         {
             var result = new ExportResult();
-            if (_sessionContext.PlcSoftware == null || string.IsNullOrEmpty(_sessionContext.CurrentPlcName))
+            var software = _sessionContext.PlcSoftware;
+            if (software == null || string.IsNullOrEmpty(_sessionContext.CurrentPlcName))
             {
                 _logger?.LogWarning("No PLC software is currently open");
                 result.Errors.Add("No PLC software is currently open");
@@ -101,38 +96,45 @@ namespace OpenTiaToolkit.Core.Services
             }
             var regex = PlcTransferRules.TryCreateRegex(filterRegex, result.Errors);
             if (!string.IsNullOrEmpty(filterRegex) && regex == null) return result;
+            var root = TiaReflectionHelper.GetBlockGroup(software);
+            if (root == null) { result.Errors.Add("Could not get BlockGroup"); return result; }
+            var targets = PlcTransferRules.EnumerateBlocks(root)
+                .Select(block => (Block: block, Name: TiaReflectionHelper.GetName(block) ?? "Unknown"))
+                .Where(target => regex == null || regex.IsMatch(target.Name)).ToArray();
+            var collisions = targets.GroupBy(target => target.Name, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1).Select(group => group.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
             Directory.CreateDirectory(exportPath);
-            var blocks = await _browseService.GetBlocksAsync(filterRegex).ConfigureAwait(false);
-            result.TotalCount = blocks.Count;
-            foreach (var block in blocks)
+            var directory = new DirectoryInfo(exportPath);
+            result.TotalCount = targets.Length;
+            foreach (var target in targets)
             {
-                if (regex != null && !regex.IsMatch(block.Name)) continue;
+                var name = target.Name;
                 try
                 {
-                    // Use the same per-target API as single export; block type alone
-                    // does not determine SIMATIC SD export support.
-                    if (await ExportBlockAsync(block.Name, exportPath).ConfigureAwait(false))
+                    if (collisions.Contains(name)) throw new InvalidOperationException($"Multiple selected blocks share the export filename '{name}'; no documents were written for that name.");
+                    // Export the captured object, without metadata projection or another name search.
+                    if (TryExportBlock(target.Block, name, directory))
                     {
                         result.SuccessCount++;
-                        result.ExportedItems.Add(block.Name);
+                        result.ExportedItems.Add(name);
                     }
                     else
                     {
                         result.FailedCount++;
-                        result.FailedItems.Add(block.Name);
-                        result.Errors.Add($"Failed to export: {block.Name}");
+                        result.FailedItems.Add(name);
+                        result.Errors.Add($"Failed to export: {name}");
                     }
                 }
                 catch (Exception ex)
                 {
                     result.FailedCount++;
-                    result.FailedItems.Add(block.Name);
-                    result.Errors.Add($"Error exporting {block.Name}: {ex.Message}");
+                    result.FailedItems.Add(name);
+                    result.Errors.Add($"Error exporting {name}: {ex.Message}");
                 }
             }
             _logger?.LogInformation("Export blocks as documents complete: {SuccessCount} succeeded, {FailedCount} failed", result.SuccessCount, result.FailedCount);
             return result;
-        }
+        });
 
         public Task<bool> ImportBlockAsync(
             string importDirectory,

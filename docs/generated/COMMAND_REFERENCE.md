@@ -704,7 +704,7 @@ Exports a PLC block as an external source file when supported
 
 ### export-blocks-as-docs
 
-Exports multiple blocks as SIMATIC SD documents (.s7dcl + .s7res)
+Recursively exports matching PLC blocks as SIMATIC SD documents (.s7dcl + .s7res)
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|

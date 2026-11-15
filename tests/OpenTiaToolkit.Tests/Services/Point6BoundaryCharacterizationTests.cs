@@ -38,7 +38,6 @@ namespace OpenTiaToolkit.Tests.Services
             var service = new PlcDocumentTransferService(
                 context,
                 Mock.Of<IPortalService>(portal => portal.Version == "V21"),
-                new PlcBrowseService(context, null),
                 null,
                 new V21DocumentAccess(resolver));
 

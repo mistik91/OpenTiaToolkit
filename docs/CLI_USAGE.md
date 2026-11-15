@@ -2406,6 +2406,8 @@ OpenTiaToolkit.CLI.exe get-block-info --plc-name="PLC_1" --block-name="Main"
 
 ### Example 9: SIMATIC SD Export
 
+`export-blocks-as-docs` includes the PLC root and all nested block groups. `filter-regex` is an optional case-insensitive block-name regex; invalid patterns fail before export. Documents use a flat output directory. Selected names that collide case-insensitively are reported as failures, with no documents written for those names; distinct targets continue to export. Review the per-target success/failure results because Siemens document support is determined for each actual block.
+
 ```bash
 # Connect and open project with a supported TIA Portal version
 OpenTiaToolkit.CLI.exe connect-portal

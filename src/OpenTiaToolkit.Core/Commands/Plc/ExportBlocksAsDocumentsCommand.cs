@@ -26,7 +26,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
         public string Name => "export-blocks-as-docs";
 
         /// <inheritdoc/>
-        public string Description => "Exports multiple blocks as SIMATIC SD documents (.s7dcl + .s7res)";
+        public string Description => "Recursively exports matching PLC blocks as SIMATIC SD documents (.s7dcl + .s7res)";
 
         /// <inheritdoc/>
         public CommandSchema Schema => new CommandSchema(

@@ -18,13 +18,12 @@ namespace OpenTiaToolkit.Core.Services
         public PlcImportExportService(
             EngineeringSessionContext sessionContext,
             IPortalService portalService,
-            PlcBrowseService browseService,
             ILogger? logger,
             V21DocumentAccess documents,
             V21EngineeringObjectAccess objects)
             : this(
                 new PlcXmlTransferService(sessionContext, logger, documents, objects),
-                new PlcDocumentTransferService(sessionContext, portalService, browseService, logger, documents))
+                new PlcDocumentTransferService(sessionContext, portalService, logger, documents))
         {
         }
 

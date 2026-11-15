@@ -7,6 +7,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Fixed
+- Export PLC SIMATIC SD documents from one recursive block traversal, without repeated name searches or browse metadata reads. Bulk export now includes nested block groups and reports selected filename collisions without overwriting their documents.
+
 ## [1.0.0-preview.9] - 2026-11-13 (unsigned preview)
 
 ### Fixed

@@ -39,6 +39,7 @@ For backups or reviewable artifacts, prefer export before mutation:
 - XML block export: `export-block` or `export-plc`.
 - XML type export: `export-type` or `export-types`.
 - SIMATIC SD documents: `export-block-as-docs` or `export-blocks-as-docs` when Siemens document format round-tripping is needed.
+- Bulk `export-blocks-as-docs` traverses root and nested PLC block groups. Its case-insensitive `filter-regex` matches block names; invalid patterns fail before export. Output is flat, so colliding selected names are reported as failures without writing their documents. Check every target's result; one unsupported block does not prevent distinct supported blocks from exporting.
 - Plain-text PLC source: `export-block-as-source` for SCL/STL-capable, non-protected blocks.
 - PLC tag tables: `export-tags`, preferably with `output-path` for reviewable CSV.
 
