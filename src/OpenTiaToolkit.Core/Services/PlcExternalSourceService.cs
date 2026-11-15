@@ -46,22 +46,8 @@ namespace OpenTiaToolkit.Core.Services
                 return new PlcSourceOperationResult(true, true, "Source file imported.", GetName(created) ?? Path.GetFileNameWithoutExtension(sourcePath));
             });
 
-        public Task<PlcSourceOperationResult> GenerateBlocksAsync(string sourceName, bool dryRun, bool confirm) =>
-            Task.Run(() =>
-            {
-                if (string.IsNullOrWhiteSpace(sourceName))
-                    return new PlcSourceOperationResult(false, false, "source-name is required.");
-                var source = FindExternalSource(sourceName);
-                if (source == null)
-                    return new PlcSourceOperationResult(false, false, $"External source '{sourceName}' was not found.");
-                if (dryRun)
-                    return new PlcSourceOperationResult(true, false, $"Dry-run: source '{sourceName}' can be generated if it exposes a generate method.", sourceName);
-                if (!confirm)
-                    return new PlcSourceOperationResult(false, false, "Generating blocks mutates the PLC project. Rerun with confirm=true.");
-                if (!TryInvokeNoArgMethod(source, new[] { "GenerateBlocksFromSource", "GenerateBlocks", "Generate" }, out _, out var failureReason))
-                    return new PlcSourceOperationResult(false, false, failureReason ?? "External source does not expose a supported block generation method.", sourceName);
-                return new PlcSourceOperationResult(true, true, $"Generated blocks from source '{sourceName}'.", sourceName);
-            });
+        public Task<PlcSourceOperationResult> GenerateBlocksAsync(string sourceName, bool dryRun, bool confirm, string? groupPath = null, string? typeGroupPath = null) =>
+            Task.Run(() => PlcSourceGeneration.Generate(_sessionContext, FindExternalSource(sourceName), sourceName, groupPath, typeGroupPath, dryRun, confirm));
 
         public Task<PlcSourceOperationResult> DeleteAsync(string sourceName, bool confirm) =>
             Task.Run(() =>

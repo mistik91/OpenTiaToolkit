@@ -16,6 +16,20 @@ namespace OpenTiaToolkit.Tests.Commands
     [TestClass]
     public class PlcSurfaceCommandsTests
     {
+        [DataTestMethod]
+        [DataRow("Area/Deep", null)]
+        [DataRow(null, "Area/Deep")]
+        public async Task GenerateSource_ForwardsExplicitDestinationAndPreview(string? group, string? typeGroup)
+        {
+            var plc = CreateOpenPlcService("PLC_1");
+            plc.Setup(item => item.GenerateBlocksFromSourceAsync("Fixture", true, false, group ?? "", typeGroup ?? ""))
+                .ReturnsAsync(new PlcSourceOperationResult(true, false, "preview"));
+            var result = await new GenerateBlocksFromSourceCommand(plc.Object).ExecuteAsync(Args(
+                ("plc-name", "PLC_1"), ("source-name", "Fixture"), ("group-path", group ?? ""), ("type-group-path", typeGroup ?? "")), NullLogger.Instance);
+            Assert.IsTrue(result.Success, result.Message);
+            plc.Verify(item => item.GenerateBlocksFromSourceAsync("Fixture", true, false, group ?? "", typeGroup ?? ""), Times.Once);
+        }
+
         [TestMethod]
         public async Task ExportTags_WritesCsvWhenOutputPathIsProvided()
         {

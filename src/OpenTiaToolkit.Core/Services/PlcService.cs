@@ -366,9 +366,9 @@ namespace OpenTiaToolkit.Core.Services
         }
 
         /// <inheritdoc/>
-        public async Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false)
+        public async Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false, string? groupPath = null, string? typeGroupPath = null)
         {
-            return await _surfaceService.GenerateBlocksFromSourceAsync(sourceName, dryRun, confirm);
+            return await _surfaceService.GenerateBlocksFromSourceAsync(sourceName, dryRun, confirm, groupPath, typeGroupPath);
         }
 
         /// <inheritdoc/>

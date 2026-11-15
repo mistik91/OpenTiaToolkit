@@ -41,6 +41,8 @@ Siemens emitted only `.s7dcl` files for this fixture; multilingual `.s7res` payl
 
 Fixture preparation also reproduced a separate existing source-generation issue: a transaction requesting a subgroup generated at the root, then rejected the unexpected identity. It returned `RolledBackAndVerified`; a fresh native fixture check confirmed only Main remained and no source objects survived. Native Siemens group-targeted generation prepared the export fixture from the already validated sources, removed those sources, and compiled cleanly before saving. This diagnostic setup does not qualify or fix toolkit SCL subgroup generation. Its terminal package was copied to evidence before explicit discard.
 
+The subsequent fix and independent success/rollback campaigns are recorded in [SCL subgroup generation qualification](SCL_GROUP_GENERATION_VALIDATION.md).
+
 ## Automated gates and reproduction
 
 The final Release build has zero warnings/errors. All **842 non-integration tests**, **54 architecture tests**, **7 worker IPC tests**, and **1 real-TIA document-export integration test** pass. Full formatting, generated-reference validation, skill validation, packaged/installed skill drift checks, CLI diagnostics, and MCP stdio smoke pass. Exposure remains **186 commands / 189 MCP tools**. Architecture debt ceilings were not raised.

@@ -772,7 +772,7 @@ public class PlcDocumentWorkflowServiceTests
         var plc = OpenPlcMock();
         plc.Setup(service => service.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
         plc.Setup(service => service.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "UniqueSource"));
-        plc.Setup(service => service.GenerateBlocksFromSourceAsync("UniqueSource", false, true)).ReturnsAsync(() =>
+        plc.Setup(service => service.GenerateBlocksFromSourceAsync("UniqueSource", false, true, "", "")).ReturnsAsync(() =>
         {
             software.BlockGroup.Blocks.Add(new FakeBlock { Name = "SclA", Type = "FC", ExportContent = "FUNCTION \"SclA\" : Void\r\nEND_FUNCTION" });
             software.BlockGroup.Blocks.Add(new FakeBlock { Name = "SclB", Type = "FB", ExportContent = "FUNCTION_BLOCK \"SclB\"\r\nEND_FUNCTION_BLOCK" });
@@ -802,7 +802,7 @@ public class PlcDocumentWorkflowServiceTests
         var software = (FakePlcSoftware)context.PlcSoftware!;
         plc.Setup(service => service.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
         plc.Setup(service => service.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "TypeAndBlock"));
-        plc.Setup(service => service.GenerateBlocksFromSourceAsync("TypeAndBlock", false, true)).ReturnsAsync(() =>
+        plc.Setup(service => service.GenerateBlocksFromSourceAsync("TypeAndBlock", false, true, "", "")).ReturnsAsync(() =>
         {
             software.TypeGroup.Types.Add(new FakeType { Name = "SafeType", ExportContent = TypeXml("SafeType", "generated") });
             software.BlockGroup.Blocks.Add(new FakeBlock { Name = "SafeBlock", Type = "FC", ExportContent = "FUNCTION \"SafeBlock\" : Void\r\nEND_FUNCTION" });
@@ -820,6 +820,83 @@ public class PlcDocumentWorkflowServiceTests
         Assert.AreEqual(string.Empty, result.Transaction.Operations.Single().TypeGroupPath);
         Assert.IsTrue(result.Transaction.Operations.Single().TargetSnapshots.Any(snapshot => snapshot.Target.BlockType == "TYPE" && snapshot.CanonicalResultHash != null));
         Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [DataTestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Transaction_SclGroupDestination_IsForwardedToGeneration(bool types)
+    {
+        string path = Path.Combine(_directory, "Nested.scl");
+        File.WriteAllText(path, "TYPE \"NestedType\"\nSTRUCT\nValue : Int;\nEND_STRUCT;\nEND_TYPE\nFUNCTION \"NestedBlock\" : Void\nBEGIN\nEND_FUNCTION\n", new UTF8Encoding(true));
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        var blockGroup = new FakeBlockGroup { Name = "Area" }; software.BlockGroup.Groups.Add(blockGroup);
+        var typeGroup = new FakeTypeGroup { Name = "Area" }; software.TypeGroup.Groups.Add(typeGroup);
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        plc.Setup(item => item.ImportSourceAsync(path, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported"));
+        plc.Setup(item => item.GenerateBlocksFromSourceAsync("Nested", false, true, types ? "" : "Area", types ? "Area" : "")).ReturnsAsync(() =>
+        {
+            (types ? software.BlockGroup : blockGroup).Blocks.Add(new FakeBlock { Name = "NestedBlock", Type = "FC", ExportContent = "FUNCTION \"NestedBlock\" : Void\nEND_FUNCTION" });
+            (types ? typeGroup : software.TypeGroup).Types.Add(new FakeType { Name = "NestedType", ExportContent = TypeXml("NestedType", "generated") });
+            return new PlcSourceOperationResult(true, true, "generated");
+        });
+        plc.Setup(item => item.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        var draft = await service.BeginTransactionAsync("PLC_1", "nested source");
+        service.AddSclTransactionOperation(draft.TransactionId, path, types ? null : "PLC_1/Blocks/Area", types ? "PLC_1/Types/Area" : null);
+        var plan = await service.PlanTransactionAsync(draft.TransactionId);
+        var applied = await service.ApplyTransactionAsync(plan.TransactionId, plan.ApplyToken!);
+        Assert.IsTrue(applied.Verified, applied.Message);
+        plc.Verify(item => item.GenerateBlocksFromSourceAsync("Nested", false, true, types ? "" : "Area", types ? "Area" : ""), Times.Once);
+        Assert.IsTrue(service.DiscardTransaction(plan.TransactionId));
+    }
+
+    [TestMethod]
+    public async Task Transaction_SclBothSubgroups_AreRejectedBeforeImport()
+    {
+        string path = Path.Combine(_directory, "Both.scl");
+        File.WriteAllText(path, "FUNCTION \"Fresh\" : Void\nBEGIN\nEND_FUNCTION\n", new UTF8Encoding(true));
+        var context = ContextWithGroups();
+        ((FakePlcSoftware)context.PlcSoftware!).BlockGroup.Groups.Add(new FakeBlockGroup { Name = "Area" });
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        var draft = await service.BeginTransactionAsync("PLC_1", "unsupported destinations");
+        service.AddSclTransactionOperation(draft.TransactionId, path, "Area", "Area");
+        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => service.PlanTransactionAsync(draft.TransactionId));
+        StringAssert.Contains(error.Message, "one subgroup destination");
+        plc.Verify(item => item.ImportSourceAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
+    }
+
+    [DataTestMethod]
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(true, true)]
+    public async Task Transaction_SclSameNameOutsideDestination_IsRejectedAtPlanAndApply(bool types, bool afterPlan)
+    {
+        string path = Path.Combine(_directory, "Collision.scl");
+        File.WriteAllText(path, types ? "TYPE \"Existing\"\nSTRUCT\nValue : Int;\nEND_STRUCT;\nEND_TYPE\n" : "FUNCTION \"Existing\" : Void\nBEGIN\nEND_FUNCTION\n", new UTF8Encoding(true));
+        var context = ContextWithGroups();
+        var software = (FakePlcSoftware)context.PlcSoftware!;
+        software.BlockGroup.Groups.Add(new FakeBlockGroup { Name = "Area" });
+        software.TypeGroup.Groups.Add(new FakeTypeGroup { Name = "Area" });
+        var plc = OpenPlcMock();
+        plc.Setup(item => item.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
+        plc.Setup(item => item.CompileSoftwareAsync(null)).ReturnsAsync(new CompilationResult(true, 0, 0, "clean"));
+        var service = new PlcDocumentWorkflowService(plc.Object, context);
+        var draft = await service.BeginTransactionAsync("PLC_1", "outside destination collision");
+        service.AddSclTransactionOperation(draft.TransactionId, path, types ? null : "Area", types ? "Area" : null);
+        PlcCodeTransaction? plan = afterPlan ? await service.PlanTransactionAsync(draft.TransactionId) : null;
+        if (types) software.TypeGroup.Types.Add(new FakeType { Name = "Existing", ExportContent = "untouched" });
+        else software.BlockGroup.Blocks.Add(new FakeBlock { Name = "Existing", Type = "FC", ExportContent = "untouched" });
+        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => afterPlan ? service.ApplyTransactionAsync(plan!.TransactionId, plan.ApplyToken!) : (Task)service.PlanTransactionAsync(draft.TransactionId));
+        StringAssert.Contains(error.Message, "outside the requested group");
+        plc.Verify(item => item.ImportSourceAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+        Assert.IsTrue(service.DiscardTransaction(draft.TransactionId));
     }
 
     [TestMethod]
@@ -895,7 +972,7 @@ public class PlcDocumentWorkflowServiceTests
         var plc = OpenPlcMock();
         plc.Setup(item => item.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
         plc.Setup(item => item.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "Stateful"));
-        plc.Setup(item => item.GenerateBlocksFromSourceAsync("Stateful", false, true)).ReturnsAsync(() =>
+        plc.Setup(item => item.GenerateBlocksFromSourceAsync("Stateful", false, true, "", "")).ReturnsAsync(() =>
         {
             var fb = new FakeBlock { Name = "Engine", Type = "FB", ExportContent = "FUNCTION_BLOCK \"Engine\"\r\nVAR Value : Int; END_VAR\r\nEND_FUNCTION_BLOCK" };
             var db = new FakeBlock
@@ -936,7 +1013,7 @@ public class PlcDocumentWorkflowServiceTests
         var plc = OpenPlcMock();
         plc.Setup(service => service.ListExternalSourcesAsync()).ReturnsAsync(Array.Empty<PlcSurfaceItem>());
         plc.Setup(service => service.ImportSourceAsync(sourcePath, false, true)).ReturnsAsync(new PlcSourceOperationResult(true, true, "imported", "UniqueSource"));
-        plc.Setup(service => service.GenerateBlocksFromSourceAsync("UniqueSource", false, true)).ReturnsAsync(() =>
+        plc.Setup(service => service.GenerateBlocksFromSourceAsync("UniqueSource", false, true, "", "")).ReturnsAsync(() =>
         {
             existing.ExportContent = "FUNCTION \"SclA\" : Void\r\n// changed\r\nEND_FUNCTION";
             var created = new FakeBlock { Name = "SclB", Type = "FC", ExportContent = "FUNCTION \"SclB\" : Void\r\nEND_FUNCTION" };

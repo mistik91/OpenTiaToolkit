@@ -151,21 +151,21 @@ public sealed class PlcCodeCapabilityDiscoveryService
         }
         IReadOnlyList<BlockInfo> blocks = await _plc.GetBlocksAsync("^" + System.Text.RegularExpressions.Regex.Escape(request.ObjectName) + "$").ConfigureAwait(false);
         BlockInfo[] matches = blocks.Where(block => block.Name.Equals(request.ObjectName, StringComparison.OrdinalIgnoreCase)).ToArray();
-        target.IdentityAmbiguous = matches.Length > 1;
+        SoftwareTreeNode[] treeMatches = Flatten(tree).Where(node => node.Name.Equals(request.ObjectName, StringComparison.OrdinalIgnoreCase) && node.Path.IndexOf("/Blocks/", StringComparison.OrdinalIgnoreCase) >= 0 && node.Type.IndexOf("Group", StringComparison.OrdinalIgnoreCase) < 0).ToArray();
+        target.IdentityAmbiguous = matches.Length > 1 || treeMatches.Length > 1;
         BlockInfo? block = matches.Length == 1 ? matches[0] : null;
-        if (block == null)
+        BlockInfoDetail? detail = !target.IdentityAmbiguous && (block != null || treeMatches.Length == 1) ? await _plc.GetBlockInfoAsync(request.ObjectName).ConfigureAwait(false) : null;
+        if (target.IdentityAmbiguous || (block == null && detail == null))
         {
             if (target.IdentityAmbiguous) { target.ExactIdentityResolved = false; target.IdentityIssue = "More than one block has this name; exact group identity is ambiguous."; }
             else if (request.Operation.Equals("Modify", StringComparison.OrdinalIgnoreCase)) { target.ExactIdentityResolved = false; target.IdentityIssue = "The requested block does not exist, so a modify workflow cannot be planned."; }
             return target;
         }
-        BlockInfoDetail? detail = await _plc.GetBlockInfoAsync(request.ObjectName).ConfigureAwait(false);
         target.Exists = true;
-        target.ObjectType = detail?.Type ?? block.Type;
-        target.ProgrammingLanguage = detail?.ProgrammingLanguage ?? detail?.Language ?? block.Language ?? string.Empty;
-        target.Number = detail?.Number ?? block.Number ?? string.Empty;
-        target.IsReadOnly = detail?.IsReadOnly ?? block.IsReadOnly;
-        SoftwareTreeNode[] treeMatches = Flatten(tree).Where(node => node.Name.Equals(request.ObjectName, StringComparison.OrdinalIgnoreCase) && node.Path.IndexOf("/Blocks/", StringComparison.OrdinalIgnoreCase) >= 0 && node.Type.IndexOf("Group", StringComparison.OrdinalIgnoreCase) < 0).ToArray();
+        target.ObjectType = detail?.Type ?? block?.Type ?? string.Empty;
+        target.ProgrammingLanguage = detail?.ProgrammingLanguage ?? detail?.Language ?? block?.Language ?? string.Empty;
+        target.Number = detail?.Number ?? block?.Number ?? string.Empty;
+        target.IsReadOnly = detail?.IsReadOnly ?? block!.IsReadOnly;
         if (treeMatches.Length == 1)
         {
             target.GroupPath = GroupFromTreePath(treeMatches[0].Path, "Blocks", request.ObjectName);

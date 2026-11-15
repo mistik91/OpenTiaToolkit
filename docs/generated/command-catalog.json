@@ -226,14 +226,14 @@
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted)"
+          "description": "Existing block subgroup; omit for root (PLC-prefixed paths accepted). Only one subgroup destination per SCL source."
         },
         {
           "name": "type-group-path",
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)"
+          "description": "Existing type subgroup; omit for root (PLC-prefixed paths accepted). Only one subgroup destination per SCL source."
         },
         {
           "name": "depends-on",
@@ -3057,6 +3057,20 @@
           "required": true,
           "defaultValue": null,
           "description": "Name of the imported source file"
+        },
+        {
+          "name": "group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "Block subgroup destination; omit for root. Cannot combine with type-group-path."
+        },
+        {
+          "name": "type-group-path",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "PLC type subgroup destination; omit for root. Cannot combine with group-path."
         },
         {
           "name": "dry-run",
@@ -6263,14 +6277,14 @@
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Target block subgroup relative to Program blocks; omit for root (PLC-prefixed software-tree paths are accepted)"
+          "description": "Target block subgroup; omit for root (PLC-prefixed paths accepted). SCL accepts only one subgroup destination."
         },
         {
           "name": "type-group-path",
           "type": "String",
           "required": false,
           "defaultValue": null,
-          "description": "Target type subgroup relative to PLC data types; omit for root (PLC-prefixed software-tree paths are accepted)"
+          "description": "Target type subgroup; omit for root (PLC-prefixed paths accepted). SCL accepts only one subgroup destination."
         },
         {
           "name": "compile-policy",

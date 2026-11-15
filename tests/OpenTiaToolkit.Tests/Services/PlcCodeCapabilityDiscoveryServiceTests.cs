@@ -10,6 +10,42 @@ namespace OpenTiaToolkit.Tests.Services;
 [TestClass]
 public sealed class PlcCodeCapabilityDiscoveryServiceTests
 {
+    [DataTestMethod]
+    [DataRow(false, false, true)]
+    [DataRow(true, false, true)]
+    [DataRow(false, true, true)]
+    [DataRow(false, false, false)]
+    public async System.Threading.Tasks.Task NestedTarget_UsesExactMetadataAndPreservesSafetyBlocks(bool readOnly, bool ambiguous, bool metadataAvailable)
+    {
+        var plc = new Mock<IPlcService>();
+        plc.SetupGet(item => item.IsSoftwareOpen).Returns(true);
+        plc.SetupGet(item => item.CurrentPlcName).Returns("PLC_1");
+        plc.Setup(item => item.GetBlocksAsync(It.IsAny<string>())).ReturnsAsync(System.Array.Empty<BlockInfo>());
+        var nodes = new System.Collections.Generic.List<SoftwareTreeNode> { new("Nested", "FC (SCL)", "PLC_1/Blocks/Area/Deep/Nested", System.Array.Empty<SoftwareTreeNode>()) };
+        if (ambiguous) nodes.Add(new SoftwareTreeNode("Nested", "FC (SCL)", "PLC_1/Blocks/Other/Nested", System.Array.Empty<SoftwareTreeNode>()));
+        plc.Setup(item => item.GetSoftwareTreeAsync(null)).ReturnsAsync(new SoftwareTreeNode("PLC_1", "PlcSoftware", "PLC_1", nodes));
+        plc.Setup(item => item.GetBlockInfoAsync("Nested")).ReturnsAsync(metadataAvailable ? new BlockInfoDetail("Nested", "FC", "SCL", "42", readOnly, null, null, null, null, 0, "SCL") : null);
+        plc.Setup(item => item.ExportBlockAsSourceAsync("Nested", It.IsAny<string>())).ReturnsAsync((string name, string path) =>
+        {
+            System.IO.File.WriteAllText(path, "FUNCTION \"Nested\" : Void\nBEGIN\nEND_FUNCTION\n");
+            return new PlcSourceOperationResult(true, true, "source exported");
+        });
+        var context = new EngineeringSessionContext { CurrentPlcName = "PLC_1" };
+        var service = new PlcCodeCapabilityDiscoveryService(plc.Object, new Mock<IVciService>().Object, context,
+            environmentProvider: name => System.Threading.Tasks.Task.FromResult(new PlcCodeEnvironmentEvidence { TiaVersion = "V21", PlcName = name }), safetyProvider: _ => new PlcCodeSafetyEvidence());
+        var result = await service.DiscoverAsync(new PlcCodeCapabilityRequest { PlcName = "PLC_1", ObjectName = "Nested", GroupPath = "Area/Deep", BlockType = "FC", Operation = "Modify", RequestedLanguage = "SCL", RequestedFormat = "SCL" });
+        Assert.AreEqual(metadataAvailable && !ambiguous, result.Target.Exists);
+        Assert.AreEqual(ambiguous, result.Target.IdentityAmbiguous);
+        Assert.AreEqual(readOnly || ambiguous || !metadataAvailable ? "Blocked" : "DirectScl", result.SelectedRoute);
+        if (metadataAvailable && !ambiguous)
+        {
+            Assert.IsTrue(result.Target.ExactIdentityResolved);
+            Assert.AreEqual("Area/Deep", result.Target.GroupPath);
+            Assert.AreEqual("42", result.Target.Number);
+            Assert.AreEqual(readOnly, result.Target.IsReadOnly);
+        }
+    }
+
     [TestMethod]
     public async System.Threading.Tasks.Task BoundTransaction_StoresFingerprintAndRejectsChangedTargetState()
     {

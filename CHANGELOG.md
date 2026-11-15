@@ -8,6 +8,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Fixed
+- Honor SCL block or PLC type subgroup destinations through Siemens' targeted generation API and resolve nested block metadata during capability discovery. Reject unsupported dual subgroup destinations and same-name targets in other groups before transaction mutation, including collisions introduced after planning.
 - Export PLC SIMATIC SD documents from one recursive block traversal, without repeated name searches or browse metadata reads. Bulk export now includes nested block groups and reports selected filename collisions without overwriting their documents.
 
 ## [1.0.0-preview.9] - 2026-11-13 (unsigned preview)

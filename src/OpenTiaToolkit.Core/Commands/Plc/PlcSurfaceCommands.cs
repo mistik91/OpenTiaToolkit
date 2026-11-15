@@ -419,6 +419,8 @@ namespace OpenTiaToolkit.Core.Commands.Plc
             {
                 new CommandParameter("plc-name", CommandParameterType.String, "The name of the PLC device", required: true),
                 new CommandParameter("source-name", CommandParameterType.String, "Name of the imported source file", required: true),
+                new CommandParameter("group-path", CommandParameterType.String, "Block subgroup destination; omit for root. Cannot combine with type-group-path.", required: false),
+                new CommandParameter("type-group-path", CommandParameterType.String, "PLC type subgroup destination; omit for root. Cannot combine with group-path.", required: false),
                 new CommandParameter("dry-run", CommandParameterType.Boolean, "Preview without mutating the PLC project (default: true)", required: false),
                 new CommandParameter("confirm", CommandParameterType.Boolean, "Required for non-dry-run generation", required: false)
             });
@@ -450,7 +452,7 @@ namespace OpenTiaToolkit.Core.Commands.Plc
             }
 
             context.Checkpoint("Generating PLC blocks from external source.", 55, "generate-blocks-from-source");
-            var result = await _plcService.GenerateBlocksFromSourceAsync(sourceName, args.GetBool("dry-run", true), args.GetBool("confirm", false));
+            var result = await _plcService.GenerateBlocksFromSourceAsync(sourceName, args.GetBool("dry-run", true), args.GetBool("confirm", false), args.GetString("group-path"), args.GetString("type-group-path"));
             context.CompleteCommand(Name, result.Message);
             return result.Success
                 ? CommandResult.CreateSuccess(result, result.Message)

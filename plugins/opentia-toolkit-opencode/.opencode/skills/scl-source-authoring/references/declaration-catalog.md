@@ -12,7 +12,7 @@
 
 1. Parse and review every declaration before import. One source may intentionally generate several blocks and types.
 2. Keep mutually dependent declarations in one source when separate transaction operations would form a dependency cycle.
-3. Use one `group-path` for generated blocks and one `type-group-path` for generated types. Split sources when targets must land in different groups.
+3. Supply at most one subgroup destination per source: `group-path` for blocks or `type-group-path` for types. Other declarations stay at their root. For both subgroup destinations, split TYPE and block declarations into separate sources in the same atomic transaction and bind their dependencies. Existing names in other groups are rejected rather than relocated.
 4. Reject duplicate declaration identities and any collision with an existing external source name.
 5. Treat generated external sources as temporary transaction artifacts unless the user explicitly wants to retain source objects.
 
