@@ -65,7 +65,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `export-block` | PLC | `plc-name`, `block-name`, `export-path` | Exports a single PLC block to XML |
 | `export-block-as-docs` | PLC | `plc-name`, `block-name`, `export-path` | Exports a single block as SIMATIC SD documents (.s7dcl + .s7res) |
 | `export-block-as-source` | PLC | `plc-name`, `block-name`, `output-path` | Exports a PLC block as an external source file when supported |
-| `export-blocks-as-docs` | PLC | `plc-name`, `export-path`, `filter-regex` | Exports multiple blocks as SIMATIC SD documents (.s7dcl + .s7res) |
+| `export-blocks-as-docs` | PLC | `plc-name`, `export-path`, `filter-regex` | Recursively exports matching PLC blocks as SIMATIC SD documents (.s7dcl + .s7res) |
 | `export-hmi-json` | Unified HMI | `hmi-name`, `output-path`, `screens`, `item-names`, `properties` | Exports the supported Unified HMI surface to JSON |
 | `export-plc` | PLC | `plc-name`, `export-path` | Exports all PLC blocks to XML files |
 | `export-tags` | PLC | `plc-name`, `culture`, `output-path` | Exports PLC tags from all tag tables |

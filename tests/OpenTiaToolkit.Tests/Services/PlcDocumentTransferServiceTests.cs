@@ -129,25 +129,142 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.IsFalse(Directory.Exists(_exportRoot));
         }
 
+        [DataTestMethod]
+        [DataRow(false)]
+        [DataRow(true)]
+        public async Task BulkExport_ReadsEachNameOnceWithoutBrowseMetadata(bool filtered)
+        {
+            var blocks = Enumerable.Range(0, 1000).Select(i => new ExportableBlock
+            {
+                Name = "Block_" + i.ToString("D4"),
+                ThrowOnMetadata = true
+            }).ToArray();
+            var result = await CreateService(blocks).ExportBlocksAsync(filtered ? "^block_0999$" : null, _exportRoot);
+
+            Assert.AreEqual(filtered ? 1 : 1000, result.TotalCount);
+            Assert.AreEqual(result.TotalCount, result.SuccessCount);
+            Assert.AreEqual(0, result.FailedCount);
+            Assert.IsTrue(blocks.All(block => block.NameReads == 1));
+            Assert.IsTrue(blocks.All(block => block.MetadataReads == 0));
+            Assert.AreEqual(result.TotalCount, blocks.Sum(block => block.ExportCalls));
+        }
+
+        [DataTestMethod]
+        [DataRow(false)]
+        [DataRow(true)]
+        public async Task BulkExport_IncludesNestedGroupsInTraversalOrder(bool filtered)
+        {
+            var software = new Software();
+            software.BlockGroup.Blocks.Add(new ExportableBlock { Name = "Root" });
+            var child = new BlockGroup();
+            child.Blocks.Add(new ExportableBlock { Name = "Nested" });
+            var deep = new BlockGroup();
+            deep.Blocks.Add(new ExportableBlock { Name = "Deep" });
+            child.Groups.Add(deep);
+            software.BlockGroup.Groups.Add(child);
+            var result = await CreateService("V21", software).ExportBlocksAsync(filtered ? "^(nested|deep)$" : null, _exportRoot);
+
+            CollectionAssert.AreEqual(filtered ? new[] { "Nested", "Deep" } : new[] { "Root", "Nested", "Deep" }, result.ExportedItems.ToArray());
+            Assert.AreEqual(filtered ? 2 : 3, result.TotalCount);
+            Assert.AreEqual(result.TotalCount, result.SuccessCount);
+            Assert.AreEqual(0, result.FailedCount);
+        }
+
+        [TestMethod]
+        public async Task BulkExport_RejectsCaseInsensitiveFilenameCollisionsWithoutExportingEitherTarget()
+        {
+            var first = new ExportableBlock { Name = "Duplicate" };
+            var second = new ExportableBlock { Name = "duplicate" };
+            var other = new ExportableBlock { Name = "Unique" };
+            var software = new Software();
+            software.BlockGroup.Blocks.AddRange(new[] { first, other });
+            var child = new BlockGroup(); child.Blocks.Add(second); software.BlockGroup.Groups.Add(child);
+            var service = CreateService("V21", software);
+            var result = await service.ExportBlocksAsync(null, _exportRoot);
+
+            Assert.AreEqual(3, result.TotalCount);
+            Assert.AreEqual(1, result.SuccessCount);
+            Assert.AreEqual(2, result.FailedCount);
+            Assert.AreEqual(0, first.ExportCalls);
+            Assert.AreEqual(0, second.ExportCalls);
+            CollectionAssert.AreEqual(new[] { "Unique" }, result.ExportedItems.ToArray());
+            Assert.IsTrue(result.Errors.All(error => error.Contains("share the export filename")));
+            Assert.IsFalse(File.Exists(Path.Combine(_exportRoot, "Duplicate.s7dcl")));
+            var filtered = await service.ExportBlocksAsync("^Unique$", Path.Combine(_exportRoot, "filtered"));
+            Assert.AreEqual(1, filtered.SuccessCount);
+            Assert.AreEqual(0, filtered.FailedCount);
+        }
+
+        [TestMethod]
+        public async Task BulkExport_ReobservesNewNestedTargetsOnTheNextInvocation()
+        {
+            var first = new ExportableBlock { Name = "First" };
+            var software = new Software(); software.BlockGroup.Blocks.Add(first);
+            var service = CreateService("V21", software);
+            Assert.AreEqual(1, (await service.ExportBlocksAsync(null, _exportRoot)).SuccessCount);
+            var added = new ExportableBlock { Name = "Added" };
+            var child = new BlockGroup(); child.Blocks.Add(added); software.BlockGroup.Groups.Add(child);
+            var next = await service.ExportBlocksAsync(null, Path.Combine(_exportRoot, "next"));
+
+            CollectionAssert.AreEqual(new[] { "First", "Added" }, next.ExportedItems.ToArray());
+            Assert.AreEqual(2, first.NameReads);
+            Assert.AreEqual(1, added.NameReads);
+        }
+
+        [TestMethod]
+        public async Task BulkExport_MissingRootFailsWithoutCreatingDirectory()
+        {
+            var context = new EngineeringSessionContext { PlcSoftware = new object(), CurrentPlcName = "PLC" };
+            var service = new PlcDocumentTransferService(context, Mock.Of<IPortalService>(p => p.Version == "V21"), null,
+                new V21DocumentAccess(new V21TypeServiceResolver()));
+            var result = await service.ExportBlocksAsync(null, _exportRoot);
+            CollectionAssert.AreEqual(new[] { "Could not get BlockGroup" }, result.Errors.ToArray());
+            Assert.IsFalse(Directory.Exists(_exportRoot));
+        }
+
         private static PlcDocumentTransferService CreateService(params Block[] blocks) => CreateService("V21", blocks);
 
         private static PlcDocumentTransferService CreateService(string version, params Block[] blocks)
         {
             var software = new Software();
             software.BlockGroup.Blocks.AddRange(blocks);
+            return CreateService(version, software);
+        }
+
+        private static PlcDocumentTransferService CreateService(string version, Software software)
+        {
             var context = new EngineeringSessionContext { PlcSoftware = software, CurrentPlcName = "PLC" };
             return new PlcDocumentTransferService(context,
                 Mock.Of<IPortalService>(portal => portal.Version == version),
-                new PlcBrowseService(context, null), null,
+                null,
                 new V21DocumentAccess(new V21TypeServiceResolver()));
         }
 
         private sealed class Software { public BlockGroup BlockGroup { get; } = new BlockGroup(); }
-        private sealed class BlockGroup { public List<Block> Blocks { get; } = new List<Block>(); }
+        private sealed class BlockGroup
+        {
+            public List<Block> Blocks { get; } = new List<Block>();
+            public List<BlockGroup> Groups { get; } = new List<BlockGroup>();
+        }
         private class Block
         {
-            public string Name { get; set; } = string.Empty;
-            public string Type { get; set; } = "FC";
+            private string _name = string.Empty;
+            private string _type = "FC";
+            public int NameReads { get; private set; }
+            public int MetadataReads { get; private set; }
+            public bool ThrowOnMetadata { get; set; }
+            public string Name { get { NameReads++; return _name; } set => _name = value; }
+            public string Type { get => ReadMetadata(_type); set => _type = value; }
+            public int Number => ReadMetadata(1);
+            public string ProgrammingLanguage => ReadMetadata("SCL");
+            public bool IsReadOnly => ReadMetadata(false);
+            public string Comment => ReadMetadata("Comment");
+            private T ReadMetadata<T>(T value)
+            {
+                MetadataReads++;
+                if (ThrowOnMetadata) throw new InvalidOperationException("Export must not read browse metadata.");
+                return value;
+            }
         }
         private sealed class ExportableBlock : Block
         {
@@ -157,6 +274,8 @@ namespace OpenTiaToolkit.Tests.Services
             public ExportState ExportAsDocuments(DirectoryInfo directory, string baseName)
             {
                 ExportCalls++;
+                // Siemens V21 checks DirectoryInfo's string representation, not just FullName.
+                if (!Path.IsPathRooted(directory.ToString())) throw new ArgumentException("Siemens requires an absolute directory argument.");
                 if (ThrowOnExport) throw new InvalidOperationException("Siemens rejected this target");
                 if (State == "Success") File.WriteAllText(Path.Combine(directory.FullName, baseName + ".s7dcl"), "stable documents");
                 return new ExportState { State = State };

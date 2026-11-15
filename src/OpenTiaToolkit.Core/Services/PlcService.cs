@@ -107,7 +107,7 @@ namespace OpenTiaToolkit.Core.Services
             _verificationService = new PlcVerificationService(_sessionContext, _logger, types, online);
             _blockMutationService = new PlcBlockMutationService(_sessionContext, _browseService, _logger, documents, objects);
             _memberRenameService = new PlcMemberRenameService(_sessionContext, _logger, tags, objects);
-            _importExportService = new PlcImportExportService(_sessionContext, _portalService, _browseService, _logger, documents, objects);
+            _importExportService = new PlcImportExportService(_sessionContext, _portalService, _logger, documents, objects);
             _tagService = new PlcTagService(_sessionContext, tagRepository, _logger);
             _surfaceService = new PlcSurfaceService(_sessionContext, _browseService, _logger, types, tags, objects);
         }
