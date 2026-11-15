@@ -68,8 +68,8 @@ namespace OpenTiaToolkit.Core.Services
         public Task<PlcSourceOperationResult> ImportSourceAsync(string sourcePath, bool dryRun = true, bool confirm = false) =>
             _sources.ImportAsync(sourcePath, dryRun, confirm);
 
-        public Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false) =>
-            _sources.GenerateBlocksAsync(sourceName, dryRun, confirm);
+        public Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false, string? groupPath = null, string? typeGroupPath = null) =>
+            _sources.GenerateBlocksAsync(sourceName, dryRun, confirm, groupPath, typeGroupPath);
 
         public Task<PlcSourceOperationResult> DeleteExternalSourceAsync(string sourceName, bool confirm = false) =>
             _sources.DeleteAsync(sourceName, confirm);

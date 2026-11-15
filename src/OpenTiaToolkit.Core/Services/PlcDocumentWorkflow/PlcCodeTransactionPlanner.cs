@@ -185,15 +185,17 @@ internal sealed class PlcCodeTransactionPlanner
         string group = PlcWorkflowPrimitives.NormalizeGroupPath(source.GroupPath, transaction.PlcName);
         if (ResolveGroup(RequireBlockRoot(), group) == null) throw new InvalidOperationException($"PLC block group was not found: '{DisplayGroup(group)}'.");
         string typeGroup = PlcWorkflowPrimitives.NormalizeTypeGroupPath(source.TypeGroupPath, transaction.PlcName);
+        PlcSourceGeneration.ValidateDestinations(group, typeGroup);
         if (TiaReflectionHelper.GetTypeGroupByPath(RequireTypeRoot(), typeGroup) == null) throw new InvalidOperationException($"PLC type group was not found: '{DisplayGroup(typeGroup)}'.");
         var snapshots = new List<PlcCodeTransactionTargetSnapshot>();
         int targetIndex = 0;
         foreach (PlcCodeDeclaredObject declared in validation.DeclaredObjects)
         {
             targetIndex++;
+            _targets.RequireSourceTargetLocation(new PlcBlockIdentity { Name = declared.Name, BlockType = declared.ObjectType, GroupPath = declared.ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase) ? typeGroup : group });
             if (declared.ObjectType.Equals("TYPE", StringComparison.OrdinalIgnoreCase))
             {
-                IReadOnlyList<ResolvedType> typeMatches = FindTypes(RequireTypeRoot(), declared.Name).Where(item => GroupEquals(item.Identity.GroupPath, typeGroup)).ToArray();
+                IReadOnlyList<ResolvedType> typeMatches = FindTypes(RequireTypeRoot(), declared.Name);
                 if (typeMatches.Count > 1) throw new InvalidOperationException($"SCL PLC type target '{declared.Name}' is ambiguous in group '{DisplayGroup(typeGroup)}'.");
                 ResolvedType? existingType = typeMatches.SingleOrDefault();
                 string typeBaseline = "missing";
@@ -212,7 +214,7 @@ internal sealed class PlcCodeTransactionPlanner
                 });
                 continue;
             }
-            IReadOnlyList<ResolvedBlock> matches = FindBlocks(RequireBlockRoot(), declared.Name).Where(item => GroupEquals(item.Identity.GroupPath, group)).ToArray();
+            IReadOnlyList<ResolvedBlock> matches = FindBlocks(RequireBlockRoot(), declared.Name);
             if (matches.Count > 1) throw Ambiguous(declared.Name, matches);
             if (matches.Count == 1 && !BlockTypeEquals(matches[0].Identity.BlockType, declared.ObjectType)) throw new InvalidOperationException($"SCL target '{declared.Name}' collides with type '{matches[0].Identity.BlockType}' instead of '{declared.ObjectType}'.");
             ResolvedBlock? existing = matches.SingleOrDefault();

@@ -78,7 +78,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `find-replace-db-members` | PLC | `plc-name`, `rename-map`, `case-insensitive`, `dry-run`, `target-blocks`, `output-path`, `confirm` | Finds and replaces GlobalDB member names with nested struct support |
 | `find-replace-tags` | PLC | `plc-name`, `rename-map`, `case-insensitive`, `dry-run`, `substring-match`, `output-path`, `confirm` | Finds and replaces PLC tag names across all tag tables |
 | `find-replace-udt-members` | PLC | `plc-name`, `rename-map`, `case-insensitive`, `dry-run`, `target-types`, `output-path`, `confirm` | Finds and replaces UDT member names with nested struct support |
-| `generate-blocks-from-source` | PLC | `plc-name`, `source-name`, `dry-run`, `confirm` | Generates PLC blocks from an external source when supported |
+| `generate-blocks-from-source` | PLC | `plc-name`, `source-name`, `group-path`, `type-group-path`, `dry-run`, `confirm` | Generates PLC blocks from an external source when supported |
 | `get-block-info` | PLC | `plc-name`, `block-name` | Gets detailed information about a specific PLC block |
 | `get-blocks` | PLC | `plc-name`, `filter`, `output-path`, `page-size`, `continuation-token` | Lists blocks from PLC software |
 | `get-cross-references` | PLC | `plc-name`, `name`, `output-path` | Gets PLC cross references for a tag, block, or named PLC object |

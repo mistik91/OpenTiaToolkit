@@ -108,6 +108,26 @@ public sealed class PlcBrowseServiceTests
         CurrentPlcName = "PLC_1"
     }, logger: null);
 
+    [TestMethod]
+    public async Task GetBlockInfo_FindsNestedTargetWithoutProjectingRejectedMetadata()
+    {
+        var rejected = new FakeBlock("Root");
+        var nested = new FakeBlock("Nested", "FC", "nested comment");
+        var software = new FakeSoftware { BlockGroup = new FakeGroup { Blocks = new[] { rejected }, Groups = new[] { new FakeGroup { Groups = new[] { new FakeGroup { Blocks = new[] { nested } } } } } } };
+        var service = new PlcBrowseService(new EngineeringSessionContext { PlcSoftware = software, CurrentPlcName = "PLC_1" }, null);
+        var detail = await service.GetBlockInfoAsync("nested");
+        Assert.IsNotNull(detail);
+        Assert.AreEqual("Nested", detail.Name);
+        Assert.AreEqual("FC", detail.Type);
+        Assert.AreEqual("SCL", detail.ProgrammingLanguage);
+        Assert.AreEqual("1", detail.Number);
+        Assert.IsFalse(detail.IsReadOnly);
+        Assert.AreEqual(0, rejected.MetadataReads);
+        Assert.AreEqual(5, nested.MetadataReads);
+        Assert.IsNull(await service.GetBlockInfoAsync("Missing"));
+        Assert.AreEqual(5, nested.MetadataReads);
+    }
+
     private sealed class FakeSoftware
     {
         public FakeGroup BlockGroup { get; set; } = null!;
@@ -116,6 +136,7 @@ public sealed class PlcBrowseServiceTests
     private sealed class FakeGroup
     {
         public IReadOnlyList<FakeBlock> Blocks { get; set; } = Array.Empty<FakeBlock>();
+        public IReadOnlyList<FakeGroup> Groups { get; set; } = Array.Empty<FakeGroup>();
     }
 
     private sealed class FakeBlock

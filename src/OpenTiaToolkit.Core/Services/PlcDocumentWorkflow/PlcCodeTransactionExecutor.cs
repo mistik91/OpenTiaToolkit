@@ -74,7 +74,7 @@ internal sealed class PlcCodeTransactionExecutor
     {
         PlcSourceOperationResult imported = await _plcService.ImportSourceAsync(operation.SourcePath!, dryRun: false, confirm: true).ConfigureAwait(false);
         if (!imported.Success || !imported.Applied) throw new InvalidOperationException($"SCL source import failed: {imported.Message}");
-        PlcSourceOperationResult generated = await _plcService.GenerateBlocksFromSourceAsync(operation.SourceName!, dryRun: false, confirm: true).ConfigureAwait(false);
+        PlcSourceOperationResult generated = await _plcService.GenerateBlocksFromSourceAsync(operation.SourceName!, dryRun: false, confirm: true, groupPath: operation.GroupPath, typeGroupPath: operation.TypeGroupPath).ConfigureAwait(false);
         if (!generated.Success || !generated.Applied) throw new InvalidOperationException($"SCL block generation failed: {generated.Message}");
         foreach (PlcCodeTransactionTargetSnapshot snapshot in operation.TargetSnapshots)
         {
@@ -260,6 +260,7 @@ internal sealed class PlcCodeTransactionExecutor
                 foreach (PlcCodeTransactionTargetSnapshot snapshot in targets)
                 {
                     targetIndex++;
+                    if (operation.Kind == "GenerateSclSource") _targets.RequireSourceTargetLocation(snapshot.Target);
                     if (IsTypeTarget(snapshot.Target))
                     {
                         ResolvedType? currentType = ResolveExactType(RequireTypeRoot(), snapshot.Target, allowMissing: true);

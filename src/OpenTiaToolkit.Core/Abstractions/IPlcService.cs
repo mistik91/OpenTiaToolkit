@@ -143,7 +143,7 @@ public interface IPlcService
     /// <summary>
     /// Generates blocks from an imported PLC external source when supported.
     /// </summary>
-    Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false);
+    Task<PlcSourceOperationResult> GenerateBlocksFromSourceAsync(string sourceName, bool dryRun = true, bool confirm = false, string? groupPath = null, string? typeGroupPath = null);
 
     /// <summary>
     /// Exports a PLC block as an external source file when supported.

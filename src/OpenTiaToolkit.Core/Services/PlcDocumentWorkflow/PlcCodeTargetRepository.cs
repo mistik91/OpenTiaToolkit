@@ -28,6 +28,16 @@ internal sealed class PlcCodeTargetRepository
     internal object? ResolveBlockGroup(string path) => TiaReflectionHelper.GetBlockGroupByPath(RequireBlockRoot(), path);
     internal object? ResolveTypeGroup(string path) => TiaReflectionHelper.GetTypeGroupByPath(RequireTypeRoot(), path);
 
+    internal void RequireSourceTargetLocation(PlcBlockIdentity identity)
+    {
+        bool isType = PlcWorkflowPrimitives.IsTypeTarget(identity);
+        if ((isType ? ResolveTypeGroup(identity.GroupPath) : ResolveBlockGroup(identity.GroupPath)) == null)
+            throw new InvalidOperationException($"SCL destination group was not found: '{identity.GroupPath}'.");
+        var groups = isType ? FindTypes(identity.Name).Select(item => item.Identity.GroupPath) : FindBlocks(identity.Name).Select(item => item.Identity.GroupPath);
+        if (groups.Any(path => !PlcWorkflowPrimitives.GroupEquals(path, identity.GroupPath)))
+            throw new InvalidOperationException($"SCL target '{identity.Name}' exists outside the requested group. Source generation cannot safely relocate it.");
+    }
+
     internal IReadOnlyList<ResolvedBlock> FindBlocks(string name)
     {
         var results = new List<ResolvedBlock>();

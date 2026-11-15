@@ -1605,7 +1605,7 @@ OpenTiaToolkit.CLI.exe discover-plc-code-capabilities --plc-name="PLC_1" --objec
 OpenTiaToolkit.CLI.exe begin-plc-code-transaction --plc-name="PLC_1" --description="Add conveyor logic" --compile-policy=NoNewErrors --capability-ids="<fb-capability-id>,<fc-capability-id>"
 OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FB_Conveyor" --group-path="Conveyor" --confirm=true
 OpenTiaToolkit.CLI.exe add-plc-code-transaction-operation --transaction-id="<id>" --import-directory="C:\changes" --file-name="FC_ConveyorCall" --depends-on=1 --confirm=true
-# Native SCL alternative:
+# Native SCL alternative (TYPE declarations go to ConveyorTypes; blocks stay at root):
 OpenTiaToolkit.CLI.exe add-scl-source-transaction-operation --transaction-id="<id>" --source-path="C:\changes\Conveyor.scl" --type-group-path="ConveyorTypes" --confirm=true
 # Existing-block or PLC-type SimaticML fallback alternative:
 OpenTiaToolkit.CLI.exe validate-plc-code-artifact --code-format=simaticml --input-path="C:\changes\Motor.patch.xml" --baseline-path="C:\changes\Motor.export.xml"
@@ -1620,6 +1620,10 @@ OpenTiaToolkit.CLI.exe apply-plc-code-transaction --transaction-id="<id>" --appl
 OpenTiaToolkit.CLI.exe get-plc-code-transaction --transaction-id="<id>"
 OpenTiaToolkit.CLI.exe discard-plc-code-transaction --transaction-id="<id>" --confirm=true
 ```
+
+Native SCL generation accepts one subgroup destination per source: `group-path` for blocks or `type-group-path` for PLC types. Both refer to existing subgroups; omission selects the root. To put both kinds in subgroups, split TYPE and block declarations into separate sources within the same atomic transaction, with explicit dependencies where required. Siemens reuses existing object locations, so planning and apply reject declared names that already exist outside the requested group. Generation does not relocate objects. The lower-level `generate-blocks-from-source` command exposes the same optional destinations; its preview checks the group and matching API without generating, and never falls back to root when a targeted API is unavailable.
+
+`get-block-info` reads nested block groups, and capability discovery combines that metadata with the exact software-tree identity when qualifying nested targets for creation or modification. Read-only and ambiguous targets remain blocked.
 
 `discover-plc-code-capabilities` reads the attached TIA version and installed build/update evidence, project, PLC family/type, exact target identity/language/protection, safety context, VCI mappings/status/formats, and live document/source/XML export evidence. It ranks VCI, native documents, native SCL, and SimaticML with explicit eligibility reasons. Safety targets, read-only targets, and ambiguous name-only identities fail closed. VCI selection routes to guarded directional synchronization rather than a direct-import transaction.
 

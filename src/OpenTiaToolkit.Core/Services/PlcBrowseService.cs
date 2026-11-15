@@ -138,14 +138,14 @@ namespace OpenTiaToolkit.Core.Services
                 try
                 {
                     var nonNullPlcSoftware = plcSoftware!;
-                    var blocksCollection = GetBlocksCollection(nonNullPlcSoftware);
-                    if (blocksCollection == null)
+                    var blockGroup = TiaReflectionHelper.GetBlockGroup(nonNullPlcSoftware);
+                    if (blockGroup == null)
                     {
                         _logger?.LogError("Blocks collection is null");
                         return null;
                     }
 
-                    foreach (var block in blocksCollection)
+                    foreach (var block in PlcTransferRules.EnumerateBlocks(blockGroup))
                     {
                         try
                         {
