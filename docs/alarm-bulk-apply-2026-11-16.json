@@ -1,0 +1,157 @@
+{
+  "reportFormatVersion": 1,
+  "observedDate": "2026-11-16",
+  "status": "partial",
+  "relatedPullRequest": "https://github.com/mistik91/OpenTiaToolkit/pull/4",
+  "environment": {
+    "toolkitVersion": "1.0.0-preview.9",
+    "toolkitCommit": "98646ddc89dce691679477f8fbcaa163f2301306",
+    "mergedOptimizationCommit": "c1cbd75ef73bf9fa3c98daabd475a9dde5f1f879",
+    "installedCommitContainsOptimization": true,
+    "installedWorkerSha256": "8a5c16a28977160dbb682566616cae548e9d07809ac10207c5e734c16e50a436",
+    "workerMatchesReleaseProvenance": true,
+    "tiaPortal": "V21 Update 3",
+    "fullCommandTimeoutSeconds": 900,
+    "clientResponseWaitSeconds": 930,
+    "binaryBaselineMatched": false,
+    "apiProfileCompatible": true,
+    "baselineMismatchedAssemblies": [
+      "Siemens.Engineering.WinCCUnified.dll",
+      "Siemens.Engineering.Startdrive.dll"
+    ]
+  },
+  "workload": {
+    "alarmCount": 1936,
+    "uniqueTriggerExpressions": 1936,
+    "uniqueTagRoots": 721,
+    "scalarTriggerPaths": 640,
+    "memberTriggerPaths": 1296,
+    "alarmClassCount": 1,
+    "textCultures": [
+      "en-US"
+    ],
+    "initialDiscreteAlarmCount": 0,
+    "expectedState": "absent",
+    "inputSchemaVersion": "1.0",
+    "allReferencedTagsValidInSuccessfulDryRun": true
+  },
+  "observations": [
+    {
+      "check": "scoped-scalar-tag-reads",
+      "result": "found-bool",
+      "elapsedSeconds": [
+        1.5,
+        0.422
+      ]
+    },
+    {
+      "check": "single-alarm-dry-run",
+      "success": true,
+      "elapsedSeconds": 9.61,
+      "transaction": {
+        "Created": true,
+        "Committed": false,
+        "RolledBack": true
+      },
+      "freshInventoryCount": 0
+    },
+    {
+      "check": "full-dry-run-short-deadline",
+      "success": false,
+      "timeoutSeconds": 180,
+      "elapsedSeconds": 182.031,
+      "errorCode": "TimedOut",
+      "transaction": null,
+      "disposableSessionDiscarded": true
+    },
+    {
+      "check": "full-dry-run-configured-deadline",
+      "success": true,
+      "timeoutSeconds": 900,
+      "elapsedSeconds": 765.734,
+      "transaction": {
+        "Created": true,
+        "Committed": false,
+        "RolledBack": true
+      },
+      "rowCount": 1936,
+      "rowStatuses": {
+        "Created": 1936
+      },
+      "rowErrorCount": 0,
+      "rowWarningCount": 0,
+      "requestedFieldAndTextComparison": "all-1936-match",
+      "freshInventoryCount": 0
+    },
+    {
+      "check": "full-apply-exact-reviewed-document",
+      "success": false,
+      "timeoutSeconds": 900,
+      "elapsedSeconds": 902.453,
+      "errorCode": "TimedOut",
+      "message": "Tool 'apply-unified-discrete-alarms' exceeded 900 seconds; its isolated worker was terminated and replaced.",
+      "transaction": null,
+      "commitOutcome": "unknown",
+      "workerReplaced": true,
+      "writeRetried": false
+    },
+    {
+      "check": "operation-status-after-apply-timeout",
+      "activeOperation": false
+    },
+    {
+      "check": "original-project-final-inventory",
+      "count": 0,
+      "elapsedSeconds": 0.657
+    }
+  ],
+  "mcpRequests": [
+    {
+      "label": "full-dry-run",
+      "method": "tools/call",
+      "params": {
+        "name": "apply-unified-discrete-alarms",
+        "arguments": {
+          "hmi-name": "<disposable-unified-hmi>",
+          "input-path": "<absolute-path-to-alarm-document.json>",
+          "dry-run": true,
+          "fail-on-warning": true
+        }
+      }
+    },
+    {
+      "label": "full-apply",
+      "method": "tools/call",
+      "params": {
+        "name": "apply-unified-discrete-alarms",
+        "arguments": {
+          "hmi-name": "<disposable-unified-hmi>",
+          "input-path": "<absolute-path-to-alarm-document.json>",
+          "dry-run": false,
+          "apply": true,
+          "confirm": true,
+          "fail-on-warning": true
+        }
+      }
+    }
+  ],
+  "recovery": {
+    "initialAttachTimeoutSeconds": 181.032,
+    "freshAttachSeconds": 2.734,
+    "finalOriginalAttachSeconds": 0.469,
+    "originalSavedProjectHashesUnchanged": true,
+    "immutableArchiveHashUnchanged": true,
+    "projectSaveRequested": false,
+    "writeRetryIssued": false,
+    "recordedCampaignProcessesEnded": true,
+    "originalVisibleInstancesResponsive": true,
+    "generatedProjectCopiesRemoved": true
+  },
+  "scope": {
+    "source": "recorded-installed-binary-campaign",
+    "runtimeChangeInThisPullRequest": false,
+    "fullApplyVerified": false,
+    "standaloneFixtureIncluded": false,
+    "privateProjectOrAlarmIdentitiesIncluded": false
+  }
+}
