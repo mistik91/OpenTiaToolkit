@@ -32,7 +32,7 @@ namespace OpenTiaToolkit.Core.Services
 {
     internal static class V21HmiDynamizationSynchronizer
     {
-        internal static List<HmiJsonDynamization> ReadSupportedDynamizationsFromComposition(object composition)
+        internal static List<HmiJsonDynamization> ReadSupportedDynamizationsFromComposition(object composition, Func<string, bool>? includeEntry = null)
         {
             if (composition is not IEnumerable enumerable)
             {
@@ -41,17 +41,17 @@ namespace OpenTiaToolkit.Core.Services
 
             return enumerable
                 .Cast<object>()
-                .Select(TryReadDynamizationExport)
+                .Select(entry => TryReadDynamizationExport(entry, includeEntry))
                 .Where(dynamization => dynamization != null)
                 .OrderBy(dynamization => dynamization!.Property, StringComparer.OrdinalIgnoreCase)
                 .Cast<HmiJsonDynamization>()
                 .ToList();
         }
 
-        internal static HmiJsonDynamization? TryReadDynamizationExport(object? dynamization)
+        internal static HmiJsonDynamization? TryReadDynamizationExport(object? dynamization, Func<string, bool>? includeEntry = null)
         {
             var propertyName = NormalizeOptionalString(TryReadStringProperty(dynamization, "PropertyName"));
-            if (string.IsNullOrWhiteSpace(propertyName))
+            if (string.IsNullOrWhiteSpace(propertyName) || includeEntry?.Invoke(propertyName!) == false)
             {
                 return null;
             }

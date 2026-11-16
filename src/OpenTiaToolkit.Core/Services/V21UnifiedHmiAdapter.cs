@@ -88,14 +88,14 @@ namespace OpenTiaToolkit.Core.Services
         public HmiFaceplateInterfaceProbeResult ProbeFaceplateInterface(string screenPath, HmiScreenItemBase item, string? propertyName, bool write, string? value, bool restore) =>
             _composites.ProbeFaceplateInterface(screenPath, item, propertyName, write, value, restore);
         public bool TryResolveItemClrType(string itemType, out Type resolvedType) => _composites.TryResolveItemClrType(itemType, out resolvedType);
-        public bool TryReadEventHandlers(object owner, out List<HmiJsonEventHandler> eventHandlers, out string? error) =>
-            _composites.TryReadEventHandlers(owner, out eventHandlers, out error);
-        public bool TryReadPropertyEventHandlers(object owner, out List<HmiJsonPropertyEventHandler> propertyEventHandlers, out string? error) =>
-            _composites.TryReadPropertyEventHandlers(owner, out propertyEventHandlers, out error);
-        public bool TryReadDynamizations(object owner, out List<HmiJsonDynamization> dynamizations, out string? error) =>
-            _composites.TryReadDynamizations(owner, out dynamizations, out error);
-        public bool TryReadInterfaceBindings(object owner, out List<HmiJsonInterfaceBinding> bindings, out string? error) =>
-            _composites.TryReadInterfaceBindings(owner, out bindings, out error);
+        public bool TryReadEventHandlers(object owner, out List<HmiJsonEventHandler> eventHandlers, out string? error, Func<string, bool>? includeEntry = null) =>
+            _composites.TryReadEventHandlers(owner, out eventHandlers, out error, includeEntry);
+        public bool TryReadPropertyEventHandlers(object owner, out List<HmiJsonPropertyEventHandler> propertyEventHandlers, out string? error, Func<string, bool>? includeEntry = null) =>
+            _composites.TryReadPropertyEventHandlers(owner, out propertyEventHandlers, out error, includeEntry);
+        public bool TryReadDynamizations(object owner, out List<HmiJsonDynamization> dynamizations, out string? error, Func<string, bool>? includeEntry = null) =>
+            _composites.TryReadDynamizations(owner, out dynamizations, out error, includeEntry);
+        public bool TryReadInterfaceBindings(object owner, out List<HmiJsonInterfaceBinding> bindings, out string? error, Func<string, bool>? includeEntry = null) =>
+            _composites.TryReadInterfaceBindings(owner, out bindings, out error, includeEntry);
         public bool TryValidateOrApplyEventHandlers(object? owner, Type ownerType, IReadOnlyList<HmiJsonEventHandler>? desiredEventHandlers, bool apply, out string? error) =>
             _composites.TryValidateOrApplyEventHandlers(owner, ownerType, desiredEventHandlers, apply, out error);
         public bool TryValidateOrApplyPropertyEventHandlers(object? owner, Type ownerType, IReadOnlyList<HmiJsonPropertyEventHandler>? desiredPropertyEventHandlers, bool apply, out string? error) =>
