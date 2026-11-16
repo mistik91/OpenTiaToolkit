@@ -179,6 +179,8 @@ For screen-level event handlers, omit `itemName`.
 
 ## Property Event Handlers
 
+On V21, do not combine property-event edits with root dynamizations on the same screen/item. Native property-event creation can erase bindings or terminate TIA, so preflight checks both requested and existing state and rejects changed coexistence and direct switches. The individual examples below are alternatives for one owner, not a combined recipe. Ordinary event handlers are a separate collection and can coexist with dynamizations.
+
 Set a property event handler:
 
 ```json

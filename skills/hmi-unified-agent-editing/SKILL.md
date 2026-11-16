@@ -179,6 +179,10 @@ Keep filters intentionally narrow. Include every item the operation reads or wri
 
 Composite operations touch the root composite property. Use `EventHandlers`, `PropertyEventHandlers`, `Dynamizations`, or `Interface` in `properties`; do not filter only to nested entry names. Faceplate interface entries can contain nested `Dynamizations`, so include `Interface` when editing an interface entry's TagParameter binding.
 
+V21 blocks edits that change coexisting `PropertyEventHandlers` and root `Dynamizations`, or directly switch between them on the same screen/item. Native property-event creation can erase existing bindings or terminate TIA. This check includes existing collections outside the requested filters, so do not split the same unsafe intent into separate patches or bypass preflight. Ordinary `EventHandlers` with dynamizations, separate owners, read-only exports, and unchanged coexistence remain supported. Report the limitation if the user's behavior requires both on one owner; do not relocate handlers to another item without preserving their intended event source.
+
+For an intentional switch, clear both collections with root filters, verify and save the cleared state, reopen the project, then take a fresh snapshot before creating the other kind. Do not attempt a one-apply switch by reordering writes: removing property events can reveal hidden old bindings.
+
 For `duplicate-item`, include both the source item and the target item name in `itemNames`. For `create-item` with a base hash, include the new item name so validation can prove the filter was intentional.
 
 When one patch mixes screen-level and item-level changes, take one snapshot with the union of all touched filters. For example, a screen `EventHandlers` edit plus an item `Dynamizations` edit should use `itemNames` for the item targets and `properties` containing both `EventHandlers` and `Dynamizations`; omit `item` only on the screen-level operation itself.

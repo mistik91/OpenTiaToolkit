@@ -25,6 +25,61 @@ namespace OpenTiaToolkit.Core.Services
             _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
         }
 
+        internal bool ValidatePropertyEventDynamizationCombination(
+            string scope,
+            string screenPath,
+            string? itemName,
+            IReadOnlyList<HmiJsonPropertyEventHandler>? propertyEvents,
+            IReadOnlyList<HmiJsonDynamization>? dynamizations,
+            object? owner,
+            HmiJsonFilterOptions filters,
+            HmiJsonImportResult result)
+        {
+            var editsEvents = propertyEvents != null && HmiJsonFilterMatcher.ShouldIncludeCompositeProperty(PropertyEventHandlersPropertyName, filters);
+            var editsDynamics = dynamizations != null && HmiJsonFilterMatcher.ShouldIncludeCompositeProperty(DynamizationsPropertyName, filters);
+            if (!editsEvents && !editsDynamics) return true;
+
+            var currentEvents = new List<HmiJsonPropertyEventHandler>();
+            var currentDynamics = new List<HmiJsonDynamization>();
+            string? error = null;
+            if (owner != null &&
+                ((!_adapter.TryReadPropertyEventHandlers(owner, out currentEvents, out error) && !string.IsNullOrWhiteSpace(error)) ||
+                 (!_adapter.TryReadDynamizations(owner, out currentDynamics, out error) && !string.IsNullOrWhiteSpace(error))))
+            {
+                AddFailedProperty(result, scope, screenPath, itemName, PropertyEventHandlersPropertyName, error!);
+                return false;
+            }
+
+            var desiredEvents = editsEvents
+                ? MergeFilteredPropertyEventHandlers(currentEvents, propertyEvents!
+                    .Where(handler => HmiJsonCompositeComparer.GetPropertyEventHandlerKey(handler.PropertyName, handler.EventType) is string key &&
+                        HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(PropertyEventHandlersPropertyName,
+                            HmiJsonCompositeComparer.FormatPropertyEventHandlerKey(key), filters)).ToList(), filters)
+                : currentEvents;
+            var desiredDynamics = editsDynamics
+                ? MergeFilteredDynamizations(currentDynamics, dynamizations!
+                    .Where(entry => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(DynamizationsPropertyName, entry.Property, filters)).ToList(), filters)
+                : currentDynamics;
+
+            var eventsChanged = HmiJsonCompositeComparer.GetChangedPropertyEventHandlerKeys(currentEvents, desiredEvents).Count > 0;
+            var dynamicsChanged = HmiJsonCompositeComparer.GetChangedDynamizationProperties(currentDynamics, desiredDynamics).Count > 0;
+            var unsafeCoexistence = desiredEvents.Count > 0 && desiredDynamics.Count > 0 && (eventsChanged || dynamicsChanged);
+            var unsafeSwitch = (eventsChanged && desiredEvents.Count > 0 && currentDynamics.Count > 0) ||
+                               (dynamicsChanged && desiredDynamics.Count > 0 && currentEvents.Count > 0);
+            if (!unsafeCoexistence && !unsafeSwitch)
+            {
+                return true;
+            }
+
+            // V21 PropertyEventHandlers.Create can erase this owner's dynamizations;
+            // creating dynamizations after property events can also terminate TIA.
+            const string message = "TIA V21 cannot safely mix or directly switch PropertyEventHandlers and Dynamizations on the same owner. " +
+                "Property-event creation can hide bindings or terminate TIA. Keep both unchanged, or clear both collections and reopen before creating the other kind; separate patches that retain the conflicting collection do not avoid this limitation.";
+            AddFailedProperty(result, scope, screenPath, itemName, PropertyEventHandlersPropertyName, message);
+            AddWarning(result, $"{scope} '{FormatObjectPath(screenPath, itemName)}': {message}");
+            return false;
+        }
+
         internal void ProcessEventHandlers(
             string scope,
             string screenPath,
