@@ -637,6 +637,7 @@ namespace OpenTiaToolkit.Tests.Integration
             var suffix = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
             var screenPath = $"Codex/JsonComposite_{suffix}";
             var itemName = $"Btn_{suffix}";
+            var propertyItemName = $"PropertyEvents_{suffix}";
             var rootPath = Path.Combine(Settings.TestOutputPath, "HmiJsonComposite", suffix);
             var basePath = Path.Combine(rootPath, "base");
             var editedPath = Path.Combine(rootPath, "edited");
@@ -674,12 +675,22 @@ namespace OpenTiaToolkit.Tests.Integration
                 _logger!);
             Assert.IsTrue(createItemResult.Success, $"Failed to create JSON composite test item: {createItemResult.Error}");
 
+            var propertyItemResult = await createItemCommand.ExecuteAsync(
+                new CommandArgs(new Dictionary<string, object?>
+                {
+                    { "hmi-name", Settings.UnifiedHmiName },
+                    { "screen-path", screenPath },
+                    { "item-type", "button" },
+                    { "item-name", propertyItemName }
+                }), _logger!);
+            Assert.IsTrue(propertyItemResult.Success, propertyItemResult.Error);
+
             var tags = (await _hmiService!.GetTagsAsync()).ToList();
             var target = SelectCompositeDynamizationTarget(tags);
             Assert.IsFalse(string.IsNullOrWhiteSpace(target.TagPath), "Expected at least one compatible HMI tag for dynamization testing.");
             var eventType = ResolveSupportedItemEventType(screenPath, itemName);
             Assert.IsFalse(string.IsNullOrWhiteSpace(eventType), "Expected at least one supported event handler type for the created item.");
-            var propertyEventType = ResolveSupportedItemPropertyEventType(screenPath, itemName);
+            var propertyEventType = ResolveSupportedItemPropertyEventType(screenPath, propertyItemName);
             Assert.IsFalse(string.IsNullOrWhiteSpace(propertyEventType), "Expected at least one supported property event handler type for the created item.");
 
             var exportCommand = new ExportHmiJsonCommand(_hmiService!);
@@ -698,7 +709,7 @@ namespace OpenTiaToolkit.Tests.Integration
             var baseFilePath = HmiJsonDocumentStore.ResolveExportFilePath(basePath);
             var editedFilePath = HmiJsonDocumentStore.ResolveExportFilePath(editedPath);
             var editedDocument = HmiJsonDocumentStore.LoadDocument(baseFilePath);
-            var editedItem = editedDocument.Screens.Single().Items.Single();
+            var editedItem = editedDocument.Screens.Single().Items.Single(item => item.Name == itemName);
             editedItem.EventHandlers = new List<HmiJsonEventHandler>
             {
                 new HmiJsonEventHandler
@@ -710,7 +721,7 @@ namespace OpenTiaToolkit.Tests.Integration
                     }
                 }
             };
-            editedItem.PropertyEventHandlers = new List<HmiJsonPropertyEventHandler>
+            editedDocument.Screens.Single().Items.Single(item => item.Name == propertyItemName).PropertyEventHandlers = new List<HmiJsonPropertyEventHandler>
             {
                 new HmiJsonPropertyEventHandler
                 {
@@ -802,12 +813,13 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.IsTrue(verifyExportResult.Success, $"Failed to verify composite JSON export: {verifyExportResult.Error}");
 
             var verifyDocument = HmiJsonDocumentStore.LoadDocument(HmiJsonDocumentStore.ResolveExportFilePath(verifyPath));
-            var verifyItem = verifyDocument.Screens.Single().Items.Single();
+            var verifyItem = verifyDocument.Screens.Single().Items.Single(item => item.Name == itemName);
             Assert.IsNotNull(verifyItem.EventHandlers, "Expected imported event handlers to round-trip.");
             Assert.AreEqual(eventType, verifyItem.EventHandlers!.Single().EventType);
             Assert.AreEqual("return 42;", verifyItem.EventHandlers.Single().Script!.ScriptCode);
-            Assert.IsNotNull(verifyItem.PropertyEventHandlers, "Expected imported property event handlers to round-trip.");
-            var importedPropertyEventHandler = verifyItem.PropertyEventHandlers!.Single(handler =>
+            var propertyItem = verifyDocument.Screens.Single().Items.Single(item => item.Name == propertyItemName);
+            Assert.IsNotNull(propertyItem.PropertyEventHandlers, "Expected imported property event handlers to round-trip.");
+            var importedPropertyEventHandler = propertyItem.PropertyEventHandlers!.Single(handler =>
                 handler.PropertyName.Equals(target.PropertyName, StringComparison.OrdinalIgnoreCase));
             Assert.AreEqual(propertyEventType, importedPropertyEventHandler.EventType);
             Assert.AreEqual("return 24;", importedPropertyEventHandler.Script!.ScriptCode);
@@ -1536,6 +1548,7 @@ namespace OpenTiaToolkit.Tests.Integration
             var suffix = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
             var screenPath = $"Codex/AgentPatchComposite_{suffix}";
             var itemName = $"Btn_{suffix}";
+            var propertyItemName = $"PropertyEvents_{suffix}";
             var rootPath = Path.Combine(Settings.TestOutputPath, "HmiAgentPatchComposite", suffix);
 
             Directory.CreateDirectory(rootPath);
@@ -1589,8 +1602,18 @@ namespace OpenTiaToolkit.Tests.Integration
                 _logger!);
             Assert.IsTrue(createItemResult.Success, $"Failed to create composite patch item: {createItemResult.Error}");
 
+            var propertyItemResult = await createItemCommand.ExecuteAsync(
+                new CommandArgs(new Dictionary<string, object?>
+                {
+                    { "hmi-name", Settings.UnifiedHmiName },
+                    { "screen-path", screenPath },
+                    { "item-type", "button" },
+                    { "item-name", propertyItemName }
+                }), _logger!);
+            Assert.IsTrue(propertyItemResult.Success, propertyItemResult.Error);
+
             var eventType = ResolveSupportedItemEventType(screenPath, itemName);
-            var propertyEventType = ResolveSupportedItemPropertyEventType(screenPath, itemName);
+            var propertyEventType = ResolveSupportedItemPropertyEventType(screenPath, propertyItemName);
 
             var inspectCommand = new InspectHmiScreenJsonCapabilitiesCommand(_hmiService!);
             var inspectResult = await inspectCommand.ExecuteAsync(
@@ -1598,7 +1621,7 @@ namespace OpenTiaToolkit.Tests.Integration
                 {
                     { "hmi-name", Settings.UnifiedHmiName },
                     { "screen-path", screenPath },
-                    { "item-names", new[] { itemName } },
+                    { "item-names", new[] { itemName, propertyItemName } },
                     { "properties", compositeProperties },
                     { "include-item-types", true },
                     { "include-writable-properties", false },
@@ -1613,7 +1636,7 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.IsNotNull(capabilities!.Snapshot, "Expected inspected snapshot.");
             Assert.IsTrue(capabilities.Capabilities!.SupportedPatchOperations.Contains("set-event-handler"));
             Assert.IsTrue(capabilities.SupportedItemTypes.Any(type => type.Aliases.Contains("button", StringComparer.OrdinalIgnoreCase)));
-            Assert.AreEqual(itemName, capabilities.Items.Single().Name);
+            Assert.AreEqual(2, capabilities.Items.Count);
 
             var patchCommand = new ApplyHmiScreenJsonPatchCommand(_hmiService!);
             var setOperations = new[]
@@ -1628,7 +1651,7 @@ namespace OpenTiaToolkit.Tests.Integration
                 new HmiScreenJsonPatchOperation
                 {
                     Op = "set-property-event-handler",
-                    Item = itemName,
+                    Item = propertyItemName,
                     Property = target.PropertyName,
                     EventType = propertyEventType,
                     ScriptCode = "return 24;"
@@ -1689,13 +1712,14 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.IsTrue(applySummary.Import!.TransactionUsed, "Expected composite patch apply to use a Siemens transaction.");
             Assert.IsFalse(applySummary.Import.RolledBack, "Expected composite patch apply to commit its transaction.");
 
-            var verifiedItem = applySummary.VerifiedScreen!.Items.Single();
+            var verifiedItem = applySummary.VerifiedScreen!.Items.Single(item => item.Name == itemName);
             Assert.IsNotNull(verifiedItem.EventHandlers, "Expected event handler after composite patch.");
             Assert.AreEqual(eventType, verifiedItem.EventHandlers!.Single().EventType);
             Assert.AreEqual("return 42;", verifiedItem.EventHandlers.Single().Script!.ScriptCode);
-            Assert.IsNotNull(verifiedItem.PropertyEventHandlers, "Expected property event handler after composite patch.");
-            Assert.AreEqual(propertyEventType, verifiedItem.PropertyEventHandlers!.Single().EventType);
-            Assert.AreEqual("return 24;", verifiedItem.PropertyEventHandlers.Single().Script!.ScriptCode);
+            var propertyItem = applySummary.VerifiedScreen.Items.Single(item => item.Name == propertyItemName);
+            Assert.IsNotNull(propertyItem.PropertyEventHandlers, "Expected property event handler after composite patch.");
+            Assert.AreEqual(propertyEventType, propertyItem.PropertyEventHandlers!.Single().EventType);
+            Assert.AreEqual("return 24;", propertyItem.PropertyEventHandlers.Single().Script!.ScriptCode);
             Assert.IsNotNull(verifiedItem.Dynamizations, "Expected dynamization after composite patch.");
             Assert.AreEqual(target.TagPath, verifiedItem.Dynamizations!.Single().Binding!.Tag);
 
@@ -1704,7 +1728,7 @@ namespace OpenTiaToolkit.Tests.Integration
                 {
                     { "hmi-name", Settings.UnifiedHmiName },
                     { "screen-path", screenPath },
-                    { "item-names", new[] { itemName } },
+                    { "item-names", new[] { itemName, propertyItemName } },
                     { "properties", compositeProperties },
                     { "working-path", rootPath }
                 }),
@@ -1724,7 +1748,7 @@ namespace OpenTiaToolkit.Tests.Integration
                 new HmiScreenJsonPatchOperation
                 {
                     Op = "remove-property-event-handler",
-                    Item = itemName,
+                    Item = propertyItemName,
                     Property = target.PropertyName,
                     EventType = propertyEventType
                 },
@@ -1760,9 +1784,9 @@ namespace OpenTiaToolkit.Tests.Integration
             Assert.IsTrue(removeSummary.Import!.TransactionUsed, "Expected composite removal apply to use a Siemens transaction.");
             Assert.IsFalse(removeSummary.Import.RolledBack, "Expected composite removal apply to commit its transaction.");
 
-            var removedItem = removeSummary.VerifiedScreen!.Items.Single();
+            var removedItem = removeSummary.VerifiedScreen!.Items.Single(item => item.Name == itemName);
             Assert.IsTrue(removedItem.EventHandlers == null || removedItem.EventHandlers.Count == 0, "Expected event handlers to be removed.");
-            Assert.IsTrue(removedItem.PropertyEventHandlers == null || removedItem.PropertyEventHandlers.Count == 0, "Expected property event handlers to be removed.");
+            Assert.IsTrue(removeSummary.VerifiedScreen.Items.All(item => item.PropertyEventHandlers == null || item.PropertyEventHandlers.Count == 0), "Expected property event handlers to be removed.");
             Assert.IsTrue(removedItem.Dynamizations == null || removedItem.Dynamizations.Count == 0, "Expected dynamizations to be removed.");
         }
 

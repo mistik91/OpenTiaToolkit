@@ -88,6 +88,12 @@ namespace OpenTiaToolkit.Core.Services
                 return;
             }
 
+            if (!_composites.ValidatePropertyEventDynamizationCombination(
+                "Screen", screenPath, null, screenDocument.PropertyEventHandlers, screenDocument.Dynamizations, screen, filters, result))
+            {
+                return;
+            }
+
             ProcessScreenProperties(screenPath, screenDocument.Properties, screen, filters, dryRun, result);
             _composites.ProcessEventHandlers(
                 scope: "Screen",
@@ -303,6 +309,12 @@ namespace OpenTiaToolkit.Core.Services
 
             try
             {
+                if (!_composites.ValidatePropertyEventDynamizationCombination(
+                    "Item", screenPath, itemDocument.Name, itemDocument.PropertyEventHandlers, itemDocument.Dynamizations, existingItem, filters, result))
+                {
+                    return;
+                }
+
                 ProcessItemProperties(
                     screenPath,
                     itemDocument,

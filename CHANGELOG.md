@@ -8,6 +8,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Fixed
+- Reject V21 HMI edits that mix or directly switch property-event handlers and root dynamizations on the same screen/item. Native property-event creation can erase bindings or terminate TIA; independent owners and unchanged collections remain supported.
 - Filter Unified HMI composite entry identities before reading event scripts, dynamization payloads, or faceplate interface values and nested bindings, while preserving full reads for synchronization.
 - Honor SCL block or PLC type subgroup destinations through Siemens' targeted generation API and resolve nested block metadata during capability discovery. Reject unsupported dual subgroup destinations and same-name targets in other groups before transaction mutation, including collisions introduced after planning.
 - Export PLC SIMATIC SD documents from one recursive block traversal, without repeated name searches or browse metadata reads. Bulk export now includes nested block groups and reports selected filename collisions without overwriting their documents.
