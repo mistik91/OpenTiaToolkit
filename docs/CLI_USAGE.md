@@ -706,6 +706,8 @@ OpenTiaToolkit.CLI.exe export-hmi-json --hmi-name="HMI_1" --output-path="C:\Expo
 OpenTiaToolkit.CLI.exe export-hmi-json --hmi-name="HMI_1" --output-path="C:\Exports\Main.json" --screens="Codex/Main" --properties="Text,Visible,EventHandlers,PropertyEventHandlers,Dynamizations"
 ```
 
+Composite entry filters are case-insensitive: for example, `EventHandlers.Tapped`, `PropertyEventHandlers.Text.Change`, `Dynamizations.Left`, and `Interface.ENA`. Selection occurs before reading scripts, binding values, converters, or nested interface dynamizations. A deeper suffix selects the complete matching entry rather than projecting only one payload field. Use the root composite property for patch/import workflows so their full-state safety checks remain intact.
+
 #### diff-hmi-json
 
 Creates a minimal patch from a base export and an edited export.

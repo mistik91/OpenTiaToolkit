@@ -299,7 +299,7 @@ namespace OpenTiaToolkit.Core.Services
             return false;
         }
 
-        public bool TryReadEventHandlers(object owner, out List<HmiJsonEventHandler> eventHandlers, out string? error)
+        public bool TryReadEventHandlers(object owner, out List<HmiJsonEventHandler> eventHandlers, out string? error, Func<string, bool>? includeEntry = null)
         {
             eventHandlers = new List<HmiJsonEventHandler>();
             error = null;
@@ -311,7 +311,7 @@ namespace OpenTiaToolkit.Core.Services
 
             try
             {
-                eventHandlers = ReadEventHandlersFromComposition(composition);
+                eventHandlers = ReadEventHandlersFromComposition(composition, includeEntry);
                 return true;
             }
             catch (Exception ex)
@@ -322,7 +322,7 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        public bool TryReadPropertyEventHandlers(object owner, out List<HmiJsonPropertyEventHandler> propertyEventHandlers, out string? error)
+        public bool TryReadPropertyEventHandlers(object owner, out List<HmiJsonPropertyEventHandler> propertyEventHandlers, out string? error, Func<string, bool>? includeEntry = null)
         {
             propertyEventHandlers = new List<HmiJsonPropertyEventHandler>();
             error = null;
@@ -334,7 +334,7 @@ namespace OpenTiaToolkit.Core.Services
 
             try
             {
-                propertyEventHandlers = ReadPropertyEventHandlersFromComposition(composition);
+                propertyEventHandlers = ReadPropertyEventHandlersFromComposition(composition, includeEntry);
                 return true;
             }
             catch (Exception ex)
@@ -345,7 +345,7 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        public bool TryReadDynamizations(object owner, out List<HmiJsonDynamization> dynamizations, out string? error)
+        public bool TryReadDynamizations(object owner, out List<HmiJsonDynamization> dynamizations, out string? error, Func<string, bool>? includeEntry = null)
         {
             dynamizations = new List<HmiJsonDynamization>();
             error = null;
@@ -357,7 +357,7 @@ namespace OpenTiaToolkit.Core.Services
 
             try
             {
-                dynamizations = ReadSupportedDynamizationsFromComposition(composition);
+                dynamizations = ReadSupportedDynamizationsFromComposition(composition, includeEntry);
                 return true;
             }
             catch (Exception ex)
@@ -368,7 +368,7 @@ namespace OpenTiaToolkit.Core.Services
             }
         }
 
-        public bool TryReadInterfaceBindings(object owner, out List<HmiJsonInterfaceBinding> bindings, out string? error)
+        public bool TryReadInterfaceBindings(object owner, out List<HmiJsonInterfaceBinding> bindings, out string? error, Func<string, bool>? includeEntry = null)
         {
             bindings = new List<HmiJsonInterfaceBinding>();
             error = null;
@@ -380,7 +380,7 @@ namespace OpenTiaToolkit.Core.Services
 
             try
             {
-                bindings = ReadInterfaceBindingsFromComposition(composition);
+                bindings = ReadInterfaceBindingsFromComposition(composition, includeEntry);
                 return true;
             }
             catch (Exception ex)

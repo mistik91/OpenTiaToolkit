@@ -25,6 +25,8 @@ Use this skill when a task mentions Unified HMI screen edits, screen items, `get
 
 ## Filter Invariant
 
+Read-only JSON exports can select composite entries with case-insensitive paths such as `EventHandlers.Tapped`, `PropertyEventHandlers.Text.Change`, `Dynamizations.Left`, or `Interface.ENA`. Matching uses the existing full entry key; a deeper suffix still selects the complete entry payload, including nested interface dynamizations. Unmatched payloads are not read. Use root composite properties for editing as described below; synchronization still reads the complete current state.
+
 When using `base-hash`, the snapshot, dry-run apply, real apply, and verification read must use the same `item-names` and `properties` unless the command returns `re-read-screen` or explicitly instructs new filters. Do not omit filters from `apply-hmi-screen-json-patch` just because the operations mention the items/properties; with a `base-hash`, omitted filters change the snapshot shape and can cause stale-base or unsafe diffs.
 
 For generated item operations, include new target names in `item-names` before the item exists. For rename and duplicate operations, include both the old/source name and the new/target name.

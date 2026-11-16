@@ -213,7 +213,8 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            if (!_adapter.TryReadEventHandlers(source, out var eventHandlers, out var error))
+            if (!_adapter.TryReadEventHandlers(source, out var eventHandlers, out var error,
+                key => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(EventHandlersPropertyName, key, filters)))
             {
                 if (!string.IsNullOrWhiteSpace(error))
                 {
@@ -223,10 +224,7 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            var filteredHandlers = eventHandlers
-                .Where(handler => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(EventHandlersPropertyName, handler.EventType, filters))
-                .ToList();
-            return filteredHandlers.Count > 0 ? filteredHandlers : null;
+            return eventHandlers.Count > 0 ? eventHandlers : null;
         }
 
         private List<HmiJsonPropertyEventHandler>? ExportPropertyEventHandlers(
@@ -240,7 +238,8 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            if (!_adapter.TryReadPropertyEventHandlers(source, out var propertyEventHandlers, out var error))
+            if (!_adapter.TryReadPropertyEventHandlers(source, out var propertyEventHandlers, out var error,
+                key => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(PropertyEventHandlersPropertyName, key, filters)))
             {
                 if (!string.IsNullOrWhiteSpace(error))
                 {
@@ -250,18 +249,7 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            var filteredHandlers = propertyEventHandlers
-                .Where(handler =>
-                {
-                    var key = HmiJsonCompositeComparer.GetPropertyEventHandlerKey(handler.PropertyName, handler.EventType);
-                    return key != null &&
-                           HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(
-                               PropertyEventHandlersPropertyName,
-                               HmiJsonCompositeComparer.FormatPropertyEventHandlerKey(key),
-                               filters);
-                })
-                .ToList();
-            return filteredHandlers.Count > 0 ? filteredHandlers : null;
+            return propertyEventHandlers.Count > 0 ? propertyEventHandlers : null;
         }
 
         private List<HmiJsonDynamization>? ExportDynamizations(
@@ -275,7 +263,8 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            if (!_adapter.TryReadDynamizations(source, out var dynamizations, out var error))
+            if (!_adapter.TryReadDynamizations(source, out var dynamizations, out var error,
+                key => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(DynamizationsPropertyName, key, filters)))
             {
                 if (!string.IsNullOrWhiteSpace(error))
                 {
@@ -285,10 +274,7 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            var filteredDynamizations = dynamizations
-                .Where(dynamization => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(DynamizationsPropertyName, dynamization.Property, filters))
-                .ToList();
-            return filteredDynamizations.Count > 0 ? filteredDynamizations : null;
+            return dynamizations.Count > 0 ? dynamizations : null;
         }
 
         private List<HmiJsonInterfaceBinding>? ExportInterface(
@@ -302,7 +288,8 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            if (!_adapter.TryReadInterfaceBindings(source, out var bindings, out var error))
+            if (!_adapter.TryReadInterfaceBindings(source, out var bindings, out var error,
+                key => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(InterfacePropertyName, key, filters)))
             {
                 if (!string.IsNullOrWhiteSpace(error))
                 {
@@ -312,10 +299,7 @@ namespace OpenTiaToolkit.Core.Services
                 return null;
             }
 
-            var filteredBindings = bindings
-                .Where(binding => HmiJsonFilterMatcher.ShouldIncludeCompositeEntry(InterfacePropertyName, binding.PropertyName, filters))
-                .ToList();
-            return filteredBindings.Count > 0 ? filteredBindings : null;
+            return bindings.Count > 0 ? bindings : null;
         }
 
         private static string[] GetRequestedScalarProperties(HmiJsonFilterOptions filters)

@@ -46,7 +46,7 @@ namespace OpenTiaToolkit.Core.Services
             return true;
         }
 
-        internal static List<HmiJsonEventHandler> ReadEventHandlersFromComposition(object composition)
+        internal static List<HmiJsonEventHandler> ReadEventHandlersFromComposition(object composition, Func<string, bool>? includeEntry = null)
         {
             if (composition is not IEnumerable enumerable)
             {
@@ -55,14 +55,14 @@ namespace OpenTiaToolkit.Core.Services
 
             return enumerable
                 .Cast<object>()
-                .Select(TryReadEventHandlerExport)
+                .Select(entry => TryReadEventHandlerExport(entry, includeEntry))
                 .Where(handler => handler != null)
                 .OrderBy(handler => handler!.EventType, StringComparer.OrdinalIgnoreCase)
                 .Cast<HmiJsonEventHandler>()
                 .ToList();
         }
 
-        internal static List<HmiJsonInterfaceBinding> ReadInterfaceBindingsFromComposition(object composition)
+        internal static List<HmiJsonInterfaceBinding> ReadInterfaceBindingsFromComposition(object composition, Func<string, bool>? includeEntry = null)
         {
             if (composition is not IEnumerable enumerable)
             {
@@ -71,17 +71,17 @@ namespace OpenTiaToolkit.Core.Services
 
             return enumerable
                 .Cast<object>()
-                .Select(TryReadInterfaceBindingExport)
+                .Select(entry => TryReadInterfaceBindingExport(entry, includeEntry))
                 .Where(binding => binding != null)
                 .OrderBy(binding => binding!.PropertyName, StringComparer.OrdinalIgnoreCase)
                 .Cast<HmiJsonInterfaceBinding>()
                 .ToList();
         }
 
-        internal static HmiJsonInterfaceBinding? TryReadInterfaceBindingExport(object? binding)
+        internal static HmiJsonInterfaceBinding? TryReadInterfaceBindingExport(object? binding, Func<string, bool>? includeEntry = null)
         {
             var propertyName = NormalizeOptionalString(TryReadStringProperty(binding, "PropertyName"));
-            if (string.IsNullOrWhiteSpace(propertyName))
+            if (string.IsNullOrWhiteSpace(propertyName) || includeEntry?.Invoke(propertyName!) == false)
             {
                 return null;
             }
@@ -107,10 +107,10 @@ namespace OpenTiaToolkit.Core.Services
             return dynamizations.Count > 0 ? dynamizations : null;
         }
 
-        internal static HmiJsonEventHandler? TryReadEventHandlerExport(object? eventHandler)
+        internal static HmiJsonEventHandler? TryReadEventHandlerExport(object? eventHandler, Func<string, bool>? includeEntry = null)
         {
             var eventType = NormalizeOptionalString(TryReadStringProperty(eventHandler, "EventType"));
-            if (string.IsNullOrWhiteSpace(eventType))
+            if (string.IsNullOrWhiteSpace(eventType) || includeEntry?.Invoke(eventType!) == false)
             {
                 return null;
             }
@@ -122,7 +122,7 @@ namespace OpenTiaToolkit.Core.Services
             };
         }
 
-        internal static List<HmiJsonPropertyEventHandler> ReadPropertyEventHandlersFromComposition(object composition)
+        internal static List<HmiJsonPropertyEventHandler> ReadPropertyEventHandlersFromComposition(object composition, Func<string, bool>? includeEntry = null)
         {
             if (composition is not IEnumerable enumerable)
             {
@@ -131,7 +131,7 @@ namespace OpenTiaToolkit.Core.Services
 
             return enumerable
                 .Cast<object>()
-                .Select(TryReadPropertyEventHandlerExport)
+                .Select(entry => TryReadPropertyEventHandlerExport(entry, includeEntry))
                 .Where(handler => handler != null)
                 .OrderBy(handler => handler!.PropertyName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(handler => handler!.EventType, StringComparer.OrdinalIgnoreCase)
@@ -139,11 +139,17 @@ namespace OpenTiaToolkit.Core.Services
                 .ToList();
         }
 
-        internal static HmiJsonPropertyEventHandler? TryReadPropertyEventHandlerExport(object? eventHandler)
+        internal static HmiJsonPropertyEventHandler? TryReadPropertyEventHandlerExport(object? eventHandler, Func<string, bool>? includeEntry = null)
         {
             var propertyName = NormalizeOptionalString(TryReadStringProperty(eventHandler, "PropertyName"));
             var eventType = NormalizeOptionalString(TryReadStringProperty(eventHandler, "EventType"));
             if (string.IsNullOrWhiteSpace(propertyName) || string.IsNullOrWhiteSpace(eventType))
+            {
+                return null;
+            }
+
+            var key = HmiJsonCompositeComparer.GetPropertyEventHandlerKey(propertyName, eventType)!;
+            if (includeEntry?.Invoke(HmiJsonCompositeComparer.FormatPropertyEventHandlerKey(key)) == false)
             {
                 return null;
             }
