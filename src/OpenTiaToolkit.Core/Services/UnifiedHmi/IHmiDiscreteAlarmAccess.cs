@@ -12,6 +12,7 @@ internal interface IHmiDiscreteAlarmAccess
     HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation);
     bool AlarmClassExists(string name);
     bool TagExists(string name);
+    Func<string, bool> CreateTagLookup();
     bool CultureExists(string cultureName);
     bool IdExists(uint id, string? exceptName = null);
     HmiDiscreteAlarmSnapshot CreateAndApply(HmiDiscreteAlarmChangeRequest request);

@@ -45,6 +45,7 @@ public sealed class HmiDiscreteAlarmServiceTests
         Assert.AreEqual(1, access.ClassReads);
         Assert.AreEqual(2, access.CultureReads);
         Assert.AreEqual(count + 2, access.TagReads);
+        Assert.AreEqual(1, access.TagLookupScopes);
         Assert.AreEqual(0, access.IdReads);
         Assert.AreEqual(0, access.List(false).Count);
     }
@@ -73,6 +74,7 @@ public sealed class HmiDiscreteAlarmServiceTests
             Assert.AreEqual(0, access.List(false).Count);
         }
         Assert.AreEqual(3, access.ClassReads);
+        Assert.AreEqual(3, access.TagLookupScopes);
         Assert.AreEqual(3, access.TagReads);
         Assert.AreEqual(3, access.CultureReads);
     }
@@ -501,6 +503,7 @@ public sealed class HmiDiscreteAlarmServiceTests
         public int ClassReads { get; private set; }
         public int CultureReads { get; private set; }
         public int TagReads { get; private set; }
+        public int TagLookupScopes { get; private set; }
         public int IdReads { get; private set; }
         public bool ClassAvailable { get; set; } = true;
         public bool TagAvailable { get; set; } = true;
@@ -515,6 +518,7 @@ public sealed class HmiDiscreteAlarmServiceTests
         public HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation) => _alarms.TryGetValue(name, out var value) ? Clone(value) : null;
         public bool AlarmClassExists(string name) { ClassReads++; return ClassAvailable && name == "Error"; }
         public bool TagExists(string name) { TagReads++; return TagAvailable && name.StartsWith("Motor1_", StringComparison.Ordinal); }
+        public Func<string, bool> CreateTagLookup() { TagLookupScopes++; return TagExists; }
         public bool CultureExists(string cultureName) { CultureReads++; return CultureAvailable && (cultureName == "en-US" || cultureName == "it-IT"); }
         public bool IdExists(uint id, string? exceptName = null) { IdReads++; return _alarms.Values.Any(x => x.Id == id && x.Name != exceptName); }
         public void SetReferenceAvailability(string reference, bool available)
