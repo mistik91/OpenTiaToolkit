@@ -245,32 +245,11 @@ namespace OpenTiaToolkit.Core.Services
                 .ToList();
         }
 
-        public bool TryGetTag(HmiSoftware software, string tagPath, out HmiTag? tag, out string normalizedPath)
+        public bool TryGetTag(HmiSoftware software, string tagPath, out HmiTag? tag, out string normalizedPath, IDictionary<string, HmiTag?>? paths = null)
         {
-            tag = null;
             normalizedPath = NormalizeTagPath(tagPath);
-            if (string.IsNullOrEmpty(normalizedPath))
-            {
-                return false;
-            }
-
-            var segments = normalizedPath.Split('.');
-            tag = software.Tags.Find(segments[0]);
-            if (tag == null)
-            {
-                return false;
-            }
-
-            for (int index = 1; index < segments.Length; index++)
-            {
-                tag = tag.Members.Find(segments[index]);
-                if (tag == null)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            tag = V21HmiTagPathLookup.Find(software, normalizedPath, paths);
+            return tag != null;
         }
 
         public HmiScreenItemBase? CreateScreenItem(HmiScreen screen, string itemType, string itemName)

@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "1.0",
+  "result": "PASS",
+  "date": "2026-11-16",
+  "scope": "Shape-matched qualification; original private PR9 document/project not rerun",
+  "tiaPortalExecutableVersion": "2100.0.121.1",
+  "source": {
+    "prBase": "72ca8b6cebafecfcafa5e5c6766b4f0ebc4b3520",
+    "baselineEmbeddedRevision": "519f08f5cfa2177e17fd820a13505cfef5753894",
+    "affectedAlarmSourcesUnchangedToPrBase": true,
+    "candidateRuntimeCommit": "360602f81bfffd49d93d1bc28df938a6af590d16",
+    "baselineCoreSha256": "18150410BEADC8536EFD738F8FABB9686148A2786F514FC398587FE834242482",
+    "candidateCoreSha256": "C0588105DF2B1B3388806FCCF4CA56215136CC665D50DDF5D5591B9335F6B4C9",
+    "candidateWorkerSha256": "A450ACE2519A674E42CA5936C9086264092F748F0E705C3668884CCC259C7C5F"
+  },
+  "fixture": {
+    "archiveSha256": "625202C214C625E4AD1DAE370656EA61734F4089E6DE3091AF04DD9CF3D622FC",
+    "newAlarms": 1936,
+    "initialAlarms": 0,
+    "scalarReferences": 640,
+    "memberReferences": 1296,
+    "memberRoots": 81,
+    "distinctRoots": 721,
+    "classes": 1,
+    "cultures": [
+      "en-US"
+    ],
+    "allReferencesNativeValidated": true
+  },
+  "nativeProfiling": [
+    {
+      "build": "baseline",
+      "phase": "dry",
+      "totalMilliseconds": 759029.8587,
+      "phasesMilliseconds": {
+        "List:False": 4.0025,
+        "Class": 61.8676,
+        "Tag": 573823.0615000008,
+        "Culture": 11.554300000000001,
+        "Create": 16980.030299999995,
+        "Set": 60450.338599999974,
+        "MapValidate": 101796.4598999999,
+        "TransactionAction": 179467.4436,
+        "TransactionTotal": 185030.42380000002
+      }
+    },
+    {
+      "build": "baseline",
+      "phase": "apply",
+      "totalMilliseconds": 864721.7754,
+      "phasesMilliseconds": {
+        "List:False": 1.9140000000000001,
+        "Class": 7.7401,
+        "Tag": 575672.3706999988,
+        "Culture": 2.0791,
+        "Create": 13810.3052,
+        "Set": 57146.972300000096,
+        "MapValidate": 99006.47169999985,
+        "TransactionAction": 170187.61440000002,
+        "TransactionTotal": 171175.5577,
+        "List:True": 117733.85560000001
+      }
+    },
+    {
+      "build": "candidate",
+      "phase": "dry",
+      "totalMilliseconds": 392023.8959,
+      "phasesMilliseconds": {
+        "List:False": 3.8857,
+        "Class": 6.2752,
+        "Tag": 225687.64900000018,
+        "Culture": 2.0635,
+        "Create": 14639.116499999998,
+        "Set": 55259.84659999998,
+        "MapValidate": 91669.92250000006,
+        "TransactionAction": 161786.285,
+        "TransactionTotal": 166263.27610000002
+      }
+    },
+    {
+      "build": "candidate",
+      "phase": "apply",
+      "totalMilliseconds": 491463.2588,
+      "phasesMilliseconds": {
+        "List:False": 1.6898000000000002,
+        "Class": 15.897300000000001,
+        "Tag": 223285.2153000001,
+        "Culture": 2.1314,
+        "Create": 14055.709699999985,
+        "Set": 53888.93150000001,
+        "MapValidate": 91619.2499,
+        "TransactionAction": 159773.6453,
+        "TransactionTotal": 160610.4574,
+        "List:True": 107427.75390000001
+      }
+    }
+  ],
+  "nativeInputSha256": "594B48C1C6104C839A7A6F2DEAA46D9C61187041AD4E9F22A6F51BBAE08D2611",
+  "canonicalHashesEqualAcrossNativeBuildsAndMcp": 1936,
+  "adversarial": {
+    "freshLookupMissingCreatedDeleted": true,
+    "realWritesBeforeFailure": 1,
+    "failureRolledBack": true
+  },
+  "mcp": {
+    "dryRunMilliseconds": 389529.440000013,
+    "applyMilliseconds": 498157.70080001676,
+    "freshReadMilliseconds": 110445.91209999635,
+    "verifiedAlarms": 1936,
+    "guardedDeletes": 3,
+    "deleteLimitations": [],
+    "discardedUnsavedAlarms": 1933,
+    "deadlineSeconds": 900,
+    "inputSha256": "594B48C1C6104C839A7A6F2DEAA46D9C61187041AD4E9F22A6F51BBAE08D2611",
+    "clientWaitSeconds": 930,
+    "maxInputFileBytes": 314572800,
+    "unconfirmedApplyDenied": true,
+    "expectedAbsentReplayRejectedBeforeTransaction": true,
+    "staleDeleteHashRejectedBeforeTransaction": true,
+    "freshSessionFinalAlarmCount": 0
+  },
+  "repositoryTests": {
+    "nonIntegration": {
+      "total": 903,
+      "passed": 903,
+      "failed": 0,
+      "notExecuted": 0
+    },
+    "architecture": {
+      "total": 54,
+      "passed": 54,
+      "failed": 0,
+      "notExecuted": 0
+    },
+    "focusedDiscreteAlarms": {
+      "total": 42,
+      "passed": 42,
+      "failed": 0,
+      "notExecuted": 0
+    },
+    "workerIpc": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "notExecuted": 0
+    },
+    "existingAlarmLiveRegression": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "notExecuted": 0
+    }
+  },
+  "catalog": {
+    "commands": 186,
+    "mcpTools": 189
+  },
+  "rawEvidenceRoot": "C:\\OTT\\AlarmBulk\\20261116",
+  "preservation": {
+    "campaignEngineeringProcessesRemaining": 0,
+    "campaignProfileHelpersRemaining": 0,
+    "originalToolkitAndSharedServerProcessesObserved": 5,
+    "originalToolkitAndSharedServerProcessesStillPresent": 5,
+    "unchangedArchiveHashes": 4
+  }
+}

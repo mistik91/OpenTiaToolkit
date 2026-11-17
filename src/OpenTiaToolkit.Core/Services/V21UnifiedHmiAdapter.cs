@@ -48,8 +48,8 @@ namespace OpenTiaToolkit.Core.Services
         public IReadOnlyList<HmiTagInfo> ListTags(HmiSoftware software, string? filter, string? rootPath = null) =>
             _access.ListTags(software, filter, rootPath);
         public IReadOnlyList<HmiTagInfo> ListTags(HmiSoftware software, HmiTagBrowseOptions? options) => _access.ListTags(software, options);
-        public bool TryGetTag(HmiSoftware software, string tagPath, out HmiTag? tag, out string normalizedPath) =>
-            _access.TryGetTag(software, tagPath, out tag, out normalizedPath);
+        public bool TryGetTag(HmiSoftware software, string tagPath, out HmiTag? tag, out string normalizedPath, IDictionary<string, HmiTag?>? paths = null) =>
+            _access.TryGetTag(software, tagPath, out tag, out normalizedPath, paths);
         public HmiScreenItemBase? CreateScreenItem(HmiScreen screen, string itemType, string itemName) =>
             _access.CreateScreenItem(screen, itemType, itemName);
         public IReadOnlyList<string> GetItemCreationPropertyNames(string itemType) =>

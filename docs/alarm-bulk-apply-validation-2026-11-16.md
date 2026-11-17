@@ -87,6 +87,8 @@ No transaction result accompanied the error. There was no retry. A subsequent op
 
 ## Follow-up investigation
 
+The subsequent [bulk performance qualification](alarm-bulk-performance-validation.md) identifies repeated shared-root tag searches as the main measured cost and validates the runtime fix on a separate shape-matched 1,936-alarm fixture. Public MCP dry-run and Apply complete within the configured 900-second deadline, with fresh field/hash verification and cleanup. That qualification does not rerun this report's original private input or change its historical unknown Apply outcome.
+
 Collect separate timings for reference preflight, transaction/setter work, commit or rollback, and post-commit canonical snapshot/validation reads on a successful-reference bulk workload. The observed timeout does not locate the bottleneck or establish whether commit preceded it.
 
 A follow-up fix should demonstrate full dry-run rollback and full Apply completion within the configured command deadline, compare all persisted requested fields/hashes with the reviewed document, and preserve concurrency, transaction, warning and no-automatic-write-retry behavior.

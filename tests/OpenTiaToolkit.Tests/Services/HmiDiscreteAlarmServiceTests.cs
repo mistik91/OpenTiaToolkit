@@ -45,6 +45,8 @@ public sealed class HmiDiscreteAlarmServiceTests
         Assert.AreEqual(1, access.ClassReads);
         Assert.AreEqual(2, access.CultureReads);
         Assert.AreEqual(count + 2, access.TagReads);
+        Assert.AreEqual(1, access.TagLookupScopes);
+        Assert.AreEqual(count + 2, access.LookupReferences.Count);
         Assert.AreEqual(0, access.IdReads);
         Assert.AreEqual(0, access.List(false).Count);
     }
@@ -73,8 +75,29 @@ public sealed class HmiDiscreteAlarmServiceTests
             Assert.AreEqual(0, access.List(false).Count);
         }
         Assert.AreEqual(3, access.ClassReads);
+        Assert.AreEqual(3, access.TagLookupScopes);
         Assert.AreEqual(3, access.TagReads);
         Assert.AreEqual(3, access.CultureReads);
+    }
+
+    [TestMethod]
+    public async Task TagLookupScope_ReceivesDistinctReferencesAndExcludesClearedValues()
+    {
+        var first = CreateRequest("A", 1001);
+        first["acknowledgmentStateTag"] = "Motor1_Ack";
+        first["acknowledgmentControlTag"] = "Motor1_Ack";
+        first["alarmParameterTags"] = new[] { "Motor1_Speed", "Motor1_Speed" };
+        var second = CreateRequest("B", 1002);
+        second["acknowledgmentStateTag"] = null;
+        second["acknowledgmentControlTag"] = "";
+        var access = new FakeAccess();
+        using var input = Batch(first, second);
+
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+
+        Assert.IsTrue(result.Success, result.Message);
+        CollectionAssert.AreEquivalent(new[] { "Motor1_Status", "Motor1_Ack", "Motor1_Speed" }, access.LookupReferences.ToArray());
+        Assert.AreEqual(3, access.TagReads);
     }
 
     [TestMethod]
@@ -501,6 +524,7 @@ public sealed class HmiDiscreteAlarmServiceTests
         public int ClassReads { get; private set; }
         public int CultureReads { get; private set; }
         public int TagReads { get; private set; }
+        public int TagLookupScopes { get; private set; }
         public int IdReads { get; private set; }
         public bool ClassAvailable { get; set; } = true;
         public bool TagAvailable { get; set; } = true;
@@ -515,6 +539,8 @@ public sealed class HmiDiscreteAlarmServiceTests
         public HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation) => _alarms.TryGetValue(name, out var value) ? Clone(value) : null;
         public bool AlarmClassExists(string name) { ClassReads++; return ClassAvailable && name == "Error"; }
         public bool TagExists(string name) { TagReads++; return TagAvailable && name.StartsWith("Motor1_", StringComparison.Ordinal); }
+        public IReadOnlyList<string> LookupReferences { get; private set; } = Array.Empty<string>();
+        public Func<string, bool> CreateTagLookup(IReadOnlyList<string> references) { TagLookupScopes++; LookupReferences = references.ToArray(); return TagExists; }
         public bool CultureExists(string cultureName) { CultureReads++; return CultureAvailable && (cultureName == "en-US" || cultureName == "it-IT"); }
         public bool IdExists(uint id, string? exceptName = null) { IdReads++; return _alarms.Values.Any(x => x.Id == id && x.Name != exceptName); }
         public void SetReferenceAvailability(string reference, bool available)
