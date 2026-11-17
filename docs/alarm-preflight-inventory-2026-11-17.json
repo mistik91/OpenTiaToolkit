@@ -1,0 +1,243 @@
+{
+  "schemaVersion": "1.0",
+  "date": "2026-11-17",
+  "source": {
+    "mergedBaseCommit": "5d7119728434202b2bf3b1fadd1ade9629b688b5",
+    "baselineEmbeddedRuntimeCommit": "3687f09e3840038de14d00e8c85487b74b301d72",
+    "baselineAlarmSourcesUnchangedAtMergedBase": true,
+    "candidateRuntimeCommit": "17cae4aa387f05d40ee1ca85a3de28f14587dafd",
+    "baselineCoreSha256": "A7717CA369D16436A206D23B46993701FC5AED3078F65DE251250CEF13E39740",
+    "candidateCoreSha256": "DA3A8B2E697362EC157734CB26432D58B303801111EDEEEABCA07646CA40FE0D",
+    "candidateWorkerSha256": "23B6171891E6F03CF2ECD7796CE94A7753D4DF7788CE57E25B59BA5566ADD215",
+    "shippingRuntimeCommit": "64657d21e1c59dd2565edcfb24b47d56fb0192c4",
+    "shippingWorkerSha256": "3C4743413E38164BF23C642BBDB344CD57FDF46C461602D257835B2321B8E5AF",
+    "shippingCoreSha256": "B4B4F51D66CDAEDAC5457D023456FB25C7F1D5E5DABE25FE5E2F7703757A7373",
+    "shippingAddsOnlyVerificationOutcomeHandlingAfterProfiledPreflight": true
+  },
+  "fixture": {
+    "existingAlarms": 1936,
+    "populatedArchiveSha256": "626D9F4EB6AD6A0FD44921C0FC1AB5DA6D2CE846835F6C4E40A379ACA5B9AC1C",
+    "sourceEmptyArchiveSha256": "625202C214C625E4AD1DAE370656EA61734F4089E6DE3091AF04DD9CF3D622FC",
+    "originalAlarmInputSha256": "594B48C1C6104C839A7A6F2DEAA46D9C61187041AD4E9F22A6F51BBAE08D2611",
+    "allOriginalCanonicalHashesMatched": true,
+    "allInitialNativeDiagnosticsZero": true
+  },
+  "nativeComparison": [
+    {
+      "case": "replay",
+      "baselineMilliseconds": 93636.09120000001,
+      "candidateMilliseconds": 1574.0417,
+      "inputBytesIdentical": true,
+      "completeResultIdentical": true,
+      "baselineMetrics": {
+        "ListFalse": {
+          "Count": 1,
+          "Milliseconds": 92975.2843
+        }
+      },
+      "candidateMetrics": {
+        "IdentityRows": {
+          "Count": 1936,
+          "Milliseconds": 0
+        },
+        "RequestedSnapshots": {
+          "Count": 1,
+          "Milliseconds": 0
+        },
+        "Preflight": {
+          "Count": 1,
+          "Milliseconds": 950.0735000000001
+        }
+      }
+    },
+    {
+      "case": "update",
+      "baselineMilliseconds": 240474.68850000002,
+      "candidateMilliseconds": 108839.3221,
+      "inputBytesIdentical": true,
+      "completeResultIdentical": true,
+      "baselineMetrics": {
+        "ListFalse": {
+          "Count": 1,
+          "Milliseconds": 109682.75480000001
+        },
+        "ListTrue": {
+          "Count": 1,
+          "Milliseconds": 129363.15800000001
+        }
+      },
+      "candidateMetrics": {
+        "IdentityRows": {
+          "Count": 1936,
+          "Milliseconds": 0
+        },
+        "RequestedSnapshots": {
+          "Count": 1,
+          "Milliseconds": 0
+        },
+        "Preflight": {
+          "Count": 1,
+          "Milliseconds": 977.7526
+        },
+        "ListTrue": {
+          "Count": 1,
+          "Milliseconds": 106520.8083
+        }
+      },
+      "unrelatedHashesPreserved": 1935
+    }
+  ],
+  "candidateCases": [
+    {
+      "case": "collision",
+      "totalMilliseconds": 1192.5316,
+      "metrics": {
+        "IdentityRows": {
+          "Count": 1936,
+          "Milliseconds": 0
+        },
+        "RequestedSnapshots": {
+          "Count": 0,
+          "Milliseconds": 0
+        },
+        "Preflight": {
+          "Count": 1,
+          "Milliseconds": 888.0238
+        }
+      }
+    },
+    {
+      "case": "stale",
+      "totalMilliseconds": 932.2312000000001,
+      "metrics": {
+        "IdentityRows": {
+          "Count": 1936,
+          "Milliseconds": 0
+        },
+        "RequestedSnapshots": {
+          "Count": 1,
+          "Milliseconds": 0
+        },
+        "Preflight": {
+          "Count": 1,
+          "Milliseconds": 923.3724000000001
+        }
+      }
+    },
+    {
+      "case": "inverse",
+      "totalMilliseconds": 125563.1094,
+      "metrics": {
+        "IdentityRows": {
+          "Count": 1936,
+          "Milliseconds": 0
+        },
+        "RequestedSnapshots": {
+          "Count": 1,
+          "Milliseconds": 0
+        },
+        "Preflight": {
+          "Count": 1,
+          "Milliseconds": 1210.6068
+        },
+        "ListTrue": {
+          "Count": 1,
+          "Milliseconds": 124185.5525
+        }
+      }
+    },
+    {
+      "case": "dry",
+      "totalMilliseconds": 228077.9105,
+      "metrics": {
+        "ListFalse": {
+          "Count": 2,
+          "Milliseconds": 226742.29880000002
+        }
+      }
+    },
+    {
+      "case": "rollback",
+      "totalMilliseconds": 1502.1703,
+      "metrics": {
+        "IdentityRows": {
+          "Count": 1936,
+          "Milliseconds": 0
+        },
+        "RequestedSnapshots": {
+          "Count": 2,
+          "Milliseconds": 0
+        },
+        "Preflight": {
+          "Count": 1,
+          "Milliseconds": 1364.8919
+        }
+      }
+    }
+  ],
+  "safety": {
+    "exactInverseInventory": true,
+    "dryRunWholeInventoryRollbackProof": true,
+    "unrelatedRollbackCorruptionUnitTest": true,
+    "realMidTransactionFailureAfterOneNativeWrite": true,
+    "freshCompleteRollbackInventoryVerifiedByHarness": true,
+    "rollbackFreshVerificationOutsideTimedFailureCall": true,
+    "collisionIndexIncludesUnrelatedAlarms": true,
+    "identityInventoryFreshPerCall": true,
+    "fullPostCommitValidationAndReadbackPreserved": true
+  },
+  "tests": {
+    "nonIntegrationPassed": 911,
+    "architecturePassed": 54,
+    "focusedAlarmContractsPassed": 50,
+    "workerIpcPassed": 7,
+    "selectedSkipped": 0,
+    "existingAlarmLiveRegressionPassed": 1
+  },
+  "commandCount": 186,
+  "mcpToolCount": 189,
+  "result": "PASS",
+  "scope": "Disposable populated/empty shape-matched fixtures; original private PR9 input/project not rerun",
+  "mcp": {
+    "dryRunMilliseconds": 149765.8951000194,
+    "applyMilliseconds": 288485.56619999,
+    "freshReadMilliseconds": 111318.07330000447,
+    "verifiedAlarms": 1936,
+    "guardedDeletes": 3,
+    "deleteLimitations": [],
+    "discardedUnsavedAlarms": 1933,
+    "deadlineSeconds": 900,
+    "inputBytesMatchNative": true,
+    "all1936CanonicalHashesMatchPreparedFixture": true,
+    "unconfirmedApplyDenied": true,
+    "expectedAbsentReplayDeniedBeforeTransaction": true,
+    "staleDeleteHashDeniedBeforeTransaction": true,
+    "freshSavedEmptyInventory": 0,
+    "sessionsClosed": true
+  },
+  "freshPopulatedWorkerReopen": {
+    "success": true,
+    "verifiedAlarms": 1936,
+    "canonicalHashMismatches": 0,
+    "nativeDiagnostics": 0,
+    "replayMilliseconds": 1687.0895000174642,
+    "replayDeniedBeforeTransaction": true,
+    "savedBaselineRestored": true
+  },
+  "preservation": {
+    "sourcePreparedArchiveCount": 7,
+    "allArchiveHashesPreserved": true,
+    "originalProcessCount": 5,
+    "originalProcessesPreserved": true,
+    "campaignProcessesRemaining": 0
+  },
+  "readbackFailureLiveVerification": {
+    "success": true,
+    "baselineAlarms": 5,
+    "realNativeCommitPreserved": true,
+    "committedUnsavedOutcomePreserved": true,
+    "dryRollbackOutcomePreserved": true,
+    "freshAllHashesVerified": true,
+    "exactInverse": true
+  }
+}
