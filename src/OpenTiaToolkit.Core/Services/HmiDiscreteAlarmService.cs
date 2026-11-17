@@ -82,17 +82,33 @@ internal sealed class HmiDiscreteAlarmService
                 return ExceptionApply(dryRun, ex, items, transaction);
             }
 
-            if (dryRun)
+            try
             {
-                var fresh = _access.List(includeValidation: false).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
-                if (!SameInventory(beforeAll!, fresh))
-                    return BlockedApply(true, "dry-run-rollback-verification-failed", "Dry-run rollback verification detected a persistent change.", items, transaction);
+                if (dryRun)
+                {
+                    var fresh = _access.List(includeValidation: false).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
+                    if (!SameInventory(beforeAll!, fresh))
+                        return BlockedApply(true, "dry-run-rollback-verification-failed", "Dry-run rollback verification detected a persistent change.", items, transaction);
+                }
+                else
+                {
+                    var fresh = _access.List(includeValidation: true).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
+                    foreach (var item in items)
+                        if (fresh.TryGetValue(item.Name, out var persisted)) item.Persisted = persisted;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                var fresh = _access.List(includeValidation: true).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
-                foreach (var item in items)
-                    if (fresh.TryGetValue(item.Name, out var persisted)) item.Persisted = persisted;
+                if (dryRun) return ExceptionApply(true, ex, items, transaction);
+                return new HmiDiscreteAlarmApplyResult
+                {
+                    Success = false,
+                    ProjectHasUnsavedChanges = true,
+                    ErrorCode = "apply-readback-failed",
+                    Message = "The alarm transaction committed, but full readback failed. Inspect the current state before retrying. " + MapException(ex).Message,
+                    Alarms = items,
+                    Transaction = transaction
+                };
             }
 
             return new HmiDiscreteAlarmApplyResult

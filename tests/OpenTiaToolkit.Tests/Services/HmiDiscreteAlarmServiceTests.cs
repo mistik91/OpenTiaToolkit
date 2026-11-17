@@ -194,6 +194,43 @@ public sealed class HmiDiscreteAlarmServiceTests
         Assert.AreEqual(0, access.PreflightReads);
     }
 
+    [TestMethod]
+    public async Task ApplyReadbackFailure_ReportsCommittedUnsavedChanges()
+    {
+        var target = Snapshot("Target");
+        var access = new FakeAccess(target) { FailValidatedRead = true };
+        using var input = TempDocument(JsonSerializer.Serialize(new { schemaVersion = "1.0", alarms = new[] { new { name = target.Name, expectedState = "present", expectedHash = HmiDiscreteAlarmService.Hash(target), origin = "Committed" } } }));
+
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, false, true);
+
+        Assert.IsFalse(result.Success);
+        Assert.IsTrue(result.Transaction.Created);
+        Assert.IsTrue(result.Transaction.Committed);
+        Assert.IsFalse(result.Transaction.RolledBack);
+        Assert.IsTrue(result.ProjectHasUnsavedChanges);
+        Assert.IsFalse(result.SafetyBlocked);
+        Assert.AreEqual("apply-readback-failed", result.ErrorCode);
+        Assert.AreEqual("Committed", access.FindExact(target.Name, false)!.Origin);
+        Assert.AreEqual(1, result.Alarms.Count);
+    }
+
+    [TestMethod]
+    public async Task DryRunReadbackFailure_PreservesCompletedRollbackState()
+    {
+        var target = Snapshot("Target");
+        var access = new FakeAccess(target) { FailUnvalidatedReadNumber = 2 };
+        using var input = TempDocument(JsonSerializer.Serialize(new { schemaVersion = "1.0", alarms = new[] { new { name = target.Name, expectedState = "present", expectedHash = HmiDiscreteAlarmService.Hash(target), origin = "Rolled back" } } }));
+
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+
+        Assert.IsFalse(result.Success);
+        Assert.IsTrue(result.Transaction.Created);
+        Assert.IsTrue(result.Transaction.RolledBack);
+        Assert.IsFalse(result.Transaction.Committed);
+        Assert.IsFalse(result.ProjectHasUnsavedChanges);
+        Assert.AreEqual(HmiDiscreteAlarmService.Hash(target), HmiDiscreteAlarmService.Hash(access.FindExact(target.Name, false)!));
+    }
+
     [DataTestMethod]
     [DataRow("alarmClass", "error")]
     [DataRow("raisedStateTag", "motor1_Status")]
@@ -614,6 +651,8 @@ public sealed class HmiDiscreteAlarmServiceTests
         public int PreflightSnapshotReads { get; private set; }
         public int FullUnvalidatedReads { get; private set; }
         public Action? AfterTransaction { get; set; }
+        public bool FailValidatedRead { get; set; }
+        public int FailUnvalidatedReadNumber { get; set; }
         public string? FailOnName { get; set; }
         public string? NextValidationError { get; set; }
         public string? NextValidationWarning { get; set; }
@@ -621,7 +660,9 @@ public sealed class HmiDiscreteAlarmServiceTests
         public string? ReferenceLimitation { get; set; }
         public IReadOnlyList<HmiDiscreteAlarmSnapshot> List(bool includeValidation)
         {
+            if (includeValidation && FailValidatedRead) throw new InvalidOperationException("Injected readback failure");
             if (!includeValidation) FullUnvalidatedReads++;
+            if (!includeValidation && FullUnvalidatedReads == FailUnvalidatedReadNumber) throw new InvalidOperationException("Injected rollback verification read failure");
             return _alarms.Values.Select(Clone).ToArray();
         }
         public HmiDiscreteAlarmPreflightInventory ReadPreflight(IReadOnlyCollection<string> alarmNames)
