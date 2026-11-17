@@ -62,12 +62,13 @@ internal sealed class V21HmiDiscreteAlarmAccess : IHmiDiscreteAlarmAccess
 
     public bool TagExists(string name) => _adapter.TryGetTag(Software, name, out var tag, out _) && tag != null;
 
-    public Func<string, bool> CreateTagLookup()
+    public Func<string, bool> CreateTagLookup(IReadOnlyList<string> references)
     {
         var software = Software;
         // Handles and misses live only for this preflight, never across writes,
         // undo, project changes, or the next alarm batch.
         var paths = new Dictionary<string, HmiTag?>(StringComparer.Ordinal);
+        V21HmiTagPathLookup.PrimeRoots(software, references.Select(_adapter.NormalizeTagPath), paths);
         return name => _adapter.TryGetTag(software, name, out var tag, out _, paths) && tag != null;
     }
 
@@ -152,21 +153,24 @@ internal sealed class V21HmiDiscreteAlarmAccess : IHmiDiscreteAlarmAccess
 
     private static void SetProperties(HmiDiscreteAlarm alarm, HmiDiscreteAlarmChangeRequest request, bool creating)
     {
-        if (request.PresentProperties.Contains("id")) alarm.Id = Require(request.Id, "id");
-        if (request.PresentProperties.Contains("alarmClass")) alarm.AlarmClass = RequireString(request.AlarmClass, "alarmClass");
-        if (request.PresentProperties.Contains("priority")) alarm.Priority = Require(request.Priority, "priority");
-        if (request.PresentProperties.Contains("origin")) alarm.Origin = RequireClearable(request.Origin);
-        if (request.PresentProperties.Contains("area")) alarm.Area = RequireClearable(request.Area);
-        if (request.PresentProperties.Contains("auditClass")) alarm.AuditClass = RequireClearable(request.AuditClass);
-        if (request.PresentProperties.Contains("raisedStateTag")) alarm.RaisedStateTag = RequireString(request.RaisedStateTag, "raisedStateTag");
-        if (request.PresentProperties.Contains("raisedStateTagBitNumber")) alarm.RaisedStateTagBitNumber = Require(request.RaisedStateTagBitNumber, "raisedStateTagBitNumber");
-        if (request.PresentProperties.Contains("triggerMode")) alarm.TriggerMode = ParseTriggerMode(request.TriggerMode);
-        if (request.PresentProperties.Contains("acknowledgmentStateTag")) alarm.AcknowledgmentStateTag = RequireClearable(request.AcknowledgmentStateTag);
-        if (request.PresentProperties.Contains("acknowledgmentStateTagBitNumber")) alarm.AcknowledgmentStateTagBitNumber = Require(request.AcknowledgmentStateTagBitNumber, "acknowledgmentStateTagBitNumber");
-        if (request.PresentProperties.Contains("acknowledgmentControlTag")) alarm.AcknowledgmentControlTag = RequireClearable(request.AcknowledgmentControlTag);
-        if (request.PresentProperties.Contains("acknowledgmentControlTagBitNumber")) alarm.AcknowledgmentControlTagBitNumber = Require(request.AcknowledgmentControlTagBitNumber, "acknowledgmentControlTagBitNumber");
+        // Preserve setter order and conversions while crossing the native boundary once.
+        var values = new List<KeyValuePair<string, object>>();
+        if (request.PresentProperties.Contains("id")) values.Add(new(nameof(HmiDiscreteAlarm.Id), Require(request.Id, "id")));
+        if (request.PresentProperties.Contains("alarmClass")) values.Add(new(nameof(HmiDiscreteAlarm.AlarmClass), RequireString(request.AlarmClass, "alarmClass")));
+        if (request.PresentProperties.Contains("priority")) values.Add(new(nameof(HmiDiscreteAlarm.Priority), Require(request.Priority, "priority")));
+        if (request.PresentProperties.Contains("origin")) values.Add(new(nameof(HmiDiscreteAlarm.Origin), RequireClearable(request.Origin)));
+        if (request.PresentProperties.Contains("area")) values.Add(new(nameof(HmiDiscreteAlarm.Area), RequireClearable(request.Area)));
+        if (request.PresentProperties.Contains("auditClass")) values.Add(new(nameof(HmiDiscreteAlarm.AuditClass), RequireClearable(request.AuditClass)));
+        if (request.PresentProperties.Contains("raisedStateTag")) values.Add(new(nameof(HmiDiscreteAlarm.RaisedStateTag), RequireString(request.RaisedStateTag, "raisedStateTag")));
+        if (request.PresentProperties.Contains("raisedStateTagBitNumber")) values.Add(new(nameof(HmiDiscreteAlarm.RaisedStateTagBitNumber), Require(request.RaisedStateTagBitNumber, "raisedStateTagBitNumber")));
+        if (request.PresentProperties.Contains("triggerMode")) values.Add(new(nameof(HmiDiscreteAlarm.TriggerMode), ParseTriggerMode(request.TriggerMode)));
+        if (request.PresentProperties.Contains("acknowledgmentStateTag")) values.Add(new(nameof(HmiDiscreteAlarm.AcknowledgmentStateTag), RequireClearable(request.AcknowledgmentStateTag)));
+        if (request.PresentProperties.Contains("acknowledgmentStateTagBitNumber")) values.Add(new(nameof(HmiDiscreteAlarm.AcknowledgmentStateTagBitNumber), Require(request.AcknowledgmentStateTagBitNumber, "acknowledgmentStateTagBitNumber")));
+        if (request.PresentProperties.Contains("acknowledgmentControlTag")) values.Add(new(nameof(HmiDiscreteAlarm.AcknowledgmentControlTag), RequireClearable(request.AcknowledgmentControlTag)));
+        if (request.PresentProperties.Contains("acknowledgmentControlTagBitNumber")) values.Add(new(nameof(HmiDiscreteAlarm.AcknowledgmentControlTagBitNumber), Require(request.AcknowledgmentControlTagBitNumber, "acknowledgmentControlTagBitNumber")));
         if (request.PresentProperties.Contains("alarmParameterTags"))
-            alarm.AlarmParameterTags = request.AlarmParameterTags == null ? new List<string>() : request.AlarmParameterTags.ToList();
+            values.Add(new(nameof(HmiDiscreteAlarm.AlarmParameterTags), request.AlarmParameterTags == null ? new List<string>() : request.AlarmParameterTags.ToList()));
+        if (values.Count > 0) ((IEngineeringObject)alarm).SetAttributes(values);
         if (request.PresentProperties.Contains("texts")) SetTexts(alarm, request.Texts);
     }
 

@@ -238,7 +238,12 @@ internal sealed class HmiDiscreteAlarmService
         var alarmClasses = new Dictionary<string, bool>(StringComparer.Ordinal);
         var cultures = new Dictionary<string, bool>(StringComparer.Ordinal);
         var tags = new Dictionary<string, bool>(StringComparer.Ordinal);
-        var readTag = _access.CreateTagLookup();
+        var references = document.Alarms.SelectMany(request =>
+            new[] { request.RaisedStateTag, request.AcknowledgmentStateTag, request.AcknowledgmentControlTag }
+                .Concat(request.AlarmParameterTags ?? Array.Empty<string>()))
+            .Where(name => !string.IsNullOrWhiteSpace(name)).Select(name => name!)
+            .Distinct(StringComparer.Ordinal).ToArray();
+        var readTag = _access.CreateTagLookup(references);
 
         static bool ExistsCached(Dictionary<string, bool> cache, string name, Func<string, bool> read)
         {
