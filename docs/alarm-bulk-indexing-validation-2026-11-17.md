@@ -31,6 +31,8 @@ The corrected optional-field campaign ran independently against both exact runti
 
 The performance fixture starts empty. Preflight still reads complete existing-alarm snapshots for its name/ID inventory, so populated-project preflight can remain expensive even for a request that is ultimately rejected. A smaller identity inventory with targeted snapshots is a separate improvement requiring populated-project qualification; it must preserve whole-inventory rollback proof and collision checks. It is not part of this change.
 
+The subsequent [populated Apply preflight qualification](alarm-preflight-inventory-validation-2026-11-17.md) implements that follow-up while preserving full dry-run rollback proof and post-commit validation. This report retains the original root-indexing measurements and binaries.
+
 ## Production MCP campaign
 
 The exact Release worker opens an owned hidden Portal and retrieves another independent fixture copy. The project path and MCP → worker → Portal chain are verified independently before alarm writes. Calls are serial. The server deadline remains explicitly configured at 900 seconds, with a 930-second client wait; there is no write retry. Allowed file roots are restricted to the campaign directory. As in the previous campaign, the 282,708,860-byte fixture requires a 300 MiB input-file cap for archive retrieval.

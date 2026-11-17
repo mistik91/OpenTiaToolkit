@@ -50,6 +50,27 @@ internal sealed class V21HmiDiscreteAlarmAccess : IHmiDiscreteAlarmAccess
     public IReadOnlyList<HmiDiscreteAlarmSnapshot> List(bool includeValidation) =>
         Software.DiscreteAlarms.Select(alarm => Map(alarm, includeValidation)).OrderBy(x => x.Name, StringComparer.Ordinal).ToArray();
 
+    public HmiDiscreteAlarmPreflightInventory ReadPreflight(IReadOnlyCollection<string> alarmNames)
+    {
+        var requested = new HashSet<string>(alarmNames, StringComparer.Ordinal);
+        var idsByName = new Dictionary<string, uint>(StringComparer.Ordinal);
+        var snapshots = new List<HmiDiscreteAlarmSnapshot>();
+        foreach (var alarm in Software.DiscreteAlarms)
+        {
+            var values = ((IEngineeringObject)alarm).GetAttributes(new[] { nameof(HmiDiscreteAlarm.Name), nameof(HmiDiscreteAlarm.Id) });
+            if (values.Count != 2) throw new InvalidOperationException("The Siemens discrete-alarm identity read returned an unexpected number of values.");
+            var name = (string)values[0];
+            var id = (uint)values[1];
+            idsByName.Add(name, id);
+            if (!requested.Contains(name)) continue;
+            var snapshot = Map(alarm, includeValidation: false);
+            if (!string.Equals(snapshot.Name, name, StringComparison.Ordinal) || snapshot.Id != id)
+                throw new InvalidOperationException("An alarm identity changed during preflight. Read the current state and retry.");
+            snapshots.Add(snapshot);
+        }
+        return new HmiDiscreteAlarmPreflightInventory(idsByName, snapshots);
+    }
+
     public HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation)
     {
         var alarm = Software.DiscreteAlarms.Find(name);

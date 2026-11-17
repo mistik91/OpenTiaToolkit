@@ -41,8 +41,23 @@ internal sealed class HmiDiscreteAlarmService
         try
         {
             if (_access.IsReadOnly) return BlockedApply(dryRun, "discrete-alarms-read-only", "The Unified HMI discrete-alarm composition is read-only.");
-            var beforeAll = _access.List(includeValidation: false).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
-            var items = BuildInitialPlans(document, beforeAll, failOnWarning);
+            IReadOnlyDictionary<string, HmiDiscreteAlarmSnapshot>? beforeAll = null;
+            IReadOnlyDictionary<string, HmiDiscreteAlarmSnapshot> current;
+            IReadOnlyDictionary<string, uint> idsByName;
+            if (dryRun)
+            {
+                // Keep complete canonical inventories to prove rollback preserves unrelated alarms.
+                beforeAll = _access.List(includeValidation: false).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
+                current = beforeAll;
+                idsByName = beforeAll.ToDictionary(x => x.Key, x => x.Value.Id, StringComparer.Ordinal);
+            }
+            else
+            {
+                var inventory = _access.ReadPreflight(document.Alarms.Select(x => x.Name).ToArray());
+                current = inventory.RequestedSnapshots.Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
+                idsByName = inventory.IdsByName;
+            }
+            var items = BuildInitialPlans(document, current, idsByName, failOnWarning);
             if (items.Any(x => x.Errors.Count > 0) || (failOnWarning && items.Any(x => x.Warnings.Count > 0)))
                 return BlockedApply(dryRun, "preflight-blocked", "Discrete-alarm preflight was blocked.", items);
 
@@ -67,17 +82,33 @@ internal sealed class HmiDiscreteAlarmService
                 return ExceptionApply(dryRun, ex, items, transaction);
             }
 
-            if (dryRun)
+            try
             {
-                var fresh = _access.List(includeValidation: false).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
-                if (!SameInventory(beforeAll, fresh))
-                    return BlockedApply(true, "dry-run-rollback-verification-failed", "Dry-run rollback verification detected a persistent change.", items, transaction);
+                if (dryRun)
+                {
+                    var fresh = _access.List(includeValidation: false).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
+                    if (!SameInventory(beforeAll!, fresh))
+                        return BlockedApply(true, "dry-run-rollback-verification-failed", "Dry-run rollback verification detected a persistent change.", items, transaction);
+                }
+                else
+                {
+                    var fresh = _access.List(includeValidation: true).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
+                    foreach (var item in items)
+                        if (fresh.TryGetValue(item.Name, out var persisted)) item.Persisted = persisted;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                var fresh = _access.List(includeValidation: true).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
-                foreach (var item in items)
-                    if (fresh.TryGetValue(item.Name, out var persisted)) item.Persisted = persisted;
+                if (dryRun) return ExceptionApply(true, ex, items, transaction);
+                return new HmiDiscreteAlarmApplyResult
+                {
+                    Success = false,
+                    ProjectHasUnsavedChanges = true,
+                    ErrorCode = "apply-readback-failed",
+                    Message = "The alarm transaction committed, but full readback failed. Inspect the current state before retrying. " + MapException(ex).Message,
+                    Alarms = items,
+                    Transaction = transaction
+                };
             }
 
             return new HmiDiscreteAlarmApplyResult
@@ -229,12 +260,12 @@ internal sealed class HmiDiscreteAlarmService
         }
     }
 
-    private IReadOnlyList<HmiDiscreteAlarmPlanItem> BuildInitialPlans(HmiDiscreteAlarmDocument document, IReadOnlyDictionary<string, HmiDiscreteAlarmSnapshot> current, bool failOnWarning)
+    private IReadOnlyList<HmiDiscreteAlarmPlanItem> BuildInitialPlans(HmiDiscreteAlarmDocument document, IReadOnlyDictionary<string, HmiDiscreteAlarmSnapshot> current, IReadOnlyDictionary<string, uint> idsByName, bool failOnWarning)
     {
         var plans = new List<HmiDiscreteAlarmPlanItem>();
-        // Reuse the complete snapshot inventory for IDs. Cache both hits and
+        // Index every alarm ID, including unrelated alarms. Cache both hits and
         // misses only within this preflight; the next batch must read again.
-        var alarmNamesById = current.Values.ToLookup(x => x.Id, x => x.Name);
+        var alarmNamesById = idsByName.ToLookup(x => x.Value, x => x.Key);
         var alarmClasses = new Dictionary<string, bool>(StringComparer.Ordinal);
         var cultures = new Dictionary<string, bool>(StringComparer.Ordinal);
         var tags = new Dictionary<string, bool>(StringComparer.Ordinal);

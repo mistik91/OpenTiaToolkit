@@ -8,6 +8,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Fixed
+- Read only alarm names/IDs and requested full snapshots during Unified alarm Apply preflight. Preserve complete dry-run rollback inventories and post-commit native validation/readback.
+- Preserve completed alarm transaction state when verification reads fail, including committed unsaved changes after Apply and completed rollback after dry-run.
 - Resolve large Unified alarm reference batches in one shallow tag-root traversal and batch scalar reads/writes through Siemens. Cache handles only within each preflight, preserving native validation, transaction rollback and fresh canonical readback.
 - Reject V21 HMI edits that mix or directly switch property-event handlers and root dynamizations on the same screen/item. Native property-event creation can erase bindings or terminate TIA; independent owners and unchanged collections remain supported.
 - Filter Unified HMI composite entry identities before reading event scripts, dynamization payloads, or faceplate interface values and nested bindings, while preserving full reads for synchronization.
