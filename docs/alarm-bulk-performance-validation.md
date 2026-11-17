@@ -2,6 +2,8 @@
 
 **PASS:** a shape-matched 1,936-alarm workload completes dry-run and Apply through the public MCP/worker path within the configured 900-second deadline. All requested fields and canonical hashes match. The original private PR #9 input still needs a reporting-machine rerun.
 
+The [November 17 follow-up qualification](alarm-bulk-indexing-validation-2026-11-17.md) measures shallow root indexing and grouped scalar writes against this runtime and compares the same workload with TIA's native Excel importer. The measurements below retain their original November 16 scope and binaries.
+
 ## Cause and change
 
 The [installed preview.9 report](alarm-bulk-apply-validation-2026-11-16.md) demonstrated a valid 1,936-alarm dry-run but an Apply timeout at 900 seconds with no returned transaction outcome. That historical Apply outcome remains unknown.

@@ -1,0 +1,285 @@
+{
+  "schemaVersion": "1.0",
+  "date": "2026-11-17",
+  "result": "PASS",
+  "scope": "Shape-matched qualification; original private PR9 input/project not rerun",
+  "source": {
+    "previousRuntimeCommit": "360602f81bfffd49d93d1bc28df938a6af590d16",
+    "candidateRuntimeCommit": "3687f09e3840038de14d00e8c85487b74b301d72",
+    "previousCoreSha256": "C0588105DF2B1B3388806FCCF4CA56215136CC665D50DDF5D5591B9335F6B4C9",
+    "candidateCoreSha256": "A7717CA369D16436A206D23B46993701FC5AED3078F65DE251250CEF13E39740",
+    "candidateWorkerSha256": "DD2F1997E3F4997FF74C1703DCFCE10BA8D1637383B5C504E1F625146FE60C5C"
+  },
+  "fixture": {
+    "archiveSha256": "625202C214C625E4AD1DAE370656EA61734F4089E6DE3091AF04DD9CF3D622FC",
+    "inputSha256": "594B48C1C6104C839A7A6F2DEAA46D9C61187041AD4E9F22A6F51BBAE08D2611",
+    "initialAlarms": 0,
+    "newAlarms": 1936,
+    "distinctRoots": 721,
+    "scalarReferences": 640,
+    "memberReferences": 1296,
+    "memberRoots": 81
+  },
+  "nativeProfiling": [
+    {
+      "build": "previous",
+      "phase": "dry",
+      "totalMilliseconds": 389844.3627,
+      "metrics": {
+        "List:False": {
+          "Count": 2,
+          "Milliseconds": 3.5928000000000004
+        },
+        "LookupScope": {
+          "Count": 1,
+          "Milliseconds": 0.0145
+        },
+        "Class": {
+          "Count": 1,
+          "Milliseconds": 6.1306
+        },
+        "Tag": {
+          "Count": 1936,
+          "Milliseconds": 225389.7298000002
+        },
+        "Culture": {
+          "Count": 1,
+          "Milliseconds": 2.1532
+        },
+        "Create": {
+          "Count": 1936,
+          "Milliseconds": 14160.636100000009
+        },
+        "Set": {
+          "Count": 1936,
+          "Milliseconds": 53337.40570000005
+        },
+        "MapValidate": {
+          "Count": 1936,
+          "Milliseconds": 92112.76729999986
+        },
+        "TransactionAction": {
+          "Count": 1,
+          "Milliseconds": 159828.23930000002
+        },
+        "TransactionTotal": {
+          "Count": 1,
+          "Milliseconds": 164389.696
+        }
+      }
+    },
+    {
+      "build": "previous",
+      "phase": "apply",
+      "totalMilliseconds": 497891.91040000005,
+      "metrics": {
+        "List:False": {
+          "Count": 1,
+          "Milliseconds": 1.7233
+        },
+        "LookupScope": {
+          "Count": 1,
+          "Milliseconds": 0.013600000000000001
+        },
+        "Class": {
+          "Count": 1,
+          "Milliseconds": 31.408700000000003
+        },
+        "Tag": {
+          "Count": 1936,
+          "Milliseconds": 220071.15780000022
+        },
+        "Culture": {
+          "Count": 1,
+          "Milliseconds": 2.1696
+        },
+        "Create": {
+          "Count": 1936,
+          "Milliseconds": 14144.966200000028
+        },
+        "Set": {
+          "Count": 1936,
+          "Milliseconds": 54506.377800000075
+        },
+        "MapValidate": {
+          "Count": 1936,
+          "Milliseconds": 95311.25490000007
+        },
+        "TransactionAction": {
+          "Count": 1,
+          "Milliseconds": 164180.1485
+        },
+        "TransactionTotal": {
+          "Count": 1,
+          "Milliseconds": 165038.529
+        },
+        "List:True": {
+          "Count": 1,
+          "Milliseconds": 112627.90710000001
+        }
+      }
+    },
+    {
+      "build": "candidate",
+      "phase": "dry",
+      "totalMilliseconds": 144457.7672,
+      "metrics": {
+        "List:False": {
+          "Count": 2,
+          "Milliseconds": 4.5488
+        },
+        "LookupScope": {
+          "Count": 1,
+          "Milliseconds": 1003.2555000000001
+        },
+        "Class": {
+          "Count": 1,
+          "Milliseconds": 6.106
+        },
+        "Tag": {
+          "Count": 1936,
+          "Milliseconds": 2281.690500000003
+        },
+        "Culture": {
+          "Count": 1,
+          "Milliseconds": 1.9116000000000002
+        },
+        "Create": {
+          "Count": 1936,
+          "Milliseconds": 14656.56770000002
+        },
+        "Set": {
+          "Count": 1936,
+          "Milliseconds": 29955.53229999997
+        },
+        "MapValidate": {
+          "Count": 1936,
+          "Milliseconds": 92922.76109999993
+        },
+        "TransactionAction": {
+          "Count": 1,
+          "Milliseconds": 137754.8278
+        },
+        "TransactionTotal": {
+          "Count": 1,
+          "Milliseconds": 141117.0109
+        }
+      }
+    },
+    {
+      "build": "candidate",
+      "phase": "apply",
+      "totalMilliseconds": 292315.56830000004,
+      "metrics": {
+        "List:False": {
+          "Count": 1,
+          "Milliseconds": 1.7074
+        },
+        "LookupScope": {
+          "Count": 1,
+          "Milliseconds": 1676.1180000000002
+        },
+        "Class": {
+          "Count": 1,
+          "Milliseconds": 14.673900000000001
+        },
+        "Tag": {
+          "Count": 1936,
+          "Milliseconds": 2725.986200000005
+        },
+        "Culture": {
+          "Count": 1,
+          "Milliseconds": 3.6985
+        },
+        "Create": {
+          "Count": 1936,
+          "Milliseconds": 18967.086300000046
+        },
+        "Set": {
+          "Count": 1936,
+          "Milliseconds": 32450.319799999965
+        },
+        "MapValidate": {
+          "Count": 1936,
+          "Milliseconds": 113864.95830000006
+        },
+        "TransactionAction": {
+          "Count": 1,
+          "Milliseconds": 165502.98080000002
+        },
+        "TransactionTotal": {
+          "Count": 1,
+          "Milliseconds": 167679.5141
+        },
+        "List:True": {
+          "Count": 1,
+          "Milliseconds": 120115.0601
+        }
+      }
+    }
+  ],
+  "all1936CanonicalHashesEqual": true,
+  "rootLookupNativeParity": {
+    "cases": 5,
+    "queries": 36,
+    "equivalentToNative": true,
+    "smallBatchBoundaryRoots": [
+      1,
+      7,
+      8
+    ],
+    "missingAndCaseAndNormalizedAliases": true
+  },
+  "supplementalOptionalFieldParity": {
+    "snapshotsEqual": true,
+    "exactInverseHashes": true,
+    "fixtureCleanup": true
+  },
+  "tests": {
+    "nonIntegrationPassed": 904,
+    "architecturePassed": 54,
+    "focusedAlarmContractsPassed": 43,
+    "workerIpcPassed": 7,
+    "existingAlarmLiveRegressionPassed": 1,
+    "selectedSkipped": 0
+  },
+  "commandCount": 186,
+  "mcpToolCount": 189,
+  "modernAndLegacyStdioPassed": true,
+  "guiExcelComparison": {
+    "guiImportAlarms": 1936,
+    "nativeLogErrors": 0,
+    "nativeLogWarnings": 0,
+    "canonicalHashMismatches": 0,
+    "nativeDiagnostics": 0,
+    "elapsedSeconds": 10,
+    "elapsedSource": "User-observed approximate estimate; native log records completion only",
+    "hashesMatchPreviousAndCurrentApiRuntimes": true,
+    "independentReadbackOutsideGuiTiming": true,
+    "nativeWorkbookMetadataPreserved": true,
+    "nativeWorkbookSha256": "9A2D08A488AF00574EAD33DB2E89321B5F432AE2631D5BB5BAA30E9B687E34EF",
+    "guiCloseRequiredForcedOwnedProcessCleanup": true,
+    "freshWorkerReopenedSavedInventory": 0
+  },
+  "mcp": {
+    "dryRunMilliseconds": 150989.88059998374,
+    "applyMilliseconds": 291340.31300002243,
+    "freshReadMilliseconds": 111140.26679997914,
+    "verifiedAlarms": 1936,
+    "guardedDeletes": 3,
+    "deleteLimitations": [],
+    "discardedUnsavedAlarms": 1933,
+    "deadlineSeconds": 900,
+    "inputBytesMatchNative": true,
+    "unconfirmedApplyDenied": true,
+    "expectedAbsentReplayDeniedBeforeTransaction": true,
+    "staleDeleteHashDeniedBeforeTransaction": true,
+    "freshSavedInventory": 0,
+    "sessionsClosed": true
+  },
+  "mcpNativeAndGuiCanonicalParity": true,
+  "allFiveArchiveHashesPreserved": true,
+  "originalProcessesPreserved": true,
+  "originalProcessCount": 5,
+  "campaignProcessesRemaining": 0
+}
