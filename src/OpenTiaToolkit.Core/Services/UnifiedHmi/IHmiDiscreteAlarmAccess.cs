@@ -9,6 +9,8 @@ internal interface IHmiDiscreteAlarmAccess
     bool IsAvailable { get; }
     bool IsReadOnly { get; }
     IReadOnlyList<HmiDiscreteAlarmSnapshot> List(bool includeValidation);
+    // Complete name/ID inventory and full snapshots only for exact requested names.
+    HmiDiscreteAlarmPreflightInventory ReadPreflight(IReadOnlyCollection<string> alarmNames);
     HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation);
     bool AlarmClassExists(string name);
     bool TagExists(string name);

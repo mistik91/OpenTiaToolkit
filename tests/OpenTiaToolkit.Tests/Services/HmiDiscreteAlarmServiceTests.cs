@@ -100,18 +100,98 @@ public sealed class HmiDiscreteAlarmServiceTests
         Assert.AreEqual(3, access.TagReads);
     }
 
-    [TestMethod]
-    public async Task SnapshotIdIndex_RejectsAnUnrelatedExistingAlarm()
+    [DataTestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task SnapshotIdIndex_RejectsAnUnrelatedExistingAlarm(bool dryRun)
     {
         var existing = Snapshot("Unrelated"); existing.Id = 1001;
         var access = new FakeAccess(existing);
         using var input = TempDocument(CreateJson("A"));
-        var collision = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+        var collision = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, dryRun, true);
         Assert.IsFalse(collision.Success);
         Assert.IsFalse(collision.Transaction.Created);
         StringAssert.Contains(string.Join(" ", collision.Alarms.SelectMany(x => x.Errors)), "already in use");
         Assert.AreEqual(0, access.IdReads);
         Assert.AreEqual(HmiDiscreteAlarmService.Hash(existing), HmiDiscreteAlarmService.Hash(access.FindExact(existing.Name, false)!));
+    }
+
+    [TestMethod]
+    public async Task ApplyReplay_ReadsOnlyRequestedSnapshotInPopulatedInventory()
+    {
+        var existing = Enumerable.Range(0, 1936).Select(i => { var alarm = Snapshot($"Existing_{i}"); alarm.Id = (uint)(2000 + i); return alarm; }).ToArray();
+        var access = new FakeAccess(existing);
+        using var input = Batch(CreateRequest(existing[0].Name, existing[0].Id));
+
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, false, true);
+
+        Assert.AreEqual("preflight-blocked", result.ErrorCode);
+        Assert.IsFalse(result.Transaction.Created);
+        Assert.AreEqual(1, access.PreflightReads);
+        Assert.AreEqual(1, access.PreflightSnapshotReads);
+        Assert.AreEqual(0, access.FullUnvalidatedReads);
+        Assert.AreEqual(HmiDiscreteAlarmService.Hash(existing[0]), result.Alarms.Single().Before!.ContentHash);
+        StringAssert.Contains(string.Join(" ", result.Alarms[0].Errors), "already exists");
+    }
+
+    [TestMethod]
+    public async Task ApplyUpdate_PreservesFullBeforeAndUnrequestedProperties()
+    {
+        var target = Snapshot("Target");
+        var unrelated = Snapshot("Unrelated"); unrelated.Id++;
+        var access = new FakeAccess(target, unrelated);
+        using var input = TempDocument(JsonSerializer.Serialize(new { schemaVersion = "1.0", alarms = new[] { new { name = target.Name, expectedState = "present", expectedHash = HmiDiscreteAlarmService.Hash(target), origin = "Updated" } } }));
+
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, false, true);
+
+        Assert.IsTrue(result.Success, result.Message);
+        Assert.AreEqual(1, access.PreflightReads);
+        Assert.AreEqual(1, access.PreflightSnapshotReads);
+        Assert.AreEqual(0, access.FullUnvalidatedReads);
+        var item = result.Alarms.Single();
+        Assert.AreEqual(HmiDiscreteAlarmService.Hash(target), item.Before!.ContentHash);
+        Assert.AreEqual("Updated", item.Persisted!.Origin);
+        Assert.AreEqual(target.Texts["en-US"].EventText, item.Persisted.Texts["en-US"].EventText);
+        Assert.AreEqual(HmiDiscreteAlarmService.Hash(unrelated), HmiDiscreteAlarmService.Hash(access.FindExact(unrelated.Name, false)!));
+    }
+
+    [TestMethod]
+    public async Task ApplyInventory_RefreshesUnrelatedIdCollisionsBetweenBatches()
+    {
+        var unrelated = Snapshot("Unrelated"); unrelated.Id = 1001;
+        var access = new FakeAccess(unrelated);
+        var service = new HmiDiscreteAlarmService(access);
+        using var input = Batch(CreateRequest("A", 1001));
+        Assert.IsFalse((await service.ApplyAsync(input.Path, false, true)).Success);
+        access.DeleteExact(unrelated.Name);
+        Assert.IsTrue((await service.ApplyAsync(input.Path, false, true)).Success);
+        using var collision = Batch(CreateRequest("B", 1001));
+        var result = await service.ApplyAsync(collision.Path, false, true);
+        Assert.IsFalse(result.Success);
+        Assert.IsFalse(result.Transaction.Created);
+        StringAssert.Contains(string.Join(" ", result.Alarms.Single().Errors), "already in use");
+        Assert.AreEqual(3, access.PreflightReads);
+    }
+
+    [TestMethod]
+    public async Task DryRun_StillDetectsUnrelatedRollbackCorruption()
+    {
+        var unrelated = Snapshot("Unrelated"); unrelated.Id = 2000;
+        var access = new FakeAccess(unrelated);
+        access.AfterTransaction = () =>
+        {
+            var request = new HmiDiscreteAlarmChangeRequest { Origin = "Corrupted" };
+            request.PresentProperties.Add("origin");
+            access.Apply(unrelated.Name, request);
+        };
+        using var input = Batch(CreateRequest("A", 1001));
+
+        var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, true, true);
+
+        Assert.AreEqual("dry-run-rollback-verification-failed", result.ErrorCode);
+        Assert.IsTrue(result.Transaction.RolledBack);
+        Assert.AreEqual(2, access.FullUnvalidatedReads);
+        Assert.AreEqual(0, access.PreflightReads);
     }
 
     [DataTestMethod]
@@ -530,12 +610,28 @@ public sealed class HmiDiscreteAlarmServiceTests
         public bool TagAvailable { get; set; } = true;
         public bool CultureAvailable { get; set; } = true;
         public bool IsReadOnly { get; set; }
+        public int PreflightReads { get; private set; }
+        public int PreflightSnapshotReads { get; private set; }
+        public int FullUnvalidatedReads { get; private set; }
+        public Action? AfterTransaction { get; set; }
         public string? FailOnName { get; set; }
         public string? NextValidationError { get; set; }
         public string? NextValidationWarning { get; set; }
         public IReadOnlyList<HmiDiscreteAlarmCrossReference> References { get; set; } = Array.Empty<HmiDiscreteAlarmCrossReference>();
         public string? ReferenceLimitation { get; set; }
-        public IReadOnlyList<HmiDiscreteAlarmSnapshot> List(bool includeValidation) => _alarms.Values.Select(Clone).ToArray();
+        public IReadOnlyList<HmiDiscreteAlarmSnapshot> List(bool includeValidation)
+        {
+            if (!includeValidation) FullUnvalidatedReads++;
+            return _alarms.Values.Select(Clone).ToArray();
+        }
+        public HmiDiscreteAlarmPreflightInventory ReadPreflight(IReadOnlyCollection<string> alarmNames)
+        {
+            PreflightReads++;
+            var requested = new HashSet<string>(alarmNames, StringComparer.Ordinal);
+            var snapshots = _alarms.Values.Where(x => requested.Contains(x.Name)).Select(Clone).ToArray();
+            PreflightSnapshotReads += snapshots.Length;
+            return new HmiDiscreteAlarmPreflightInventory(_alarms.ToDictionary(x => x.Key, x => x.Value.Id, StringComparer.Ordinal), snapshots);
+        }
         public HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation) => _alarms.TryGetValue(name, out var value) ? Clone(value) : null;
         public bool AlarmClassExists(string name) { ClassReads++; return ClassAvailable && name == "Error"; }
         public bool TagExists(string name) { TagReads++; return TagAvailable && name.StartsWith("Motor1_", StringComparison.Ordinal); }
@@ -573,6 +669,7 @@ public sealed class HmiDiscreteAlarmServiceTests
             var before = _alarms.ToDictionary(x => x.Key, x => Clone(x.Value), StringComparer.Ordinal);
             try { action(); if (!commit) _alarms = before; }
             catch { _alarms = before; throw; }
+            AfterTransaction?.Invoke();
         }
         private void ApplyRequest(HmiDiscreteAlarmSnapshot alarm, HmiDiscreteAlarmChangeRequest request)
         {
