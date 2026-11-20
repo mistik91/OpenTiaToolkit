@@ -176,8 +176,21 @@ namespace OpenTiaToolkit.Core.Services
                     return Skipped(target, "Object is not mapped in this workspace.");
                 }
 
-                var result = mappedObject.GetStatus();
-                return Succeeded(target, result.CompareState.ToString(), "Status retrieved.");
+                var status = mappedObject.GetStatus().CompareState.ToString();
+                var item = Succeeded(target, status, "Status retrieved.");
+                if (IsEqual(status) && VciSimaticSdEvidence.Applies(mappedObject))
+                {
+                    var expected = VciSimaticSdEvidence.ReadWorkspace(mappedObject);
+                    var actual = VciSimaticSdEvidence.ReadProject(mappedObject);
+                    item.Verified = VciSimaticSdEvidence.Matches(expected, actual);
+                    if (item.Verified != true)
+                    {
+                        item.Message = "Siemens reported Equal, but a fresh SIMATIC SD comparison did not confirm equality.";
+                        item.Status = item.Verified == false ? "Unequal" : "Unknown";
+                    }
+                }
+                item.SiemensStatus = status;
+                return item;
             });
         }
 
@@ -227,10 +240,10 @@ namespace OpenTiaToolkit.Core.Services
                     : new Regex(filterRegex, RegexOptions.IgnoreCase);
                 var typeSet = blockTypes == null || blockTypes.Length == 0
                     ? null
-                    : new HashSet<string>(blockTypes, StringComparer.OrdinalIgnoreCase);
+                    : new HashSet<string>(blockTypes.Select(NormalizeBlockTypeFilter), StringComparer.OrdinalIgnoreCase);
                 var targets = EnumerateBlockTargets()
                     .Where(target => filter == null || filter.IsMatch(target.Name))
-                    .Where(target => typeSet == null || typeSet.Contains(target.Type))
+                    .Where(target => typeSet == null || typeSet.Contains(NormalizeBlockTypeFilter(target.Type)))
                     .ToList();
 
                 return SynchronizeTargets(RequireWorkspace(workspaceName), targets, direction, createMappings, relativeDirectory, fileFormat, includeSkipped);
@@ -301,7 +314,8 @@ namespace OpenTiaToolkit.Core.Services
         {
             var matches = EnumerateBlockTargets()
                 .Where(target => string.Equals(target.Name, blockName, StringComparison.OrdinalIgnoreCase))
-                .Where(target => string.IsNullOrWhiteSpace(blockType) || string.Equals(target.Type, blockType, StringComparison.OrdinalIgnoreCase))
+                .Where(target => string.IsNullOrWhiteSpace(blockType) || string.Equals(
+                    NormalizeBlockTypeFilter(target.Type), NormalizeBlockTypeFilter(blockType!), StringComparison.OrdinalIgnoreCase))
                 .Where(target => string.IsNullOrWhiteSpace(groupPath) || string.Equals(target.GroupPath, NormalizePath(groupPath), StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
@@ -328,7 +342,11 @@ namespace OpenTiaToolkit.Core.Services
                     if (item.MappingCreated) result.MappedCount++;
                     if (item.Skipped) result.SkippedCount++;
                     else if (item.Success) result.SynchronizedCount++;
-                    else result.FailedCount++;
+                    else
+                    {
+                        result.FailedCount++;
+                        result.Errors.Add($"{target.ObjectPath}: {item.Message}");
+                    }
                     if (!item.Skipped || includeSkipped)
                     {
                         result.Items.Add(item);
@@ -377,20 +395,46 @@ namespace OpenTiaToolkit.Core.Services
                 mappingCreated = true;
             }
 
-            var currentStatus = mappedObject.GetStatus();
-            if (string.Equals(currentStatus.CompareState.ToString(), "Equal", StringComparison.OrdinalIgnoreCase))
+            var currentStatus = mappedObject.GetStatus().CompareState.ToString();
+            bool checkDocuments = VciSimaticSdEvidence.Applies(mappedObject);
+            bool inbound = direction == VciSyncDirection.WorkspaceToProject;
+            string? expected = checkDocuments ? VciSimaticSdEvidence.ReadSide(mappedObject, workspaceSide: inbound) : null;
+            if (checkDocuments && expected == null)
             {
-                var equalItem = Succeeded(target, currentStatus.CompareState.ToString(), "Already synchronized.");
-                equalItem.MappingCreated = mappingCreated;
-                return equalItem;
+                var unavailable = Failed(target, "Could not read the SIMATIC SD source to verify synchronization.");
+                unavailable.Status = currentStatus;
+                unavailable.SiemensStatus = currentStatus;
+                unavailable.MappingCreated = mappingCreated;
+                return unavailable;
             }
+            bool alreadyEqual = IsEqual(currentStatus) && (!checkDocuments ||
+                VciSimaticSdEvidence.Matches(expected, VciSimaticSdEvidence.ReadSide(mappedObject, workspaceSide: !inbound)) == true);
+            if (!alreadyEqual)
+                mappedObject.Synchronize(ToSiemensDirection(direction));
 
-            mappedObject.Synchronize(ToSiemensDirection(direction));
-            var status = mappedObject.GetStatus();
-            var item = Succeeded(target, status.CompareState.ToString(), "Synchronized.");
+            string status = alreadyEqual ? currentStatus : mappedObject.GetStatus().CompareState.ToString();
+            bool? verified = checkDocuments
+                ? alreadyEqual ? true : VciSimaticSdEvidence.Matches(expected, VciSimaticSdEvidence.ReadSide(mappedObject, workspaceSide: !inbound))
+                : null;
+            var item = Succeeded(target, status, alreadyEqual ? "Already synchronized." : "Synchronized.");
+            item.SiemensStatus = status;
+            item.Verified = verified;
             item.MappingCreated = mappingCreated;
+            if (!IsEqual(status) || (checkDocuments && verified != true))
+            {
+                item.Success = false;
+                if (!IsEqual(status))
+                    item.Message = $"Synchronization did not reach Equal. Siemens reported {status}.";
+                else
+                {
+                    item.Status = verified == false ? "Unequal" : "Unknown";
+                    item.Message = "Siemens reported Equal, but the destination did not verify against the original SIMATIC SD source.";
+                }
+            }
             return item;
         }
+
+        private static bool IsEqual(string status) => string.Equals(status, "Equal", StringComparison.OrdinalIgnoreCase);
 
         private static SynchronizationMode ToSiemensDirection(VciSyncDirection direction)
         {
@@ -485,23 +529,32 @@ namespace OpenTiaToolkit.Core.Services
             return TiaReflectionHelper.GetProperty(item, "Type")?.ToString() ?? item.GetType().Name;
         }
 
-        private static DirectoryInfo WorkspaceDirectory(Workspace workspace, string relativeDirectory)
+        internal static string NormalizeBlockTypeFilter(string blockType) =>
+            string.Equals(blockType, "GlobalDB", StringComparison.OrdinalIgnoreCase) ? "DB" : blockType;
+
+        private static DirectoryInfo WorkspaceDirectory(Workspace workspace, string relativeDirectory) =>
+            WorkspaceDirectory(workspace.RootPath.ToString(), relativeDirectory);
+
+        internal static DirectoryInfo WorkspaceDirectory(string workspaceRoot, string relativeDirectory)
         {
             if (Path.IsPathRooted(relativeDirectory))
             {
                 throw new ArgumentException("VCI mapping directory must be relative to the workspace root.", nameof(relativeDirectory));
             }
 
-            var rootPath = Path.GetFullPath(workspace.RootPath.ToString());
-            var directoryPath = Path.GetFullPath(Path.Combine(rootPath, NormalizePath(relativeDirectory)));
-            if (!string.Equals(directoryPath, rootPath, StringComparison.OrdinalIgnoreCase)
-                && !directoryPath.StartsWith(rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            var rootPath = Path.GetFullPath(workspaceRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var rootPrefix = rootPath + Path.DirectorySeparatorChar;
+            var directoryPath = Path.GetFullPath(Path.Combine(rootPrefix, NormalizePath(relativeDirectory)));
+            bool atRoot = string.Equals(directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), rootPath, StringComparison.OrdinalIgnoreCase);
+            if (!atRoot && !directoryPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 throw new ArgumentException("VCI mapping directory must remain within the workspace root.", nameof(relativeDirectory));
             }
 
             Directory.CreateDirectory(directoryPath);
-            return new DirectoryInfo(directoryPath);
+            // Openness expects a leading separator relative to the workspace, without a drive.
+            var workspaceRelativePath = atRoot ? string.Empty : directoryPath.Substring(rootPrefix.Length);
+            return new DirectoryInfo(Path.DirectorySeparatorChar + workspaceRelativePath);
         }
 
         private static string NormalizePath(string? path)

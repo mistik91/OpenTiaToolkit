@@ -1416,7 +1416,8 @@ OpenTiaToolkit.CLI.exe sync-vci-plc --workspace-name="PLC_Repo" --plc-name="PLC_
 **Repository notes**:
 - For a new repository, provide `workspace-language` when creating the workspace.
 - To reconnect a repository that already contains `.vci` metadata, omit `workspace-language`; Siemens reports an error if the repository language is configured again.
-- The flat workspace root (`--relative-directory="."`) is validated for S7DCL mappings on V21. Siemens may reject nested mapping directories depending on workspace configuration.
+- Pass `--relative-directory="."` for the workspace root or a directory relative to the workspace root for a nested mapping. `DirectoryPath` in mapping results is the resolved filesystem path.
+- VCI accepts `DB` and `GlobalDB` for global DBs. SIMATIC SD PLC block status and sync results expose `SiemensStatus` and independent document evidence in `Verified`. A reported `Equal` requires a fresh target comparison for these blocks. Other formats retain the Siemens comparison state.
 - A mapping with compare state `Equal` is already synchronized; the toolkit treats it as a successful no-op because Siemens rejects invoking synchronization on equal content.
 
 ### Type Export (UDT)
