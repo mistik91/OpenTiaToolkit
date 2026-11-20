@@ -63,12 +63,13 @@ namespace OpenTiaToolkit.Core.Services
         public Task<ImportResult> ImportTypesAsync(string importDirectory, string? filterRegex = null, string? groupPath = null) =>
             _xml.ImportTypesAsync(importDirectory, filterRegex, groupPath);
 
-        public Task<bool> ImportBlockFromDocumentsAsync(
+        public Task<PlcDocumentImportResult> ImportBlockFromDocumentsAsync(
             string importDirectory,
             string fileNameWithoutExtension,
-            string? groupPath = null,
-            string importOption = "Override") =>
-            _documents.ImportBlockAsync(importDirectory, fileNameWithoutExtension, groupPath, importOption);
+            string? groupPath,
+            string importOption,
+            bool verify) =>
+            _documents.ImportBlockAsync(importDirectory, fileNameWithoutExtension, groupPath, importOption, verify);
 
         public Task<ImportResult> ImportBlocksFromDocumentsAsync(
             string importDirectory,
