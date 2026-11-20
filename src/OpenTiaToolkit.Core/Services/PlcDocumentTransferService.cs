@@ -5,7 +5,6 @@ using OpenTiaToolkit.Core.Services.V21;
 using System;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Services
@@ -136,63 +135,67 @@ namespace OpenTiaToolkit.Core.Services
             return result;
         });
 
-        public Task<bool> ImportBlockAsync(
-            string importDirectory,
-            string fileNameWithoutExtension,
-            string? groupPath = null,
-            string importOption = "Override") =>
+        public Task<PlcDocumentImportResult> ImportBlockAsync(string importDirectory, string name, string? groupPath, string importOption, bool verify) =>
             Task.Run(() =>
             {
                 var plcSoftware = _sessionContext.PlcSoftware;
-                if (plcSoftware == null) return false;
+                if (plcSoftware == null) return new PlcDocumentImportResult { Message = "No PLC software is currently open." };
                 EnsureSupported("Import from documents");
+                var outcome = new PlcDocumentImportResult();
                 try
                 {
-                    var directory = new DirectoryInfo(importDirectory);
-                    if (!directory.Exists)
+                    var directory = new DirectoryInfo(Path.GetFullPath(importDirectory));
+                    var input = Path.Combine(directory.FullName, name + ".s7dcl");
+                    if (!File.Exists(input))
                     {
-                        _logger?.LogError("Import directory not found: {ImportDirectory}", importDirectory);
-                        return false;
+                        outcome.Message = $"Document file was not found: {input}";
+                        return outcome;
                     }
-                    var document = new FileInfo(Path.Combine(importDirectory, $"{fileNameWithoutExtension}.s7dcl"));
-                    if (!document.Exists)
-                    {
-                        _logger?.LogError("Document file not found: {FileName}.s7dcl", fileNameWithoutExtension);
-                        return false;
-                    }
+
                     var blockGroup = TiaReflectionHelper.GetBlockGroup(plcSoftware);
-                    if (blockGroup == null) return false;
-                    var targetGroup = string.IsNullOrEmpty(groupPath)
+                    var targetGroup = blockGroup == null || string.IsNullOrEmpty(groupPath)
                         ? blockGroup
                         : TiaReflectionHelper.GetBlockGroupByPath(blockGroup, groupPath);
-                    if (targetGroup == null)
-                    {
-                        _logger?.LogError("Block group not found: {GroupPath}", groupPath ?? "root");
-                        return false;
-                    }
                     var blocks = TiaReflectionHelper.GetProperty(targetGroup, "Blocks");
-                    if (blocks == null) return false;
-                    if (!_documents.TryImportFromDocuments(
-                        blocks,
-                        directory,
-                        fileNameWithoutExtension,
-                        ParseImportOption(importOption),
-                        out var result,
-                        out var failureReason))
+                    if (blocks == null)
                     {
-                        _logger?.LogError(
-                            "Could not import block documents from {ImportDirectory}: {FailureReason}",
-                            importDirectory,
-                            failureReason ?? "ImportFromDocuments method not found in the current TIA Portal Openness API");
-                        return false;
+                        outcome.Message = $"Could not open PLC block group '{groupPath ?? string.Empty}'.";
+                        return outcome;
                     }
-                    return result != null;
+
+                    string? expected = verify ? PlcDocumentReadBack.Fingerprint(directory.FullName, name) : null;
+                    string? before = verify ? PlcDocumentReadBack.Capture(_documents, targetGroup!, name, _logger) : null;
+                    if (!_documents.TryImportFromDocuments(blocks, directory, name, ParseImportOption(importOption), out var result, out var failure))
+                    {
+                        if (!string.IsNullOrWhiteSpace(failure)) outcome.Diagnostics = new[] { failure! };
+                        outcome.Message = $"TIA Portal rejected the document import for '{name}'. {failure}".TrimEnd();
+                        return outcome;
+                    }
+
+                    outcome.SiemensState = TiaReflectionHelper.GetProperty(result, "State")?.ToString();
+                    outcome.Diagnostics = (TiaReflectionHelper.GetEnumerableProperty(result, "Messages") ?? Enumerable.Empty<object>())
+                        .Select(message => TiaReflectionHelper.GetProperty(message, "Message")?.ToString())
+                        .Where(message => !string.IsNullOrWhiteSpace(message))
+                        .Select(message => message!).ToArray();
+                    outcome.Success = string.Equals(outcome.SiemensState, "Success", StringComparison.OrdinalIgnoreCase);
+                    if (!outcome.Success)
+                    {
+                        string state = outcome.SiemensState ?? "no result state";
+                        outcome.Message = $"TIA Portal did not complete the document import for '{name}' ({state}).";
+                        if (outcome.Diagnostics.Count > 0) outcome.Message += " " + string.Join(" ", outcome.Diagnostics);
+                        return outcome;
+                    }
+
+                    if (!verify) return outcome;
+                    string? after = PlcDocumentReadBack.Capture(_documents, targetGroup!, name, _logger);
+                    PlcDocumentReadBack.Compare(outcome, name, expected, before, after);
+                    return outcome;
                 }
-                catch (InvalidOperationException) { throw; }
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, "Error importing block from documents in {ImportDirectory}", importDirectory);
-                    return false;
+                    outcome.Message = $"Could not complete the document import for '{name}'. {EngineeringFailure.Describe(ex)}";
+                    return outcome;
                 }
             });
 
@@ -233,7 +236,8 @@ namespace OpenTiaToolkit.Core.Services
                 result.TotalCount++;
                 try
                 {
-                    if (await ImportBlockAsync(importDirectory, blockName, groupPath, importOption).ConfigureAwait(false))
+                    var item = await ImportBlockAsync(importDirectory, blockName, groupPath, importOption, verify: false).ConfigureAwait(false);
+                    if (item.Success)
                     {
                         result.SuccessCount++;
                         result.ImportedItems.Add(blockName);
@@ -242,15 +246,8 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         result.FailedCount++;
                         result.FailedItems.Add(blockName);
-                        result.Errors.Add($"Failed to import {blockName}: ImportFromDocuments returned null");
+                        result.Errors.Add(item.Message);
                     }
-                }
-                catch (TargetInvocationException ex)
-                {
-                    result.FailedCount++;
-                    result.FailedItems.Add(blockName);
-                    result.Errors.Add($"Failed to import {blockName}: {ex.InnerException?.Message ?? ex.Message}");
-                    _logger?.LogError(ex.InnerException ?? ex, "Error importing {BlockName}", blockName);
                 }
                 catch (Exception ex)
                 {

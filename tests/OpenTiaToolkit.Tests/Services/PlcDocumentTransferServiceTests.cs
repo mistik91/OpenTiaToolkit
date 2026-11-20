@@ -212,6 +212,58 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public async Task Import_RejectsNativePartialAndFailedResultsAndKeepsTheirDiagnostics()
+        {
+            var software = new Software();
+            var service = CreateService("V21", software);
+            Directory.CreateDirectory(_exportRoot);
+            File.WriteAllText(Path.Combine(_exportRoot, "Probe.s7dcl"), "input");
+            var blocks = software.BlockGroup.Blocks;
+            blocks.ImportState = "PartialSuccess";
+
+            var partial = await service.ImportBlockAsync(_exportRoot, "Probe", null, "Override", verify: true);
+
+            Assert.IsFalse(partial.Success);
+            Assert.AreEqual("PartialSuccess", partial.SiemensState);
+            CollectionAssert.AreEqual(new[] { "Siemens diagnostic" }, partial.Diagnostics.ToArray());
+            Assert.IsFalse(partial.Verified);
+
+            blocks.ImportState = "Failure";
+            Assert.IsFalse((await service.ImportBlockAsync(_exportRoot, "Probe", null, "Override", verify: false)).Success);
+            var bulk = await service.ImportBlocksAsync(_exportRoot);
+            Assert.AreEqual(0, bulk.SuccessCount);
+            Assert.AreEqual(1, bulk.FailedCount);
+            StringAssert.Contains(bulk.Errors.Single(), "Siemens diagnostic");
+        }
+
+        [TestMethod]
+        public async Task Import_ReportsVerifiedChangeAlreadyMatchingAndUnverifiedSuccessSeparately()
+        {
+            var block = new ExportableBlock { Name = "Probe", Content = "baseline" };
+            var software = new Software();
+            software.BlockGroup.Blocks.Add(block);
+            var service = CreateService("V21", software);
+            Directory.CreateDirectory(_exportRoot);
+            File.WriteAllText(Path.Combine(_exportRoot, "Probe.s7dcl"), "input\r\n");
+            software.BlockGroup.Blocks.OnImport = () => block.Content = "input\n";
+
+            var applied = await service.ImportBlockAsync(_exportRoot, "Probe", null, "Override", verify: true);
+            var unchanged = await service.ImportBlockAsync(_exportRoot, "Probe", null, "Override", verify: true);
+            software.BlockGroup.Blocks.OnImport = null;
+            File.WriteAllText(Path.Combine(_exportRoot, "Probe.s7dcl"), "different input");
+            var unverified = await service.ImportBlockAsync(_exportRoot, "Probe", null, "Override", verify: true);
+
+            Assert.IsTrue(applied.Success, applied.Message);
+            Assert.AreEqual(6, block.ExportCalls, "Each read-back comparison should export before and after import.");
+            Assert.IsTrue(applied.Verified, applied.Message);
+            Assert.IsFalse(applied.AlreadyMatching);
+            Assert.IsTrue(unchanged.Success && unchanged.Verified && unchanged.AlreadyMatching);
+            Assert.IsTrue(unverified.Success);
+            Assert.IsFalse(unverified.Verified);
+            Assert.IsFalse(unverified.AlreadyMatching);
+        }
+
+        [TestMethod]
         public async Task BulkExport_MissingRootFailsWithoutCreatingDirectory()
         {
             var context = new EngineeringSessionContext { PlcSoftware = new object(), CurrentPlcName = "PLC" };
@@ -243,9 +295,30 @@ namespace OpenTiaToolkit.Tests.Services
         private sealed class Software { public BlockGroup BlockGroup { get; } = new BlockGroup(); }
         private sealed class BlockGroup
         {
-            public List<Block> Blocks { get; } = new List<Block>();
+            public BlockCollection Blocks { get; } = new BlockCollection();
             public List<BlockGroup> Groups { get; } = new List<BlockGroup>();
         }
+        private sealed class BlockCollection : List<Block>
+        {
+            public string ImportState { get; set; } = "Success";
+            public Action? OnImport { get; set; }
+
+            public ImportStateResult ImportFromDocuments(DirectoryInfo directory, string name, int options)
+            {
+                OnImport?.Invoke();
+                return new ImportStateResult
+                {
+                    State = ImportState,
+                    Messages = ImportState == "Success" ? Array.Empty<ImportMessage>() : new[] { new ImportMessage() }
+                };
+            }
+        }
+        private sealed class ImportStateResult
+        {
+            public string State { get; set; } = string.Empty;
+            public ImportMessage[] Messages { get; set; } = Array.Empty<ImportMessage>();
+        }
+        private sealed class ImportMessage { public string Message => "Siemens diagnostic"; }
         private class Block
         {
             private string _name = string.Empty;
@@ -270,6 +343,7 @@ namespace OpenTiaToolkit.Tests.Services
         {
             public int ExportCalls { get; private set; }
             public string State { get; set; } = "Success";
+            public string Content { get; set; } = "stable documents";
             public bool ThrowOnExport { get; set; }
             public ExportState ExportAsDocuments(DirectoryInfo directory, string baseName)
             {
@@ -277,7 +351,7 @@ namespace OpenTiaToolkit.Tests.Services
                 // Siemens V21 checks DirectoryInfo's string representation, not just FullName.
                 if (!Path.IsPathRooted(directory.ToString())) throw new ArgumentException("Siemens requires an absolute directory argument.");
                 if (ThrowOnExport) throw new InvalidOperationException("Siemens rejected this target");
-                if (State == "Success") File.WriteAllText(Path.Combine(directory.FullName, baseName + ".s7dcl"), "stable documents");
+                if (State == "Success") File.WriteAllText(Path.Combine(directory.FullName, baseName + ".s7dcl"), Content);
                 return new ExportState { State = State };
             }
         }

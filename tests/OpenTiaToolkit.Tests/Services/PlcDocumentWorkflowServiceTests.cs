@@ -361,6 +361,57 @@ public class PlcDocumentWorkflowServiceTests
     }
 
     [TestMethod]
+    public void Validate_GlobalDbScopesAndMultilineAttributesDoNotCreateDuplicateMembers()
+    {
+        WriteUtf8Bom("Data.s7dcl", """
+            { S7_Optimized := "TRUE" }
+            DATA_BLOCK Data
+                VAR RETAIN
+                    First : STRUCT
+                        { S7_Setpoint := "False";
+                          Description := "STRUCT; END_STRUCT" }
+                        Shared : Int;
+                        Nested : STRUCT
+                            Shared : Bool;
+                        END_STRUCT;
+                    END_STRUCT;
+                    Second : Array[0..2] of STRUCT
+                        { S7_Setpoint := "False";
+                          Description := "Second" }
+                        Shared : Int;
+                    END_STRUCT;
+                    Shared : Bool;
+                END_VAR
+                Shared := TRUE;
+            END_DATA_BLOCK
+            """);
+
+        var result = _service.Validate(_directory, "Data");
+
+        Assert.IsTrue(result.Valid, string.Join(Environment.NewLine, result.Errors));
+    }
+
+    [TestMethod]
+    public void Validate_GlobalDbRejectsDuplicateInsideOneStruct()
+    {
+        WriteUtf8Bom("Data.s7dcl", """
+            DATA_BLOCK Data
+                VAR
+                    Nested : STRUCT
+                        Value : Bool;
+                        "value" : Int;
+                    END_STRUCT;
+                END_VAR
+            END_DATA_BLOCK
+            """);
+
+        var result = _service.Validate(_directory, "Data");
+
+        Assert.IsFalse(result.Valid);
+        StringAssert.Contains(result.Errors.Single(), "more than once in the same scope");
+    }
+
+    [TestMethod]
     public void Validate_GlobalDbAuthoredMemberRetainAttribute_IsRejected()
     {
         WriteUtf8Bom("Data.s7dcl", "{ S7_Optimized := \"TRUE\"; S7_StandardRetain := \"FALSE\" }\r\nDATA_BLOCK Data\r\nVAR\r\n{ S7_Retain := \"Retain\" }\r\nCounter : DInt;\r\nEND_VAR\r\nCounter := 0;\r\nEND_DATA_BLOCK");

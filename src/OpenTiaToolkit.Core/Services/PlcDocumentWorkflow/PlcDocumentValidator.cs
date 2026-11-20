@@ -131,25 +131,102 @@ internal sealed class PlcDocumentValidator
         if (Regex.Matches(text, @"(?i)(?<!END_)\bRUNG\b").Count != Regex.Matches(text, @"(?i)\bEND_RUNG\b").Count) errors.Add("RUNG and END_RUNG counts do not match.");
     }
 
+    private static readonly Regex DataDeclarationTrivia = new Regex(
+        @"(?<literal>""(?:[^""]|"""")*""|'(?:[^']|'')*')|\{(?:[^{}""]|""(?:[^""]|"""")*"")*\}|//[^\r\n]*|\(\*[\s\S]*?\*\)",
+        RegexOptions.Compiled);
+
+    private static readonly Regex DataDeclaration = new Regex(
+        @"\b(?<end>END_STRUCT)\s*;|(?:""(?<quoted>[^""]+)""|\b(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*:\s*(?:(?<type>(?:Array\s*\[[^\]]+\]\s+of\s+)?(?<struct>STRUCT)\b)|(?<type>[^;]+);)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static void ValidateDataBlockDocument(string text, List<string> errors, List<string> warnings)
     {
-        Match variableSection = Regex.Match(text, @"(?is)\bVAR\b(?<body>.*?)\bEND_VAR\b"); if (!variableSection.Success) { errors.Add("Global DATA_BLOCK must contain a VAR/END_VAR declaration section."); return; }
-        string body = variableSection.Groups["body"].Value; if (Regex.IsMatch(body, @"(?i)\bS7_Retain\s*:=")) errors.Add("Member-level S7_Retain is known-unsupported: TIA Portal V21 rejected this authored attribute form. Preserve an exported member attribute or use the block-level S7_StandardRetain policy.");
-        int structStarts = Regex.Matches(body, @"(?i)\bSTRUCT\b").Count, structEnds = Regex.Matches(body, @"(?i)\bEND_STRUCT\b").Count; if (structStarts != structEnds) errors.Add($"Global DB STRUCT/END_STRUCT counts do not match ({structStarts}/{structEnds}).");
-        var declarations = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match declaration in Regex.Matches(body, @"(?im)^\s*(?:\{[^\r\n]*\}\s*)?(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*:\s*(?<type>[^;]+);"))
+        Match variableSection = Regex.Match(text, @"(?is)\bVAR\b(?<body>.*?)\bEND_VAR\b");
+        if (!variableSection.Success)
         {
-            string name = FirstNonEmpty(declaration.Groups["quoted"].Value, declaration.Groups["plain"].Value)!; string type = declaration.Groups["type"].Value.Trim(); if (declarations.ContainsKey(name)) errors.Add($"Global DB member '{name}' is declared more than once."); else declarations.Add(name, type);
-            foreach (Match array in Regex.Matches(type, @"(?i)Array\s*\[\s*(?<lower>-?\d+)\s*\.\.\s*(?<upper>-?\d+)\s*\]")) { long lower = long.Parse(array.Groups["lower"].Value, System.Globalization.CultureInfo.InvariantCulture), upper = long.Parse(array.Groups["upper"].Value, System.Globalization.CultureInfo.InvariantCulture); if (upper < lower) errors.Add($"Global DB member '{name}' has descending array bounds {lower}..{upper}."); else if (upper - lower > 1000000) errors.Add($"Global DB member '{name}' declares an implausibly large array; review the bounds explicitly."); }
-            Match lengthMatch = Regex.Match(type, @"(?i)^(?<kind>W?String)\s*\[\s*(?<length>\d+)\s*\]$"); if (lengthMatch.Success) { int length = int.Parse(lengthMatch.Groups["length"].Value, System.Globalization.CultureInfo.InvariantCulture); int maximum = lengthMatch.Groups["kind"].Value.Equals("WString", StringComparison.OrdinalIgnoreCase) ? 16382 : 254; if (length < 1 || length > maximum) errors.Add($"Global DB member '{name}' has invalid {lengthMatch.Groups["kind"].Value} length {length}; expected 1..{maximum}."); }
-            if (!Regex.IsMatch(type, @"(?i)^(Bool|Byte|Word|DWord|LWord|SInt|USInt|Int|UInt|DInt|UDInt|LInt|ULInt|Real|LReal|Time|LTime|Date|Time_Of_Day|TOD|String|WString|Char|WChar|Array|Struct)\b")) warnings.Add($"Global DB member '{name}' references project type '{type}'. Confirm that the PLC data type exists before apply.");
+            errors.Add("Global DATA_BLOCK must contain a VAR/END_VAR declaration section.");
+            return;
         }
+
+        string body = variableSection.Groups["body"].Value;
+        if (Regex.IsMatch(body, @"(?i)\bS7_Retain\s*:="))
+            errors.Add("Member-level S7_Retain is known-unsupported: TIA Portal V21 rejected this authored attribute form. Preserve an exported member attribute or use the block-level S7_StandardRetain policy.");
+
+        string declarationsText = DataDeclarationTrivia.Replace(body, match => match.Groups["literal"].Success ? match.Value : " ");
+        var declarations = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var scopes = new Stack<Dictionary<string, string>>();
+        scopes.Push(declarations);
+        int structStarts = 0;
+        int structEnds = 0;
+        bool unmatchedEnd = false;
+        foreach (Match declaration in DataDeclaration.Matches(declarationsText))
+        {
+            if (declaration.Groups["end"].Success)
+            {
+                structEnds++;
+                if (scopes.Count > 1) scopes.Pop();
+                else unmatchedEnd = true;
+                continue;
+            }
+
+            string name = FirstNonEmpty(declaration.Groups["quoted"].Value, declaration.Groups["plain"].Value)!;
+            string type = declaration.Groups["type"].Value.Trim();
+            var scope = scopes.Peek();
+            if (scope.ContainsKey(name)) errors.Add($"Global DB member '{name}' is declared more than once in the same scope.");
+            else scope.Add(name, type);
+            ValidateDataMemberType(name, type, errors, warnings);
+            if (declaration.Groups["struct"].Success)
+            {
+                structStarts++;
+                scopes.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+            }
+        }
+
+        if (unmatchedEnd || scopes.Count != 1)
+            errors.Add($"Global DB STRUCT/END_STRUCT boundaries do not match ({structStarts}/{structEnds}).");
         if (declarations.Count == 0) warnings.Add("Global DB declares no members.");
-        string initialization = text.Substring(variableSection.Index + variableSection.Length); var assigned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match assignment in Regex.Matches(initialization, @"(?im)^\s*(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*:=\s*(?<value>[^;]+);")) { string name = FirstNonEmpty(assignment.Groups["quoted"].Value, assignment.Groups["plain"].Value)!; if (!assigned.Add(name)) errors.Add($"Global DB member '{name}' has more than one start-value assignment."); if (!declarations.TryGetValue(name, out string? type)) errors.Add($"Start-value assignment targets undeclared global DB member '{name}'."); else if (type.Trim().Equals("Bool", StringComparison.OrdinalIgnoreCase) && !Regex.IsMatch(assignment.Groups["value"].Value.Trim(), @"^(TRUE|FALSE)$", RegexOptions.IgnoreCase)) errors.Add($"Bool member '{name}' requires TRUE or FALSE start value."); }
-        if (!Regex.IsMatch(text, @"(?i)S7_Optimized\s*:=")) warnings.Add("Global DB does not declare S7_Optimized explicitly; preserve the exported access mode before applying a modification.");
-        if (Regex.IsMatch(text, @"(?i)S7_Optimized\s*:=\s*""FALSE""")) warnings.Add("Non-optimized DB layout is address-sensitive; run cross-reference and HMI impact checks before changing members or order.");
-        if (Regex.IsMatch(text, @"(?i)InstanceDB|InstanceOf")) errors.Add("Instance DB documents are not supported by the global DB authoring workflow.");
+
+        string initialization = text.Substring(variableSection.Index + variableSection.Length);
+        var assigned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match assignment in Regex.Matches(initialization, @"(?im)^\s*(?:""(?<quoted>[^""]+)""|(?<plain>[A-Za-z_][A-Za-z0-9_]*))\s*:=\s*(?<value>[^;]+);"))
+        {
+            string name = FirstNonEmpty(assignment.Groups["quoted"].Value, assignment.Groups["plain"].Value)!;
+            if (!assigned.Add(name)) errors.Add($"Global DB member '{name}' has more than one start-value assignment.");
+            if (!declarations.TryGetValue(name, out string? type))
+                errors.Add($"Start-value assignment targets undeclared global DB member '{name}'.");
+            else if (type.Equals("Bool", StringComparison.OrdinalIgnoreCase) &&
+                !Regex.IsMatch(assignment.Groups["value"].Value.Trim(), @"^(TRUE|FALSE)$", RegexOptions.IgnoreCase))
+                errors.Add($"Bool member '{name}' requires TRUE or FALSE start value.");
+        }
+
+        if (!Regex.IsMatch(text, @"(?i)S7_Optimized\s*:="))
+            warnings.Add("Global DB does not declare S7_Optimized explicitly; preserve the exported access mode before applying a modification.");
+        if (Regex.IsMatch(text, @"(?i)S7_Optimized\s*:=\s*""FALSE"""))
+            warnings.Add("Non-optimized DB layout is address-sensitive; run cross-reference and HMI impact checks before changing members or order.");
+        if (Regex.IsMatch(text, @"(?i)InstanceDB|InstanceOf"))
+            errors.Add("Instance DB documents are not supported by the global DB authoring workflow.");
+    }
+
+    private static void ValidateDataMemberType(string name, string type, List<string> errors, List<string> warnings)
+    {
+        foreach (Match array in Regex.Matches(type, @"(?i)Array\s*\[\s*(?<lower>-?\d+)\s*\.\.\s*(?<upper>-?\d+)\s*\]"))
+        {
+            long lower = long.Parse(array.Groups["lower"].Value, System.Globalization.CultureInfo.InvariantCulture);
+            long upper = long.Parse(array.Groups["upper"].Value, System.Globalization.CultureInfo.InvariantCulture);
+            if (upper < lower) errors.Add($"Global DB member '{name}' has descending array bounds {lower}..{upper}.");
+            else if (upper - lower > 1000000) errors.Add($"Global DB member '{name}' declares an implausibly large array; review the bounds explicitly.");
+        }
+
+        Match lengthMatch = Regex.Match(type, @"(?i)^(?<kind>W?String)\s*\[\s*(?<length>\d+)\s*\]$");
+        if (lengthMatch.Success)
+        {
+            int length = int.Parse(lengthMatch.Groups["length"].Value, System.Globalization.CultureInfo.InvariantCulture);
+            int maximum = lengthMatch.Groups["kind"].Value.Equals("WString", StringComparison.OrdinalIgnoreCase) ? 16382 : 254;
+            if (length < 1 || length > maximum)
+                errors.Add($"Global DB member '{name}' has invalid {lengthMatch.Groups["kind"].Value} length {length}; expected 1..{maximum}.");
+        }
+        if (!Regex.IsMatch(type, @"(?i)^(Bool|Byte|Word|DWord|LWord|SInt|USInt|Int|UInt|DInt|UDInt|LInt|ULInt|Real|LReal|Time|LTime|Date|Time_Of_Day|TOD|String|WString|Char|WChar|Array|Struct)\b"))
+            warnings.Add($"Global DB member '{name}' references project type '{type}'. Confirm that the PLC data type exists before apply.");
     }
 
     private static bool HasSourceTypeTemplateBeforeCall(string text, int callIndex, bool requireDestinationType) { int start = text.LastIndexOf("NETWORK", callIndex, StringComparison.OrdinalIgnoreCase); string prefix = text.Substring(Math.Max(0, start), callIndex - Math.Max(0, start)); int index = prefix.LastIndexOf("S7_Templates", StringComparison.OrdinalIgnoreCase); if (index < 0 || index < prefix.LastIndexOf(')')) return false; string nearest = prefix.Substring(index); return nearest.IndexOf("SrcType", StringComparison.OrdinalIgnoreCase) >= 0 && (!requireDestinationType || nearest.IndexOf("DestType", StringComparison.OrdinalIgnoreCase) >= 0); }

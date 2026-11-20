@@ -1755,12 +1755,7 @@ OpenTiaToolkit.CLI.exe import-block-from-docs --plc-name="PLC_1" --import-direct
 - `group-path` (optional): Path within PLC program (e.g., "Program Blocks/Motors"). Empty for root.
 - `import-option` (optional): Import behavior - "Override", "None", "SkipInactiveCultures", or "ActivateInactiveCultures" (default: "Override")
 
-**Output**:
-```
-Successfully imported block from documents: Motor
-
-Format: SIMATIC SD (.s7dcl + .s7res)
-```
+The command returns the Siemens result in `siemensState` and includes available `diagnostics`. Siemens failures and partial successes produce a command failure. On Siemens success, the command exports the target block from the specified group and compares its S7DCL and optional S7RES with the input, ignoring the byte-order mark and line-ending differences. Check `verified` before relying on the result. `alreadyMatching` means the target matched before and after the import. Siemens can normalize a document or omit inactive cultures, so a successful import can have `verified: false`.
 
 **Import Options**:
 - `Override`: Overwrites existing blocks (default)
@@ -1772,7 +1767,7 @@ Format: SIMATIC SD (.s7dcl + .s7res)
 
 #### import-blocks-from-docs
 
-Imports multiple PLC blocks from SIMATIC SD documents with optional regex filtering in the supported TIA Portal V21 workflow. This is a low-level bulk operation; validate authored files individually before using it.
+Imports multiple PLC blocks from SIMATIC SD documents with optional regex filtering in the supported TIA Portal V21 workflow. Bulk counts and errors reflect the Siemens import results for each file. Use the single-block command when exported read-back evidence is required. Validate authored files individually before using this low-level bulk operation.
 
 ```bash
 # Import all blocks from directory

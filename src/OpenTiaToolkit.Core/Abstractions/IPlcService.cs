@@ -351,6 +351,11 @@ public interface IPlcService
     Task<bool> ImportBlockFromDocumentsAsync(string importDirectory, string fileNameWithoutExtension, string? groupPath = null, string importOption = "Override");
 
     /// <summary>
+    /// Imports a SIMATIC SD block and reports the native outcome and document read-back evidence.
+    /// </summary>
+    Task<PlcDocumentImportResult> ImportBlockFromDocumentsWithResultAsync(string importDirectory, string fileNameWithoutExtension, string? groupPath = null, string importOption = "Override");
+
+    /// <summary>
     /// Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res).
     /// </summary>
     /// <param name="importDirectory">The directory containing document files.</param>

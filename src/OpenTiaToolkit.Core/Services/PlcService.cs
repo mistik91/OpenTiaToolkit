@@ -522,8 +522,12 @@ namespace OpenTiaToolkit.Core.Services
         /// <inheritdoc/>
         public async Task<bool> ImportBlockFromDocumentsAsync(string importDirectory, string fileNameWithoutExtension, string? groupPath = null, string importOption = "Override")
         {
-            return await _importExportService.ImportBlockFromDocumentsAsync(importDirectory, fileNameWithoutExtension, groupPath, importOption);
+            var result = await _importExportService.ImportBlockFromDocumentsAsync(importDirectory, fileNameWithoutExtension, groupPath, importOption, verify: false);
+            return result.Success;
         }
+
+        public Task<PlcDocumentImportResult> ImportBlockFromDocumentsWithResultAsync(string importDirectory, string fileNameWithoutExtension, string? groupPath = null, string importOption = "Override") =>
+            _importExportService.ImportBlockFromDocumentsAsync(importDirectory, fileNameWithoutExtension, groupPath, importOption, verify: true);
 
         /// <inheritdoc/>
         public async Task<ImportResult> ImportBlocksFromDocumentsAsync(string importDirectory, string? filterRegex = null, string? groupPath = null, string importOption = "Override")

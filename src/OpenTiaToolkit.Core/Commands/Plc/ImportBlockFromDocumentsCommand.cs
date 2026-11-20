@@ -101,26 +101,24 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 context.Checkpoint($"Importing PLC block from SIMATIC SD documents: {fileName}.", 55, "import-block-docs");
-                var success = await _plcService.ImportBlockFromDocumentsAsync(importDirectory, fileName, groupPath, importOption);
-
-                if (success)
+                var result = await _plcService.ImportBlockFromDocumentsWithResultAsync(importDirectory, fileName, groupPath, importOption);
+                var data = new
                 {
-                    context.CompleteCommand(Name, $"Successfully imported block from documents: {fileName}");
-                }
+                    plcName,
+                    importDirectory,
+                    fileName,
+                    groupPath,
+                    importOption,
+                    siemensState = result.SiemensState,
+                    diagnostics = result.Diagnostics,
+                    verified = result.Verified,
+                    alreadyMatching = result.AlreadyMatching
+                };
+                if (!result.Success)
+                    return CommandResult.CreateFailure(result.Message, data);
 
-                return success
-                    ? CommandResult.CreateSuccess(
-                        data: new
-                        {
-                            plcName,
-                            importDirectory,
-                            fileName,
-                            groupPath,
-                            importOption
-                        },
-                        message: $"Successfully imported block from documents: {fileName}"
-                    )
-                    : CommandResult.CreateFailure($"Failed to import block from documents: {fileName}");
+                context.CompleteCommand(Name, result.Message);
+                return CommandResult.CreateSuccess(data, result.Message);
             }
             catch (System.InvalidOperationException ex)
             {
