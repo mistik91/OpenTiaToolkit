@@ -34,6 +34,8 @@ Successful and failed command outcomes both use MCP tool results:
 
 Calls into the TIA worker remain serialized. Concurrent domain calls return a typed conflict. `cancel-operation` requests cancellation, then terminates and replaces the active isolated worker. A configured tool timeout does the same and returns `TimedOut`. `reset-session` requests cooperative cancellation and waits for the configured grace period; it replaces the worker only after the active call quiesces, otherwise it returns a conflict and leaves that worker and TIA attachment intact.
 
+For Unified HMI tag tables, `export-hmi-tags` reports the file actually written and its WinCCML compatibility. `import-hmi-tags` reports command success only after the transaction verifies every requested tag. A false-success Siemens import with an unresolved PLC binding produces a failed tool result. Use the [WinCCML workflow and file policy guidance](CLI_USAGE.md#unified-hmi-tag-tables-and-winccml).
+
 ## Validation
 
 Build the Release hosts, then exercise the exact binaries:

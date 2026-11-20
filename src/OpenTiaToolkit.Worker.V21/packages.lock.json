@@ -217,10 +217,15 @@
         "resolved": "4.5.0",
         "contentHash": "okurQJO6NRE/apDIP23ajJ0hpiNmJ+f0BwOlB/cSqTLQlw5upkf+5+96+iG2Jw40G1fCVCyPz/FhIABUjMR+RQ=="
       },
+      "YamlDotNet": {
+        "type": "Transitive",
+        "resolved": "16.3.0",
+        "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
+      },
       "opentiatoolkit.application": {
         "type": "Project",
         "dependencies": {
-          "OpenTiaToolkit.Contracts": "[1.0.0-preview.5, )",
+          "OpenTiaToolkit.Contracts": "[1.0.0-preview.9, )",
           "System.Text.Json": "[8.0.5, )"
         }
       },
@@ -236,7 +241,8 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.0, )",
           "Microsoft.Extensions.Logging.Abstractions": "[8.0.0, )",
           "System.Reflection.DispatchProxy": "[4.7.1, )",
-          "System.Text.Json": "[8.0.5, )"
+          "System.Text.Json": "[8.0.5, )",
+          "YamlDotNet": "[16.3.0, )"
         }
       }
     },

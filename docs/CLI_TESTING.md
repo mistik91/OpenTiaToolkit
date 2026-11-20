@@ -29,11 +29,13 @@ Recommended environment variables:
 
 The Unified HMI integration tests skip cleanly when `OPEN_TIA_TEST_HMI_PROJECT_PATH` does not point to an existing `.ap21` project.
 
-If the current CLI build has not been authorized for Openness yet, pre-authorize it from an elevated PowerShell session:
+The [WinCCML validation record](HMI_TAG_WINCCML_VALIDATION.md) covers reconciling a real grouped tag table and preserving native companion files. For a repeat run, restore an independent archive, export before the import, check collision preview and verified apply, and compare a fresh export before closing without saving.
+
+Register the exact V21 worker build used by the CLI and MCP from an elevated PowerShell session.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Register-OpennessAllowList.ps1 `
-  -ExecutablePath .\src\OpenTiaToolkit.CLI\bin\Debug\net48\OpenTiaToolkit.CLI.exe `
+  -ExecutablePath .\src\OpenTiaToolkit.Worker.V21\bin\Debug\net48\OpenTiaToolkit.Worker.V21.exe `
   -PortalVersion 21.0 `
   -SkipVersionedWhitelist
 ```

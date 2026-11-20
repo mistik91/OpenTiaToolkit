@@ -15,7 +15,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
 
 1. Establish the request domain:
    - TIA instance, project lifecycle, devices, PLC/HMI target discovery: use `basic-tia-interaction`.
-   - Unified HMI screen JSON, screen item, faceplate, event handler, dynamization, or JSON import/export edits: use `hmi-unified-agent-editing`.
+   - Unified HMI screen JSON, screen items, faceplates, events, dynamizations, tag table creation, simple HMI tag batches, or WinCCML export and import: use `hmi-unified-agent-editing`.
    - Generic catalog, module/submodule, PROFINET, IO address, Startdrive telegram, GSD/GSDML parameter, or `apply-hardware-patch` work: use `hardware-configuration-workflow`.
    - PLC blocks, types, source files, compile, import/export, tags, cross-references, watch tables, technology objects, alarm text lists, CSV tag updates, or find/replace rename work: use `plc-block-and-tag-workflow`.
    - PLC code generation or modification in LAD, SCL, S7DCL/S7RES, external source, or SimaticML: use `plc-code-engineering` after target discovery.
@@ -54,6 +54,7 @@ Use dry-runs, previews, or status reads before applying changes when the command
 - `apply-hardware-patch`: start with `dry-run=true`.
 - `apply-hmi-screen-json-patch` and `apply-hmi-screen-json-edit`: start with `dry-run=true` and keep `base-hash` filters stable.
 - `import-hmi-json`: dry-run, warning blocking, and clean preflight default to safe values. Apply only with `dry-run=false`, `apply=true`, and `confirm=true` after reviewing the dry-run result; backup also defaults to true on apply.
+- `create-hmi-tag-table`, `create-hmi-tags`, and `import-hmi-tags`: start with `dry-run=true`. Verify the exact table path and review existing names before applying with `dry-run=false` and `confirm=true`. Replacing tags with WinCCML also requires `overwrite=true`.
 - `create-hmi-trends`, `remove-hmi-logging-tags`, `delete-hmi-data-logs`: start with `dry-run=true`.
 - `apply-unified-discrete-alarms` and `delete-unified-discrete-alarm`: start with `dry-run=true`, retain exact names and fresh canonical hashes, and follow `hmi-discrete-alarm-workflow` before applying.
 - `import-texts`: start with the default `dry-run=true`; apply project text workbook changes only with explicit user intent and `dry-run=false`.

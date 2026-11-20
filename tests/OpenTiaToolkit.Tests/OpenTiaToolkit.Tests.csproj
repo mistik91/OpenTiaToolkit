@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <Reference Include="System.IO.Compression" />
+  </ItemGroup>
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>

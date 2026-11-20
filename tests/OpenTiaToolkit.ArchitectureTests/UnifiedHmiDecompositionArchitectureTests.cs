@@ -36,7 +36,7 @@ public class UnifiedHmiDecompositionArchitectureTests
             .ToList();
 
         CollectionAssert.AreEquivalent(
-            new[] { "HmiJsonImportBoundaries.cs", "V21HmiDiscreteAlarmAccess.cs" },
+            new[] { "HmiJsonImportBoundaries.cs", "HmiTagBatchService.cs", "V21HmiDiscreteAlarmAccess.cs" },
             owners);
     }
 

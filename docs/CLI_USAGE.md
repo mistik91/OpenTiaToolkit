@@ -615,6 +615,35 @@ For large Unified HMI projects, prefer a concrete leaf or subtree `--root-path`.
 
 When `--output-path` is provided, `list-hmi-tags` writes a CSV file and returns a compact artifact manifest. Without `--output-path`, tag results that would exceed the 32 KB inline response threshold are automatically written to a temporary CSV artifact instead of being streamed inline.
 
+#### Unified HMI tag tables and WinCCML
+
+Run these commands in the connected CLI session. The same names and parameters are available through MCP. Use a table name at the HMI root or a slash-delimited path such as `Group/Table`. Parent groups must already exist. `list-hmi-tags` gives the leaf table name. For grouped tables, use the TIA project tree to find the full path.
+
+```text
+create-hmi-tag-table --hmi-name="HMI_1" --table-path="TagsForReview" --dry-run=true
+create-hmi-tag-table --hmi-name="HMI_1" --table-path="TagsForReview" --dry-run=false --confirm=true
+export-hmi-tags --hmi-name="HMI_1" --table-path="SourceGroup/SourceTable" --output-path="C:\Exports\SourceTable.hmi.yml"
+import-hmi-tags --hmi-name="HMI_1" --table-path="TagsForReview" --input-path="C:\Exports\ImportBatch.hmi.yml" --dry-run=true
+import-hmi-tags --hmi-name="HMI_1" --table-path="TagsForReview" --input-path="C:\Exports\ImportBatch.hmi.yml" --dry-run=false --confirm=true
+```
+
+For a JSON batch, use `create-hmi-tags` with the same apply arguments and a JSON `--input-path`. The two batch commands create a missing destination table. A JSON input file can contain entries like these.
+
+```json
+[
+  { "name": "StatusLamp", "dataType": "Bool", "initialValue": "true" },
+  { "name": "MotorSpeed", "dataType": "Int", "connection": "PLC_Link", "plcTag": "ActualSpeed" }
+]
+```
+
+- **Export** calls the native exporter once for the selected table and leaves the project unchanged. Use `.zip` when Siemens produces companion definition files. Extract the table `.hmi.yml` before passing it to the importer. `SupportsToolkitImport` checks the exported file against the supported input format. Actual PLC bindings are checked in the destination project at apply time.
+- **File replacement** requires `--overwrite=true` on export. MCP also requires an allowed output root and `OPEN_TIA_MCP_ALLOW_FILE_OVERWRITE=true` for existing files.
+- **Import** supports one WinCCML file containing `SimpleTags` with internal or integrated symbolic tags. Arrays, structured definitions, absolute bindings, and non-Bool initial values are outside this scope. Use the exporter to obtain Siemens fields such as `ControllerDataType`.
+- **Collisions** appear in preview. Import only replaces tags in the selected table with `--overwrite=true`. A matching tag elsewhere in the HMI blocks the batch. For an export/import round trip on the same HMI, use an independent copy without those names, or prepare new names and update any references to them.
+- **Verification** uses exact tag lookup and native validation once per requested tag. Siemens can return success while leaving an unresolved symbol blank. A failed native validation, missing tag, or mismatched type or binding rolls back the whole batch, including a newly created table. Preview checks the destination and input without running import.
+
+See the [V21 live validation](HMI_TAG_WINCCML_VALIDATION.md) for a grouped-table round trip and larger structured export timings.
+
 #### Unified discrete alarms
 
 Use the dedicated commands for complete canonical WinCC Unified discrete-alarm snapshots and transactional engineering changes. The legacy `list-unified-alarms` command remains a shallow read-only insight across several alarm families.

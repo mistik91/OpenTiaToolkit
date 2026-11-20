@@ -7,6 +7,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Add CLI and MCP commands to create Unified HMI tag tables, create simple tag batches, and export or import native WinCCML. Imports require explicit overwrite for matching destination tags and verify each requested type and PLC binding before committing.
+
 ### Fixed
 - Read only alarm names/IDs and requested full snapshots during Unified alarm Apply preflight. Preserve complete dry-run rollback inventories and post-commit native validation/readback.
 - Preserve completed alarm transaction state when verification reads fail, including committed unsaved changes after Apply and completed rollback after dry-run.
