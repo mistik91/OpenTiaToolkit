@@ -186,7 +186,7 @@ namespace OpenTiaToolkit.Core.Services
                     if (item.Verified != true)
                     {
                         item.Message = "Siemens reported Equal, but a fresh SIMATIC SD comparison did not confirm equality.";
-                        item.Status = item.Verified == false ? "Unequal" : "Unknown";
+                        item.Status = UnverifiedStatus(item.Verified);
                     }
                 }
                 item.SiemensStatus = status;
@@ -402,7 +402,7 @@ namespace OpenTiaToolkit.Core.Services
             if (checkDocuments && expected == null)
             {
                 var unavailable = Failed(target, "Could not read the SIMATIC SD source to verify synchronization.");
-                unavailable.Status = currentStatus;
+                unavailable.Status = IsEqual(currentStatus) ? "Unknown" : currentStatus;
                 unavailable.SiemensStatus = currentStatus;
                 unavailable.MappingCreated = mappingCreated;
                 return unavailable;
@@ -417,9 +417,15 @@ namespace OpenTiaToolkit.Core.Services
                 ? alreadyEqual ? true : VciSimaticSdEvidence.Matches(expected, VciSimaticSdEvidence.ReadSide(mappedObject, workspaceSide: !inbound))
                 : null;
             var item = Succeeded(target, status, alreadyEqual ? "Already synchronized." : "Synchronized.");
+            item.MappingCreated = mappingCreated;
+            RecordSyncOutcome(item, status, verified, checkDocuments);
+            return item;
+        }
+
+        internal static void RecordSyncOutcome(VciSyncItemResult item, string status, bool? verified, bool checkDocuments)
+        {
             item.SiemensStatus = status;
             item.Verified = verified;
-            item.MappingCreated = mappingCreated;
             if (!IsEqual(status) || (checkDocuments && verified != true))
             {
                 item.Success = false;
@@ -427,14 +433,14 @@ namespace OpenTiaToolkit.Core.Services
                     item.Message = $"Synchronization did not reach Equal. Siemens reported {status}.";
                 else
                 {
-                    item.Status = verified == false ? "Unequal" : "Unknown";
+                    item.Status = UnverifiedStatus(verified);
                     item.Message = "Siemens reported Equal, but the destination did not verify against the original SIMATIC SD source.";
                 }
             }
-            return item;
         }
 
         private static bool IsEqual(string status) => string.Equals(status, "Equal", StringComparison.OrdinalIgnoreCase);
+        private static string UnverifiedStatus(bool? verified) => verified == false ? "Unequal" : "Unknown";
 
         private static SynchronizationMode ToSiemensDirection(VciSyncDirection direction)
         {

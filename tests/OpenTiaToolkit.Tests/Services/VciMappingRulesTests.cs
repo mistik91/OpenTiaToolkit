@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenTiaToolkit.Core.Models;
 using OpenTiaToolkit.Core.Services;
 using System;
 using System.IO;
@@ -43,5 +44,22 @@ public class VciMappingRulesTests
         Assert.AreEqual(true, VciSimaticSdEvidence.Matches("same", "same"));
         Assert.AreEqual(false, VciSimaticSdEvidence.Matches("source", "different"));
         Assert.IsNull(VciSimaticSdEvidence.Matches("source", null));
+    }
+
+    [DataTestMethod]
+    [DataRow("Equal", false, true, "Unequal", false)]
+    [DataRow("Equal", null, true, "Unknown", false)]
+    [DataRow("Equal", true, true, "Equal", true)]
+    [DataRow("Equal", null, false, "Equal", true)]
+    [DataRow("Unequal", true, true, "Unequal", false)]
+    public void SyncOutcome_RequiresNativeEqualityAndApplicableDocumentEvidence(
+        string siemensState, bool? verified, bool checkDocuments, string expectedState, bool success)
+    {
+        var item = new VciSyncItemResult { Status = siemensState, Success = true, Message = "Synchronized." };
+        VciService.RecordSyncOutcome(item, siemensState, verified, checkDocuments);
+
+        Assert.AreEqual(siemensState, item.SiemensStatus);
+        Assert.AreEqual(expectedState, item.Status);
+        Assert.AreEqual(success, item.Success);
     }
 }
