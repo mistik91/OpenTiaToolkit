@@ -42,7 +42,7 @@ namespace OpenTiaToolkit.Core.Services
         public Task<ExportResult> ExportBlocksAsDocumentsAsync(string? filterRegex, string exportPath) =>
             _documents.ExportBlocksAsync(filterRegex, exportPath);
 
-        public Task<bool> ExportBlockAsDocumentsAsync(string blockName, string exportPath) =>
+        public Task<PlcDocumentExportResult> ExportBlockAsDocumentsAsync(string blockName, string exportPath) =>
             _documents.ExportBlockAsync(blockName, exportPath);
 
         public Task<bool> ExportTypeAsync(string typeName, string exportPath) =>

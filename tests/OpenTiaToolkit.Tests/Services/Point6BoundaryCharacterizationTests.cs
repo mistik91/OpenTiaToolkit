@@ -41,7 +41,7 @@ namespace OpenTiaToolkit.Tests.Services
                 null,
                 new V21DocumentAccess(resolver));
 
-            Assert.IsFalse(await service.ExportBlockAsync("Block", "."));
+            Assert.IsFalse((await service.ExportBlockAsync("Block", ".")).Success);
             Assert.IsFalse((await service.ImportBlockAsync(".", "Block", null, "Override", verify: false)).Success);
             CollectionAssert.Contains((await service.ExportBlocksAsync(null, ".")).Errors, "No PLC software is currently open");
             CollectionAssert.Contains((await service.ImportBlocksAsync(".")).Errors, "No PLC software is currently open");

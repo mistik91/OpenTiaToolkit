@@ -69,6 +69,48 @@ namespace OpenTiaToolkit.Tests.Services
         }
 
         [TestMethod]
+        public void TransactionPolicy_ReportsCompletedRollbackAndPreservesOperationFailure()
+        {
+            var outcome = new HardwarePatchResult();
+            var operation = new InvalidOperationException("Plug rejected");
+            var transaction = new TestTransaction();
+            var error = Assert.ThrowsException<InvalidOperationException>(() => HardwarePatchTransactionPolicy.Execute(
+                transaction, () => throw operation, () => Assert.Fail("A failed operation must not commit."), outcome));
+
+            Assert.AreSame(operation, error);
+            Assert.IsTrue(transaction.Disposed);
+            Assert.IsTrue(outcome.RollbackAttempted);
+            Assert.IsTrue(outcome.RolledBack);
+        }
+
+        [TestMethod]
+        public void TransactionPolicy_RetainsBothFailuresWhenRollbackDisposalFails()
+        {
+            var outcome = new HardwarePatchResult();
+            var operation = new InvalidOperationException("Plug rejected");
+            var disposal = new InvalidOperationException("Rollback disposal failed");
+            var error = Assert.ThrowsException<AggregateException>(() => HardwarePatchTransactionPolicy.Execute(
+                new TestTransaction(disposal), () => throw operation, null, outcome));
+
+            CollectionAssert.AreEqual(new[] { operation, disposal }, error.InnerExceptions.ToArray());
+            Assert.IsTrue(outcome.RollbackAttempted);
+            Assert.IsFalse(outcome.RolledBack);
+        }
+
+        private sealed class TestTransaction : IDisposable
+        {
+            private readonly Exception? _failure;
+            internal TestTransaction(Exception? failure = null) => _failure = failure;
+            internal bool Disposed { get; private set; }
+
+            public void Dispose()
+            {
+                Disposed = true;
+                if (_failure != null) throw _failure;
+            }
+        }
+
+        [TestMethod]
         public void ResultReferences_ArePatchLocalCaseInsensitiveAndRejectDuplicates()
         {
             var references = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

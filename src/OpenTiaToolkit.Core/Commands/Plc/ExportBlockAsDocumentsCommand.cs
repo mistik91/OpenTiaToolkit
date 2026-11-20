@@ -89,25 +89,20 @@ namespace OpenTiaToolkit.Core.Commands.Plc
                 }
 
                 context.Checkpoint($"Exporting PLC block as SIMATIC SD documents: {blockName}.", 55, "export-block-docs");
-                var success = await _plcService.ExportBlockAsDocumentsAsync(blockName, exportPath);
-
-                if (success)
+                var result = await _plcService.ExportBlockAsDocumentsWithResultAsync(blockName, exportPath);
+                var data = new
                 {
-                    context.CompleteCommand(Name, $"Successfully exported block as SIMATIC SD documents: {blockName}");
-                }
-
-                return success
-                    ? CommandResult.CreateSuccess(
-                        data: new
-                        {
-                            plcName,
-                            blockName,
-                            exportPath,
-                            format = "SIMATIC SD (.s7dcl + .s7res)"
-                        },
-                        message: $"Successfully exported block as SIMATIC SD documents: {blockName}"
-                    )
-                    : CommandResult.CreateFailure($"Failed to export block as documents: {blockName}");
+                    plcName,
+                    blockName,
+                    exportPath,
+                    format = "SIMATIC SD (.s7dcl + .s7res)",
+                    siemensState = result.SiemensState,
+                    diagnostics = result.Diagnostics
+                };
+                if (!result.Success)
+                    return CommandResult.CreateFailure(result.Message, data);
+                context.CompleteCommand(Name, result.Message);
+                return CommandResult.CreateSuccess(data, result.Message);
             }
             catch (System.InvalidOperationException ex)
             {

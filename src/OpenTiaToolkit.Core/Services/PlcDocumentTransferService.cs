@@ -31,48 +31,46 @@ namespace OpenTiaToolkit.Core.Services
             _logger = logger;
         }
 
-        public Task<bool> ExportBlockAsync(string blockName, string exportPath) =>
+        public Task<PlcDocumentExportResult> ExportBlockAsync(string blockName, string exportPath) =>
             Task.Run(() =>
             {
-                var plcSoftware = _sessionContext.PlcSoftware;
-                if (plcSoftware == null || string.IsNullOrEmpty(_sessionContext.CurrentPlcName))
-                {
-                    _logger?.LogWarning("No PLC software is currently open");
-                    return false;
-                }
-                _logger?.LogInformation("Exporting block as SIMATIC SD documents: {BlockName} to {ExportPath}", blockName, exportPath);
+                var software = _sessionContext.PlcSoftware;
+                if (software == null || string.IsNullOrEmpty(_sessionContext.CurrentPlcName))
+                    return new PlcDocumentExportResult { Message = "No PLC software is currently open." };
+
                 EnsureSupported("SIMATIC SD export");
                 try
                 {
-                    var blockGroup = TiaReflectionHelper.GetBlockGroup(plcSoftware);
-                    if (blockGroup == null)
-                    {
-                        _logger?.LogError("Could not get BlockGroup");
-                        return false;
-                    }
-                    var block = PlcTransferRules.EnumerateBlocks(blockGroup).FirstOrDefault(candidate =>
+                    var root = TiaReflectionHelper.GetBlockGroup(software);
+                    if (root == null) return new PlcDocumentExportResult { Message = "Could not get BlockGroup." };
+                    var block = PlcTransferRules.EnumerateBlocks(root).FirstOrDefault(candidate =>
                         string.Equals(TiaReflectionHelper.GetName(candidate), blockName, StringComparison.OrdinalIgnoreCase));
-                    if (block == null)
-                    {
-                        _logger?.LogWarning("Block not found: {BlockName}", blockName);
-                        return false;
-                    }
-                    Directory.CreateDirectory(exportPath);
-                    return TryExportBlock(block, blockName, new DirectoryInfo(exportPath));
+                    if (block == null) return new PlcDocumentExportResult { Message = $"PLC block was not found: {blockName}" };
+                    var directory = new DirectoryInfo(Path.GetFullPath(exportPath));
+                    directory.Create();
+                    return ExportBlock(block, blockName, directory);
                 }
-                catch (InvalidOperationException) { throw; }
                 catch (Exception ex)
                 {
-                    _logger?.LogError(ex, "Failed to export block as documents: {BlockName}", blockName);
-                    return false;
+                    return ExportFailure(blockName, ex);
                 }
             });
 
-        private bool TryExportBlock(object block, string name, DirectoryInfo directory)
+        private PlcDocumentExportResult ExportBlock(object block, string name, DirectoryInfo directory)
         {
-            try { return _documents.TryExportAsDocuments(block, directory, name, out _); }
-            catch (InvalidOperationException) { throw; }
-            catch (Exception ex) { _logger?.LogError(ex, "Failed to export block as documents: {BlockName}", name); return false; }
+            try { return _documents.ExportWithResult(block, directory, name); }
+            catch (Exception ex) { return ExportFailure(name, ex); }
+        }
+
+        private PlcDocumentExportResult ExportFailure(string name, Exception exception)
+        {
+            _logger?.LogError(exception, "Failed to export block as documents: {BlockName}", name);
+            var detail = EngineeringFailure.Describe(exception);
+            return new PlcDocumentExportResult
+            {
+                Diagnostics = new[] { detail },
+                Message = $"Failed to export '{name}' as SIMATIC SD documents. {detail}"
+            };
         }
 
         public Task<ExportResult> ExportBlocksAsync(string? filterRegex, string exportPath) => Task.Run(() =>
@@ -112,7 +110,8 @@ namespace OpenTiaToolkit.Core.Services
                 {
                     if (collisions.Contains(name)) throw new InvalidOperationException($"Multiple selected blocks share the export filename '{name}'; no documents were written for that name.");
                     // Export the captured object, without metadata projection or another name search.
-                    if (TryExportBlock(target.Block, name, directory))
+                    var item = ExportBlock(target.Block, name, directory);
+                    if (item.Success)
                     {
                         result.SuccessCount++;
                         result.ExportedItems.Add(name);
@@ -121,7 +120,7 @@ namespace OpenTiaToolkit.Core.Services
                     {
                         result.FailedCount++;
                         result.FailedItems.Add(name);
-                        result.Errors.Add($"Failed to export: {name}");
+                        result.Errors.Add(item.Message);
                     }
                 }
                 catch (Exception ex)
@@ -173,10 +172,7 @@ namespace OpenTiaToolkit.Core.Services
                     }
 
                     outcome.SiemensState = TiaReflectionHelper.GetProperty(result, "State")?.ToString();
-                    outcome.Diagnostics = (TiaReflectionHelper.GetEnumerableProperty(result, "Messages") ?? Enumerable.Empty<object>())
-                        .Select(message => TiaReflectionHelper.GetProperty(message, "Message")?.ToString())
-                        .Where(message => !string.IsNullOrWhiteSpace(message))
-                        .Select(message => message!).ToArray();
+                    outcome.Diagnostics = V21DocumentMessages.Read(result);
                     outcome.Success = string.Equals(outcome.SiemensState, "Success", StringComparison.OrdinalIgnoreCase);
                     if (!outcome.Success)
                     {
