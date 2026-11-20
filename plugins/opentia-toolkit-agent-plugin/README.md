@@ -10,5 +10,6 @@ The package is an integration layer, not the Windows product payload. Install Op
 - `mcp.json`: portable stdio MCP server configuration.
 - `scripts/run-opentia-mcp.ps1`: installed-product and development launcher.
 - `skills/`: the shared OpenTiaToolkit router and specialized workflow skills.
+- `skills/hmi-unified-agent-editing`: Unified HMI screen editing, tag-table creation, and WinCCML export and verified import.
 
 The legacy Codex, Claude Code, Claude Desktop, and OpenCode packages remain as separate sibling directories.

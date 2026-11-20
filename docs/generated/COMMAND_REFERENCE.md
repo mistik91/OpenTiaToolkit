@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **186**
+Commands: **190**
 
 ## Devices
 
@@ -1543,6 +1543,29 @@ Creates a Unified HMI screen if it does not already exist
 | `height` | Integer | no |  | Optional screen height |
 | `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
+### create-hmi-tags
+
+Creates and verifies a batch of simple Unified HMI tags from JSON
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `hmi-name` | String | yes |  | Unified HMI name |
+| `table-path` | String | yes |  | Table name or slash-delimited path through existing groups |
+| `dry-run` | Boolean | no | True | Preview without writing to the project |
+| `confirm` | Boolean | no | False | Confirm applying the batch with dry-run=false |
+| `input-path` | Path | yes |  | Path to a JSON array of tag specifications |
+
+### create-hmi-tag-table
+
+Creates a Unified HMI tag table in the root or an existing group
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `hmi-name` | String | yes |  | Unified HMI name |
+| `table-path` | String | yes |  | Table name or slash-delimited path through existing groups |
+| `dry-run` | Boolean | no | True | Preview without writing to the project |
+| `confirm` | Boolean | no | False | Confirm applying the batch with dry-run=false |
+
 ### create-hmi-trend
 
 Creates or updates Unified HMI logging infrastructure for a tag
@@ -1630,6 +1653,17 @@ Exports the supported Unified HMI surface to JSON
 | `item-names` | String | no |  | Optional comma-separated item names |
 | `properties` | String | no |  | Optional comma-separated property paths |
 
+### export-hmi-tags
+
+Exports one Unified HMI tag table as native WinCCML
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `hmi-name` | String | yes |  | Unified HMI name |
+| `table-path` | String | yes |  | Table name or slash-delimited path through existing groups |
+| `output-path` | Path | yes |  | Destination .hmi.yml file or .zip containing the WinCCML files |
+| `overwrite` | Boolean | no | False | Replace the existing destination file |
+
 ### get-hmi-item-properties
 
 Gets readable properties for a Unified HMI item
@@ -1713,6 +1747,19 @@ Preflights or imports a Unified HMI JSON export or patch
 | `screens` | String | no |  | Optional comma-separated screen paths |
 | `item-names` | String | no |  | Optional comma-separated item names |
 | `properties` | String | no |  | Optional comma-separated property paths |
+
+### import-hmi-tags
+
+Imports and verifies simple Unified HMI tags from a WinCCML .hmi.yml file
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `hmi-name` | String | yes |  | Unified HMI name |
+| `table-path` | String | yes |  | Table name or slash-delimited path through existing groups |
+| `dry-run` | Boolean | no | True | Preview without writing to the project |
+| `confirm` | Boolean | no | False | Confirm applying the batch with dry-run=false |
+| `input-path` | Path | yes |  | Path to one SimpleTags .hmi.yml file |
+| `overwrite` | Boolean | no | False | Allow replacement of matching tags in the destination table |
 
 ### inspect-hmi-screen-json-capabilities
 

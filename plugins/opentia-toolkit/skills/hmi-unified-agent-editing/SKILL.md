@@ -1,6 +1,6 @@
 ---
 name: hmi-unified-agent-editing
-description: Use when editing Siemens TIA Portal Unified HMI screens with OpenTiaToolkit agent workflows, especially screen JSON snapshots, targeted JSON patches, dry-run/apply safety, stale base-hash recovery, item lifecycle edits, layout/property edits, event handlers, property event handlers, and dynamizations.
+description: Edit Siemens TIA Portal Unified HMI screens and tag tables with OpenTiaToolkit. Covers screen JSON snapshots and patches, item lifecycle, events, dynamizations, tag table creation, simple tag batches, and WinCCML .hmi.yml export and verified import.
 ---
 
 # HMI Unified Agent Editing
@@ -22,6 +22,20 @@ Use this skill when a task mentions Unified HMI screen edits, screen items, `get
 7. Apply only when the dry-run result is safe, then rerun with `dry-run=false` and backup enabled unless the user has asked for no backup. Targeted patch backups use the same filters rather than exporting the whole HMI.
 8. Verify the result through `VerifiedScreen`, `VerifyExportPath`, a fresh screen snapshot, or specific property reads. Use `NewBaseHash` from a verified apply when chaining the next batch.
 9. If the result includes `Guidance`, follow `RecommendedNextAction` before guessing. It is designed for agents.
+
+## Tag Tables and WinCCML
+
+Verify the project and HMI first. Use `create-hmi-tag-table` for an empty table, `create-hmi-tags` for a JSON batch, or `import-hmi-tags` for one WinCCML `.hmi.yml` file. Pass `hmi-name` and `table-path`; use `Group/Table` for a table in an existing group. The two batch commands create the destination table when it is absent.
+
+`list-hmi-tags` reports the leaf tag table name. If a table lives under a group, get its complete path from the TIA project tree before exporting or applying a batch. The tag-table commands resolve the specified group path directly.
+
+Use `export-hmi-tags` with `hmi-name`, `table-path`, and `output-path` to export one table without changing the project. A `.hmi.yml` output can go straight into `import-hmi-tags` if `supportsToolkitImport` is true. This field checks the file shape; preview and apply still check the destination project. Use `.zip` to preserve companion definition files when TIA emits them. The ZIP result lists its WinCCML entries. Existing output files require `overwrite=true`, and MCP also requires its host file-overwrite policy to allow replacement.
+
+Run the command with `dry-run=true` to review the destination, tag names, types, PLC bindings, and collisions. Pass `input-path` for either batch command. JSON input is an array of objects containing `name` and `dataType`. For PLC-linked tags include `connection` and `plcTag`. An internal Bool can specify `initialValue` as the string `"true"`, `"false"`, `"1"`, or `"0"`.
+
+WinCCML import supports the V21 `SimpleTags` section for internal and integrated symbolic tags. Export a representative tag to obtain the linked tag's `ControllerDataType`. Structured tags, arrays, absolute bindings, and non-Bool initial values are outside this workflow. Use both native files from a ZIP when an export includes definitions and the downstream workflow supports them. TIA overwrites matching tags on reimport, so review collisions before applying with `dry-run=false`, `confirm=true`, and `overwrite=true` when replacement is intended. A name in another table blocks the batch.
+
+Siemens can return `true` from import even when an unresolved PLC symbol reads back blank. The command checks the exact imported tags and runs native validation before committing. It does one native import for the file and one validation per requested tag, with no full HMI tag scan. A missing tag, mismatched binding or type, or native validation error fails the whole batch and rolls it back, including a table created by that batch. Preview does not invoke the native importer. Treat a successful preview as a collision and input check.
 
 ## Filter Invariant
 

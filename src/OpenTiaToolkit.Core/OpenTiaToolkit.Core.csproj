@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="System.IO.Compression" />
     <!-- TIA Openness API references - V21 installation (primary) -->
     <!-- In V21+, the API is modular: Base.dll, Step7.dll, WinCC.dll, WinCC.Extension.dll -->
     <Reference Include="Siemens.Engineering.Base">
@@ -49,6 +50,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
     <PackageReference Include="System.Reflection.DispatchProxy" Version="4.7.1" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 186,
+  "commandCount": 190,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -1663,6 +1663,87 @@
       ]
     },
     {
+      "name": "create-hmi-tag-table",
+      "description": "Creates a Unified HMI tag table in the root or an existing group",
+      "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": true,
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Unified HMI name"
+        },
+        {
+          "name": "table-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Table name or slash-delimited path through existing groups"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Preview without writing to the project"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm applying the batch with dry-run=false"
+        }
+      ]
+    },
+    {
+      "name": "create-hmi-tags",
+      "description": "Creates and verifies a batch of simple Unified HMI tags from JSON",
+      "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": true,
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Unified HMI name"
+        },
+        {
+          "name": "table-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Table name or slash-delimited path through existing groups"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Preview without writing to the project"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm applying the batch with dry-run=false"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Path to a JSON array of tag specifications"
+        }
+      ]
+    },
+    {
       "name": "create-hmi-trend",
       "description": "Creates or updates Unified HMI logging infrastructure for a tag",
       "category": "Unified HMI",
@@ -2592,6 +2673,43 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional comma-separated property paths"
+        }
+      ]
+    },
+    {
+      "name": "export-hmi-tags",
+      "description": "Exports one Unified HMI tag table as native WinCCML",
+      "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Unified HMI name"
+        },
+        {
+          "name": "table-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Table name or slash-delimited path through existing groups"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Destination .hmi.yml file or .zip containing the WinCCML files"
+        },
+        {
+          "name": "overwrite",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Replace the existing destination file"
         }
       ]
     },
@@ -4412,6 +4530,57 @@
           "required": false,
           "defaultValue": null,
           "description": "Optional comma-separated property paths"
+        }
+      ]
+    },
+    {
+      "name": "import-hmi-tags",
+      "description": "Imports and verifies simple Unified HMI tags from a WinCCML .hmi.yml file",
+      "category": "Unified HMI",
+      "risk": "Mutating",
+      "supportsPreview": true,
+      "parameters": [
+        {
+          "name": "hmi-name",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Unified HMI name"
+        },
+        {
+          "name": "table-path",
+          "type": "String",
+          "required": true,
+          "defaultValue": null,
+          "description": "Table name or slash-delimited path through existing groups"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Preview without writing to the project"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Confirm applying the batch with dry-run=false"
+        },
+        {
+          "name": "input-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Path to one SimpleTags .hmi.yml file"
+        },
+        {
+          "name": "overwrite",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Allow replacement of matching tags in the destination table"
         }
       ]
     },

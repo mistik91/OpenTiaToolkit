@@ -11,7 +11,7 @@
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-2ea44f"></a>
 </p>
 
-OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC code, edit WinCC Unified screens, and configure hardware through one shared catalog of **186 commands**. Reviewed previews, explicit confirmation, state checks, and read-back make engineering changes easier to assess.
+OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC code, edit WinCC Unified screens and tags, and configure hardware through one shared catalog of **190 commands** for CLI and MCP. Reviewed previews, explicit confirmation, state checks, and read-back make engineering changes easier to assess.
 
 - **Inspect a project:** discover TIA instances, PLC blocks, HMI screens, tags, and hardware.
 - **Change PLC code:** plan source or block changes, inspect their impact, compile, and verify the resulting objects.
@@ -101,7 +101,7 @@ This table describes the exposed command surface. Independent preview.8 acceptan
 |---|---|
 | Projects | Discover and connect to TIA, open/create/retrieve/archive projects, inspect project trees |
 | PLC | Blocks, native SCL and S7DCL authoring, tags, cross-references, compilation, persistent code transactions, guarded PLCSIM Advanced probes |
-| WinCC Unified | Screen JSON read/diff/patch, tags, discrete alarms, trends and logging, texts and faceplate inspection |
+| WinCC Unified | Screen JSON read/diff/patch, [tag tables and WinCCML exchange](docs/CLI_USAGE.md#unified-hmi-tag-tables-and-winccml), discrete alarms, trends and logging, texts and faceplate inspection |
 | Hardware | Catalog discovery, modules, PROFINET identity and wiring, IO addresses, Startdrive telegrams, GSD/GSDML parameters |
 | VCI and libraries | Workspace mappings and synchronization, library inspection and master copies, project-language import/export |
 | Collaboration | Identity-bound Multiuser inspection and local-session workflows; check-in is handed to the owning TIA UI |

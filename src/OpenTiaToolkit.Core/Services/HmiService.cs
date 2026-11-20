@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Core.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Services
@@ -63,6 +64,25 @@ namespace OpenTiaToolkit.Core.Services
 
         /// <inheritdoc/>
         public string? CurrentHmiName => _sessionContext.CurrentHmiName;
+
+        public Task<HmiTagBatchResult> ExecuteTagBatchAsync(HmiTagBatchRequest request, CancellationToken cancellation) =>
+            Task.FromResult(new HmiTagBatchService(_sessionContext).Execute(request, cancellation));
+
+        public Task<HmiTagExportResult> ExportTagsAsync(string hmiName, string tablePath, string outputPath, bool overwrite, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            _sessionContext.ThrowIfProjectUnavailable();
+            var software = _sessionContext.HmiSoftware ?? throw new InvalidOperationException("No Unified HMI is selected.");
+            if (!string.Equals(_sessionContext.CurrentHmiName, hmiName, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The selected Unified HMI changed. Retry against the intended HMI.");
+
+            var tables = HmiTagTablePath.Resolve(software, tablePath, out var tableName);
+            var table = tables.Find(tableName) ?? throw new InvalidOperationException($"HMI tag table '{tablePath}' was not found.");
+            return Task.FromResult(HmiTagExport.Write(hmiName, tablePath, outputPath, overwrite, stage =>
+            {
+                foreach (var _ in table.Tags.Export(stage, "Tags")) { }
+            }, cancellation, _logger));
+        }
 
         /// <inheritdoc/>
         public async Task<bool> OpenUnifiedHmiAsync(string hmiName)

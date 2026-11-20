@@ -40,6 +40,8 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `create-block` | PLC | `plc-name`, `block-name`, `block-type`, `language`, `confirm` | Creates a new block in PLC software (currently validated for ProDiag FB creation) |
 | `create-hmi-item` | Unified HMI | `hmi-name`, `screen-path`, `item-type`, `item-name`, `left`, `top`, `width`, `height`, `contained-type`, `faceplate-type`, `confirm` | Creates a Unified HMI item on a screen |
 | `create-hmi-screen` | Unified HMI | `hmi-name`, `screen-path`, `width`, `height`, `confirm` | Creates a Unified HMI screen if it does not already exist |
+| `create-hmi-tags` | Unified HMI | `hmi-name`, `table-path`, `dry-run`, `confirm`, `input-path` | Creates and verifies a batch of simple Unified HMI tags from JSON |
+| `create-hmi-tag-table` | Unified HMI | `hmi-name`, `table-path`, `dry-run`, `confirm` | Creates a Unified HMI tag table in the root or an existing group |
 | `create-hmi-trend` | Unified HMI | `hmi-name`, `tag-path`, `datalog-name`, `cyclic`, `cycle`, `storage-folder`, `log-max-size`, `duration-days`, `segment-max-size`, `confirm` | Creates or updates Unified HMI logging infrastructure for a tag |
 | `create-hmi-trends` | Unified HMI | `hmi-name`, `configs`, `dry-run`, `confirm` | Plans or applies multiple Unified HMI trend logging configurations |
 | `create-multiuser-session` | Multiuser | `server-alias`, `project-name`, `session-name`, `session-directory`, `mode`, `umac-user`, `umac-password-env`, `umac-user-type`, `confirm` | Creates an agent-owned Multiuser or Exclusive local session. |
@@ -67,6 +69,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `export-block-as-source` | PLC | `plc-name`, `block-name`, `output-path` | Exports a PLC block as an external source file when supported |
 | `export-blocks-as-docs` | PLC | `plc-name`, `export-path`, `filter-regex` | Recursively exports matching PLC blocks as SIMATIC SD documents (.s7dcl + .s7res) |
 | `export-hmi-json` | Unified HMI | `hmi-name`, `output-path`, `screens`, `item-names`, `properties` | Exports the supported Unified HMI surface to JSON |
+| `export-hmi-tags` | Unified HMI | `hmi-name`, `table-path`, `output-path`, `overwrite` | Exports one Unified HMI tag table as native WinCCML |
 | `export-plc` | PLC | `plc-name`, `export-path` | Exports all PLC blocks to XML files |
 | `export-tags` | PLC | `plc-name`, `culture`, `output-path` | Exports PLC tags from all tag tables |
 | `export-texts` | Project Texts | `output-path`, `source-culture`, `target-cultures`, `categories`, `objects` | Exports project texts to a Siemens project text workbook |
@@ -121,6 +124,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `import-blocks` | PLC | `plc-name`, `import-directory`, `filter-regex`, `group-path`, `confirm` | Imports multiple blocks from XML files in a directory |
 | `import-blocks-from-docs` | PLC | `plc-name`, `import-directory`, `filter-regex`, `group-path`, `import-option`, `confirm` | Imports multiple blocks from SIMATIC SD documents (.s7dcl/.s7res) |
 | `import-hmi-json` | Unified HMI | `hmi-name`, `input-path`, `dry-run`, `apply`, `confirm`, `fail-on-warning`, `require-clean-preflight`, `backup`, `backup-path`, `screens`, `item-names`, `properties` | Preflights or imports a Unified HMI JSON export or patch |
+| `import-hmi-tags` | Unified HMI | `hmi-name`, `table-path`, `dry-run`, `confirm`, `input-path`, `overwrite` | Imports and verifies simple Unified HMI tags from a WinCCML .hmi.yml file |
 | `import-source` | PLC | `plc-name`, `source-path`, `dry-run`, `confirm` | Imports a PLC external source file when supported |
 | `import-texts` | Project Texts | `input-path`, `update-source-language`, `dry-run`, `confirm` | Imports project texts from a Siemens project text workbook |
 | `import-type` | PLC | `plc-name`, `import-path`, `group-path`, `confirm` | Imports a single type (UDT) from XML file |

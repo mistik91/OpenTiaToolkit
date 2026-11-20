@@ -21,6 +21,7 @@ Major packages include:
 - Microsoft.Extensions 10.0.10 components, including dependency injection, hosting, logging, caching, configuration, and options, MIT License.
 - `System.Text.Json` 10.0.10 and related `System.*` compatibility packages, MIT License.
 - `Microsoft.Extensions.AI.Abstractions` 10.8.3, MIT License.
+- `YamlDotNet` 16.3.0, MIT License.
 
 Test-only dependencies include MSTest, Moq, Microsoft.NET.Test.Sdk, and coverlet.collector. They are not copied into the product payload.
 

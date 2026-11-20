@@ -28,6 +28,7 @@ This workflow covers engineering configuration only. Do not use it for analog al
 ## Resolve Alarm Tags
 
 - Use `list-hmi-tags` to prove that every trigger, acknowledgment, control, and parameter tag required by the change already exists and has the expected data type.
+- If the user requests creation of missing tags, follow `hmi-unified-agent-editing` to apply and verify the tag batch before applying alarm changes.
 - A text `filter` narrows returned matches but does not scope tree traversal. Pair it with a concrete `root-path`, or explicitly use `allow-full-scan=true` with appropriate `max-results` and `max-depth` bounds. A filter-only call is rejected by the full-scan safety guard.
 - For several known tags in unrelated paths, separate exact `root-path` reads are equivalent to one bounded full scan. Judge discovery by the returned tag identities and metadata, not by one preferred call shape.
 

@@ -1,5 +1,6 @@
 using OpenTiaToolkit.Core.Models;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Abstractions;
@@ -77,6 +78,10 @@ public interface IHmiService
     /// <param name="options">Browse options for scoping, limiting, and detail selection.</param>
     /// <returns>The matching tags.</returns>
     Task<IReadOnlyList<HmiTagInfo>> GetTagsAsync(HmiTagBrowseOptions options);
+
+    Task<HmiTagBatchResult> ExecuteTagBatchAsync(HmiTagBatchRequest request, CancellationToken cancellation);
+
+    Task<HmiTagExportResult> ExportTagsAsync(string hmiName, string tablePath, string outputPath, bool overwrite, CancellationToken cancellation);
 
     /// <summary>
     /// Creates a screen item if it does not already exist.

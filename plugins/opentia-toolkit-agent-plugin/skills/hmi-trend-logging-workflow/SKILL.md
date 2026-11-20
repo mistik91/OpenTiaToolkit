@@ -17,6 +17,7 @@ Use this skill for Unified HMI logging infrastructure, not for screen layout edi
    - Use `open-unified-hmi` when the HMI needs to be selected.
 3. Resolve tag paths:
    - Prefer a known `root-path` with `list-hmi-tags`.
+   - If the user requests creation of a missing source tag, use `hmi-unified-agent-editing` to apply and verify it before configuring logging.
    - A text `filter` narrows returned matches but does not scope tree traversal. Pair it with a concrete `root-path`, or explicitly use `allow-full-scan=true` with appropriate `max-results` and `max-depth` bounds. A filter-only call is rejected by the full-scan safety guard.
    - Avoid full scans unless discovery is unavoidable; if needed, set `allow-full-scan=true`, `max-results`, and `max-depth`.
    - For broad discovery or large tag tables, provide `output-path` or use the returned artifact `outputPath` CSV instead of expecting all tags inline.
