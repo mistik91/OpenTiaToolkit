@@ -470,8 +470,11 @@ namespace OpenTiaToolkit.Core.Services
         /// <inheritdoc/>
         public async Task<bool> ExportBlockAsDocumentsAsync(string blockName, string exportPath)
         {
-            return await _importExportService.ExportBlockAsDocumentsAsync(blockName, exportPath);
+            return (await _importExportService.ExportBlockAsDocumentsAsync(blockName, exportPath)).Success;
         }
+
+        public Task<PlcDocumentExportResult> ExportBlockAsDocumentsWithResultAsync(string blockName, string exportPath) =>
+            _importExportService.ExportBlockAsDocumentsAsync(blockName, exportPath);
 
         /// <inheritdoc/>
         public async Task<ExportResult> ExportBlocksAsDocumentsAsync(string? filterRegex, string exportPath)

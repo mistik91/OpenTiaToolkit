@@ -36,7 +36,7 @@ namespace OpenTiaToolkit.Tests.Services
             var singlePath = Path.Combine(_exportRoot, "single");
             var bulkPath = Path.Combine(_exportRoot, "bulk");
 
-            Assert.IsTrue(await service.ExportBlockAsync(block.Name, singlePath));
+            Assert.IsTrue((await service.ExportBlockAsync(block.Name, singlePath)).Success);
             var result = await service.ExportBlocksAsync(null, bulkPath);
 
             Assert.AreEqual(1, result.TotalCount);
@@ -70,11 +70,25 @@ namespace OpenTiaToolkit.Tests.Services
             Assert.AreEqual(1, result.FailedCount);
             CollectionAssert.AreEqual(new[] { "Before", "After" }, result.ExportedItems.ToArray());
             CollectionAssert.AreEqual(new[] { "Rejected" }, result.FailedItems.ToArray());
-            CollectionAssert.AreEqual(new[] { "Failed to export: Rejected" }, result.Errors.ToArray());
+            string diagnostic = failure == "state" ? "Document export rejected."
+                : failure == "exception" ? "Siemens rejected this target" : "no result state";
+            StringAssert.Contains(result.Errors.Single(), diagnostic);
             Assert.AreEqual(1, before.ExportCalls);
             Assert.AreEqual(1, after.ExportCalls);
             if (rejected is ExportableBlock exportable) Assert.AreEqual(1, exportable.ExportCalls);
             Assert.IsFalse(File.Exists(Path.Combine(_exportRoot, "Rejected.s7dcl")));
+        }
+
+        [TestMethod]
+        public async Task SingleExport_PreservesNativeFailureStateAndMessages()
+        {
+            var block = new ExportableBlock { Name = "Alarm", State = "Failure" };
+            var result = await CreateService(block).ExportBlockAsync(block.Name, _exportRoot);
+
+            Assert.IsFalse(result.Success);
+            Assert.AreEqual("Failure", result.SiemensState);
+            CollectionAssert.AreEqual(new[] { "Document export rejected." }, result.Diagnostics.ToArray());
+            StringAssert.Contains(result.Message, "Document export rejected.");
         }
 
         [TestMethod]
@@ -352,9 +366,18 @@ namespace OpenTiaToolkit.Tests.Services
                 if (!Path.IsPathRooted(directory.ToString())) throw new ArgumentException("Siemens requires an absolute directory argument.");
                 if (ThrowOnExport) throw new InvalidOperationException("Siemens rejected this target");
                 if (State == "Success") File.WriteAllText(Path.Combine(directory.FullName, baseName + ".s7dcl"), Content);
-                return new ExportState { State = State };
+                return new ExportState
+                {
+                    State = State,
+                    Messages = State == "Success" ? Array.Empty<ExportMessage>() : new[] { new ExportMessage() }
+                };
             }
         }
-        private sealed class ExportState { public string State { get; set; } = string.Empty; }
+        private sealed class ExportState
+        {
+            public string State { get; set; } = string.Empty;
+            public ExportMessage[] Messages { get; set; } = Array.Empty<ExportMessage>();
+        }
+        private sealed class ExportMessage { public string Message => "Document export rejected."; }
     }
 }

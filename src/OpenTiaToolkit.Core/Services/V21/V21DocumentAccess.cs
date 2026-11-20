@@ -136,20 +136,32 @@ namespace OpenTiaToolkit.Core.Services.V21
 
         public bool TryExportAsDocuments(object engineeringObject, DirectoryInfo exportDirectory, string baseName, out string? state)
         {
+            var result = InvokeDocumentExport(engineeringObject, exportDirectory, baseName);
+            state = TiaReflectionHelper.GetProperty(result, "State")?.ToString();
+            return string.Equals(state, "Success", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal PlcDocumentExportResult ExportWithResult(object engineeringObject, DirectoryInfo directory, string name)
+        {
+            var native = InvokeDocumentExport(engineeringObject, directory, name);
+            var state = TiaReflectionHelper.GetProperty(native, "State")?.ToString();
+            bool success = string.Equals(state, "Success", StringComparison.OrdinalIgnoreCase);
+            var diagnostics = V21DocumentMessages.Read(native);
+            string message = success
+                ? $"Successfully exported block as SIMATIC SD documents: {name}"
+                : $"TIA Portal did not complete the document export for '{name}' ({state ?? "no result state"}).";
+            if (!success && diagnostics.Length > 0) message += " " + string.Join(" ", diagnostics);
+            return new PlcDocumentExportResult { Success = success, SiemensState = state, Diagnostics = diagnostics, Message = message };
+        }
+
+        private static object? InvokeDocumentExport(object engineeringObject, DirectoryInfo exportDirectory, string baseName)
+        {
             if (engineeringObject == null) throw new ArgumentNullException(nameof(engineeringObject));
             if (exportDirectory == null) throw new ArgumentNullException(nameof(exportDirectory));
             if (string.IsNullOrWhiteSpace(baseName)) throw new ArgumentException("Base name cannot be empty.", nameof(baseName));
 
-            state = null;
             var exportMethod = engineeringObject.GetType().GetMethod("ExportAsDocuments", new[] { typeof(DirectoryInfo), typeof(string) });
-            if (exportMethod == null)
-            {
-                return false;
-            }
-
-            var result = exportMethod.Invoke(engineeringObject, new object[] { exportDirectory, baseName });
-            state = TiaReflectionHelper.GetProperty(result, "State")?.ToString();
-            return string.Equals(state, "Success", StringComparison.OrdinalIgnoreCase);
+            return exportMethod?.Invoke(engineeringObject, new object[] { exportDirectory, baseName });
         }
 
         public bool TryImport(object collection, FileInfo fileInfo, int importMode, out object? result)

@@ -83,6 +83,7 @@ get-hardware-network-item-attributes --device-name="IO_Master_01" --item-path="D
   return indexed `ValidationIssues` with stable codes so callers can correct
   the operation array without touching TIA.
 - An apply run commits only if every operation succeeds.
+- A failed operation can report `RolledBack=true` after the uncommitted transaction disposes successfully. When disposal fails, `RollbackAttempted=true` and `RolledBack=false` indicate that rollback is unconfirmed. The result retains the operation and disposal errors.
 - `delete-device`, `delete-item`, `disconnect-node`, `disconnect-io-connector`, and `erase-drive-telegram` require `confirm-destructive=true`.
 - Put the safety password in `OPENTIA_SAFETY_PASSWORD` (or another process environment variable) and pass its name with `safety-password-env` when `apply-hardware-patch` may touch fail-safe data. Never put a password in command arguments, JSON, logs, or shell history. Dry-runs still execute Siemens mutations inside a rolled-back transaction and may require safety authorization.
 - Saving the project remains a separate explicit action.

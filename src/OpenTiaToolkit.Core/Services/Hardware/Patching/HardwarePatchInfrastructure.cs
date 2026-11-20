@@ -5,6 +5,7 @@ using Siemens.Engineering.HW;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 
 namespace OpenTiaToolkit.Core.Services.Hardware.Patching
@@ -50,6 +51,38 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
     internal static class HardwarePatchTransactionPolicy
     {
         public static bool ShouldCommit(bool dryRun, bool allOperationsSucceeded) => !dryRun && allOperationsSucceeded;
+
+        internal static void Execute(IDisposable transaction, Action execute, Action? commit, HardwarePatchResult result)
+        {
+            Exception? operationFailure = null;
+            try
+            {
+                using (transaction)
+                {
+                    try
+                    {
+                        execute();
+                        commit?.Invoke();
+                    }
+                    catch (Exception ex)
+                    {
+                        operationFailure = ex;
+                    }
+                    finally
+                    {
+                        result.RollbackAttempted = commit == null || operationFailure != null;
+                    }
+                }
+            }
+            catch (Exception disposalFailure) when (operationFailure != null)
+            {
+                throw new AggregateException("The hardware operation failed and transaction rollback could not be confirmed.", operationFailure, disposalFailure);
+            }
+
+            // Mark rollback only after the native transaction finishes disposing.
+            result.RolledBack = result.RollbackAttempted;
+            if (operationFailure != null) ExceptionDispatchInfo.Capture(operationFailure).Throw();
+        }
     }
 
     internal static class HardwarePatchSafetyPolicy
@@ -231,42 +264,37 @@ namespace OpenTiaToolkit.Core.Services.Hardware.Patching
                 return ApplyIsolatedPreview(operations, confirmDestructive, result);
             var execution = new HardwarePatchExecutionContext(
                 _engineering, _attributes, _drives, _networks, _resolver, _topology, dryRun, confirmDestructive);
-            var transactionStarted = false;
-            var commitRequested = false;
+            bool shouldCommit = isolatedPreview || HardwarePatchTransactionPolicy.ShouldCommit(dryRun, allOperationsSucceeded: true);
             try
             {
                 var project = _engineering.RequireProject();
                 using (var access = _engineering.RequirePortal().ExclusiveAccess(result.TransactionDescription))
-                using (var transaction = access.Transaction(project, result.TransactionDescription))
                 {
-                    transactionStarted = true;
-                    for (var index = 0; index < operations.Count; index++)
+                    var transaction = access.Transaction(project, result.TransactionDescription);
+                    Action? commit = shouldCommit ? new Action(transaction.CommitOnDispose) : null;
+                    HardwarePatchTransactionPolicy.Execute(transaction, () =>
                     {
-                        var operation = operations[index];
-                        if (operation == null || string.IsNullOrWhiteSpace(operation.Op))
-                            throw new InvalidOperationException($"Operation {index} has no op value.");
-                        var registration = _catalog.Resolve(operation.Op);
-                        if (HardwarePatchSafetyPolicy.RequiresConfirmation(registration, operation, dryRun))
-                            HardwarePatchRules.RequireDestructiveConfirmation(confirmDestructive, registration.Name);
-                        result.Operations.Add(registration.Handler.Execute(registration.Name, index, operation, execution));
-                    }
-                    if (isolatedPreview || HardwarePatchTransactionPolicy.ShouldCommit(dryRun, allOperationsSucceeded: true))
-                    { transaction.CommitOnDispose(); commitRequested = true; }
-                    else result.RollbackAttempted = true;
+                        for (var index = 0; index < operations.Count; index++)
+                        {
+                            var operation = operations[index];
+                            if (operation == null || string.IsNullOrWhiteSpace(operation.Op))
+                                throw new InvalidOperationException($"Operation {index} has no op value.");
+                            var registration = _catalog.Resolve(operation.Op);
+                            if (HardwarePatchSafetyPolicy.RequiresConfirmation(registration, operation, dryRun))
+                                HardwarePatchRules.RequireDestructiveConfirmation(confirmDestructive, registration.Name);
+                            result.Operations.Add(registration.Handler.Execute(registration.Name, index, operation, execution));
+                        }
+                    }, commit, result);
                 }
-                // Report success only after Siemens has disposed the transaction successfully.
-                result.Applied = commitRequested && !isolatedPreview;
-                result.RolledBack = !commitRequested;
+                result.Applied = shouldCommit && !isolatedPreview;
             }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, "Hardware patch failed");
                 result.Applied = false;
-                result.RolledBack = false;
-                result.RollbackAttempted = transactionStarted && !commitRequested;
                 result.SafetyBlocked = true;
                 result.FailureType = EngineeringFailure.Unwrap(ex).GetType().FullName;
-                result.RecoveryRequired = EngineeringFailure.IsSessionLoss(ex);
+                result.RecoveryRequired = (result.RollbackAttempted && !result.RolledBack) || EngineeringFailure.IsSessionLoss(ex);
                 result.FailureException = _engineering.Session.RecordReadFailure(ex);
                 result.SafetyMessage = EngineeringFailure.Describe(result.FailureException);
             }

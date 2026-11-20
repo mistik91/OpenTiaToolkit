@@ -44,6 +44,8 @@ namespace OpenTiaToolkit.Core.Models
         public bool Skipped { get; set; }
         public bool MappingCreated { get; set; }
         public string? Status { get; set; }
+        public string? SiemensStatus { get; set; }
+        public bool? Verified { get; set; }
         public string? Message { get; set; }
     }
 

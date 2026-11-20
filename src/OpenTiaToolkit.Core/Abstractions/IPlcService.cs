@@ -196,6 +196,9 @@ public interface IPlcService
     /// <returns>True if the block was exported successfully.</returns>
     Task<bool> ExportBlockAsDocumentsAsync(string blockName, string exportPath);
 
+    /// <summary>Exports a SIMATIC SD block and returns the Siemens result and diagnostics.</summary>
+    Task<PlcDocumentExportResult> ExportBlockAsDocumentsWithResultAsync(string blockName, string exportPath);
+
     /// <summary>
     /// Exports multiple blocks as SIMATIC SD documents.
     /// </summary>

@@ -507,7 +507,7 @@ OpenTiaToolkit.CLI.exe get-gsd-parameter-data --device-name="IO_Master_01" --ite
 
 Performs a transactional sequence of generic hardware operations. It defaults to `--dry-run=true`. Patches containing `create-device` or `create-device-with-item` run on an archived copy in a separate TIA instance, commit only on that disposable copy, then discard it. The selected project must be a saved standalone project with no unsaved changes. Preview never saves or closes the selected project; Multiuser and protected archives that cannot be retrieved without authentication fail explicitly. Other patches preview in a rollback-only transaction. Use expected-value guards before applying writes.
 
-Creation previews report `PreviewIsolated=true`, `PreviewDiscarded=true`, `Applied=false`, `RolledBack=false`, and the snapshot `PreviewArchiveSha256`. An isolated preview proves execution on that snapshot, not permission to mutate a changed source; fresh reads and the same expected-value guards are still required before apply. Failed transactions report `RollbackAttempted` without claiming a completed rollback. Fatal/disposed Siemens sessions report `RecoveryRequired=true` and explicit read failures; reset and explicitly reconnect/reopen the intended project before retrying. The toolkit does not recover by saving or reopening user projects automatically.
+Successful creation previews report `PreviewIsolated=true`, `PreviewDiscarded=true`, `Applied=false`, `RolledBack=false`, and the snapshot `PreviewArchiveSha256`. Fresh reads and the same expected-value guards are still required before apply. A failed operation can report `RolledBack=true` when Siemens finishes disposing the uncommitted transaction. A failed rollback leaves `RollbackAttempted=true` and `RolledBack=false`. An unconfirmed rollback in the selected project or a fatal Siemens session reports `RecoveryRequired=true`. Reconnect and verify the intended project before retrying.
 
 ```bash
 OpenTiaToolkit.CLI.exe apply-hardware-patch --operations-path="C:\Engineering\hardware-patch.json" --dry-run=true
@@ -1331,6 +1331,8 @@ Successfully exported block as SIMATIC SD documents: Motor
 Format: SIMATIC SD (.s7dcl + .s7res)
 ```
 
+The result includes `siemensState` when TIA returns a document result and `diagnostics` for available native messages. Bulk export includes these failure reasons per block. Use `compile-software` to diagnose cross-block dependencies. TIA can export documents even when compilation finds an incompatible block interface.
+
 #### export-blocks-as-docs
 
 Exports multiple PLC blocks as SIMATIC SD documents with optional regex filtering in the supported TIA Portal V21 workflow.
@@ -1416,7 +1418,8 @@ OpenTiaToolkit.CLI.exe sync-vci-plc --workspace-name="PLC_Repo" --plc-name="PLC_
 **Repository notes**:
 - For a new repository, provide `workspace-language` when creating the workspace.
 - To reconnect a repository that already contains `.vci` metadata, omit `workspace-language`; Siemens reports an error if the repository language is configured again.
-- The flat workspace root (`--relative-directory="."`) is validated for S7DCL mappings on V21. Siemens may reject nested mapping directories depending on workspace configuration.
+- Pass `--relative-directory="."` for the workspace root or a directory relative to the workspace root for a nested mapping. `DirectoryPath` in mapping results is the resolved filesystem path.
+- VCI accepts `DB` and `GlobalDB` for global DBs. SIMATIC SD PLC block status and sync results expose `SiemensStatus` and independent document evidence in `Verified`. A reported `Equal` requires a fresh target comparison for these blocks. Other formats retain the Siemens comparison state.
 - A mapping with compare state `Equal` is already synchronized; the toolkit treats it as a successful no-op because Siemens rejects invoking synchronization on equal content.
 
 ### Type Export (UDT)
