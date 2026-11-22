@@ -192,6 +192,39 @@ namespace OpenTiaToolkit.Tests.Server
         }
 
         [TestMethod]
+        public async Task CaptureHmiScreen_ReturnsPngAlongsideStructuredArtifact()
+        {
+            byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ioAAAAASUVORK5CYII=");
+            string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".png");
+            File.WriteAllBytes(path, png);
+            try
+            {
+                var session = new FakeToolSession(Descriptor("capture-hmi-screen"));
+                session.Execute = (_, __) => Task.FromResult(Outcome(
+                    success: true,
+                    message: "captured",
+                    data: JsonSerializer.SerializeToElement(new
+                    {
+                        DataKind = "unified-hmi-editor-capture",
+                        OutputPath = path,
+                        BytesWritten = png.Length
+                    })));
+                using var registry = CreateRegistry(() => session);
+
+                CallToolResult result = await registry.CallToolAsync("capture-hmi-screen", null, CancellationToken.None);
+
+                Assert.AreEqual(path, result.StructuredContent!.Value.GetProperty("data").GetProperty("OutputPath").GetString());
+                var image = result.Content.OfType<ImageContentBlock>().Single();
+                Assert.AreEqual("image/png", image.MimeType);
+                CollectionAssert.AreEqual(png, image.DecodedData.ToArray());
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [TestMethod]
         public async Task CallToolAsync_FailedOutcomeMapsToToolExecutionError()
         {
             var session = new FakeToolSession(Descriptor("failure-tool"));

@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Net.Http" />
     <!-- TIA Openness API references - V21 installation (primary) -->
     <!-- In V21+, the API is modular: Base.dll, Step7.dll, WinCC.dll, WinCC.Extension.dll -->
     <Reference Include="Siemens.Engineering.Base">

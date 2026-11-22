@@ -520,6 +520,24 @@ Supported patch operations include device instantiation, module/submodule pluggi
 
 ### Unified HMI Operations
 
+#### Capture the Next Gen screen editor
+
+For visual screen work, start a visible, capture-ready V21 instance with an isolated WebView2 profile and a local DevTools listener:
+
+```powershell
+opentia open-tia-portal --hmi-capture=true
+```
+
+Use the returned instance ID for Openness and open the intended screen in the Next Gen editor. Collapse the inspector and select **Fit to screen** when you need the whole screen in view. A CLI invocation can capture it directly using the instance ID:
+
+```powershell
+opentia capture-hmi-screen --instance-id 12345 --output-path .\overview.png
+```
+
+In a connected MCP session, omit `instance-id` to capture from the attached instance. Omit `output-path` to write a temporary artifact. MCP also includes the PNG inline for captures up to 2 MiB. Select an explicit `target-id` from the returned candidates if multiple Next Gen editor targets are open.
+
+The PNG shows the current editor viewport at its current zoom. The capture works without compiling or running WinCC Runtime. Capture and Openness readback can be repeated while the editor is in the background. On an existing instance started without capture, get the user's confirmation before closing or restarting their TIA session.
+
 #### open-unified-hmi
 
 Opens a Unified HMI by device or device item name.

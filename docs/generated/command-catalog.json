@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 192,
+  "commandCount": 193,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -1130,6 +1130,36 @@
       "risk": "ReadOnly",
       "supportsPreview": false,
       "parameters": []
+    },
+    {
+      "name": "capture-hmi-screen",
+      "description": "Captures the open Unified HMI Next Gen editor viewport as a PNG",
+      "category": "Unified HMI",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "instance-id",
+          "type": "Integer",
+          "required": false,
+          "defaultValue": null,
+          "description": "Capture-ready TIA Portal process ID, defaults to the attached instance"
+        },
+        {
+          "name": "target-id",
+          "type": "String",
+          "required": false,
+          "defaultValue": null,
+          "description": "DevTools editor target ID when multiple HMI editors are open"
+        },
+        {
+          "name": "output-path",
+          "type": "Path",
+          "required": false,
+          "defaultValue": null,
+          "description": "Destination PNG path, defaults to a temporary artifact"
+        }
+      ]
     },
     {
       "name": "check-library-updates",
@@ -5925,6 +5955,13 @@
           "required": false,
           "defaultValue": true,
           "description": "Start TIA Portal with user interface"
+        },
+        {
+          "name": "hmi-capture",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Launch a visible V21 instance with an isolated WebView2 profile and local HMI capture enabled"
         }
       ]
     },

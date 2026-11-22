@@ -26,6 +26,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `begin-promoted-plc-code-transaction` | PLC | `plc-name`, `evidence-id`, `capability-ids`, `code-format`, `input-path`, `description`, `compile-policy`, `maximum-new-warnings`, `save-decision`, `source-control-decision` | Begins a production transaction bound to exact verified disposable evidence, the intended artifact, current capabilities, and explicit disposition decisions |
 | `can-plug-hardware-item` | Hardware | `target`, `device-name`, `item-path`, `expected-type-identifier`, `type-identifier`, `item-name`, `position-number` | Checks whether a hardware module or submodule can be plugged at a target position |
 | `capabilities` | V21 |  | Reports the worker capability profile and exact Siemens assembly hashes. |
+| `capture-hmi-screen` | Unified HMI | `instance-id`, `target-id`, `output-path` | Captures the open Unified HMI Next Gen editor viewport as a PNG |
 | `check-library-updates` | Libraries | `library-scope`, `global-library`, `include-up-to-date`, `output-path` | Reports project instances that are outdated against the project library or an open global library |
 | `close-global-library` | Libraries | `global-library` | Closes an open user global library by name or path |
 | `close-project` | Portal | `save`, `confirm` | Closes the currently open project |
@@ -163,7 +164,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `open-global-library` | Libraries | `path`, `read-only`, `upgrade`, `confirm` | Opens a TIA Portal global library by file path |
 | `open-plc` | PLC | `plc-name` | Opens a PLC device software by name |
 | `open-project` | Portal | `project-path`, `open-in-new-instance`, `umac-user`, `umac-password-env`, `umac-user-type` | Opens a TIA Portal project file (.ap21/.als21 primary; legacy project formats also supported) |
-| `open-tia-portal` | Portal | `with-ui` | Opens a new TIA Portal instance (with UI by default) |
+| `open-tia-portal` | Portal | `with-ui`, `hmi-capture` | Opens a new TIA Portal instance (with UI by default) |
 | `open-unified-hmi` | Unified HMI | `hmi-name` | Opens a Unified HMI by device or device item name |
 | `plan-block-document-import` | PLC | `plc-name`, `import-directory`, `file-name`, `group-path`, `import-option` | Binds an exact PLC block identity and creates a state-bound, rollback-capable SIMATIC SD apply plan |
 | `plan-blueprint` | V21 | `blueprint-path` | Builds a state-bound engineering plan and short-lived one-use apply token. |

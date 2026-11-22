@@ -124,7 +124,7 @@ namespace OpenTiaToolkit.Core
         /// Returns the path to the TIA Portal installation (e.g., "C:\Program Files\Siemens\Automation\Portal V21")
         /// V21 is tried first as the primary target version.
         /// </summary>
-        private static string? GetTiaPortalRoot()
+        internal static string? GetTiaPortalRoot()
         {
             foreach (string variableName in new[] { "OPEN_TIA_PORTAL_ROOT", "TiaPortalLocation" })
             {

@@ -19,6 +19,7 @@ namespace OpenTiaToolkit.Core
         public static IServiceCollection AddOpenTiaToolkitCoreServices(this IServiceCollection services)
         {
             services.AddSingleton<EngineeringSessionContext>();
+            services.AddSingleton<HmiWebViewSession>();
             services.AddSingleton<V21TypeServiceResolver>();
             services.AddSingleton<V21EngineeringObjectAccess>();
             services.AddSingleton<V21SoftwareDiscovery>();
