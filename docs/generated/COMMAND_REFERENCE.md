@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **192**
+Commands: **193**
 
 ## Devices
 
@@ -1373,6 +1373,7 @@ Opens a new TIA Portal instance (with UI by default)
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---|---|
 | `with-ui` | Boolean | no | True | Start TIA Portal with user interface |
+| `hmi-capture` | Boolean | no | False | Launch a visible V21 instance with an isolated WebView2 profile and local HMI capture enabled |
 
 ### portal-status
 
@@ -1517,6 +1518,16 @@ Creates an auditable nearest-label mapping report from an exported Unified HMI J
 | `label-types` | StringArray | no |  | Optional label item types; defaults to HmiText,HmiLabel |
 | `max-candidates` | Integer | no | 5 | Number of candidates to include per target |
 | `output-path` | Path | no |  | Optional JSON report output path |
+
+### capture-hmi-screen
+
+Captures the open Unified HMI Next Gen editor viewport as a PNG
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `instance-id` | Integer | no |  | Capture-ready TIA Portal process ID, defaults to the attached instance |
+| `target-id` | String | no |  | DevTools editor target ID when multiple HMI editors are open |
+| `output-path` | Path | no |  | Destination PNG path, defaults to a temporary artifact |
 
 ### copy-hmi-screen-from-template
 

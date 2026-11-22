@@ -144,7 +144,8 @@ public sealed class ToolRegistry : IDisposable
                 }
             }
 
-            return Result(await execution.ConfigureAwait(false));
+            return Result(await execution.ConfigureAwait(false),
+                includeCaptureImage: string.Equals(toolName, "capture-hmi-screen", StringComparison.OrdinalIgnoreCase));
         }
         catch (OperationCanceledException)
         {
@@ -349,7 +350,7 @@ public sealed class ToolRegistry : IDisposable
         })
     };
 
-    private static CallToolResult Result(CommandOutcome outcome)
+    private CallToolResult Result(CommandOutcome outcome, bool includeCaptureImage = false)
     {
         JsonElement? data = outcome.Data;
         if (data.HasValue && Encoding.UTF8.GetByteCount(data.Value.GetRawText()) > 512 * 1024)
@@ -377,20 +378,45 @@ public sealed class ToolRegistry : IDisposable
             data,
             correlationId = outcome.CorrelationId
         }, ContractJson.CreateOptions());
-        return new CallToolResult
+        var content = new List<ContentBlock>
         {
-            IsError = !outcome.Success,
-            StructuredContent = structured,
-            Content = new List<ContentBlock>
+            new TextContentBlock
             {
-                new TextContentBlock
-                {
-                    Text = JsonSerializer.Serialize(
-                        structured,
-                        new JsonSerializerOptions { WriteIndented = true })
-                }
+                Text = JsonSerializer.Serialize(structured, new JsonSerializerOptions { WriteIndented = true })
             }
         };
+        if (includeCaptureImage && outcome.Success && data.HasValue)
+            AppendCaptureImage(content, data.Value);
+        return new CallToolResult { IsError = !outcome.Success, StructuredContent = structured, Content = content };
+    }
+
+    private void AppendCaptureImage(List<ContentBlock> content, JsonElement artifact)
+    {
+        const int maxInlineImageBytes = 2 * 1024 * 1024;
+        if (!artifact.TryGetProperty("DataKind", out var kind) || kind.GetString() != "unified-hmi-editor-capture" ||
+            !artifact.TryGetProperty("OutputPath", out var path) || string.IsNullOrWhiteSpace(path.GetString()) ||
+            !artifact.TryGetProperty("BytesWritten", out var length) || !length.TryGetInt32(out var bytes) ||
+            bytes < 24 || bytes > maxInlineImageBytes)
+            return;
+
+        try
+        {
+            using var stream = File.Open(path.GetString()!, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (stream.Length != bytes) return;
+            using var image = new MemoryStream(bytes);
+            stream.CopyTo(image);
+            var png = image.ToArray();
+            if (png.Length == bytes && png[0] == 137 && png[1] == 80 && png[2] == 78 && png[3] == 71)
+                content.Add(ImageContentBlock.FromBytes(png, "image/png"));
+        }
+        catch (IOException ex)
+        {
+            _logger.LogDebug(ex, "HMI capture PNG could not be included inline.");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogDebug(ex, "HMI capture PNG could not be included inline.");
+        }
     }
 
     private static CommandOutcome Success(string message) => new CommandOutcome

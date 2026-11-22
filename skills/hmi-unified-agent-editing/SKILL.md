@@ -23,6 +23,12 @@ Use this skill when a task mentions Unified HMI screen edits, screen items, `get
 8. Verify the result through `VerifiedScreen`, `VerifyExportPath`, a fresh screen snapshot, or specific property reads. Use `NewBaseHash` from a verified apply when chaining the next batch.
 9. If the result includes `Guidance`, follow `RecommendedNextAction` before guessing. It is designed for agents.
 
+## Visual verification in the Next Gen editor
+
+When the user wants a visual result and TIA needs to be started, use `open-tia-portal` with `hmi-capture=true` and attach to the returned `instanceId`. If their existing TIA instance lacks capture support, ask the user to save pending changes and confirm before closing or restarting that instance. Wait for confirmation. Reopen the same project afterward and verify the instance and project before proceeding.
+
+Open the intended screen in the Next Gen editor, collapse the inspector, and select **Fit to screen** for a whole-screen view. Capture before editing and again after Openness readback with `capture-hmi-screen`. Confirm the intended tab visually during setup. The capture reports the WebView target ID and current viewport without a verified HMI screen path. If multiple targets are open, resolve the intended target before using `target-id`. Use the image together with structured readback. Capture requires a windowed TIA instance and works without compiling the project.
+
 ## Tag Tables and WinCCML
 
 Verify the project and HMI first. Use `create-hmi-tag-table` for an empty table, `create-hmi-tags` for a JSON batch, or `import-hmi-tags` for one WinCCML `.hmi.yml` file. Pass `hmi-name` and `table-path`; use `Group/Table` for a table in an existing group. The two batch commands create the destination table when it is absent.
