@@ -2,6 +2,8 @@
 
 OpenTiaToolkit exposes vendor-neutral TIA Portal hardware primitives. A device-specific agent skill can translate a manufacturer's GSDML or setup guide into these operations without adding product knowledge to the core toolkit.
 
+For AR APC imports and project comparisons, see [AutomationML configuration](AUTOMATIONML.md).
+
 ## Tools
 
 | Tool | Purpose |

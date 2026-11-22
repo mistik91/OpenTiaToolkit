@@ -117,6 +117,9 @@ namespace OpenTiaToolkit.Core
                     });
             });
 
+            services.AddSingleton<V21AutomationMlAdditions>();
+            services.AddSingleton<V21AutomationMlAccess>();
+
             services.AddSingleton<HardwareService>(serviceProvider =>
                 new HardwareService(
                     serviceProvider.GetRequiredService<IPortalService>(),

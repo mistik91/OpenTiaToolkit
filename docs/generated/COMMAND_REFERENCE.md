@@ -2,7 +2,7 @@
 
 Generated from the runtime `CommandSchema` catalog. Do not edit by hand; run `scripts/Generate-CommandReference.ps1`.
 
-Commands: **190**
+Commands: **192**
 
 ## Devices
 
@@ -24,6 +24,16 @@ Gets detailed information about a device item
 | `item-name` | String | yes |  | The name of the device item |
 
 ## Hardware
+
+### apply-automationml
+
+Previews and applies AR APC AutomationML configuration with guarded additions to existing projects
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `source-path` | Path | yes |  | Path to an AR APC AutomationML .aml or .xml file |
+| `dry-run` | Boolean | no | True | Read and compare without changing the project |
+| `confirm` | Boolean | no | False | Explicitly authorizes this state-changing command after review of its target and impact. |
 
 ### apply-hardware-patch
 
@@ -185,6 +195,14 @@ Gets nested hardware devices and device items with reusable hardware target path
 |---|---|---:|---|---|
 | `device-name` | String | no |  | Optional device name filter |
 | `output-path` | Path | no |  | Optional JSON file or folder path for the hardware tree |
+
+### inspect-automationml
+
+Reads an AR APC AutomationML configuration without connecting to TIA Portal
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `source-path` | Path | yes |  | Path to an AR APC AutomationML .aml or .xml file |
 
 ## Insights
 
