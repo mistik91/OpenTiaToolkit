@@ -1,7 +1,7 @@
 ﻿{
   "schemaVersion": "2.0",
   "protocolVersion": "1.0",
-  "commandCount": 190,
+  "commandCount": 192,
   "commands": [
     {
       "name": "add-delete-plc-type-transaction-operation",
@@ -313,6 +313,36 @@
           "required": true,
           "defaultValue": null,
           "description": "Confirm adding the reviewed XML patch operation"
+        }
+      ]
+    },
+    {
+      "name": "apply-automationml",
+      "description": "Previews and applies AR APC AutomationML configuration with guarded additions to existing projects",
+      "category": "Hardware",
+      "risk": "Mutating",
+      "supportsPreview": true,
+      "parameters": [
+        {
+          "name": "source-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Path to an AR APC AutomationML .aml or .xml file"
+        },
+        {
+          "name": "dry-run",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": true,
+          "description": "Read and compare without changing the project"
+        },
+        {
+          "name": "confirm",
+          "type": "Boolean",
+          "required": false,
+          "defaultValue": false,
+          "description": "Explicitly authorizes this state-changing command after review of its target and impact."
         }
       ]
     },
@@ -4736,6 +4766,22 @@
           "required": false,
           "defaultValue": false,
           "description": "Explicitly authorizes this state-changing command after review of its target and impact."
+        }
+      ]
+    },
+    {
+      "name": "inspect-automationml",
+      "description": "Reads an AR APC AutomationML configuration without connecting to TIA Portal",
+      "category": "Hardware",
+      "risk": "ReadOnly",
+      "supportsPreview": false,
+      "parameters": [
+        {
+          "name": "source-path",
+          "type": "Path",
+          "required": true,
+          "defaultValue": null,
+          "description": "Path to an AR APC AutomationML .aml or .xml file"
         }
       ]
     },

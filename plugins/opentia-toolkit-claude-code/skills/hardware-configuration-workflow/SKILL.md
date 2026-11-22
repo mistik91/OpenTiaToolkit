@@ -1,6 +1,6 @@
 ---
 name: hardware-configuration-workflow
-description: Use for OpenTiaToolkit generic Siemens TIA Portal hardware automation, including greenfield project/device bootstrap, hardware catalog lookup, module or submodule plugging, device tree target paths, PROFINET identity and network wiring, IO address assignment, Startdrive telegram changes, GSD/GSDML parameter reads or writes, and apply-hardware-patch dry-run/apply workflows.
+description: Use for OpenTiaToolkit generic Siemens TIA Portal hardware automation, including AutomationML AR APC reconciliation, greenfield project/device bootstrap, hardware catalog lookup, module or submodule plugging, device tree target paths, PROFINET identity and network wiring, IO address assignment, Startdrive telegram changes, GSD/GSDML parameter reads or writes, and apply-hardware-patch dry-run/apply workflows.
 ---
 
 # Hardware Configuration Workflow
@@ -10,6 +10,19 @@ description: Use for OpenTiaToolkit generic Siemens TIA Portal hardware automati
 Use this skill for generic TIA hardware operations through OpenTiaToolkit. The safest pattern is discover, build a guarded patch, dry-run transactionally, apply only after a clean dry-run, then verify with focused reads.
 
 Device-specific catalog IDs and GSD parameter byte meanings belong in project instructions or device-specific skills, not in this generic workflow.
+
+## AutomationML reconciliation
+
+Use this workflow for Siemens or EPLAN AR APC exports in `.aml` or `.xml` format. Use a single CLI session or the matching MCP tools.
+
+1. Run `inspect-automationml --source-path="C:\Engineering\Example.aml"` to read the file offline. Resolve parser diagnostics, including duplicate internal IDs and unresolved links, in the export before applying.
+2. Verify the selected TIA project using `basic-tia-interaction`. Run `apply-automationml --source-path="C:\Engineering\Example.aml" --dry-run=true`. This compares the source with the selected project without writing. Review `strategy`, `plan` diagnostics and differences, and the `additive` operations, conflicts, and catalog selections when present.
+3. If `plan.Matches` is true, report the no-op. Otherwise, apply the reviewed source to the verified project only when `canApply=true` and the user has authorized the write. Run `apply-automationml --source-path="C:\Engineering\Example.aml" --dry-run=false --confirm=true`.
+4. Check `verification.Matches` and, for additive writes, `preservation.Matches`. Use focused hardware, network, or PLC tag reads when the user needs independent evidence. A matching result can still list `UnverifiedCatalogIdentifiers`; `FullyVerified` also requires the requested catalog specificity. A fresh preview can confirm that repeat apply has zero differences.
+
+`GreenfieldCax` imports into an empty standalone V21 project. A failed CAx import can leave partial changes. `Additive` can add catalog ET 200SP or ET 200MP stations with rack-mounted modules to an existing PROFINET subnet and PLC I/O system, and add absolute-address tags to existing PLC tag tables. Module range overlaps are checked per owning PLC. An overlap with unknown or ambiguous ownership remains a conflict. Treat changes to existing settings, replacements, new subnets, and physical port links on populated projects as separate work. If an additive write fails, require `rollbackVerified=true` or inspect the live state before retrying.
+
+For a public qualification fixture, use `109748224_EPLANtoTIA.aml` from Siemens example 109748224 in a disposable V21 project.
 
 ## Standard Workflow
 

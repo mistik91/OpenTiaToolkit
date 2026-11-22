@@ -10,6 +10,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `add-project-to-multiuser-server` | Multiuser | `server-alias`, `project-path`, `confirm` | Adds a closed single-user TIA project to a configured Project Server. |
 | `add-scl-source-transaction-operation` | PLC | `transaction-id`, `source-path`, `group-path`, `type-group-path`, `depends-on`, `confirm` | Adds validated SCL source import and exact generated-block replacement to a persistent PLC code transaction |
 | `add-simaticml-transaction-operation` | PLC | `transaction-id`, `input-path`, `baseline-path`, `group-path`, `allow-flgnet-topology`, `allowed-change-paths`, `depends-on`, `confirm` | Adds a baseline-bound SimaticML block or PLC type patch to a persistent PLC code transaction |
+| `apply-automationml` | Hardware | `source-path`, `dry-run`, `confirm` | Previews and applies AR APC AutomationML configuration with guarded additions to existing projects |
 | `apply-block-document-import` | PLC | `apply-token`, `confirm` | Applies an exact-target SIMATIC SD plan and hash-verifies rollback after verification or compile failure |
 | `apply-blueprint` | V21 | `apply-token`, `confirm` | Applies a previously reviewed blueprint plan using its state-bound one-use token. |
 | `apply-hardware-patch` | Hardware | `operations`, `operations-path`, `dry-run`, `confirm-destructive`, `transaction-description`, `plc-name`, `safety-password-env`, `confirm` | Dry-runs or applies transactional generic TIA hardware operations |
@@ -129,6 +130,7 @@ Generated from the same runtime command catalog used by the CLI. Every command b
 | `import-texts` | Project Texts | `input-path`, `update-source-language`, `dry-run`, `confirm` | Imports project texts from a Siemens project text workbook |
 | `import-type` | PLC | `plc-name`, `import-path`, `group-path`, `confirm` | Imports a single type (UDT) from XML file |
 | `import-types` | PLC | `plc-name`, `import-directory`, `filter-regex`, `group-path`, `confirm` | Imports multiple types (UDT) from XML files in a directory |
+| `inspect-automationml` | Hardware | `source-path` | Reads an AR APC AutomationML configuration without connecting to TIA Portal |
 | `inspect-hmi-screen-json-capabilities` | Unified HMI | `hmi-name`, `screen-path`, `item-names`, `properties`, `include-item-types`, `include-writable-properties`, `include-snapshot`, `working-path` | Inspects one Unified HMI screen and returns agent-oriented patch capabilities and guidance |
 | `inspect-project-security` | Insights |  | Inspects project security metadata and certificate/password/syslog service availability through V21 Openness. |
 | `list-devices` | Portal | `page-size`, `continuation-token` | Lists all devices in the currently open project |

@@ -1,6 +1,6 @@
 ---
 name: opentia-toolkit-workflow
-description: Use as the general OpenTiaToolkit router skill for Siemens TIA Portal automation requests. Use when a task mentions OpenTiaToolkit, TIA Portal, Openness, PLCs, Unified HMI, discrete alarms, hardware configuration, VCI synchronization, project/device discovery, trend logging, or repo development and the correct specialized workflow is not already obvious.
+description: Use as the general OpenTiaToolkit router skill for Siemens TIA Portal automation requests. Use when a task mentions OpenTiaToolkit, TIA Portal, Openness, PLCs, Unified HMI, discrete alarms, hardware configuration, AutomationML, VCI synchronization, project/device discovery, trend logging, or repo development and the correct specialized workflow is not already obvious.
 ---
 
 # OpenTiaToolkit Workflow
@@ -16,6 +16,7 @@ Keep this skill thin. After routing, follow the specialized skill or the MCP too
 1. Establish the request domain:
    - TIA instance, project lifecycle, devices, PLC/HMI target discovery: use `basic-tia-interaction`.
    - Unified HMI screen JSON, screen items, faceplates, events, dynamizations, tag table creation, simple HMI tag batches, or WinCCML export and import: use `hmi-unified-agent-editing`.
+   - AutomationML AR APC inspection, preview, or reconciliation: use `hardware-configuration-workflow`.
    - Generic catalog, module/submodule, PROFINET, IO address, Startdrive telegram, GSD/GSDML parameter, or `apply-hardware-patch` work: use `hardware-configuration-workflow`.
    - PLC blocks, types, source files, compile, import/export, tags, cross-references, watch tables, technology objects, alarm text lists, CSV tag updates, or find/replace rename work: use `plc-block-and-tag-workflow`.
    - PLC code generation or modification in LAD, SCL, S7DCL/S7RES, external source, or SimaticML: use `plc-code-engineering` after target discovery.
