@@ -5,7 +5,7 @@ All notable changes to OpenTiaToolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0-preview.10] (unsigned release candidate)
+## [1.0.0-preview.10] - 2026-11-23 (unsigned preview)
 
 ### Added
 
@@ -24,7 +24,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Verify imported SIMATIC SD documents and PLC data-block member scope, resolve nested VCI mappings, and distinguish unavailable readback from verified synchronization.
 - Report the state of hardware rollback and retain export diagnostics when the observed state requires review.
 
-See the [preview.10 candidate notes](docs/RELEASE_NOTES_1.0.0-preview.10.md) for scope and validation.
+See the [preview.10 release notes](docs/RELEASE_NOTES_1.0.0-preview.10.md) for scope and validation.
 
 ## [1.0.0-preview.9] - 2026-11-13 (unsigned preview)
 

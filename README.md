@@ -6,7 +6,7 @@
 
 <p align="center">
   <img alt="TIA Portal V21 only" src="https://img.shields.io/badge/TIA_Portal-V21_only-0078D4">
-  <a href="https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.9"><img alt="Unsigned preview.9" src="https://img.shields.io/badge/unsigned_preview-1.0.0--preview.9-orange"></a>
+  <a href="https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.10"><img alt="Unsigned preview.10" src="https://img.shields.io/badge/unsigned_preview-1.0.0--preview.10-orange"></a>
   <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-0078D6">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-2ea44f"></a>
 </p>
@@ -18,10 +18,10 @@ OpenTiaToolkit gives engineers and coding agents the same tools through CLI and 
 - **Edit Unified HMI.** Patch screens, verify tag imports, and capture the Next Gen editor before and after a change.
 - **Configure hardware.** Compare TIA projects with AutomationML exports, review proposed additions, and apply them to supported configurations.
 
-<p align="center"><a href="#quick-start">Quick start</a> · <a href="https://github.com/mistik91/OpenTiaToolkit/releases">Downloads</a> · <a href="docs/RELEASE_NOTES_1.0.0-preview.10.md">Preview.10 candidate notes</a> · <a href="docs/generated/COMMAND_REFERENCE.md">Command reference</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
+<p align="center"><a href="#quick-start">Quick start</a> · <a href="https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.10">Download preview.10</a> · <a href="docs/RELEASE_NOTES_1.0.0-preview.10.md">Release notes</a> · <a href="docs/generated/COMMAND_REFERENCE.md">Command reference</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
 
 > [!IMPORTANT]
-> **The latest published build is unsigned preview.9.** The current source prepares [preview.10](docs/RELEASE_NOTES_1.0.0-preview.10.md) with Unified HMI editor capture, native tag-table exchange, and AutomationML reconciliation. For installed use, follow the [preview.9 qualification and limits](docs/RELEASE_NOTES_1.0.0-preview.9.md#validation-and-limits). Verify the installer checksum, run `doctor`, and start write workflows on disposable project copies with independent backups.
+> **1.0.0-preview.10 is an unsigned preview** for TIA Portal V21. It adds Unified HMI editor capture, verified WinCCML exchange, and AutomationML reconciliation. Verify the installer checksum, run `doctor`, and start write workflows on disposable project copies with independent backups. [Validation scope and limits](docs/RELEASE_NOTES_1.0.0-preview.10.md#validation-and-limits)
 
 ## Quick start
 
@@ -35,13 +35,13 @@ OpenTiaToolkit gives engineers and coding agents the same tools through CLI and 
 
 ### Install a preview
 
-Obtain `OpenTiaToolkit-1.0.0-preview.9-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the [preview.9 release](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.9). Check the version explicitly: previews may not appear as GitHub's latest stable release. [Building from source](#build-from-source) is a separate contributor workflow; it does not reproduce acceptance of the supplied installer.
+Get `OpenTiaToolkit-1.0.0-preview.10-Setup.exe`, `INSTALLER-SHA256SUMS.txt`, and `UNSIGNED-NOTICE.txt` from the preview.10 release. Use the explicit version link to find the prerelease. [Preview.10 downloads](https://github.com/mistik91/OpenTiaToolkit/releases/tag/v1.0.0-preview.10)
 
 Verify the installer before running it:
 
 ```powershell
 $expected = (Get-Content .\INSTALLER-SHA256SUMS.txt).Split()[0]
-$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.9-Setup.exe -Algorithm SHA256).Hash
+$actual = (Get-FileHash .\OpenTiaToolkit-1.0.0-preview.10-Setup.exe -Algorithm SHA256).Hash
 if ($actual.ToLowerInvariant() -ne $expected.ToLowerInvariant()) { throw "Installer checksum mismatch" }
 ```
 
@@ -167,7 +167,7 @@ See [contribution guidance](CONTRIBUTING.md), [developer setup](docs/DEV_GUIDE.m
 | [Setup](docs/SETUP.md) | [PLC/CLI workflows](docs/CLI_USAGE.md) |
 | [Agent plugins](docs/INSTALL_AGENT_PLUGINS.md) | [Hardware automation](docs/HARDWARE_AUTOMATION.md) |
 | [MCP client configs](docs/mcp-client-configs/README.md) | [Blueprints](docs/BLUEPRINTS.md) |
-| [Preview.10 candidate notes](docs/RELEASE_NOTES_1.0.0-preview.10.md) and [preview.9 release notes](docs/RELEASE_NOTES_1.0.0-preview.9.md) | [MCP protocol](docs/MCP_PROTOCOL.md) |
+| [Preview.10 release notes](docs/RELEASE_NOTES_1.0.0-preview.10.md) and [preview.9 release notes](docs/RELEASE_NOTES_1.0.0-preview.9.md) | [MCP protocol](docs/MCP_PROTOCOL.md) |
 | [Historical preview.8 qualification](docs/PREVIEW8_ACCEPTANCE.md) | [AutomationML configuration](docs/AUTOMATIONML.md) |
 | [Report a bug](https://github.com/mistik91/OpenTiaToolkit/issues/new/choose) | [Supply chain](docs/SUPPLY_CHAIN.md) |
 
