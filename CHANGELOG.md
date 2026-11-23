@@ -5,11 +5,13 @@ All notable changes to OpenTiaToolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0-preview.10] - 2026-11-23 (unsigned preview)
 
 ### Added
 
 - Add CLI and MCP commands to create Unified HMI tag tables, create simple tag batches, and export or import native WinCCML. Imports require explicit overwrite for matching destination tags and verify each requested type and PLC binding before committing.
+- Capture the open WinCC Unified Next Gen editor as a PNG through CLI or MCP. A capture-ready TIA session uses an isolated WebView2 profile, and MCP can return the image inline.
+- Inspect AutomationML AR APC exports and compare them against a TIA project. Import into an empty standalone project or reconcile supported additions in an existing project.
 
 ### Fixed
 - Read only alarm names/IDs and requested full snapshots during Unified alarm Apply preflight. Preserve complete dry-run rollback inventories and post-commit native validation/readback.
@@ -19,6 +21,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Filter Unified HMI composite entry identities before reading event scripts, dynamization payloads, or faceplate interface values and nested bindings, while preserving full reads for synchronization.
 - Honor SCL block or PLC type subgroup destinations through Siemens' targeted generation API and resolve nested block metadata during capability discovery. Reject unsupported dual subgroup destinations and same-name targets in other groups before transaction mutation, including collisions introduced after planning.
 - Export PLC SIMATIC SD documents from one recursive block traversal, without repeated name searches or browse metadata reads. Bulk export now includes nested block groups and reports selected filename collisions without overwriting their documents.
+- Verify imported SIMATIC SD documents and PLC data-block member scope, resolve nested VCI mappings, and distinguish unavailable readback from verified synchronization.
+- Report the state of hardware rollback and retain export diagnostics when the observed state requires review.
+
+See the [preview.10 release notes](docs/RELEASE_NOTES_1.0.0-preview.10.md) for scope and validation.
 
 ## [1.0.0-preview.9] - 2026-11-13 (unsigned preview)
 
