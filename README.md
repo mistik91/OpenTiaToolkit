@@ -11,16 +11,17 @@
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-2ea44f"></a>
 </p>
 
-OpenTiaToolkit helps engineers and coding agents inspect projects, author PLC code, edit WinCC Unified screens and tags, and configure hardware through one shared catalog of **190 commands** for CLI and MCP. Reviewed previews, explicit confirmation, state checks, and read-back make engineering changes easier to assess.
+OpenTiaToolkit gives engineers and coding agents the same tools through CLI and MCP. Inspect a TIA project, preview a change, apply it after review, and read back what TIA saved. The [command catalog](docs/generated/command-catalog.json) describes the current source.
 
-- **Inspect a project:** discover TIA instances, PLC blocks, HMI screens, tags, and hardware.
-- **Change PLC code:** plan source or block changes, inspect their impact, compile, and verify the resulting objects.
-- **Edit Unified HMI:** read a screen as JSON, preview a targeted patch, apply it, and check the saved state.
+- **Inspect a project.** Discover TIA instances, PLC blocks, HMI screens, tags, and hardware.
+- **Change PLC code.** Plan source or block changes, inspect their impact, compile, and verify the resulting objects.
+- **Edit Unified HMI.** Patch screens, verify tag imports, and capture the Next Gen editor before and after a change.
+- **Configure hardware.** Compare TIA projects with AutomationML exports, review proposed additions, and apply them to supported configurations.
 
-<p align="center"><a href="#quick-start">Quick start</a> · <a href="https://github.com/mistik91/OpenTiaToolkit/releases">Downloads</a> · <a href="docs/RELEASE_NOTES_1.0.0-preview.9.md">Preview.9 notes</a> · <a href="docs/generated/COMMAND_REFERENCE.md">Command reference</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
+<p align="center"><a href="#quick-start">Quick start</a> · <a href="https://github.com/mistik91/OpenTiaToolkit/releases">Downloads</a> · <a href="docs/RELEASE_NOTES_1.0.0-preview.10.md">Preview.10 candidate notes</a> · <a href="docs/generated/COMMAND_REFERENCE.md">Command reference</a> · <a href="CONTRIBUTING.md">Contribute</a></p>
 
 > [!IMPORTANT]
-> **1.0.0-preview.9 is an unsigned preview.** This release fixes bulk trend conflicts, reduces redundant engineering reads, and corrects PLC type rollback verification. See the [release qualification and known limits](docs/RELEASE_NOTES_1.0.0-preview.9.md#validation-and-limits); previous independent preview.8 acceptance remains a [historical record](docs/PREVIEW8_ACCEPTANCE.md). Verify SHA-256 checksums, run `doctor`, and start write workflows on disposable project copies with independent backups. TIA Portal V21 is the only supported major version.
+> **The latest published build is unsigned preview.9.** The current source prepares [preview.10](docs/RELEASE_NOTES_1.0.0-preview.10.md) with Unified HMI editor capture, native tag-table exchange, and AutomationML reconciliation. For installed use, follow the [preview.9 qualification and limits](docs/RELEASE_NOTES_1.0.0-preview.9.md#validation-and-limits). Verify the installer checksum, run `doctor`, and start write workflows on disposable project copies with independent backups.
 
 ## Quick start
 
@@ -83,7 +84,7 @@ For client packages and configuration examples, use the [plugin installation gui
 }
 ```
 
-The portable [Agent Plugins package](plugins/opentia-toolkit-agent-plugin) includes 18 engineering workflow skills and a launcher that finds the installed MCP server. Product binaries and TIA must be installed separately.
+The portable Agent Plugins package includes 18 engineering workflow skills and a launcher that finds the installed MCP server. Install the product binaries and TIA separately. [Agent plugin package](plugins/opentia-toolkit-agent-plugin)
 
 ## Review, apply, verify
 
@@ -101,12 +102,14 @@ This table describes the exposed command surface. Independent preview.8 acceptan
 |---|---|
 | Projects | Discover and connect to TIA, open/create/retrieve/archive projects, inspect project trees |
 | PLC | Blocks, native SCL and S7DCL authoring, tags, cross-references, compilation, persistent code transactions, guarded PLCSIM Advanced probes |
-| WinCC Unified | Screen JSON read/diff/patch, [tag tables and WinCCML exchange](docs/CLI_USAGE.md#unified-hmi-tag-tables-and-winccml), discrete alarms, trends and logging, texts and faceplate inspection |
-| Hardware | Catalog discovery, modules, PROFINET identity and wiring, IO addresses, Startdrive telegrams, GSD/GSDML parameters |
+| WinCC Unified | Screen JSON read/diff/patch, Next Gen editor PNG capture, verified tag tables and WinCCML exchange, discrete alarms, trends and logging, texts and faceplate inspection |
+| Hardware | Catalog discovery, modules, PROFINET identity and wiring, IO addresses, Startdrive telegrams, GSD/GSDML parameters, AutomationML comparison and supported additions |
 | VCI and libraries | Workspace mappings and synchronization, library inspection and master copies, project-language import/export |
 | Collaboration | Identity-bound Multiuser inspection and local-session workflows; check-in is handed to the owning TIA UI |
 
 Use the [CLI reference](docs/generated/COMMAND_REFERENCE.md), [MCP reference](docs/generated/MCP_TOOL_REFERENCE.md), and [machine-readable catalog](docs/generated/command-catalog.json) for exact commands and arguments.
+
+For visual HMI work, start a capture-ready TIA session, open the intended screen in the Next Gen editor, and capture the editor before and after applying a patch. Capture can run while the windowed editor is in the background and requires no project compile. [Unified HMI capture workflow](docs/CLI_USAGE.md#capture-the-next-gen-screen-editor)
 
 ## Compatibility
 
@@ -115,7 +118,7 @@ Use the [CLI reference](docs/generated/COMMAND_REFERENCE.md), [MCP reference](do
 | TIA Portal | V21 only; scoped installed tests cover Update 2 Hotfix 1 and Update 3. The retained binary benchmark is Update 2; run `doctor` after updates or hotfixes |
 | Older/newer TIA majors | V20 and earlier, V22 and later are unsupported |
 | PLC engineering | The required STEP 7 edition/license and target capabilities must be available; doctor does not verify licensing |
-| HMI | WinCC Unified engineering; workflow-specific licenses and culture configuration are required |
+| HMI | WinCC Unified engineering. Editor capture requires a visible Next Gen editor session. Licenses and culture configuration depend on the workflow |
 | Simulation | PLCSIM Advanced is optional and required for simulator download/behavior workflows; physical PLC downloads are outside those guarded workflows |
 | Drives and collaboration | Appropriate Startdrive and Multiuser/Project Server components and licenses are required |
 
@@ -164,7 +167,8 @@ See [contribution guidance](CONTRIBUTING.md), [developer setup](docs/DEV_GUIDE.m
 | [Setup](docs/SETUP.md) | [PLC/CLI workflows](docs/CLI_USAGE.md) |
 | [Agent plugins](docs/INSTALL_AGENT_PLUGINS.md) | [Hardware automation](docs/HARDWARE_AUTOMATION.md) |
 | [MCP client configs](docs/mcp-client-configs/README.md) | [Blueprints](docs/BLUEPRINTS.md) |
-| [Preview.9 release notes](docs/RELEASE_NOTES_1.0.0-preview.9.md) and [historical preview.8 qualification](docs/PREVIEW8_ACCEPTANCE.md) | [MCP protocol](docs/MCP_PROTOCOL.md) |
+| [Preview.10 candidate notes](docs/RELEASE_NOTES_1.0.0-preview.10.md) and [preview.9 release notes](docs/RELEASE_NOTES_1.0.0-preview.9.md) | [MCP protocol](docs/MCP_PROTOCOL.md) |
+| [Historical preview.8 qualification](docs/PREVIEW8_ACCEPTANCE.md) | [AutomationML configuration](docs/AUTOMATIONML.md) |
 | [Report a bug](https://github.com/mistik91/OpenTiaToolkit/issues/new/choose) | [Supply chain](docs/SUPPLY_CHAIN.md) |
 
 Report security issues through the private route in [SECURITY.md](SECURITY.md). Avoid sharing proprietary projects, credentials, or Siemens binaries in issue reports.

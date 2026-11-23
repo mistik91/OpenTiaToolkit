@@ -8,6 +8,7 @@ Use this checklist before publishing a public preview or stable release. Stable 
 - Keep the README status section aligned with the exact public release version and signing state.
 - For preview.8, use the [qualification matrix](PREVIEW8_ACCEPTANCE.md) and release `VALIDATION_PREVIEW8.md`; the planned scoped acceptance gates are complete. Review their explicit limits without claiming exhaustive feature qualification.
 - For preview.9, use the [release notes](RELEASE_NOTES_1.0.0-preview.9.md) and release `VALIDATION_PREVIEW9.md` for the new binary identity and applicable packaged/live retests. Preview.8 independent acceptance remains historical evidence for its original artifacts.
+- For preview.10, use the [candidate notes](RELEASE_NOTES_1.0.0-preview.10.md) and its validation record. Keep the install links pinned to the published build while the candidate is under review.
 - Preserve the accepted installer, worker, source archive and plugin bundle bytes. Documentation follow-up commits do not retarget the accepted binary source. A rebuilt/repacked candidate needs new checksums and applicable acceptance.
 - Do not imply forward compatibility; each future TIA major version requires its own worker and validation profile.
 - Clearly state that users should start mutation workflows on disposable project copies and keep backups.
