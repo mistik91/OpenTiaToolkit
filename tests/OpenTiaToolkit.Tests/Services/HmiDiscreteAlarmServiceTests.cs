@@ -148,6 +148,8 @@ public sealed class HmiDiscreteAlarmServiceTests
         Assert.AreEqual(1, access.PreflightReads);
         Assert.AreEqual(1, access.PreflightSnapshotReads);
         Assert.AreEqual(0, access.FullUnvalidatedReads);
+        Assert.AreEqual(0, access.FullValidatedReads);
+        CollectionAssert.AreEqual(new[] { target.Name }, access.ValidatedExactReads);
         var item = result.Alarms.Single();
         Assert.AreEqual(HmiDiscreteAlarmService.Hash(target), item.Before!.ContentHash);
         Assert.AreEqual("Updated", item.Persisted!.Origin);
@@ -194,11 +196,13 @@ public sealed class HmiDiscreteAlarmServiceTests
         Assert.AreEqual(0, access.PreflightReads);
     }
 
-    [TestMethod]
-    public async Task ApplyReadbackFailure_ReportsCommittedUnsavedChanges()
+    [DataTestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ApplyIncompleteReadback_ReportsCommittedUnsavedChanges(bool missing)
     {
         var target = Snapshot("Target");
-        var access = new FakeAccess(target) { FailValidatedRead = true };
+        var access = new FakeAccess(target) { FailValidatedRead = !missing, MissingValidatedRead = missing };
         using var input = TempDocument(JsonSerializer.Serialize(new { schemaVersion = "1.0", alarms = new[] { new { name = target.Name, expectedState = "present", expectedHash = HmiDiscreteAlarmService.Hash(target), origin = "Committed" } } }));
 
         var result = await new HmiDiscreteAlarmService(access).ApplyAsync(input.Path, false, true);
@@ -210,8 +214,9 @@ public sealed class HmiDiscreteAlarmServiceTests
         Assert.IsTrue(result.ProjectHasUnsavedChanges);
         Assert.IsFalse(result.SafetyBlocked);
         Assert.AreEqual("apply-readback-failed", result.ErrorCode);
+        StringAssert.Contains(result.Message, missing ? "was missing" : "Injected readback failure");
         Assert.AreEqual("Committed", access.FindExact(target.Name, false)!.Origin);
-        Assert.AreEqual(1, result.Alarms.Count);
+        Assert.IsNull(result.Alarms.Single().Persisted);
     }
 
     [TestMethod]
@@ -650,8 +655,11 @@ public sealed class HmiDiscreteAlarmServiceTests
         public int PreflightReads { get; private set; }
         public int PreflightSnapshotReads { get; private set; }
         public int FullUnvalidatedReads { get; private set; }
+        public int FullValidatedReads { get; private set; }
+        public List<string> ValidatedExactReads { get; } = new();
         public Action? AfterTransaction { get; set; }
         public bool FailValidatedRead { get; set; }
+        public bool MissingValidatedRead { get; set; }
         public int FailUnvalidatedReadNumber { get; set; }
         public string? FailOnName { get; set; }
         public string? NextValidationError { get; set; }
@@ -660,7 +668,7 @@ public sealed class HmiDiscreteAlarmServiceTests
         public string? ReferenceLimitation { get; set; }
         public IReadOnlyList<HmiDiscreteAlarmSnapshot> List(bool includeValidation)
         {
-            if (includeValidation && FailValidatedRead) throw new InvalidOperationException("Injected readback failure");
+            if (includeValidation) FullValidatedReads++;
             if (!includeValidation) FullUnvalidatedReads++;
             if (!includeValidation && FullUnvalidatedReads == FailUnvalidatedReadNumber) throw new InvalidOperationException("Injected rollback verification read failure");
             return _alarms.Values.Select(Clone).ToArray();
@@ -673,7 +681,16 @@ public sealed class HmiDiscreteAlarmServiceTests
             PreflightSnapshotReads += snapshots.Length;
             return new HmiDiscreteAlarmPreflightInventory(_alarms.ToDictionary(x => x.Key, x => x.Value.Id, StringComparer.Ordinal), snapshots);
         }
-        public HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation) => _alarms.TryGetValue(name, out var value) ? Clone(value) : null;
+        public HmiDiscreteAlarmSnapshot? FindExact(string name, bool includeValidation)
+        {
+            if (includeValidation)
+            {
+                ValidatedExactReads.Add(name);
+                if (FailValidatedRead) throw new InvalidOperationException("Injected readback failure");
+                if (MissingValidatedRead) return null;
+            }
+            return _alarms.TryGetValue(name, out var value) ? Clone(value) : null;
+        }
         public bool AlarmClassExists(string name) { ClassReads++; return ClassAvailable && name == "Error"; }
         public bool TagExists(string name) { TagReads++; return TagAvailable && name.StartsWith("Motor1_", StringComparison.Ordinal); }
         public IReadOnlyList<string> LookupReferences { get; private set; } = Array.Empty<string>();

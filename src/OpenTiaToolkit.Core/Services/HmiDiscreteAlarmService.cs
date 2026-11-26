@@ -92,9 +92,12 @@ internal sealed class HmiDiscreteAlarmService
                 }
                 else
                 {
-                    var fresh = _access.List(includeValidation: true).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);
                     foreach (var item in items)
-                        if (fresh.TryGetValue(item.Name, out var persisted)) item.Persisted = persisted;
+                    {
+                        var persisted = _access.FindExact(item.Name, includeValidation: true)
+                            ?? throw new InvalidOperationException($"Discrete alarm '{item.Name}' was missing during post-commit readback.");
+                        item.Persisted = WithHash(persisted);
+                    }
                 }
             }
             catch (Exception ex)
@@ -105,7 +108,7 @@ internal sealed class HmiDiscreteAlarmService
                     Success = false,
                     ProjectHasUnsavedChanges = true,
                     ErrorCode = "apply-readback-failed",
-                    Message = "The alarm transaction committed, but full readback failed. Inspect the current state before retrying. " + MapException(ex).Message,
+                    Message = "The alarm transaction committed, but readback failed. Inspect the current state before retrying. " + MapException(ex).Message,
                     Alarms = items,
                     Transaction = transaction
                 };
