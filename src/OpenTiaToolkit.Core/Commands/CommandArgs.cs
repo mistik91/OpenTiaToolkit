@@ -13,6 +13,8 @@ public class CommandArgs
 {
     private readonly Dictionary<string, object?> _values;
 
+    public Action<bool>? ReportAlarmTransactionCompleted { get; set; }
+
     /// <summary>
     /// Initializes a new instance of the CommandArgs class.
     /// </summary>

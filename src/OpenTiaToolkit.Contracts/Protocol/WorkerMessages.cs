@@ -13,12 +13,19 @@ public enum WorkerOperation
     Shutdown
 }
 
+public enum WorkerMilestone
+{
+    AlarmTransactionCommitted,
+    AlarmTransactionRolledBack
+}
+
 public sealed class WorkerRequest
 {
     public string ProtocolVersion { get; set; } = ProtocolConstants.Version;
     public string RequestId { get; set; } = Guid.NewGuid().ToString("N");
     public WorkerOperation Operation { get; set; }
     public CommandInvocation? Invocation { get; set; }
+    public bool ReportMilestones { get; set; }
 }
 
 public sealed class WorkerResponse
@@ -30,4 +37,5 @@ public sealed class WorkerResponse
     public CommandDescriptor[]? Catalog { get; set; }
     public ErrorDetail? Error { get; set; }
     public JsonElement? Data { get; set; }
+    public WorkerMilestone? Milestone { get; set; }
 }

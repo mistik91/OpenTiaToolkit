@@ -106,7 +106,8 @@ public sealed class ApplyUnifiedDiscreteAlarmsCommand : ICommand
         if (!dryRun && (!apply || !confirm)) return CommandResult.CreateFailure("Applying Unified discrete alarms requires dry-run=false, apply=true, and confirm=true after reviewing dry-run output.");
         var error = await UnifiedDiscreteAlarmCommandSupport.OpenAsync(_hmiService, args.GetString("hmi-name"));
         if (error != null) return CommandResult.CreateFailure(error);
-        var result = await _hmiService.ApplyDiscreteAlarmsAsync(inputPath, dryRun, args.GetBool("fail-on-warning", true));
+        var result = await _hmiService.ApplyDiscreteAlarmsAsync(
+            inputPath, dryRun, args.GetBool("fail-on-warning", true), args.ReportAlarmTransactionCompleted);
         return result.Success ? CommandResult.CreateSuccess(result, result.Message) : CommandResult.CreateFailure(result.Message, result);
     }
 }

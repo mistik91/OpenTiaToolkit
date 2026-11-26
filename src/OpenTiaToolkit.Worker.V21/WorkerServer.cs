@@ -51,7 +51,7 @@ internal sealed class WorkerServer
 
                         WorkerRequest request = JsonSerializer.Deserialize<WorkerRequest>(line, JsonOptions)
                             ?? throw new InvalidDataException("Worker IPC request was empty.");
-                        response = await HandleAsync(request).ConfigureAwait(false);
+                        response = await HandleAsync(request, writer).ConfigureAwait(false);
                         shutdown = request.Operation == WorkerOperation.Shutdown;
                     }
                     catch (Exception ex)
@@ -69,7 +69,7 @@ internal sealed class WorkerServer
         }
     }
 
-    private async Task<WorkerResponse> HandleAsync(WorkerRequest request)
+    private async Task<WorkerResponse> HandleAsync(WorkerRequest request, StreamWriter writer)
     {
         if (!string.Equals(request.ProtocolVersion, ProtocolConstants.Version, StringComparison.Ordinal))
         {
@@ -85,7 +85,11 @@ internal sealed class WorkerServer
                 return new WorkerResponse { RequestId = request.RequestId, Success = true, Catalog = _executor.GetCatalog() };
             case WorkerOperation.Execute:
                 if (request.Invocation == null) return Error(request, ErrorCode.InvalidRequest, "Execute requires an invocation.");
-                CommandOutcome outcome = await _executor.ExecuteAsync(request.Invocation).ConfigureAwait(false);
+                Action<WorkerMilestone>? reportMilestone = request.ReportMilestones
+                    ? milestone => writer.WriteLine(JsonSerializer.Serialize(
+                        new WorkerResponse { RequestId = request.RequestId, Milestone = milestone }, JsonOptions))
+                    : null;
+                CommandOutcome outcome = await _executor.ExecuteAsync(request.Invocation, reportMilestone).ConfigureAwait(false);
                 return new WorkerResponse { RequestId = request.RequestId, Success = outcome.Success, Outcome = outcome, Error = outcome.Error };
             case WorkerOperation.Shutdown:
                 return new WorkerResponse { RequestId = request.RequestId, Success = true };

@@ -28,7 +28,8 @@ internal sealed class HmiDiscreteAlarmService
         return snapshot == null ? null : WithHash(snapshot);
     });
 
-    public Task<HmiDiscreteAlarmApplyResult> ApplyAsync(string inputPath, bool dryRun, bool failOnWarning) => Task.Run(() =>
+    public Task<HmiDiscreteAlarmApplyResult> ApplyAsync(
+        string inputPath, bool dryRun, bool failOnWarning, Action<bool>? reportTransactionCompleted = null) => Task.Run(() =>
     {
         HmiDiscreteAlarmDocument document;
         try { document = ParseDocument(inputPath); }
@@ -84,6 +85,7 @@ internal sealed class HmiDiscreteAlarmService
 
             try
             {
+                reportTransactionCompleted?.Invoke(transaction.Committed);
                 if (dryRun)
                 {
                     var fresh = _access.List(includeValidation: false).Select(WithHash).ToDictionary(x => x.Name, StringComparer.Ordinal);

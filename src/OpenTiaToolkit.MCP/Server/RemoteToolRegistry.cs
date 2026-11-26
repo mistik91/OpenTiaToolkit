@@ -19,6 +19,7 @@ namespace OpenTiaToolkit.MCP.Server;
 
 public sealed class ToolRegistry : IDisposable
 {
+    private const string ApplyAlarmTool = "apply-unified-discrete-alarms";
     private static readonly HashSet<string> InfrastructureToolNames =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -126,21 +127,45 @@ public sealed class ToolRegistry : IDisposable
                 CommandName = toolName!,
                 Arguments = arguments ?? new Dictionary<string, JsonElement>()
             };
+            Action<WorkerMilestone>? reportMilestone = null;
+            if (string.Equals(toolName, ApplyAlarmTool, StringComparison.OrdinalIgnoreCase))
+            {
+                reportMilestone = milestone =>
+                {
+                    lock (_sync) operation.TransactionMilestone = milestone;
+                };
+            }
+            IToolSession executingSession = _session;
             Task<CommandOutcome> execution =
-                _session.ExecuteAsync(invocation, operationCancellation.Token);
+                executingSession.ExecuteAsync(invocation, operationCancellation.Token, reportMilestone);
             if (_options.ToolTimeout.HasValue)
             {
                 Task completed = await Task.WhenAny(execution, Task.Delay(_options.ToolTimeout.Value)).ConfigureAwait(false);
                 if (completed != execution)
                 {
-                    operation.TimedOut = true;
-                    operation.CancelRequested = true;
+                    lock (_sync)
+                    {
+                        operation.TimedOut = true;
+                        operation.CancelRequested = true;
+                    }
                     TryCancel(operationCancellation);
-                    ReplaceWorker(force: true);
-                    return Result(Failure(
-                        $"Tool '{toolName}' exceeded {_options.ToolTimeout.Value.TotalSeconds:0.###} seconds; its isolated worker was terminated and replaced.",
-                        ErrorCode.TimedOut,
-                        operation.Id));
+                    var message = $"Tool '{toolName}' exceeded {_options.ToolTimeout.Value.TotalSeconds:0.###} seconds.";
+                    try
+                    {
+                        ReplaceWorker(force: true);
+                        message += " Its isolated worker was terminated and replaced.";
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to replace the timed-out worker for {ToolName}.", toolName);
+                        try { executingSession.Terminate(); }
+                        catch (Exception terminationError)
+                        {
+                            _logger.LogError(terminationError, "Failed to terminate the timed-out worker for {ToolName}.", toolName);
+                        }
+                        message += " Worker recovery failed. Reset the session before issuing another command.";
+                    }
+                    return Result(InterruptedOutcome(operation, message, ErrorCode.TimedOut));
                 }
             }
 
@@ -286,17 +311,36 @@ public sealed class ToolRegistry : IDisposable
 
     private CommandOutcome StatusOutcome()
     {
-        OperationSnapshot? active;
-        lock (_sync) active = _active;
-        return new CommandOutcome
+        lock (_sync)
         {
-            CorrelationId = active?.Id ?? Guid.NewGuid().ToString("N"),
-            Success = true,
-            Message = active == null ? "No operation is active." : $"'{active.ToolName}' is active.",
-            Data = JsonSerializer.SerializeToElement(active),
-            StartedAtUtc = DateTimeOffset.UtcNow,
-            CompletedAtUtc = DateTimeOffset.UtcNow
+            return new CommandOutcome
+            {
+                CorrelationId = _active?.Id ?? Guid.NewGuid().ToString("N"),
+                Success = true,
+                Message = _active == null ? "No operation is active." : $"'{_active.ToolName}' is active.",
+                Data = JsonSerializer.SerializeToElement(_active),
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
+        }
+    }
+
+    private CommandOutcome InterruptedOutcome(OperationSnapshot operation, string message, ErrorCode code)
+    {
+        if (!string.Equals(operation.ToolName, ApplyAlarmTool, StringComparison.OrdinalIgnoreCase))
+            return Failure(message, code, operation.Id);
+
+        string transactionStatus;
+        lock (_sync) transactionStatus = operation.TransactionStatus!;
+        message += transactionStatus switch
+        {
+            "committed" => " TIA confirmed the alarm transaction committed. Readback is unconfirmed. Inspect the current project state before retrying.",
+            "rolled-back" => " TIA completed the dry-run rollback. Readback is unconfirmed.",
+            _ => " The alarm transaction outcome is unknown. Inspect the current project state before retrying."
         };
+        var outcome = Failure(message, code, operation.Id);
+        outcome.Data = JsonSerializer.SerializeToElement(new { transactionStatus, readbackStatus = "unconfirmed" });
+        return outcome;
     }
 
     private static Tool ToTool(CommandDescriptor descriptor)
@@ -451,5 +495,13 @@ public sealed class ToolRegistry : IDisposable
         public DateTimeOffset StartedAtUtc { get; set; }
         public bool CancelRequested { get; set; }
         public bool TimedOut { get; set; }
+        internal WorkerMilestone? TransactionMilestone { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public string? TransactionStatus => TransactionMilestone switch
+        {
+            WorkerMilestone.AlarmTransactionCommitted => "committed",
+            WorkerMilestone.AlarmTransactionRolledBack => "rolled-back",
+            _ => string.Equals(ToolName, ApplyAlarmTool, StringComparison.OrdinalIgnoreCase) ? "unknown" : null
+        };
     }
 }

@@ -1,4 +1,5 @@
 using OpenTiaToolkit.Core.Models;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -316,7 +317,8 @@ public interface IHmiService
     Task<HmiDiscreteAlarmApplyResult> ApplyDiscreteAlarmsAsync(
         string inputPath,
         bool dryRun = true,
-        bool failOnWarning = true);
+        bool failOnWarning = true,
+        Action<bool>? reportTransactionCompleted = null);
 
     Task<HmiDiscreteAlarmDeleteResult> DeleteDiscreteAlarmAsync(
         string alarmName,

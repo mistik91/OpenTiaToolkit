@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using OpenTiaToolkit.Application.Audit;
 using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
+using OpenTiaToolkit.Contracts.Protocol;
 
 namespace OpenTiaToolkit.Application.Execution;
 
@@ -62,6 +63,12 @@ public sealed class ToolkitSession : IToolkitClient, IDisposable
     public Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken)
     {
         return _dispatcher.ExecuteAsync(invocation, cancellationToken);
+    }
+
+    public Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken,
+        Action<WorkerMilestone>? reportMilestone)
+    {
+        return _dispatcher.ExecuteAsync(invocation, cancellationToken, reportMilestone);
     }
 
     public CommandDescriptor? FindCommand(string name)

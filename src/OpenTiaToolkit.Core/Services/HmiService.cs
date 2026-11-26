@@ -413,8 +413,9 @@ namespace OpenTiaToolkit.Core.Services
             _discreteAlarmService.GetAsync(alarmName, includeValidation);
 
         /// <inheritdoc/>
-        public Task<HmiDiscreteAlarmApplyResult> ApplyDiscreteAlarmsAsync(string inputPath, bool dryRun = true, bool failOnWarning = true) =>
-            _discreteAlarmService.ApplyAsync(inputPath, dryRun, failOnWarning);
+        public Task<HmiDiscreteAlarmApplyResult> ApplyDiscreteAlarmsAsync(
+            string inputPath, bool dryRun = true, bool failOnWarning = true, Action<bool>? reportTransactionCompleted = null) =>
+            _discreteAlarmService.ApplyAsync(inputPath, dryRun, failOnWarning, reportTransactionCompleted);
 
         /// <inheritdoc/>
         public Task<HmiDiscreteAlarmDeleteResult> DeleteDiscreteAlarmAsync(

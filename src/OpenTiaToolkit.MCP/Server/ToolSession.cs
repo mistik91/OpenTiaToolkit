@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using OpenTiaToolkit.Application.Execution;
 using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
+using OpenTiaToolkit.Contracts.Protocol;
 
 namespace OpenTiaToolkit.MCP.Server;
 
@@ -14,7 +15,8 @@ internal interface IToolSession : IDisposable
 
     Task<CommandOutcome> ExecuteAsync(
         CommandInvocation invocation,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        Action<WorkerMilestone>? reportMilestone);
 
     void Terminate();
 }
@@ -40,9 +42,10 @@ internal sealed class WorkerToolSession : IToolSession
 
     public Task<CommandOutcome> ExecuteAsync(
         CommandInvocation invocation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<WorkerMilestone>? reportMilestone)
     {
-        return _session.ExecuteAsync(invocation, cancellationToken);
+        return _session.ExecuteAsync(invocation, cancellationToken, reportMilestone);
     }
 
     public void Dispose()

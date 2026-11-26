@@ -11,6 +11,7 @@ using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
+using OpenTiaToolkit.Contracts.Protocol;
 using OpenTiaToolkit.MCP.Server;
 
 namespace OpenTiaToolkit.Tests.Server
@@ -443,6 +444,39 @@ namespace OpenTiaToolkit.Tests.Server
             }
         }
 
+        [DataTestMethod]
+        [DataRow(null, "unknown", false)]
+        [DataRow(WorkerMilestone.AlarmTransactionRolledBack, "rolled-back", false)]
+        [DataRow(WorkerMilestone.AlarmTransactionCommitted, "committed", false)]
+        [DataRow(WorkerMilestone.AlarmTransactionCommitted, "committed", true)]
+        public async Task AlarmTimeout_ReportsObservedTransactionStatus(
+            WorkerMilestone? milestone, string expectedStatus, bool replacementFails)
+        {
+            const string tool = "apply-unified-discrete-alarms";
+            var completion = new TaskCompletionSource<CommandOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var first = new FakeToolSession(Descriptor(tool)) { Milestone = milestone };
+            first.Execute = (invocation, token) => completion.Task;
+            first.OnTerminate = () => completion.TrySetResult(Outcome(false, "terminated"));
+            var sessions = new Queue<IToolSession>();
+            sessions.Enqueue(first);
+            if (!replacementFails) sessions.Enqueue(new FakeToolSession(Descriptor(tool)));
+            using var registry = CreateRegistry(() => sessions.Dequeue(),
+                new McpRuntimeOptions { ToolTimeout = TimeSpan.FromMilliseconds(250) });
+
+            var call = registry.CallToolAsync(tool, null, CancellationToken.None);
+            var active = (await registry.CallToolAsync("operation-status", null, CancellationToken.None))
+                .StructuredContent!.Value.GetProperty("data");
+            Assert.AreEqual(expectedStatus, active.GetProperty("TransactionStatus").GetString());
+
+            var result = (await call).StructuredContent!.Value;
+            Assert.IsFalse(result.GetProperty("success").GetBoolean());
+            Assert.IsTrue(first.Terminated);
+            Assert.AreEqual("TimedOut", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.AreEqual(expectedStatus, result.GetProperty("data").GetProperty("transactionStatus").GetString());
+            Assert.AreEqual("unconfirmed", result.GetProperty("data").GetProperty("readbackStatus").GetString());
+            Assert.AreEqual(active.GetProperty("Id").GetString(), result.GetProperty("correlationId").GetString());
+        }
+
         [TestMethod]
         public async Task CancelOperation_TerminatesActiveWorkerAndReplacementRemainsUsable()
         {
@@ -673,6 +707,7 @@ namespace OpenTiaToolkit.Tests.Server
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public Action? OnTerminate { get; set; }
+            public WorkerMilestone? Milestone { get; set; }
 
             public CancellationToken LastCancellationToken { get; private set; }
 
@@ -684,10 +719,12 @@ namespace OpenTiaToolkit.Tests.Server
 
             public Task<CommandOutcome> ExecuteAsync(
                 CommandInvocation invocation,
-                CancellationToken cancellationToken)
+                CancellationToken cancellationToken,
+                Action<WorkerMilestone>? reportMilestone)
             {
                 ExecutionCount++;
                 LastCancellationToken = cancellationToken;
+                if (Milestone.HasValue) reportMilestone?.Invoke(Milestone.Value);
                 ExecutionStarted.TrySetResult(true);
                 return Execute(invocation, cancellationToken);
             }

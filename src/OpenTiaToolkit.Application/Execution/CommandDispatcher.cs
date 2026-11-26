@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using OpenTiaToolkit.Contracts.Audit;
 using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
+using OpenTiaToolkit.Contracts.Protocol;
 
 namespace OpenTiaToolkit.Application.Execution;
 
@@ -28,7 +29,8 @@ public sealed class CommandDispatcher
         _commands = commands.ToDictionary(command => command.Name, StringComparer.OrdinalIgnoreCase);
     }
 
-    public async Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken)
+    public async Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken,
+        Action<WorkerMilestone>? reportMilestone = null)
     {
         DateTimeOffset started = DateTimeOffset.UtcNow;
         if (!_commands.TryGetValue(invocation.CommandName, out CommandDescriptor descriptor))
@@ -46,7 +48,7 @@ public sealed class CommandDispatcher
         {
             try
             {
-                outcome = await _transport.ExecuteAsync(invocation, cancellationToken).ConfigureAwait(false);
+                outcome = await _transport.ExecuteAsync(invocation, cancellationToken, reportMilestone).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
