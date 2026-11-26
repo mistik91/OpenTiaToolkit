@@ -111,13 +111,15 @@ public sealed class WorkerProcessTransport : ICommandTransport, ICommandCatalogP
         return response.Catalog ?? Array.Empty<CommandDescriptor>();
     }
 
-    public async Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken)
+    public async Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken,
+        Action<WorkerMilestone>? reportMilestone = null)
     {
         WorkerResponse response = await SendAsync(new WorkerRequest
         {
             Operation = WorkerOperation.Execute,
-            Invocation = invocation
-        }, cancellationToken).ConfigureAwait(false);
+            Invocation = invocation,
+            ReportMilestones = reportMilestone != null
+        }, cancellationToken, reportMilestone).ConfigureAwait(false);
         return response.Outcome ?? new CommandOutcome
         {
             CorrelationId = invocation.CorrelationId,
@@ -129,7 +131,8 @@ public sealed class WorkerProcessTransport : ICommandTransport, ICommandCatalogP
         };
     }
 
-    private async Task<WorkerResponse> SendAsync(WorkerRequest request, CancellationToken cancellationToken)
+    private async Task<WorkerResponse> SendAsync(WorkerRequest request, CancellationToken cancellationToken,
+        Action<WorkerMilestone>? reportMilestone = null)
     {
         ThrowIfDisposed();
         await _requestGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -148,15 +151,23 @@ public sealed class WorkerProcessTransport : ICommandTransport, ICommandCatalogP
             }
 
             await _writer.WriteLineAsync(requestJson).ConfigureAwait(false);
-            string? responseJson = await _reader.ReadLineAsync().ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (responseJson == null)
+            while (true)
             {
-                throw new EndOfStreamException("V21 worker closed the IPC channel without a response.");
-            }
+                string? responseJson = await _reader.ReadLineAsync().ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (responseJson == null)
+                    throw new EndOfStreamException("V21 worker closed the IPC channel without a response.");
 
-            return JsonSerializer.Deserialize<WorkerResponse>(responseJson, JsonOptions)
-                ?? throw new InvalidDataException("V21 worker returned an empty response.");
+                WorkerResponse response = JsonSerializer.Deserialize<WorkerResponse>(responseJson, JsonOptions)
+                    ?? throw new InvalidDataException("V21 worker returned an empty response.");
+                if (!response.Milestone.HasValue)
+                    return response;
+
+                if (reportMilestone == null || response.RequestId != request.RequestId ||
+                    response.ProtocolVersion != ProtocolConstants.Version)
+                    throw new InvalidDataException("V21 worker returned a milestone for an unexpected request.");
+                reportMilestone(response.Milestone.Value);
+            }
         }
         finally
         {

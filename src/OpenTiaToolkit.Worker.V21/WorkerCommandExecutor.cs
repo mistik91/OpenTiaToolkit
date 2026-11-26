@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
+using OpenTiaToolkit.Contracts.Protocol;
 using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Models;
@@ -34,7 +35,9 @@ internal sealed class WorkerCommandExecutor
             .ToArray();
     }
 
-    public async Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation)
+    public Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation) => ExecuteAsync(invocation, null);
+
+    public async Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, Action<WorkerMilestone>? reportMilestone)
     {
         DateTimeOffset started = DateTimeOffset.UtcNow;
         if (!_commands.TryGetValue(invocation.CommandName, out ICommand command))
@@ -49,7 +52,18 @@ internal sealed class WorkerCommandExecutor
                 pair => pair.Key,
                 pair => (object?)pair.Value.Clone(),
                 StringComparer.OrdinalIgnoreCase);
-            CommandResult result = await command.ExecuteAsync(new CommandArgs(values), _logger).ConfigureAwait(false);
+            var args = new CommandArgs(values);
+            if (reportMilestone != null)
+            {
+                args.ReportAlarmTransactionCompleted = committed =>
+                {
+                    reportMilestone(committed
+                        ? WorkerMilestone.AlarmTransactionCommitted
+                        : WorkerMilestone.AlarmTransactionRolledBack);
+                    ApplyFailureInjection("after-alarm-transaction");
+                };
+            }
+            CommandResult result = await command.ExecuteAsync(args, _logger).ConfigureAwait(false);
             var outcome = new CommandOutcome
             {
                 CorrelationId = invocation.CorrelationId,
@@ -132,8 +146,12 @@ internal sealed class WorkerCommandExecutor
             Environment.FailFast("Injected V21 worker crash at " + stage + ".");
         if (string.Equals(configured, "throw:" + stage, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Injected V21 worker failure at " + stage + ".");
-        if (configured.StartsWith("delay:", StringComparison.OrdinalIgnoreCase) &&
-            int.TryParse(configured.Substring("delay:".Length), out int milliseconds) && milliseconds > 0)
+        string stageDelayPrefix = "delay:" + stage + ":";
+        string delayPrefix = configured.StartsWith(stageDelayPrefix, StringComparison.OrdinalIgnoreCase)
+            ? stageDelayPrefix : "delay:";
+        if (configured.StartsWith(delayPrefix, StringComparison.OrdinalIgnoreCase) &&
+            (delayPrefix != "delay:" || stage != "after-alarm-transaction") &&
+            int.TryParse(configured.Substring(delayPrefix.Length), out int milliseconds) && milliseconds > 0)
             System.Threading.Thread.Sleep(milliseconds);
     }
 

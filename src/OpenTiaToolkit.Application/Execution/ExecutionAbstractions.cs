@@ -4,12 +4,14 @@ using System.Threading.Tasks;
 using OpenTiaToolkit.Contracts.Audit;
 using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
+using OpenTiaToolkit.Contracts.Protocol;
 
 namespace OpenTiaToolkit.Application.Execution;
 
 public interface ICommandTransport : IDisposable
 {
-    Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken);
+    Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken,
+        Action<WorkerMilestone>? reportMilestone = null);
 }
 
 public interface ICommandCatalogProvider

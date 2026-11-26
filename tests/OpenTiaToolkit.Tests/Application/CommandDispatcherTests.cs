@@ -9,6 +9,7 @@ using OpenTiaToolkit.Application.Execution;
 using OpenTiaToolkit.Contracts.Audit;
 using OpenTiaToolkit.Contracts.Commands;
 using OpenTiaToolkit.Contracts.Outcomes;
+using OpenTiaToolkit.Contracts.Protocol;
 
 namespace OpenTiaToolkit.Tests.Application
 {
@@ -120,7 +121,8 @@ namespace OpenTiaToolkit.Tests.Application
             public int CallCount { get; private set; }
             public Exception? Failure { get; set; }
 
-            public Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken)
+            public Task<CommandOutcome> ExecuteAsync(CommandInvocation invocation, CancellationToken cancellationToken,
+                Action<WorkerMilestone>? reportMilestone = null)
             {
                 CallCount++;
                 if (Failure != null) throw Failure;

@@ -5,6 +5,7 @@ using OpenTiaToolkit.Core.Abstractions;
 using OpenTiaToolkit.Core.Commands;
 using OpenTiaToolkit.Core.Commands.Hmi;
 using OpenTiaToolkit.Core.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -41,7 +42,7 @@ public sealed class UnifiedDiscreteAlarmCommandsTests
             ("hmi-name", "HMI_1"), ("input-path", "alarms.json"), ("dry-run", false), ("apply", true)), NullLogger.Instance);
         Assert.IsFalse(result.Success);
         service.Verify(x => x.OpenUnifiedHmiAsync(It.IsAny<string>()), Times.Never);
-        service.Verify(x => x.ApplyDiscreteAlarmsAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.Never);
+        service.Verify(x => x.ApplyDiscreteAlarmsAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<Action<bool>>()), Times.Never);
     }
 
     [TestMethod]
@@ -58,7 +59,7 @@ public sealed class UnifiedDiscreteAlarmCommandsTests
     public async Task ApplyDefaultsToDryRunAndPreservesStructuredBlockedResult()
     {
         var service = OpenService();
-        service.Setup(x => x.ApplyDiscreteAlarmsAsync("alarms.json", true, true)).ReturnsAsync(new HmiDiscreteAlarmApplyResult { DryRun = true, SafetyBlocked = true, ErrorCode = "preflight-blocked", Message = "blocked" });
+        service.Setup(x => x.ApplyDiscreteAlarmsAsync("alarms.json", true, true, null)).ReturnsAsync(new HmiDiscreteAlarmApplyResult { DryRun = true, SafetyBlocked = true, ErrorCode = "preflight-blocked", Message = "blocked" });
         var result = await new ApplyUnifiedDiscreteAlarmsCommand(service.Object).ExecuteAsync(Args(("hmi-name", "HMI_1"), ("input-path", "alarms.json")), NullLogger.Instance);
         Assert.IsFalse(result.Success);
         Assert.IsInstanceOfType<HmiDiscreteAlarmApplyResult>(result.Data);

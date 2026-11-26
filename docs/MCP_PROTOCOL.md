@@ -34,6 +34,8 @@ Successful and failed command outcomes both use MCP tool results:
 
 Calls into the TIA worker remain serialized. Concurrent domain calls return a typed conflict. `cancel-operation` requests cancellation, then terminates and replaces the active isolated worker. A configured tool timeout does the same and returns `TimedOut`. `reset-session` requests cooperative cancellation and waits for the configured grace period; it replaces the worker only after the active call quiesces, otherwise it returns a conflict and leaves that worker and TIA attachment intact.
 
+For `apply-unified-discrete-alarms`, `operation-status` includes `data.TransactionStatus` while the operation is active. The worker reports completion of the TIA transaction before it starts readback. A `TimedOut` result for this tool includes `data.transactionStatus` (`committed`, `rolled-back`, or `unknown`) and `data.readbackStatus` (`unconfirmed`). A confirmed commit describes a change to the open engineering project. Saving the project is a separate operation. After a timeout with a confirmed commit or unknown outcome, inspect the current project state before retrying.
+
 For Unified HMI tag tables, `export-hmi-tags` reports the file actually written and its WinCCML compatibility. `import-hmi-tags` reports command success only after the transaction verifies every requested tag. A false-success Siemens import with an unresolved PLC binding produces a failed tool result. Use the [WinCCML workflow and file policy guidance](CLI_USAGE.md#unified-hmi-tag-tables-and-winccml).
 
 ## Validation
